@@ -1,3 +1,10 @@
+# Custom ignores
+src/logs/*
+!src/logs/dummy.txt
+
+src/settings/*
+!src/settings/dummy.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

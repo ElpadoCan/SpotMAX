@@ -1,0 +1,25 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+  <file alias="arrow-left.svg">resources/arrow-left.svg</file>
+  <file alias="arrow-right.svg">resources/arrow-right.svg</file>
+  <file alias="drawer.svg">resources/drawer.svg</file>
+  <file alias="file-exit.svg">resources/file-exit.svg</file>
+  <file alias="file-new.svg">resources/file-new.svg</file>
+  <file alias="file-open.svg">resources/file-open.svg</file>
+  <file alias="file-save.svg">resources/file-save.svg</file>
+  <file alias="folder-open.svg">resources/folder-open.svg</file>
+  <file alias="folder-upload.svg">resources/folder-upload.svg</file>
+  <file alias="icon.svg">resources/icon.svg</file>
+  <file alias="image.svg">resources/image.svg</file>
+  <file alias="redo.svg">resources/redo.svg</file>
+  <file alias="undo.svg">resources/undo.svg</file>
+  <file alias="reload.svg">resources/reload.svg</file>
+  <file alias="overlay.svg">resources/overlay.svg</file>
+  <file alias="rect.svg">resources/rect.svg</file>
+  <file alias="eye-plus.svg">resources/eye-plus.svg</file>
+  <file alias="ruler.svg">resources/ruler.svg</file>
+  <file alias="plotSpots.svg">resources/plotSpots.svg</file>
+  <file alias="skeletonize.svg">resources/skeletonize.svg</file>
+  <file alias="contour.svg">resources/contour.svg</file>
+</qresource>
+</RCC>
