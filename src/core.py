@@ -21,7 +21,7 @@ def objContours(obj):
     contours, _ = cv2.findContours(
         obj.image.astype(np.uint8),
         cv2.RETR_TREE,
-        cv2.CHAIN_APPROX_SIMPLE
+        cv2.CHAIN_APPROX_NONE
     )
     min_y, min_x, _, _ = obj.bbox
     contours_li = []

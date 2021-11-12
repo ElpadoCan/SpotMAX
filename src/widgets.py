@@ -14,12 +14,12 @@ from PyQt5.QtGui import (
 from PyQt5.QtWidgets import (
     QTextEdit, QLabel, QProgressBar, QHBoxLayout, QToolButton, QCheckBox,
     QApplication, QWidget, QVBoxLayout, QMainWindow, QStyleFactory,
-    QLineEdit, QSlider, QSpinBox, QGridLayout
+    QLineEdit, QSlider, QSpinBox, QGridLayout, QDockWidget
 )
 
 import pyqtgraph as pg
 
-import utils
+import utils, dialogs
 
 class sliderWithSpinBox(QWidget):
     sigValueChange = pyqtSignal(int)
@@ -393,6 +393,11 @@ if __name__ == '__main__':
 
             layout.addStretch(1)
             container.setLayout(layout)
+
+            computeDockWidget = QDockWidget('spotMAX analysis inputs', self)
+            frame = dialogs.analysisInputsQFrame(computeDockWidget)
+            computeDockWidget.setWidget(frame)
+            self.addDockWidget(Qt.LeftDockWidgetArea, computeDockWidget)
 
             self.setCentralWidget(container)
 

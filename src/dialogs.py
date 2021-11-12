@@ -20,10 +20,13 @@ from PyQt5.QtWidgets import (
     QTreeWidgetItemIterator, QAbstractItemView, QFrame, QMessageBox,
     QMainWindow, QWidget, QTableView, QTextEdit, QGridLayout,
     QProgressBar, QSpinBox, QDoubleSpinBox, QListWidget, QGroupBox,
-    QSlider, QDockWidget
+    QSlider, QDockWidget, QTabWidget
 )
 
 import html, load, widgets
+
+class spotmaxGuiDock(QTabWidget):
+    
 
 class analysisInputsQFrame(QGroupBox):
     def __init__(self, *args, **kwargs):
@@ -648,7 +651,8 @@ class QDialogCombobox(QDialog):
 class QDialogListbox(QDialog):
     def __init__(
             self, title, text, items, moreButtonFuncText='Cancel',
-            multiSelection=True, currentItem=None, parent=None
+            multiSelection=True, currentItem=None,
+            filterItems=(), parent=None
         ):
         self.cancel = True
         super().__init__(parent)
@@ -665,6 +669,14 @@ class QDialogListbox(QDialog):
         # padding: top, left, bottom, right
         label.setStyleSheet("padding:0px 0px 3px 0px;")
         topLayout.addWidget(label, alignment=Qt.AlignCenter)
+
+        if filterItems:
+            filteredItems = []
+            for item in items:
+                for textToFind in filterItems:
+                    if item.find(textToFind) != -1:
+                        filteredItems.append(item)
+            items = filteredItems
 
         listBox = QListWidget()
         listBox.setFont(_font)

@@ -52,7 +52,7 @@ class signals(QObject):
     finished = pyqtSignal(object)
     finishedNextStep = pyqtSignal(object, str, str)
     progress = pyqtSignal(str, object)
-    sigLoadedData = pyqtSignal(object, object, str)
+    sigLoadedData = pyqtSignal(object, object, str, str)
     initProgressBar = pyqtSignal(int)
     progressBar = pyqtSignal(int)
     critical = pyqtSignal(object)
@@ -215,7 +215,7 @@ class load_relFilenameData_Worker(QRunnable):
                 elif ext == '.npz':
                     data = np.load(filepath)['arr_0']
                 self.signals.sigLoadedData.emit(
-                    posData, data, relFilename
+                    posData, data, relFilename, self.nextStep
                 )
             self.signals.progressBar.emit(1)
         self.signals.finishedNextStep.emit(
@@ -271,7 +271,6 @@ class findContoursWorker(QRunnable):
                 f'Computing contour of {filepath}...', 'INFO'
             )
             posData.contours(dataToCont)
-            print(list(posData.contCoords.keys()))
 
             self.signals.progressBar.emit(1)
         self.signals.finished.emit(self.side)

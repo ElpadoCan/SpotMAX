@@ -1061,12 +1061,28 @@ class loadData:
     def contours(self, dataToCont):
         if self.SizeT > 1:
             self.contCoords = []
+            self.contScatterCoords = []
             for data in dataToCont:
                 contCoords = core.findContours(data, is_zstack=self.SizeZ>1)
                 self.contCoords.append(contCoords)
+                contScatterCoords = self.scatterContCoors(contCoords)
+                self.contScatterCoords.append(contScatterCoords)
         else:
             contCoords = core.findContours(dataToCont, is_zstack=self.SizeZ>1)
             self.contCoords = contCoords
+            self.contScatterCoords = self.scatterContCoors(contCoords)
+
+    def scatterContCoors(self, contCoords):
+        contScatterCoords = {}
+        for z, allObjContours in contCoords.items():
+            xx_cont = []
+            yy_cont = []
+            for objID, contours_li in allObjContours.items():
+                for cont in contours_li:
+                    xx_cont.extend(cont[:,0])
+                    yy_cont.extend(cont[:,1])
+            contScatterCoords[z] = (np.array(xx_cont), np.array(yy_cont))
+        return contScatterCoords
 
     @staticmethod
     def BooleansTo0s1s(acdc_df, csv_path=None, inplace=True):

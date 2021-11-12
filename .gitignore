@@ -1,6 +1,10 @@
 # Custom ignores
+src/test.py
+src/tests/*
+
 src/logs/*
 !src/logs/dummy.txt
+
 
 src/settings/*
 !src/settings/dummy.txt
