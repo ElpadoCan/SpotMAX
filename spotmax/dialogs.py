@@ -13,161 +13,629 @@ from collections import defaultdict
 
 from PyQt5 import QtCore
 from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QFont, QFontMetrics, QTextDocument, QPalette, QColor
+from PyQt5.QtGui import (
+    QFont, QFontMetrics, QTextDocument, QPalette, QColor,
+    QIcon
+)
 from PyQt5.QtWidgets import (
     QDialog, QComboBox, QVBoxLayout, QHBoxLayout, QLabel, QApplication,
     QPushButton, QStyleFactory, QCheckBox, QTreeWidget, QTreeWidgetItem,
     QTreeWidgetItemIterator, QAbstractItemView, QFrame, QMessageBox,
     QMainWindow, QWidget, QTableView, QTextEdit, QGridLayout,
     QProgressBar, QSpinBox, QDoubleSpinBox, QListWidget, QGroupBox,
-    QSlider, QDockWidget, QTabWidget
+    QSlider, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
-import html, load, widgets
+import html_func, load, widgets, core, utils
 
-class spotmaxGuiDock(QTabWidget):
-    
+# NOTE: Enable icons
+import qrc_resources
 
-class analysisInputsQFrame(QGroupBox):
-    def __init__(self, *args, **kwargs):
-        QGroupBox.__init__(self, *args, **kwargs)
+class measurementsQGroupBox(QGroupBox):
+    def __init__(self, names, parent=None):
+        QGroupBox.__init__(self, 'Single cell measurements', parent)
+        self.formWidgets = []
 
-        mainLayout = QGridLayout(self)
+        self.setCheckable(True)
+        layout = widgets.myFormLayout()
+
+        for row, item in enumerate(names.items()):
+            key, labelTextRight = item
+            widget = widgets.formWidget(
+                QCheckBox(), labelTextRight=labelTextRight,
+                parent=self, key=key
+            )
+            layout.addFormWidget(widget, row=row)
+            self.formWidgets.append(widget)
+
+        row += 1
+        buttonsLayout = QHBoxLayout()
+        self.selectAllButton = QPushButton('Deselect all', self)
+        self.selectAllButton.setCheckable(True)
+        self.selectAllButton.setChecked(True)
+        helpButton = QPushButton('Help', self)
+        buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(self.selectAllButton)
+        buttonsLayout.addWidget(helpButton)
+        layout.addLayout(buttonsLayout, row, 0, 1, 4)
+
+        row += 1
+        layout.setRowStretch(row, 1)
+        layout.setColumnStretch(3, 1)
+
+        layout.setVerticalSpacing(10)
+        self.setFont(widget.labelRight.font())
+        self.setLayout(layout)
+
+        self.toggled.connect(self.checkAll)
+        self.selectAllButton.clicked.connect(self.checkAll)
+
+        for _formWidget in self.formWidgets:
+            _formWidget.widget.setChecked(True)
+
+    def checkAll(self, isChecked):
+        for _formWidget in self.formWidgets:
+            _formWidget.widget.setChecked(isChecked)
+        if isChecked:
+            self.selectAllButton.setText('Deselect all')
+        else:
+            self.selectAllButton.setText('Select all')
+
+class guiBottomWidgets(QGroupBox):
+    def __init__(
+            self, side, drawSegmComboboxItems, zProjItems,
+            isCheckable=False, checked=False, parent=None
+        ):
+        self.font10pt = QFont()
+        self.font10pt.setPointSize(10)
+
+        QGroupBox.__init__(self, parent)
+
+        layout = QGridLayout()
+
+        bottomWidgets = {}
+
+        initialCol = 0
+        howToDrawCheckbox = None
+        navigateCheckbox = None
+        zSliceL0checkbox = None
+        zSliceL1checkbox = None
+        if isCheckable:
+            howToDrawCheckbox = QCheckBox()
+            bottomWidgets['howToDrawCheckbox'] = howToDrawCheckbox
+            howToDrawCheckbox.stateChanged.connect(self.setHowToDrawEnabled)
+            layout.addWidget(howToDrawCheckbox, 0, 0, alignment=Qt.AlignCenter)
+
+            navigateCheckbox = QCheckBox()
+            bottomWidgets['navigateCheckbox'] = navigateCheckbox
+            navigateCheckbox.stateChanged.connect(self.setNavigateEnabled)
+            layout.addWidget(navigateCheckbox, 1, 0, alignment=Qt.AlignCenter)
+
+            zSliceL0checkbox = QCheckBox()
+            bottomWidgets['zSliceL0checkbox'] = zSliceL0checkbox
+            zSliceL0checkbox.stateChanged.connect(self.setZsliceL0Enabled)
+            layout.addWidget(zSliceL0checkbox, 2, 0, alignment=Qt.AlignCenter)
+
+            zSliceL1checkbox = QCheckBox()
+            bottomWidgets['zSliceL1checkbox'] = zSliceL1checkbox
+            zSliceL1checkbox.stateChanged.connect(self.setZsliceL1Enabled)
+            layout.addWidget(zSliceL1checkbox, 3, 0, alignment=Qt.AlignCenter)
+            initialCol = 1
+
+
+        row = 0
+        col = initialCol +1
+        howDrawSegmCombobox = widgets.myQComboBox(checkBox=howToDrawCheckbox)
+        howDrawSegmCombobox.addItems(drawSegmComboboxItems)
+        # Always adjust combobox width to largest item
+        howDrawSegmCombobox.setSizeAdjustPolicy(
+            howDrawSegmCombobox.AdjustToContents
+        )
+        layout.addWidget(
+            howDrawSegmCombobox, row, col, alignment=Qt.AlignCenter
+        )
+        bottomWidgets['howDrawSegmCombobox'] = howDrawSegmCombobox
+
+        row = 1
+        col = initialCol +0
+        navigateScrollbar_label = QLabel('frame n.  ')
+        navigateScrollbar_label.setFont(self.font10pt)
+        layout.addWidget(
+            navigateScrollbar_label, row, col, alignment=Qt.AlignRight
+        )
+        bottomWidgets['navigateScrollbar_label'] = navigateScrollbar_label
+
+        row = 1
+        col = initialCol +1
+        navigateScrollbar = widgets.myQScrollBar(
+            Qt.Horizontal,
+            checkBox=navigateCheckbox,
+            label=navigateScrollbar_label
+        )
+        navigateScrollbar.setMinimum(1)
+        layout.addWidget(navigateScrollbar, row, col)
+        bottomWidgets['navigateScrollbar'] = navigateScrollbar
+
+        row = 2
+        col = initialCol +0
+        zSliceSbL0_label = QLabel('First layer z-slice  ')
+        zSliceSbL0_label.setFont(self.font10pt)
+        layout.addWidget(
+            zSliceSbL0_label, row, col, alignment=Qt.AlignRight
+        )
+        bottomWidgets['zSliceSbL0_label'] = zSliceSbL0_label
+
+        row = 2
+        col = initialCol +1
+        zSliceScrollbarLayer0 = widgets.myQScrollBar(
+            Qt.Horizontal,
+            checkBox=zSliceL0checkbox,
+            label=zSliceSbL0_label
+        )
+        zSliceScrollbarLayer0.setMinimum(1)
+        zSliceScrollbarLayer0.layer = 0
+        zSliceScrollbarLayer0.side = side
+        layout.addWidget(zSliceScrollbarLayer0, row, col)
+        bottomWidgets['zSliceScrollbarLayer0'] = zSliceScrollbarLayer0
+
+        row = 2
+        col = initialCol +2
+        zProjComboboxLayer0 = widgets.myQComboBox(checkBox=zSliceL0checkbox)
+        zProjComboboxLayer0.layer = 0
+        zProjComboboxLayer0.side = side
+        zProjComboboxLayer0.addItems(zProjItems)
+        layout.addWidget(zProjComboboxLayer0, row, col, alignment=Qt.AlignLeft)
+        bottomWidgets['zProjComboboxLayer0'] = zProjComboboxLayer0
+
+        row = 3
+        col = initialCol +0
+        zSliceSbL1_label = QLabel('Second layer z-slice  ')
+        zSliceSbL1_label.setFont(self.font10pt)
+        layout.addWidget(
+            zSliceSbL1_label, row, col, alignment=Qt.AlignRight
+        )
+        bottomWidgets['zSliceSbL1_label'] = zSliceSbL1_label
+
+        row = 3
+        col = initialCol +1
+        zSliceScrollbarLayer1 = widgets.myQScrollBar(
+            Qt.Horizontal,
+            checkBox=zSliceL1checkbox,
+            label=zSliceSbL1_label
+        )
+        zSliceScrollbarLayer1.setMinimum(1)
+        zSliceScrollbarLayer1.layer = 1
+        zSliceScrollbarLayer1.side = side
+        layout.addWidget(zSliceScrollbarLayer1, row, col)
+        bottomWidgets['zSliceScrollbarLayer1'] = zSliceScrollbarLayer1
+
+        row = 3
+        col = initialCol +2
+        zProjComboboxLayer1 = widgets.myQComboBox(checkBox=zSliceL1checkbox)
+        zProjComboboxLayer1.layer = 1
+        zProjComboboxLayer1.side = side
+        zProjComboboxLayer1.addItems(zProjItems)
+        zProjComboboxLayer1.addItems(['same as above'])
+        zProjComboboxLayer1.setCurrentIndex(1)
+        layout.addWidget(zProjComboboxLayer1, row, col, alignment=Qt.AlignLeft)
+        bottomWidgets['zProjComboboxLayer1'] = zProjComboboxLayer1
+
+        row = 4
+        col = initialCol +0
+        alphaScrollbar_label = QLabel('Overlay alpha  ')
+        alphaScrollbar_label.setFont(self.font10pt)
+        layout.addWidget(
+            alphaScrollbar_label, row, col, alignment=Qt.AlignRight
+        )
+        bottomWidgets['alphaScrollbar_label'] = alphaScrollbar_label
+
+        row = 4
+        col = initialCol +1
+        alphaScrollbar = QScrollBar(Qt.Horizontal)
+        alphaScrollbar.setMinimum(0)
+        alphaScrollbar.setMaximum(40)
+        alphaScrollbar.setValue(20)
+        alphaScrollbar.setToolTip(
+            'Control the alpha value of the overlay.\n'
+            'alpha=0 results in NO overlay,\n'
+            'alpha=1 results in only fluorescent data visible'
+        )
+        layout.addWidget(alphaScrollbar, row, col)
+        bottomWidgets['alphaScrollbar'] = alphaScrollbar
+
+        layout.setColumnStretch(0,0)
+        layout.setColumnStretch(initialCol+0,0)
+        layout.setColumnStretch(initialCol+1,3)
+        layout.setColumnStretch(initialCol+2,0)
+        self.setLayout(layout)
+
+        self.bottomWidgets = bottomWidgets
+
+        if isCheckable:
+            howToDrawCheckbox.setChecked(~checked)
+            howToDrawCheckbox.setChecked(checked)
+
+            navigateCheckbox.setChecked(~checked)
+            navigateCheckbox.setChecked(checked)
+
+            zSliceL0checkbox.setChecked(~checked)
+            zSliceL0checkbox.setChecked(checked)
+
+            zSliceL1checkbox.setChecked(~checked)
+            zSliceL1checkbox.setChecked(checked)
+
+    def setHowToDrawEnabled(self, state):
+        bottomWidgets = self.bottomWidgets
+        combobox = bottomWidgets['howDrawSegmCombobox']
+        if state:
+            combobox.setDisabled(False, applyToCheckbox=False)
+        else:
+            combobox.setDisabled(True, applyToCheckbox=False)
+
+    def setNavigateEnabled(self, state):
+        bottomWidgets = self.bottomWidgets
+        scrollbar = bottomWidgets['navigateScrollbar']
+        if state:
+            scrollbar.setDisabled(False, applyToCheckbox=False)
+        else:
+            scrollbar.setDisabled(True, applyToCheckbox=False)
+
+    def setZsliceL0Enabled(self, state):
+        bottomWidgets = self.bottomWidgets
+        scrollbar = bottomWidgets['zSliceScrollbarLayer0']
+        combobox = bottomWidgets['zProjComboboxLayer0']
+        if state:
+            scrollbar.setDisabled(False, applyToCheckbox=False)
+            combobox.setDisabled(False, applyToCheckbox=False)
+        else:
+            scrollbar.setDisabled(True, applyToCheckbox=False)
+            combobox.setDisabled(True, applyToCheckbox=False)
+
+    def setZsliceL1Enabled(self, state):
+        bottomWidgets = self.bottomWidgets
+        scrollbar = bottomWidgets['zSliceScrollbarLayer1']
+        combobox = bottomWidgets['zProjComboboxLayer1']
+        if state:
+            scrollbar.setDisabled(False, applyToCheckbox=False)
+            combobox.setDisabled(False, applyToCheckbox=False)
+        else:
+            scrollbar.setDisabled(True, applyToCheckbox=False)
+            combobox.setDisabled(True, applyToCheckbox=False)
+
+class guiTabControl(QTabWidget):
+    def __init__(self, *args):
+        super().__init__(args[0])
+
+        self.parametersTab = QScrollArea(self)
+        self.parametersQGBox = analysisInputsQGBox(self.parametersTab)
+        self.parametersTab.setWidget(self.parametersQGBox)
+
+        self.addTab(self.parametersTab, 'Analysis paramenters')
+
+    def addInspectResultsTab(self, posData):
+        self.inspectResultsTab = QScrollArea(self)
+
+        self.inspectResultsQGBox = inspectResults(
+            posData, parent=self.inspectResultsTab
+        )
+
+        self.inspectResultsTab.setWidget(self.inspectResultsQGBox)
+
+        self.removeTab(1)
+        self.addTab(self.inspectResultsTab, 'Inspect results')
+        self.inspectResultsQGBox.resizeSelector()
+
+class inspectResults(QGroupBox):
+    def __init__(self, posData, parent=None):
+        QGroupBox.__init__(self, parent)
+        self.row = 0
 
         font = QFont()
         font.setPointSize(10)
+        self.setFont(font)
+
+        runsInfo = self.runsInfo(posData)
+
+        self.H5_selectorLayout = selectSpotsH5FileLayout(
+            runsInfo, font=font, parent=self
+        )
+
+        self.setLayout(self.H5_selectorLayout)
+
+        self.setMyStyleSheet()
+
+    def runsInfo(self, posData):
+        run_nums = posData.validRuns()
+        runsInfo = {}
+        for run in run_nums:
+            h5_files = posData.h5_files(run)
+            if not h5_files:
+                continue
+            runsInfo[run] = h5_files
+        return runsInfo
+
+    def setMyStyleSheet(self):
+        self.setStyleSheet("""
+            QTreeWidget::item:hover {background-color:#E6E6E6;}
+            QTreeWidget::item:selected {
+                background-color:#CFEB9B;
+                color:black;
+            }
+            QTreeView {
+                selection-background-color: #CFEB9B;
+                selection-color: white;
+                show-decoration-selected: 1;
+                outline: 0;
+            }
+            QTreeWidget::item {padding: 5px;}
+        """)
+
+    def resizeSelector(self):
+        longestText = '3: Spots after goodness-of-peak AND ellipsoid test'
+        w = (
+            QFontMetrics(self.font())
+            .boundingRect(longestText)
+            .width()+120
+        )
+        self.setMinimumWidth(w)
+
+class analysisInputsQGBox(QGroupBox):
+    def __init__(self, *args):
+        QGroupBox.__init__(self, *args)
+
+        # mainLayout = QGridLayout(self)
+        mainLayout = widgets.myFormLayout()
+
+        font = QFont()
+        font.setPixelSize(13)
 
         row = 0
-        txt = 'Load and segment reference channel '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.loadRefChToggle = widgets.Toggle()
-        toggleLayout = QHBoxLayout()
-        toggleLayout.addStretch(1)
-        toggleLayout.addWidget(self.loadRefChToggle)
-        toggleLayout.addStretch(1)
-        mainLayout.addLayout(toggleLayout, row, 1)
+        self.loadRefChWidget = widgets.formWidget(
+            widgets.Toggle(), anchor='loadRefCh',
+            stretchWidget=False, addInfoButton=True,
+            parent=self
+        )
+        mainLayout.addFormWidget(self.loadRefChWidget, row=row)
 
         row += 1
-        txt = 'Ref. channel is single object (e.g., nucleus) '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.refChSingleObjToggle = widgets.Toggle()
-        toggleLayout = QHBoxLayout()
-        toggleLayout.addStretch(1)
-        toggleLayout.addWidget(self.refChSingleObjToggle)
-        toggleLayout.addStretch(1)
-        mainLayout.addLayout(toggleLayout, row, 1)
+        self.refChSingleObjWidget = widgets.formWidget(
+            widgets.Toggle(), anchor='refChSingleObj',
+            stretchWidget=False, addInfoButton=True,
+            addApplyButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.refChSingleObjWidget, row=row)
 
         row += 1
-        txt = 'Keep only peaks that are inside reference channel '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.keepPeaksInsideRefToggle = widgets.Toggle()
-        toggleLayout = QHBoxLayout()
-        toggleLayout.addStretch(1)
-        toggleLayout.addWidget(self.keepPeaksInsideRefToggle)
-        toggleLayout.addStretch(1)
-        mainLayout.addLayout(toggleLayout, row, 1)
+        self.keepPeaksInsideRefWidget = widgets.formWidget(
+            widgets.Toggle(), anchor='keepPeaksInsideRef',
+            stretchWidget=False, addInfoButton=True,
+            addApplyButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.keepPeaksInsideRefWidget, row=row)
 
         row += 1
-        txt = 'Sharpen spots signal prior detection '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.sharpenSpotsToggle = widgets.Toggle()
-        toggleLayout = QHBoxLayout()
-        toggleLayout.addStretch(1)
-        toggleLayout.addWidget(self.sharpenSpotsToggle)
-        toggleLayout.addStretch(1)
-        mainLayout.addLayout(toggleLayout, row, 1)
+        self.filterPeaksInsideRefWidget = widgets.formWidget(
+            widgets.Toggle(), anchor='filterPeaksInsideRef',
+            stretchWidget=False, addInfoButton=True,
+            addComputeButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.filterPeaksInsideRefWidget, row=row)
 
         row += 1
-        txt = 'Aggregate cells prior detection '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-        self.aggregateToggle = widgets.Toggle()
-        toggleLayout = QHBoxLayout()
-        toggleLayout.addStretch(1)
-        toggleLayout.addWidget(self.aggregateToggle)
-        toggleLayout.addStretch(1)
-        mainLayout.addLayout(toggleLayout, row, 1)
+        self.sharpenSpotsWidget = widgets.formWidget(
+            widgets.Toggle(), anchor='sharpenSpots',
+            stretchWidget=False, addInfoButton=True,
+            addComputeButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.sharpenSpotsWidget, row=row)
 
         row += 1
-        txt = 'Pixel width (μm) '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.pixelWidthQDSB = widgets.floatLineEdit()
-        mainLayout.addWidget(self.pixelWidthQDSB, row, 1)
+        self.aggregateWidget = widgets.formWidget(
+            widgets.Toggle(), anchor='aggregate',
+            stretchWidget=False, addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.aggregateWidget, row=row)
 
         row += 1
-        txt = 'Pixel height (μm) '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.pixelHeightQDSB = widgets.floatLineEdit()
-        mainLayout.addWidget(self.pixelHeightQDSB, row, 1)
+        self.pixelWidthWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='pixelWidth',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.pixelWidthWidget, row=row)
 
         row += 1
-        txt = 'Voxel depth (μm) '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.voxelDepthQDSB = widgets.floatLineEdit()
-        mainLayout.addWidget(self.voxelDepthQDSB, row, 1)
+        self.pixelHeightWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='pixelHeight',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.pixelHeightWidget, row=row)
 
         row += 1
-        txt = 'Numerical aperture '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.numApertureQDSB = widgets.floatLineEdit()
-        mainLayout.addWidget(self.numApertureQDSB, row, 1)
+        self.voxelDepthWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='voxelDepth',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.voxelDepthWidget, row=row)
 
         row += 1
-        txt = 'Spots reporter emission wavelength (nm) '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.emWavelenQDSB = widgets.floatLineEdit()
-        mainLayout.addWidget(self.emWavelenQDSB, row, 1)
+        self.numApertureWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='numAperture',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.numApertureWidget, row=row)
 
         row += 1
-        txt = 'Resolution limit in z-direction (μm) '
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
-
-        self.zResolutionLimit = widgets.floatLineEdit()
-        mainLayout.addWidget(self.zResolutionLimit, row, 1)
+        self.emWavelenWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='emWavelen',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.emWavelenWidget, row=row)
 
         row += 1
-        txt = 'Resolution multiplier in y- and x- direction '
+        self.zResolutionLimitWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='zResolutionLimit',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.zResolutionLimitWidget, row=row)
+
+        row += 1
+        self.yxResolLimitMultiplierWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='yxResolLimitMultiplier',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.yxResolLimitMultiplierWidget, row=row)
+
+        row += 1
+        txt = 'Spot (z,y,x) minimum dimensions'
         label = QLabel(txt)
         label.setFont(font)
-        mainLayout.addWidget(label, row, 0, alignment=Qt.AlignLeft)
+        mainLayout.addWidget(label, row, 0, 2, 1, alignment=Qt.AlignRight)
 
-        self.yxResolMultiplierLimit = widgets.floatLineEdit()
-        mainLayout.addWidget(self.yxResolMultiplierLimit, row, 1)
+        self.spotSize_um_label = QLabel()
+        self.spotSize_um_label.setFont(font)
+        mainLayout.addWidget(
+            self.spotSize_um_label, row, 1, alignment=Qt.AlignCenter
+        )
+
+        row += 1
+        self.spotSize_pxl_label = QLabel()
+        self.spotSize_pxl_label.setFont(font)
+        mainLayout.addWidget(
+            self.spotSize_pxl_label, row, 1, alignment=Qt.AlignCenter
+        )
+
+        row += 1
+        self.gaussSigmaWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='gaussSigma',
+            addInfoButton=True, addComputeButton=True,
+            parent=self
+        )
+        mainLayout.addFormWidget(self.gaussSigmaWidget, row=row)
+
+        row += 1
+        widget = widgets.myQComboBox()
+        items = utils.skimageAutoThresholdMethods()
+        widget.addItems(items)
+        self.refChThresholdFuncWidget = widgets.formWidget(
+            widget, anchor='refChThresholdFunc',
+            addInfoButton=True, addComputeButton=True,
+            parent=self
+        )
+        mainLayout.addFormWidget(self.refChThresholdFuncWidget, row=row)
+
+
+        row += 1
+        widget = widgets.myQComboBox()
+        items = utils.skimageAutoThresholdMethods()
+        widget.addItems(items)
+        self.spotThresholdFuncWidget = widgets.formWidget(
+            widget, anchor='spotThresholdFunc',
+            addInfoButton=True, addComputeButton=True,
+            parent=self
+        )
+        mainLayout.addFormWidget(self.spotThresholdFuncWidget, row=row)
+
+        row += 1
+        widget = widgets.myQComboBox()
+        items = ['Effect size', 't-test (p-value)']
+        widget.addItems(items)
+        self.gopMethodWidget = widgets.formWidget(
+            widget, anchor='gopMethod',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.gopMethodWidget, row=row)
+
+        row += 1
+        self.gopLimitWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='gopLimit',
+            addInfoButton=True, addComputeButton=True,
+            parent=self
+        )
+        mainLayout.addFormWidget(self.gopLimitWidget, row=row)
+
+        row += 1
+        self.doSpotFitWidget = widgets.formWidget(
+            widgets.Toggle(), anchor='doSpotFit',
+            stretchWidget=False, addInfoButton=True,
+            addComputeButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.doSpotFitWidget, row=row)
+
+        row += 1
+        self.minSpotSizeWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='minSpotSize',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.minSpotSizeWidget, row=row)
+
+        row += 1
+        self.maxSpotSizeWidget = widgets.formWidget(
+            widgets.floatLineEdit(), anchor='maxSpotSize',
+            addInfoButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.maxSpotSizeWidget, row=row)
+
+        row += 1
+        self.calcRefChNetLenWidget = widgets.formWidget(
+            widgets.Toggle(), anchor='calcRefChNetLen',
+            stretchWidget=False, addInfoButton=True,
+            addComputeButton=True, parent=self
+        )
+        mainLayout.addFormWidget(self.calcRefChNetLenWidget, row=row)
 
         row += 1
         mainLayout.setRowStretch(row, 1)
 
         self.setLayout(mainLayout)
+
+        self.updateMinSpotSize()
+        self.connectActions()
+
+    def connectActions(self):
+        self.pixelWidthWidget.widget.valueChanged.connect(
+            self.updateMinSpotSize
+        )
+        self.pixelHeightWidget.widget.valueChanged.connect(
+            self.updateMinSpotSize
+        )
+        self.voxelDepthWidget.widget.valueChanged.connect(
+            self.updateMinSpotSize
+        )
+        self.emWavelenWidget.widget.valueChanged.connect(
+            self.updateMinSpotSize
+        )
+        self.numApertureWidget.widget.valueChanged.connect(
+            self.updateMinSpotSize
+        )
+        self.yxResolLimitMultiplierWidget.widget.valueChanged.connect(
+            self.updateMinSpotSize
+        )
+
+    def updateMinSpotSize(self, value=0.0):
+        physicalSizeX = self.pixelWidthWidget.widget.value()
+        physicalSizeY = self.pixelHeightWidget.widget.value()
+        physicalSizeZ = self.voxelDepthWidget.widget.value()
+        emWavelen = self.emWavelenWidget.widget.value()
+        NA = self.numApertureWidget.widget.value()
+        zResolutionLimit_um = self.zResolutionLimitWidget.widget.value()
+        yxResolMultiplier = self.yxResolLimitMultiplierWidget.widget.value()
+        zyxMinSize_pxl, zyxMinSize_um = core.calcMinSpotSize(
+            emWavelen, NA, physicalSizeX, physicalSizeY, physicalSizeZ,
+            zResolutionLimit_um, yxResolMultiplier
+        )
+        zyxMinSize_pxl_txt = (f'{[round(val, 4) for val in zyxMinSize_pxl]} pxl'
+            .replace(']', ')')
+            .replace('[', '(')
+        )
+        zyxMinSize_um_txt = (f'{[round(val, 4) for val in zyxMinSize_um]} μm'
+            .replace(']', ')')
+            .replace('[', '(')
+        )
+        self.spotSize_pxl_label.setText(zyxMinSize_pxl_txt)
+        self.spotSize_um_label.setText(zyxMinSize_um_txt)
+
+    def showInfo(self):
+        print(self.sender().label.text())
 
 class spotStyleDock(QDockWidget):
     sigOk = pyqtSignal(int)
@@ -183,7 +651,7 @@ class spotStyleDock(QDockWidget):
         buttonsLayout = QHBoxLayout()
 
         row = 0
-        self.transpSlider = widgets.sliderWithSpinBox(title='Transparency')
+        self.transpSlider = widgets.sliderWithSpinBox(title='Opacity')
         self.transpSlider.setMaximum(100)
         slidersLayout.addWidget(self.transpSlider, row, 0)
 
@@ -240,33 +708,85 @@ class spotStyleDock(QDockWidget):
 
 
 class QDialogMetadata(QDialog):
-    def __init__(self, SizeT, SizeZ, TimeIncrement,
-                 PhysicalSizeZ, PhysicalSizeY, PhysicalSizeX,
-                 ask_SizeT, ask_TimeIncrement, ask_PhysicalSizes,
-                 parent=None, font=None, imgDataShape=None, PosData=None,
-                 singlePos=False):
+    def __init__(
+            self, SizeT, SizeZ, TimeIncrement,
+            PhysicalSizeZ, PhysicalSizeY, PhysicalSizeX,
+            ask_SizeT, ask_TimeIncrement, ask_PhysicalSizes, numPos,
+            parent=None, font=None, imgDataShape=None, PosData=None,
+            fileExt='.tif'
+        ):
         self.cancel = True
         self.ask_TimeIncrement = ask_TimeIncrement
         self.ask_PhysicalSizes = ask_PhysicalSizes
         self.imgDataShape = imgDataShape
         self.PosData = PosData
+        self.fileExt = fileExt
         super().__init__(parent)
         self.setWindowTitle('Image properties')
 
         mainLayout = QVBoxLayout()
-        gridLayout = QGridLayout()
-        # formLayout = QFormLayout()
+        loadingSizesGroupbox = QGroupBox()
+        loadingSizesGroupbox.setTitle('Parameters for loading')
+        metadataGroupbox = QGroupBox()
+        metadataGroupbox.setTitle('Image Properties')
         buttonsLayout = QGridLayout()
 
-        if imgDataShape is not None:
-            label = QLabel(
-                f"""
-                <p style="font-size:11pt">
-                    <i>Image data shape</i> = <b>{imgDataShape}</b><br>
-                </p>
-                """)
-            mainLayout.addWidget(label, alignment=Qt.AlignCenter)
+        loadingParamLayout = QGridLayout()
+        row = 0
+        loadingParamLayout.addWidget(
+            QLabel('Number of Positions to load'), row, 0,
+            alignment=Qt.AlignRight
+        )
+        self.loadSizeS_SpinBox = widgets.QSpinBoxOdd(acceptedValues=(numPos,))
+        self.loadSizeS_SpinBox.setMinimum(1)
+        self.loadSizeS_SpinBox.setMaximum(numPos)
+        self.loadSizeS_SpinBox.setValue(numPos)
+        if numPos == 1:
+            self.loadSizeS_SpinBox.setDisabled(True)
+        self.loadSizeS_SpinBox.setAlignment(Qt.AlignCenter)
+        loadingParamLayout.addWidget(self.loadSizeS_SpinBox, row, 1)
 
+        row += 1
+        loadingParamLayout.addWidget(
+            QLabel('Number of frames to load'), row, 0, alignment=Qt.AlignRight
+        )
+        self.loadSizeT_SpinBox = widgets.QSpinBoxOdd(acceptedValues=(SizeT,))
+        self.loadSizeT_SpinBox.setMinimum(1)
+        if ask_SizeT:
+            self.loadSizeT_SpinBox.setMaximum(SizeT)
+            self.loadSizeT_SpinBox.setValue(SizeT)
+            if fileExt != '.h5':
+                self.loadSizeT_SpinBox.setDisabled(True)
+        else:
+            self.loadSizeT_SpinBox.setMaximum(1)
+            self.loadSizeT_SpinBox.setValue(1)
+            self.loadSizeT_SpinBox.setDisabled(True)
+        self.loadSizeT_SpinBox.setAlignment(Qt.AlignCenter)
+        loadingParamLayout.addWidget(self.loadSizeT_SpinBox, row, 1)
+
+        row += 1
+        loadingParamLayout.addWidget(
+            QLabel('Number of z-slices to load'), row, 0,
+            alignment=Qt.AlignRight
+        )
+        self.loadSizeZ_SpinBox = widgets.QSpinBoxOdd(acceptedValues=(SizeZ,))
+        self.loadSizeZ_SpinBox.setMinimum(1)
+        if SizeZ > 1:
+            self.loadSizeZ_SpinBox.setMaximum(SizeZ)
+            self.loadSizeZ_SpinBox.setValue(SizeZ)
+            if fileExt != '.h5':
+                self.loadSizeZ_SpinBox.setDisabled(True)
+        else:
+            self.loadSizeZ_SpinBox.setMaximum(1)
+            self.loadSizeZ_SpinBox.setValue(1)
+            self.loadSizeZ_SpinBox.setDisabled(True)
+        self.loadSizeZ_SpinBox.setAlignment(Qt.AlignCenter)
+        loadingParamLayout.addWidget(self.loadSizeZ_SpinBox, row, 1)
+
+        loadingParamLayout.setColumnMinimumWidth(1, 100)
+        loadingSizesGroupbox.setLayout(loadingParamLayout)
+
+        gridLayout = QGridLayout()
         row = 0
         gridLayout.addWidget(
             QLabel('Number of frames (SizeT)'), row, 0, alignment=Qt.AlignRight
@@ -361,7 +881,10 @@ class QDialogMetadata(QDialog):
 
         self.SizeZvalueChanged(SizeZ)
 
-        if singlePos:
+        gridLayout.setColumnMinimumWidth(1, 100)
+        metadataGroupbox.setLayout(gridLayout)
+
+        if numPos == 1:
             okTxt = 'Apply only to this Position'
         else:
             okTxt = 'Ok for loaded Positions'
@@ -404,9 +927,18 @@ class QDialogMetadata(QDialog):
             buttonsLayout.addWidget(cancelButton, 0, 1)
         buttonsLayout.setContentsMargins(0, 10, 0, 0)
 
-        gridLayout.setColumnMinimumWidth(1, 100)
-        mainLayout.addLayout(gridLayout)
-        # mainLayout.addLayout(formLayout)
+        if imgDataShape is not None:
+            label = QLabel(
+                f"""
+                <p style="font-size:11pt">
+                    <i>Image data shape</i> = <b>{imgDataShape}</b><br>
+                </p>
+                """)
+            mainLayout.addWidget(label, alignment=Qt.AlignCenter)
+        mainLayout.addWidget(loadingSizesGroupbox)
+        mainLayout.addStretch(1)
+        mainLayout.addSpacing(10)
+        mainLayout.addWidget(metadataGroupbox)
         mainLayout.addLayout(buttonsLayout)
 
         okButton.clicked.connect(self.ok_cb)
@@ -424,8 +956,12 @@ class QDialogMetadata(QDialog):
         if val > 1 and self.imgDataShape is not None:
             maxSizeZ = self.imgDataShape[-3]
             self.SizeZ_SpinBox.setMaximum(maxSizeZ)
+            if self.fileExt == '.h5':
+                self.loadSizeZ_SpinBox.setDisabled(False)
         else:
             self.SizeZ_SpinBox.setMaximum(2147483647)
+            self.loadSizeZ_SpinBox.setValue(1)
+            self.loadSizeZ_SpinBox.setDisabled(True)
 
         if not self.ask_PhysicalSizes:
             return
@@ -442,15 +978,22 @@ class QDialogMetadata(QDialog):
         if val > 1:
             self.TimeIncrementSpinBox.show()
             self.TimeIncrementLabel.show()
+            if self.fileExt == '.h5':
+                self.loadSizeT_SpinBox.setDisabled(False)
         else:
             self.TimeIncrementSpinBox.hide()
             self.TimeIncrementLabel.hide()
+            self.loadSizeT_SpinBox.setDisabled(True)
+            self.loadSizeT_SpinBox.setValue(1)
 
     def ok_cb(self, event):
         self.cancel = False
         self.SizeT = self.SizeT_SpinBox.value()
         self.SizeZ = self.SizeZ_SpinBox.value()
 
+        self.loadSizeS = self.loadSizeS_SpinBox.value()
+        self.loadSizeT = self.loadSizeT_SpinBox.value()
+        self.loadSizeZ = self.loadSizeZ_SpinBox.value()
         self.TimeIncrement = self.TimeIncrementSpinBox.value()
         self.PhysicalSizeX = self.PhysicalSizeXSpinBox.value()
         self.PhysicalSizeY = self.PhysicalSizeYSpinBox.value()
@@ -516,7 +1059,7 @@ class QDialogMetadata(QDialog):
 
         if self.PosData is not None and self.sender() != self.okButton:
             exp_path = self.PosData.exp_path
-            pos_foldernames = natsorted(os.listdir(exp_path))
+            pos_foldernames = natsorted(utils.listdir(exp_path))
             pos_foldernames = [
                 pos for pos in pos_foldernames
                 if pos.find('Position_')!=-1
@@ -531,7 +1074,7 @@ class QDialogMetadata(QDialog):
                 pos_foldernames = select_folder.selected_pos
             for pos in pos_foldernames:
                 images_path = os.path.join(exp_path, pos, 'Images')
-                ls = os.listdir(images_path)
+                ls = utils.listdir(images_path)
                 search = [file for file in ls if file.find('metadata.csv')!=-1]
                 metadata_df = None
                 if search:
@@ -767,13 +1310,13 @@ class selectPathsSpotmax(QDialog):
 
         infoLabel = QLabel()
         text = 'Select <b>one or more folders</b> to load (Ctrl+A to select All) <br>'
-        htmlText = html.html_paragraph_11pt(text)
+        htmlText = html_func.html_paragraph_11pt(text)
         infoLabel.setText(htmlText)
 
         runNumberLayout = QHBoxLayout()
         runNumberLabel = QLabel()
         text = 'Number of pos. analysed for run number: '
-        htmlText = html.html_paragraph_10pt(text)
+        htmlText = html_func.html_paragraph_10pt(text)
         runNumberLabel.setText(htmlText)
         runNumberCombobox = QComboBox()
         runNumberCombobox.addItems([f'  {r}  ' for r in runs])
@@ -939,7 +1482,7 @@ class selectPathsSpotmax(QDialog):
             return
 
         title = f'Analysis inputs table'
-        infoText = html.html_paragraph_10pt(
+        infoText = html_func.html_paragraph_10pt(
             f'Analysis inputs used to analyse <b>run number {run}</b> '
             f'of experiment:<br>"{relPath1}"<br>'
         )
@@ -997,7 +1540,7 @@ class selectPathsSpotmax(QDialog):
             relPathLabel.item = relPathItem
             relPathLabel.clicked.connect(self.selectAllChildren)
             relPathText = f'{relPath} (<i>{nPSCtext}, {nPSStext}</i>)'
-            relPathLabel.setText(html.html_paragraph_10pt(relPathText))
+            relPathLabel.setText(html_func.html_paragraph_10pt(relPathText))
             pathSelector.setItemWidget(relPathItem, 0, relPathLabel)
 
             for pos in posFoldernames:
@@ -1017,7 +1560,7 @@ class selectPathsSpotmax(QDialog):
                 posLabel = widgets.QClickableLabel()
                 posLabel.item = posItem
                 posLabel.clicked.connect(self.selectAllChildren)
-                posLabel.setText(html.html_paragraph_10pt(posText))
+                posLabel.setText(html_func.html_paragraph_10pt(posText))
                 relPathItem.addChild(posItem)
                 pathSelector.setItemWidget(posItem, 0, posLabel)
         if relPathItem is not None and len(selectedRunPaths) == 1:
@@ -1032,7 +1575,7 @@ class selectPathsSpotmax(QDialog):
         msg = QMessageBox()
         msg.warning(
             self, 'Analysis inputs not found!',
-            html.html_paragraph_10pt(text),
+            html_func.html_paragraph_10pt(text),
             msg.Ok
         )
 
@@ -1091,7 +1634,7 @@ class selectPathsSpotmax(QDialog):
         )
         msg = QMessageBox()
         msg.warning(
-            self, 'No path selected!', html.html_paragraph_10pt(text),
+            self, 'No path selected!', html_func.html_paragraph_10pt(text),
             msg.Ok
         )
 
@@ -1101,7 +1644,7 @@ class selectPathsSpotmax(QDialog):
         )
         msg = QMessageBox()
         doClose = msg.warning(
-            self, 'No paths selected!', html.html_paragraph_10pt(text),
+            self, 'No paths selected!', html_func.html_paragraph_10pt(text),
             msg.Yes | msg.No
         )
         return doClose==msg.Yes
@@ -1355,27 +1898,24 @@ class pdDataFrameWidget(QMainWindow):
     def closeEvent(self, event):
         self.parent.ccaTableWin = None
 
-class selectSpotsH5File(QDialog):
+class selectSpotsH5FileDialog(QDialog):
     def __init__(self, runsInfo, parent=None, app=None):
-        super().__init__(parent)
-        self.runsInfo = runsInfo
-        self.selectedFile = None
+        QDialog.__init__(self, parent)
 
         self.setWindowTitle('Select analysis to load')
+
+        self.parent = parent
+        self.app = app
+        self.runsInfo = runsInfo
+        self.selectedFile = None
 
         font = QFont()
         font.setPointSize(10)
         self.setFont(font)
 
-        infoLabel = QLabel()
-        text = 'Select which analysis to load <br>'
-        htmlText = html.html_paragraph_11pt(text)
-        infoLabel.setText(htmlText)
-
-        treeSelector = QTreeWidget()
-        self.treeSelector = treeSelector
-        treeSelector.setHeaderHidden(True)
-        self.populateSelector()
+        mainLayout = selectSpotsH5FileLayout(
+            runsInfo, font=font, parent=self, app=app
+        )
 
         buttonsLayout = QHBoxLayout()
         okButton = QPushButton('Ok')
@@ -1385,21 +1925,16 @@ class selectSpotsH5File(QDialog):
         cancelButton = QPushButton('Cancel')
         buttonsLayout.addWidget(cancelButton, alignment=Qt.AlignLeft)
         buttonsLayout.setContentsMargins(0, 20, 0, 0)
-
-        mainLayout = QVBoxLayout()
-        mainLayout.addWidget(infoLabel, alignment=Qt.AlignCenter)
-        mainLayout.addWidget(treeSelector)
         mainLayout.addLayout(buttonsLayout)
-        self.setLayout(mainLayout)
 
         okButton.clicked.connect(self.ok_cb)
         cancelButton.clicked.connect(self.cancel_cb)
-        treeSelector.itemClicked.connect(self.expandTopLevel)
 
-        treeSelector.setFocus(True)
+        self.mainLayout = mainLayout
+        self.setLayout(mainLayout)
+        self.setModal(True)
 
         self.setMyStyleSheet()
-        self.setModal(True)
 
     def setMyStyleSheet(self):
         self.setStyleSheet("""
@@ -1417,36 +1952,8 @@ class selectSpotsH5File(QDialog):
             QTreeWidget::item {padding: 5px;}
         """)
 
-    def populateSelector(self):
-        for run, files in self.runsInfo.items():
-            runItem = QTreeWidgetItem(self.treeSelector)
-            runItem.setText(0, f'Analysis run number {run}')
-            runItem.setFont(0, self.font())
-            self.treeSelector.addTopLevelItem(runItem)
-            for file in files:
-                if file.find('0_Orig_data') != -1:
-                    txt = '0: All detected spots'
-                elif file.find('1_ellip_test') != -1:
-                    txt = '1: Spots after ellipsoid test'
-                elif file.find('2_p-_test') != -1:
-                    txt = '2: Spots after goodness-of-peak test'
-                elif file.find('3_p-_ellip_test') != -1:
-                    txt = '3: Spots after goodness-of-peak AND ellipsoid test'
-                elif file.find('4_spotFIT') != -1:
-                    txt = '4: Spots after size test (spotFIT)'
-                fileItem = QTreeWidgetItem(runItem)
-                fileItem.setText(0, txt)
-                fileItem.setFont(0, self.font())
-                runItem.addChild(fileItem)
-
-    def expandTopLevel(self, item):
-        if item.parent() is None:
-            item.setExpanded(True)
-            item.setSelected(False)
-
-
     def ok_cb(self, checked=True):
-        selectedItems = self.treeSelector.selectedItems()
+        selectedItems = self.mainLayout.treeSelector.selectedItems()
         if not selectedItems:
             doClose = self.warningNoFilesSelected()
             if doClose:
@@ -1466,7 +1973,7 @@ class selectSpotsH5File(QDialog):
         )
         msg = QMessageBox()
         doClose = msg.warning(
-            self, 'No files selected!', html.html_paragraph_10pt(text),
+            self, 'No files selected!', html_func.html_paragraph_10pt(text),
             msg.Yes | msg.No
         )
         return doClose==msg.Yes
@@ -1479,64 +1986,128 @@ class selectSpotsH5File(QDialog):
         w = (
             QFontMetrics(self.font())
             .boundingRect(longestText)
-            .width()+80
+            .width()+120
         )
-        self.treeSelector.setMinimumWidth(w)
+        self.mainLayout.treeSelector.setMinimumWidth(w)
 
     def show(self):
         QDialog.show(self)
         self.resizeSelector()
 
+class selectSpotsH5FileLayout(QVBoxLayout):
+    def __init__(self, runsInfo, font=None, parent=None, app=None):
+        super().__init__(parent)
+        self.runsInfo = runsInfo
+        self.selectedFile = None
+        self.font = font
+
+        infoLabel = QLabel()
+        text = 'Select which analysis to load <br>'
+        htmlText = html_func.html_paragraph_11pt(text)
+        infoLabel.setText(htmlText)
+
+        treeSelector = QTreeWidget()
+        self.treeSelector = treeSelector
+        treeSelector.setHeaderHidden(True)
+        self.populateSelector()
+
+        self.addWidget(infoLabel, alignment=Qt.AlignCenter)
+        self.addWidget(treeSelector)
+        treeSelector.itemClicked.connect(self.expandTopLevel)
+
+        treeSelector.setFocus(True)
+
+    def populateSelector(self):
+        for run, files in self.runsInfo.items():
+            runItem = QTreeWidgetItem(self.treeSelector)
+            runItem.setText(0, f'Analysis run number {run}')
+            if self.font is not None:
+                runItem.setFont(0, self.font)
+            self.treeSelector.addTopLevelItem(runItem)
+            for file in files:
+                if file.find('0_Orig_data') != -1:
+                    txt = '0: All detected spots'
+                elif file.find('1_ellip_test') != -1:
+                    txt = '1: Spots after ellipsoid test'
+                elif file.find('2_p-_test') != -1:
+                    txt = '2: Spots after goodness-of-peak test'
+                elif file.find('3_p-_ellip_test') != -1:
+                    txt = '3: Spots after goodness-of-peak AND ellipsoid test'
+                elif file.find('4_spotFIT') != -1:
+                    txt = '4: Spots after size test (spotFIT)'
+                fileItem = QTreeWidgetItem(runItem)
+                fileItem.setText(0, txt)
+                if self.font is not None:
+                    fileItem.setFont(0, self.font)
+                runItem.addChild(fileItem)
+
+    def expandTopLevel(self, item):
+        if item.parent() is None:
+            item.setExpanded(True)
+            item.setSelected(False)
+
 if __name__ == '__main__':
+    class Window(QMainWindow):
+        def __init__(self):
+            super().__init__()
+
+            container = QWidget()
+            layout = QVBoxLayout()
+
+            self.tabControl = guiTabControl(self)
+
+            bottomWidgets = guiBottomWidgets(
+                'left', ['test'], ['test'], isCheckable=True, checked=False
+            )
+
+            layout.addWidget(self.tabControl)
+            layout.addWidget(bottomWidgets)
+            names = utils.singleSpotCountMeasurementsName()
+            layout.addWidget(measurementsQGroupBox(names, parent=self))
+
+            # layout.addStretch(1)
+            container.setLayout(layout)
+            self.setCentralWidget(container)
+
+        def show(self):
+            QMainWindow.show(self)
+
+            parametersQGBox = self.tabControl.parametersQGBox
+            parametersTab = self.tabControl.parametersTab
+            horizontalScrollBar = parametersTab.horizontalScrollBar()
+            i = 1
+            while horizontalScrollBar.isVisible():
+                self.resize(self.width()+i, self.height())
+                i += 1
+
+            channelDataPath = r"G:\My Drive\1_MIA_Data\Dimitra\test_spotMAX_nucleusSegm_1\TIFFs\Position_2\Images\20210526_DCY8_SCGE_M2_10_s02_mCitr.tif"
+            user_ch_name = 'mCitr'
+            posData = load.loadData(channelDataPath, user_ch_name)
+
+            run_nums = posData.validRuns()
+            runsInfo = {}
+            for run in run_nums:
+                h5_files = posData.h5_files(run)
+                if not h5_files:
+                    continue
+                runsInfo[run] = h5_files
+
+            # self.dialog = selectSpotsH5FileDialog(runsInfo)
+            # self.dialog.show()
+            self.tabControl.addInspectResultsTab(posData)
+
+
+            # print(self.tabControl.inspectResultsQGBox.width())
+            # self.tabControl.inspectResultsQGBox.setMinimumWidth(500)
+            # print(self.tabControl.inspectResultsQGBox.width())
+
     app = QApplication(sys.argv)
     app.setStyle(QStyleFactory.create('Fusion'))
-
-    paths = {
-    1: {
-        r'C:\Users\Frank\SCD\replicate_num1\0nM': {
-            'numPosSpotCounted': 4,
-            'numPosSpotSized': 0,
-            'posFoldernames': ['Position_1', 'Position_2', 'Position_3', 'Position_4'],
-            'Position_1': {'isPosSpotCounted': True, 'isPosSpotSized': True},
-            'Position_2': {'isPosSpotCounted': True, 'isPosSpotSized': False},
-            'Position_3': {'isPosSpotCounted': True, 'isPosSpotSized': True},
-            'Position_4': {'isPosSpotCounted': True, 'isPosSpotSized': False}
-        },
-        # r'C:\Users\Frank\SCD\replicate_num1\15nM': {
-        #     'numPosSpotCounted': 4,
-        #     'numPosSpotSized': 4,
-        #     'posFoldernames': ['Position_1', 'Position_2', 'Position_3', 'Position_4'],
-        #     'Position_1': {'isPosSpotCounted': True, 'isPosSpotSized': True},
-        #     'Position_2': {'isPosSpotCounted': True, 'isPosSpotSized': True},
-        #     'Position_3': {'isPosSpotCounted': True, 'isPosSpotSized': True},
-        #     'Position_4': {'isPosSpotCounted': True, 'isPosSpotSized': True}
-        # }
-    },
-    # 2: {
-    #     r'C:\Users\Frank\SCD\replicate_num1\0nM': {
-    #         'numPosSpotCounted': 0,
-    #         'numPosSpotSized': 0,
-    #         'posFoldernames': ['Position_1', 'Position_2', 'Position_3', 'Position_4'],
-    #         'Position_1': {'isPosSpotCounted': True, 'isPosSpotSized': True},
-    #         'Position_2': {'isPosSpotCounted': True, 'isPosSpotSized': False},
-    #         'Position_3': {'isPosSpotCounted': True, 'isPosSpotSized': True},
-    #         'Position_4': {'isPosSpotCounted': True, 'isPosSpotSized': False}
-    #     }
-    #}
-    }
-
-    # win = selectPathsSpotmax(paths, r'C:\Users\Frank\SCD')
-    runsInfo = {
-        1: [
-            '1_0_Orig_data_v1.h5',
-            '1_1_ellip_test_data_v1.h5',
-            '1_2_p-_test_data_v1.h5',
-            '1_3_p-_ellip_test_data_v1.h5'
-        ]
-    }
-    # win = QDialogListbox('test', 'Selection test', runsInfo[1])
-    win = spotStyleDock('Spots transparency')
-    # win.show(app)
+    # win = QDialogMetadata(
+    #     60, 40, 180, 0.35, 0.06, 0.06, True, True, True, 15,
+    #     imgDataShape=(60,40,600,600)
+    # )
+    win = Window()
     win.show()
     app.exec_()
 

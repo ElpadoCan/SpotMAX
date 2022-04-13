@@ -6,6 +6,18 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# TODO:
+# - If checkboxes checked when left are moved move also right controls
+# - Method warnLoadedDifferentPaths
+# - Style dock for size and opacity of skeleton scatter
+# - IndexError when skeletonizing AND overlaying
+# - Check Antoine data
+# - Check Nada's data
+# - Add distance from reference channel metric
+# - Load chunk other layers (overlay, skel and contour)
+# - Load chunk positions
+# - tif files should have number of frames to load disabled
+
 """spotMAX GUI"""
 print('Importing modules...')
 import sys
@@ -18,9 +30,12 @@ import time
 import datetime
 import logging
 import uuid
+import psutil
 from pprint import pprint
 from functools import partial, wraps
 from tqdm import tqdm
+from natsort import natsorted
+from queue import Queue
 import time
 
 import cv2
@@ -42,12 +57,14 @@ from skimage.color import gray2rgb, gray2rgba
 import matplotlib.pyplot as plt
 
 from PyQt5.QtCore import (
-    Qt, QFile, QTextStream, QSize, QRect, QRectF, QEventLoop, QTimer, QEvent,
-    QThreadPool, QRunnable, pyqtSignal, QObject
+    Qt, QFile, QTextStream, QSize, QRect, QRectF,
+    QEventLoop, QTimer, QEvent, QThreadPool,
+    QRunnable, pyqtSignal, QObject, QThread,
+    QMutex, QWaitCondition
 )
 from PyQt5.QtGui import (
-    QIcon, QKeySequence, QCursor, QKeyEvent, QFont, QPixmap,
-    QColor, QPainter, QPen
+    QIcon, QKeySequence, QCursor, QKeyEvent, QFont,
+    QPixmap, QColor, QPainter, QPen
 )
 from PyQt5.QtWidgets import (
     QAction, QApplication, QLabel, QPushButton,
@@ -58,7 +75,7 @@ from PyQt5.QtWidgets import (
     QAbstractSlider, QMessageBox, QGraphicsProxyWidget,
     QGridLayout, QStyleFactory, QWidget, QFrame,
     QHBoxLayout, QDockWidget, QAbstractSpinBox,
-    QColorDialog
+    QColorDialog, QVBoxLayout
 )
 
 import pyqtgraph as pg
@@ -78,6 +95,7 @@ if os.name == 'nt':
     except Exception as e:
         pass
 
+src_path = os.path.dirname(__file__)
 
 bottomWidgetsKeys = (
     'howDrawSegmCombobox',
@@ -129,12 +147,13 @@ def exception_handler(func):
     def inner_function(self, *args, **kwargs):
         try:
             if func.__code__.co_argcount==1 and func.__defaults__ is None:
-                func(self)
+                result = func(self)
             elif func.__code__.co_argcount>1 and func.__defaults__ is None:
-                func(self, *args)
+                result = func(self, *args)
             else:
-                func(self, *args, **kwargs)
+                result = func(self, *args, **kwargs)
         except Exception as e:
+            result = None
             self.logger.exception(e)
             msg = QMessageBox(self)
             msg.setWindowTitle('Critical error')
@@ -156,7 +175,7 @@ def exception_handler(func):
             #     color='r'
             # )
             self.loadingDataAborted()
-            return inner_function
+        return result
     return inner_function
 
 
@@ -198,6 +217,7 @@ class spotMAX_Win(QMainWindow):
         self.rightClickButtons = []
         self.leftClickButtons = []
         self.initiallyHiddenItems = {'left': [], 'right': [], 'top': []}
+        self.checkableToolButtons = []
 
         self.lastSelectedColorItem = None
 
@@ -215,6 +235,7 @@ class spotMAX_Win(QMainWindow):
         self.axes = {'left': None, 'right': None}
         self.imgItems = {'left': None, 'right': None}
         self.histItems = {'left': {}, 'right': {}}
+        self.isFirstOpen = True
 
         # Buttons added to QButtonGroup will be mutually exclusive
         self.checkableQButtonsGroup = QButtonGroup(self)
@@ -229,29 +250,33 @@ class spotMAX_Win(QMainWindow):
         self.gui_createLeftToolBars()
         self.gui_createRightToolBars()
         self.gui_createSpotsClickedContextMenuActions()
+        self.gui_createSkeletonClickedContextMenuActions()
 
         self.gui_connectActions()
         self.gui_createStatusBar()
 
-        self.graphLayout = pg.GraphicsLayoutWidget()
-        self.gui_createGraphicsPlots()
-
         self.gui_createBottomLayout()
+
         self.gui_addBottomLeftWidgets()
         self.gui_addBottomRightWidgets()
+
+        self.graphLayout = pg.GraphicsLayoutWidget(parent=self)
         self.gui_addGraphicsItems()
+
+        self.gui_createSideLayout()
+        self.gui_addSideLayoutWidgets()
 
         self.gui_createThreadPool()
 
         mainContainer = QWidget()
-        self.setCentralWidget(mainContainer)
 
         mainLayout = QGridLayout()
-        # mainLayout.addWidget(self.computeDockWidget, 0, 0)
-        mainLayout.addWidget(self.graphLayout, 0, 0)
-        mainLayout.addLayout(self.bottomLayout, 1, 0)
+        mainLayout.addLayout(self.sideLayout, 0, 0, 2, 1)
+        mainLayout.addWidget(self.graphLayout, 0, 1)
+        mainLayout.addLayout(self.bottomLayout, 1, 1)
 
         mainContainer.setLayout(mainLayout)
+        self.setCentralWidget(mainContainer)
 
         self.gui_init(first_call=True)
 
@@ -265,7 +290,7 @@ class spotMAX_Win(QMainWindow):
             os.mkdir(logs_path)
         else:
             # Keep 20 most recent logs
-            ls = os.listdir(logs_path)
+            ls = utils.listdir(logs_path)
             if len(ls)>20:
                 ls = [os.path.join(logs_path, f) for f in ls]
                 ls.sort(key=lambda x: os.path.getmtime(x))
@@ -299,6 +324,7 @@ class spotMAX_Win(QMainWindow):
         self.colorItems_path = os.path.join(settings_path, 'colorItems.json')
         csv_path = os.path.join(settings_path, 'gui_settings.csv')
         self.settings_csv_path = csv_path
+        styleItems = ['spots', 'skel']
         if os.path.exists(csv_path):
             self.df_settings = pd.read_csv(csv_path, index_col='setting')
             if 'is_bw_inverted' not in self.df_settings.index:
@@ -314,23 +340,30 @@ class spotMAX_Win(QMainWindow):
             if 'how_normIntensities' not in self.df_settings.index:
                 raw = 'Do not normalize. Display raw image'
                 self.df_settings.at['how_normIntensities', 'value'] = raw
-            if 'spots_transparency' not in self.df_settings.index:
-                self.df_settings.at['spots_transparency', 'value'] = '0.3'
-            if 'spots_pen_width' not in self.df_settings.index:
-                self.df_settings.at['spots_pen_width', 'value'] = '2.0'
-            if 'spots_size' not in self.df_settings.index:
-                self.df_settings.at['spots_size', 'value'] = '3'
+
+            for what in styleItems:
+                if f'{what}_opacity' not in self.df_settings.index:
+                    self.df_settings.at[f'{what}_opacity', 'value'] = '0.3'
+                if f'{what}_pen_width' not in self.df_settings.index:
+                    self.df_settings.at[f'{what}_pen_width', 'value'] = '2.0'
+                if f'{what}_size' not in self.df_settings.index:
+                    self.df_settings.at[f'{what}_size', 'value'] = '3'
         else:
             idx = [
                 'is_bw_inverted',
                 'fontSize',
                 'overlayColor',
                 'how_normIntensities',
-                'spots_transparency',
-                'spots_pen_width',
-                'spots_size'
             ]
-            values = ['No', '10pt', '255-255-0', 'raw', '0.3', '2.0', '3']
+            values = ['No', '10pt', '255-255-0', 'raw']
+            for what in styleItems:
+                idx.append(f'{what}_opacity')
+                values.append(f'0.3')
+                idx.append(f'{what}_pen_width')
+                values.append(f'2.0')
+                idx.append(f'{what}_size')
+                values.append(f'3')
+
             self.df_settings = pd.DataFrame({'setting': idx,
                                              'value': values}
                                            ).set_index('setting')
@@ -391,6 +424,8 @@ class spotMAX_Win(QMainWindow):
             if autoActivate:
                 self.slideshowWin.setFocus(True)
                 self.slideshowWin.activateWindow()
+        else:
+            event.ignore()
 
     def enterEvent(self, event):
         if self.slideshowWin is not None:
@@ -423,11 +458,17 @@ class spotMAX_Win(QMainWindow):
             if autoActivate:
                 self.setFocus(True)
                 self.activateWindow()
+        else:
+            event.ignore()
 
     def keyPressEvent(self, ev):
         if ev.key() == Qt.Key_P:
+            posData = self.currentPosData('left')
+            print(posData.chData.shape)
+            print(posData.chData_shape)
+            print(sys.getsizeof(posData.chData)*1E-6)
+            print(f'Start t0 = {posData.t0_window}, start z0 = {posData.z0_window}')
             pass
-            # self.logger.info('ciao')
         elif ev.key() == Qt.Key_Left:
             if not self.dataLoaded['left'] and not self.dataLoaded['right']:
                 event.ignore()
@@ -518,6 +559,10 @@ class spotMAX_Win(QMainWindow):
         normalizeIntensitiesMenu.addAction(self.normalizeRescale0to1Action)
         normalizeIntensitiesMenu.addAction(self.normalizeByMaxAction)
 
+        # Analyse menu
+        analyseMenu = menuBar.addMenu("&Analyse")
+        analyseMenu.addAction(self.setMeasurementsAction)
+
         # Help menu
         helpMenu = menuBar.addMenu("&Help")
         # helpMenu.addAction(self.tipsAction)
@@ -536,11 +581,14 @@ class spotMAX_Win(QMainWindow):
         self.initiallyHiddenItems['top'].append(self.showInFileManagerAction)
         fileToolBar.addAction(self.undoAction)
         fileToolBar.addAction(self.redoAction)
-        fileToolBar.addWidget(QLabel('   Experiment name:'))
+        self.expNameText = '   Relative path: '
+        expNameLabel = QLabel(self.expNameText)
+        self.expNameLabelAction = fileToolBar.addWidget(expNameLabel)
         self.expNameCombobox = QComboBox(fileToolBar)
         self.expNameCombobox.SizeAdjustPolicy(QComboBox.AdjustToContents)
         self.expNameAction = fileToolBar.addWidget(self.expNameCombobox)
         self.initiallyHiddenItems['top'].append(self.expNameAction)
+        self.initiallyHiddenItems['top'].append(self.expNameLabelAction)
 
         self.topFileToolBar = fileToolBar
 
@@ -569,56 +617,26 @@ class spotMAX_Win(QMainWindow):
         self.initiallyHiddenItems['top'].append(viewerToolbar)
         self.topViewerToolbar = viewerToolbar
 
-        modeToolBar = QToolBar("Mode", self)
-        self.addToolBar(modeToolBar)
-        self.modeToolBar = modeToolBar
-        self.modeComboBox = QComboBox()
-        self.modeComboBox.addItems(['Viewer', 'Compute'])
-        modeComboBoxLabel = QLabel('    Mode: ')
-        modeComboBoxLabel.setBuddy(self.modeComboBox)
-        modeToolBar.addWidget(modeComboBoxLabel)
-        modeToolBar.addWidget(self.modeComboBox)
-        self.initiallyHiddenItems['top'].append(modeToolBar)
-
-        self.topModeToolbar = modeToolBar
-
     def gui_createSideFileToolbar(self, side):
         self.sideToolbar[side]['fileToolbar'] = {}
         toolbarActions = self.sideToolbar[side]['fileToolbar']
 
         openFolderAction = QAction(
             QIcon(":folder-open.svg"),
-            "&Load data from folder onto the left image...", self
+            f"Load data from folder onto the {side} image...", self
         )
         toolbarActions['openFolderAction'] = openFolderAction
 
         openFileAction = QAction(
             QIcon(":image.svg"),
-            "&Load single image/video file onto the left image...", self
+            f"Load single image/video file onto the {side} image...", self
         )
         toolbarActions['openFileAction'] = openFileAction
 
-        reloadAction = QAction(
-            QIcon(":reload.svg"), "Reload left image file", self
-        )
-        toolbarActions['reloadAction'] = reloadAction
-
-        openFolderAction = QAction(
-            QIcon(":folder-open.svg"),
-            "Load data from folder onto the right image...", self
-        )
-        toolbarActions['openFolderAction'] = openFolderAction
-
-        openFileAction = QAction(
-            QIcon(":image.svg"),
-            "Load single image/video file onto the right image...", self
-        )
-        toolbarActions['openFileAction'] = openFileAction
-
-        reloadAction= QAction(
-            QIcon(":reload.svg"), "Reload right image file", self
-        )
-        toolbarActions['reloadAction'] = reloadAction
+        # reloadAction = QAction(
+        #     QIcon(":reload.svg"), "Reload {side} image file", self
+        # )
+        # toolbarActions['reloadAction'] = reloadAction
 
         fileToolBar = QToolBar(f"{side} image file toolbar", self)
         fileToolBar.setMovable(False)
@@ -628,8 +646,8 @@ class spotMAX_Win(QMainWindow):
 
         fileToolBar.addAction(openFolderAction)
         fileToolBar.addAction(openFileAction)
-        fileToolBar.addAction(reloadAction)
-        self.initiallyHiddenItems[side].append(reloadAction)
+        # fileToolBar.addAction(reloadAction)
+        # self.initiallyHiddenItems[side].append(reloadAction)
 
     def gui_createSideViewerToolbar(self, side):
         self.sideToolbar[side]['viewToolbar'] = {}
@@ -643,6 +661,7 @@ class spotMAX_Win(QMainWindow):
         'If you need to overlay a different channel load (or load it again)\n'
         'from "File --> Load fluorescent images" menu.')
         viewToolbarDict['overlayButton'] = overlayButton
+        self.checkableToolButtons.append(overlayButton)
 
         try:
             # padding is new from pyqtgraph 0.12.3
@@ -663,18 +682,21 @@ class spotMAX_Win(QMainWindow):
         plotSpotsCoordsButton.setCheckable(True)
         plotSpotsCoordsButton.setToolTip('Plot spots coordinates')
         viewToolbarDict['plotSpotsCoordsButton'] = plotSpotsCoordsButton
+        self.checkableToolButtons.append(plotSpotsCoordsButton)
 
         plotSkeletonButton = widgets.DblClickQToolButton(self)
         plotSkeletonButton.setIcon(QIcon(":skeletonize.svg"))
         plotSkeletonButton.setCheckable(True)
         plotSkeletonButton.setToolTip('Plot skeleton of selected data')
         viewToolbarDict['plotSkeletonButton'] = plotSkeletonButton
+        self.checkableToolButtons.append(plotSkeletonButton)
 
         plotContourButton = widgets.DblClickQToolButton(self)
         plotContourButton.setIcon(QIcon(":contour.svg"))
         plotContourButton.setCheckable(True)
         plotContourButton.setToolTip('Plot contour of selected data')
         viewToolbarDict['plotContourButton'] = plotContourButton
+        self.checkableToolButtons.append(plotContourButton)
 
         viewToolbar = QToolBar(f"{side} image controls", self)
         viewToolbar.setMovable(False)
@@ -782,11 +804,13 @@ class spotMAX_Win(QMainWindow):
 
         self.setLastUserNormAction()
 
-    def gui_createComputeDockWidget(self):
-        self.computeDockWidget = QDockWidget('spotMAX analysis inputs', self)
-        frame = dialogs.analysisInputsQFrame(self.computeDockWidget)
+        self.setMeasurementsAction = QAction('Set measurements...', self)
 
-        self.computeDockWidget.setWidget(frame)
+    def gui_createComputeDockWidget(self):
+        self.computeDockWidget = QDockWidget('spotMAX Tab Control', self)
+        computeTabControl = dialogs.guiTabControl(self.computeDockWidget)
+
+        self.computeDockWidget.setWidget(computeTabControl)
         self.computeDockWidget.setFeatures(
             QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable
         )
@@ -837,9 +861,11 @@ class spotMAX_Win(QMainWindow):
         self.editColorMenu.addAction(self.editOutsideRefColor)
         self.editColorMenu.addAction(self.editAllSpotsColor)
 
-        self.spotStyleAction = QAction(
-            'Style...', self
-        )
+        self.spotStyleAction = QAction('Style...', self)
+
+    def gui_createSkeletonClickedContextMenuActions(self):
+        self.editSkelColorAction = QAction('Skeleton color...', self)
+        self.skelStyleAction = QAction('Style...', self)
 
     def gui_connectActions(self):
         # Connect File actions
@@ -869,18 +895,13 @@ class spotMAX_Win(QMainWindow):
 
         self.checkableQButtonsGroup.buttonClicked.connect(self.uncheckQButton)
 
-        self.modeComboBox.currentTextChanged.connect(self.modeChanged)
-
         self.showOnlyInsideRefAction.triggered.connect(self.updateSpots)
         self.showOnlyOutsideRefAction.triggered.connect(self.updateSpots)
         self.showAllSpotsAction.triggered.connect(self.updateSpots)
 
-        # self.editClickedSpotColor.triggered.connect(self.selectSpotsColor)
-        self.editInsideRefColor.triggered.connect(self.selectSpotsColor)
-        self.editOutsideRefColor.triggered.connect(self.selectSpotsColor)
-        self.editAllSpotsColor.triggered.connect(self.selectSpotsColor)
+        self.expNameCombobox.currentTextChanged.connect(self.loadSelectedData)
 
-        self.spotStyleAction.triggered.connect(self.selectSpotStyle)
+        self.setMeasurementsAction.triggered.connect(self.setMeasurements)
 
     def gui_connectBottomWidgetsSignals(self, side):
         if self.areActionsConnected[side]:
@@ -892,14 +913,14 @@ class spotMAX_Win(QMainWindow):
             self.howDrawSegmCombobox_cb
         )
 
-        bottomWidgets['navigateScrollbar'].actionTriggered.connect(
+        bottomWidgets['navigateScrollbar'].sigActionTriggered.connect(
             self.navigateScrollbarTriggered
         )
         bottomWidgets['navigateScrollbar'].sliderReleased.connect(
             self.navigateScrollbarReleased
         )
 
-        bottomWidgets['zSliceScrollbarLayer0'].actionTriggered.connect(
+        bottomWidgets['zSliceScrollbarLayer0'].sigActionTriggered.connect(
             self.zSliceScrollbarLayerTriggered
         )
         bottomWidgets['zSliceScrollbarLayer0'].sliderReleased.connect(
@@ -913,7 +934,7 @@ class spotMAX_Win(QMainWindow):
         bottomWidgets['zProjComboboxLayer1'].currentTextChanged.connect(
             self.updateZprojLayer
         )
-        bottomWidgets['zSliceScrollbarLayer1'].actionTriggered.connect(
+        bottomWidgets['zSliceScrollbarLayer1'].sigActionTriggered.connect(
             self.zSliceScrollbarLayerTriggered
         )
         bottomWidgets['zSliceScrollbarLayer1'].sliderReleased.connect(
@@ -927,6 +948,8 @@ class spotMAX_Win(QMainWindow):
     def gui_connectSideToolbarsSignals(self, side):
         if self.areActionsConnected[side]:
             return
+
+        self.showComputeDockButton.clicked.connect(self.showComputeDockWidget)
 
         viewToolbar = self.sideToolbar[side]['viewToolbar']
 
@@ -992,8 +1015,16 @@ class spotMAX_Win(QMainWindow):
     def gui_setColor(self, colorButton):
         side = colorButton.side
         key = colorButton.key
-        self.colorItems[side][key] = list(colorButton.color(mode='byte'))
-        self.gui_createSpotsBrushesPens()
+        rgb = list(colorButton.color(mode='byte'))
+        if key == 'All spots':
+            self.colorItems[side]["Spots inside ref. channel"] = rgb
+            self.colorItems[side]["Spots outside ref. channel"] = rgb
+        else:
+            self.colorItems[side][key] = rgb
+        try:
+            colorButton.scatterItem.createBrushesPens()
+        except AttributeError:
+            pass
         self.updateImage(side)
 
     def gui_createFonts(self):
@@ -1025,128 +1056,25 @@ class spotMAX_Win(QMainWindow):
         self.bottomLayout = QHBoxLayout()
         self.bottomLayout.addSpacing(100)
 
+    def gui_createSideLayout(self):
+        self.sideLayout = QVBoxLayout()
+
+    def gui_addSideLayoutWidgets(self):
+        self.showComputeDockButton = widgets.expandCollapseButton()
+        self.showComputeDockButton.setToolTip('Analysis parameters')
+        self.sideLayout.addWidget(self.showComputeDockButton)
+        self.sideLayout.setSpacing(0)
+        self.sideLayout.setContentsMargins(0,0,0,0)
+        # self.initiallyHiddenItems['left'].append(self.showComputeDockButton)
+
     def gui_createBottomWidgets(self, side):
-        frame = QGroupBox()
-        layout = QGridLayout()
-        bottomWidgets = {}
-
-        row = 0
-        col = 1
-        howDrawSegmCombobox = QComboBox()
-        howDrawSegmCombobox.addItems(self.drawSegmComboboxItems)
-        # Always adjust combobox width to largest item
-        howDrawSegmCombobox.setSizeAdjustPolicy(
-            howDrawSegmCombobox.AdjustToContents
+        frame = dialogs.guiBottomWidgets(
+            side, self.drawSegmComboboxItems, self.zProjItems,
+            isCheckable=True, checked=side=='left'
         )
-        layout.addWidget(
-            howDrawSegmCombobox, row, col, alignment=Qt.AlignCenter
-        )
-        bottomWidgets['howDrawSegmCombobox'] = howDrawSegmCombobox
-
-        row = 1
-        col = 0
-        navigateScrollbar_label = QLabel('frame n.  ')
-        navigateScrollbar_label.setFont(self.font10pt)
-        layout.addWidget(
-            navigateScrollbar_label, row, col, alignment=Qt.AlignRight
-        )
-        bottomWidgets['navigateScrollbar_label'] = navigateScrollbar_label
-
-        row = 1
-        col = 1
-        navigateScrollbar = QScrollBar(Qt.Horizontal)
-        navigateScrollbar.setMinimum(1)
-        layout.addWidget(navigateScrollbar, row, col)
-        bottomWidgets['navigateScrollbar'] = navigateScrollbar
-
-        row = 2
-        col = 0
-        zSliceSbL0_label = QLabel('First layer z-slice  ')
-        zSliceSbL0_label.setFont(self.font10pt)
-        layout.addWidget(
-            zSliceSbL0_label, row, col, alignment=Qt.AlignRight
-        )
-        bottomWidgets['zSliceSbL0_label'] = zSliceSbL0_label
-
-        row = 2
-        col = 1
-        zSliceScrollbarLayer0 = QScrollBar(Qt.Horizontal)
-        zSliceScrollbarLayer0.setMinimum(1)
-        zSliceScrollbarLayer0.layer = 0
-        zSliceScrollbarLayer0.side = side
-        layout.addWidget(zSliceScrollbarLayer0, row, col)
-        bottomWidgets['zSliceScrollbarLayer0'] = zSliceScrollbarLayer0
-
-        row = 2
-        col = 2
-        zProjComboboxLayer0 = QComboBox()
-        zProjComboboxLayer0.layer = 0
-        zProjComboboxLayer0.side = side
-        zProjComboboxLayer0.addItems(self.zProjItems)
-        layout.addWidget(zProjComboboxLayer0, row, col, alignment=Qt.AlignLeft)
-        bottomWidgets['zProjComboboxLayer0'] = zProjComboboxLayer0
-
-        row = 3
-        col = 0
-        zSliceSbL1_label = QLabel('Second layer z-slice  ')
-        zSliceSbL1_label.setFont(self.font10pt)
-        layout.addWidget(
-            zSliceSbL1_label, row, col, alignment=Qt.AlignRight
-        )
-        bottomWidgets['zSliceSbL1_label'] = zSliceSbL1_label
-
-        row = 3
-        col = 1
-        zSliceScrollbarLayer1 = QScrollBar(Qt.Horizontal)
-        zSliceScrollbarLayer1.setMinimum(1)
-        zSliceScrollbarLayer1.layer = 1
-        zSliceScrollbarLayer1.side = side
-        layout.addWidget(zSliceScrollbarLayer1, row, col)
-        bottomWidgets['zSliceScrollbarLayer1'] = zSliceScrollbarLayer1
-
-        row = 3
-        col = 2
-        zProjComboboxLayer1 = QComboBox()
-        zProjComboboxLayer1.layer = 1
-        zProjComboboxLayer1.side = side
-        zProjComboboxLayer1.addItems(self.zProjItems)
-        zProjComboboxLayer1.addItems(['same as above'])
-        zProjComboboxLayer1.setCurrentIndex(1)
-        layout.addWidget(zProjComboboxLayer1, row, col, alignment=Qt.AlignLeft)
-        bottomWidgets['zProjComboboxLayer1'] = zProjComboboxLayer1
-
-        row = 4
-        col = 0
-        alphaScrollbar_label = QLabel('Overlay alpha  ')
-        alphaScrollbar_label.setFont(self.font10pt)
-        layout.addWidget(
-            alphaScrollbar_label, row, col, alignment=Qt.AlignRight
-        )
-        bottomWidgets['alphaScrollbar_label'] = alphaScrollbar_label
-
-        row = 4
-        col = 1
-        alphaScrollbar = QScrollBar(Qt.Horizontal)
-        alphaScrollbar.setMinimum(0)
-        alphaScrollbar.setMaximum(40)
-        alphaScrollbar.setValue(20)
-        alphaScrollbar.setToolTip(
-            'Control the alpha value of the overlay.\n'
-            'alpha=0 results in NO overlay,\n'
-            'alpha=1 results in only fluorescent data visible'
-        )
-        layout.addWidget(alphaScrollbar, row, col)
-        bottomWidgets['alphaScrollbar'] = alphaScrollbar
-
-        layout.setColumnStretch(0,1)
-        layout.setColumnStretch(1,3)
-        layout.setColumnStretch(2,1)
-        frame.setLayout(layout)
-
-        # sp = frame.sizePolicy()
-        # sp.setRetainSizeWhenHidden(True)
-        # frame.setSizePolicy(sp)
-
+        bottomWidgets = frame.bottomWidgets
+        bottomWidgets['zProjComboboxLayer0'].setCurrentText('single z-slice')
+        bottomWidgets['zProjComboboxLayer1'].setCurrentText('same as above')
         return frame, bottomWidgets
 
     def gui_addBottomLeftWidgets(self):
@@ -1165,9 +1093,40 @@ class spotMAX_Win(QMainWindow):
         self.initiallyHiddenItems['right'].append(frame)
 
     def gui_createThreadPool(self):
+        self.maxThreads = QThreadPool.globalInstance().maxThreadCount()
+        self.threadCount = 0
+        self.threadQueue = Queue()
         self.threadPool = QThreadPool.globalInstance()
 
+        self.progressWin = None
+        self.thread = QThread()
+        self.mutex = QMutex()
+        self.waitCond = QWaitCondition()
+        self.waitReadH5cond = QWaitCondition()
+        self.readH5mutex = QMutex()
+        self.worker = qtworkers.loadChunkDataWorker(
+            self.mutex, self.waitCond, self.waitReadH5cond, self.readH5mutex
+        )
+        self.worker.moveToThread(self.thread)
+        self.worker.wait = True
+
+        self.worker.signals.finished.connect(self.thread.quit)
+        self.worker.signals.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.worker.signals.progress.connect(self.workerProgress)
+        self.worker.signals.sigLoadingNewChunk.connect(self.loadingNewChunk)
+        self.worker.sigLoadingFinished.connect(self.loadChunkFinished)
+        self.worker.signals.critical.connect(self.workerCritical)
+        self.worker.signals.finished.connect(self.loadChunkWorkerClosed)
+
+        self.thread.started.connect(self.worker.run)
+        self.thread.start()
+
     def gui_createGraphicsPlots(self):
+        self.graphLayout.removeItem(self.welcomeTextLeft)
+        self.graphLayout.removeItem(self.welcomeTextRight)
+
         # Left plot
         ax1 = pg.PlotItem()
         ax1.invertY(True)
@@ -1176,25 +1135,6 @@ class spotMAX_Win(QMainWindow):
         ax1.hideAxis('left')
         self.graphLayout.addItem(ax1, row=1, col=1)
         self.axes['left'] = ax1
-
-        # Left image instructions
-        html = ("""
-        <p style="font-size:26pt; color:rgb(70,70,70); text-align:center">
-            Drag and drop experiment folder
-            or single image/video file here to start.<br><br>
-            Alternatively, you can use the buttons
-            on the left-side toolbar.
-        </p>
-        <p style="font-size:20pt; color:rgb(70,70,70); text-align:center">
-            Typically, you load on the left image the spots channel.<br><br>
-            Note that it is not mandatory to load two signals. You can load
-            only one (either spots or reference channel).
-        </p>
-        """)
-        text = pg.TextItem(anchor=(0.5,0))
-        text.setHtml(html)
-        text.textItem.adjustSize()
-        self.axes['left'].addItem(text)
 
         # Right plot
         ax2 = pg.PlotItem()
@@ -1205,19 +1145,27 @@ class spotMAX_Win(QMainWindow):
         self.graphLayout.addItem(ax2, row=1, col=2)
         self.axes['right'] = ax2
 
-        # Right image instructions
-        html = html.replace('left-side', 'right-side')
-        html = html.replace('left image', 'right image')
-        html = html.replace('spots channel', 'reference channel')
-        text = pg.TextItem(anchor=(0.5,0))
-        text.setHtml(html)
-        text.textItem.adjustSize()
-        self.axes['right'].addItem(text)
-
         # self.titleLabel = pg.LabelItem(justify='center', color='w', size='14pt')
         # self.graphLayout.addItem(self.titleLabel, row=0, col=1)
 
     def gui_addGraphicsItems(self):
+        # Welcome text
+        html_path = os.path.join(src_path, 'html_files', 'gui_welcome.html')
+        with open(html_path) as html_file:
+            htmlText = html_file.read()
+        self.welcomeTextLeft = self.graphLayout.addLabel(
+            text=htmlText, row=1, col=1
+        )
+        self.welcomeTextLeft.item.adjustSize()
+
+        htmlText = htmlText.replace('left-side', 'right-side')
+        htmlText = htmlText.replace('left image', 'right image')
+        htmlText = htmlText.replace('spots channel', 'reference channel')
+        self.welcomeTextRight = self.graphLayout.addLabel(
+            text=htmlText, row=1, col=2
+        )
+        self.welcomeTextRight.item.adjustSize()
+
         # Auto image adjustment buttons
         proxy = QGraphicsProxyWidget()
         equalizeHistButton = QPushButton('Auto')
@@ -1282,64 +1230,72 @@ class spotMAX_Win(QMainWindow):
 
     def gui_addSpotsScatterItem(self, side):
         spotsScatterItem = widgets.ScatterPlotItem(
-            symbol='o', size=3, pxMode=False,
-            pen=self.spotsPens[side]['All spots'],
-            brush=self.spotsBrushes[side]['All spots'][0],
-            hoverable=True, hoverBrush=self.spotsBrushes[side]['All spots'][1]
+            self, side, 'spots', self.plotSpotsCoords,
+            symbol='o', size=3, pxMode=False, hoverable=True
         )
         self.axes[side].spotsScatterItem = spotsScatterItem
         self.axes[side].addItem(spotsScatterItem)
 
-    def gui_addSkeletonScatterItem(self, side):
-        skeletonScatterItem = widgets.ScatterPlotItem(
-            symbol='o', size=3, pxMode=False,
-            brush=pg.mkBrush(self.colorItems[side]['Skeleton']),
-            pen=pg.mkPen(self.colorItems[side]['Skeleton'], width=2)
+        self.gui_connectSpotsScatterItemActions(spotsScatterItem)
+
+    def gui_addSkelScatterItem(self, side):
+        skelScatterItem = widgets.ScatterPlotItem(
+            self, side, 'skel', self.plotSkeleton,
+            symbol='o', size=1.5, pxMode=False, hoverable=True,
+            brush=pg.mkBrush(self.colorItems[side]['Skeleton color...']),
+            pen=pg.mkPen(self.colorItems[side]['Skeleton color...'])
         )
-        self.axes[side].skeletonScatterItem = skeletonScatterItem
-        self.axes[side].addItem(skeletonScatterItem)
+        self.axes[side].skelScatterItem = skelScatterItem
+        self.axes[side].addItem(skelScatterItem)
+
+        self.gui_connectSkelScatterItemActions(skelScatterItem)
 
     def gui_addContourScatterItem(self, side):
         contourScatterItem = pg.ScatterPlotItem(
             symbol='s', size=1, pxMode=False,
-            brush=pg.mkBrush(self.colorItems[side]['Contour']),
-            pen=pg.mkPen(self.colorItems[side]['Contour'], width=2)
+            brush=pg.mkBrush(self.colorItems[side]['Contour color...']),
+            pen=pg.mkPen(self.colorItems[side]['Contour color...'],
+            width=2)
         )
         self.axes[side].contourScatterItem = contourScatterItem
         self.axes[side].addItem(contourScatterItem)
 
+    def gui_connectSpotsScatterItemActions(self, scatterItem):
+        try:
+            self.editInsideRefColor.triggered.disconnect()
+            self.editOutsideRefColor.triggered.disconnect()
+            self.editAllSpotsColor.triggered.disconnect()
+            self.spotStyleAction.triggered.disconnect()
+        except TypeError:
+            pass
+
+        self.editInsideRefColor.triggered.connect(scatterItem.selectColor)
+        self.editOutsideRefColor.triggered.connect(scatterItem.selectColor)
+        self.editAllSpotsColor.triggered.connect(scatterItem.selectColor)
+        self.spotStyleAction.triggered.connect(scatterItem.selectStyle)
+
+    def gui_connectSkelScatterItemActions(self, scatterItem):
+        try:
+            self.editSkelColorAction.triggered.disconnect()
+            self.skelStyleAction.triggered.disconnect()
+        except TypeError:
+            pass
+
+        self.editSkelColorAction.triggered.connect(scatterItem.selectColor)
+        self.skelStyleAction.triggered.connect(scatterItem.selectStyle)
 
     def gui_addPlotItems(self, side):
         self.gui_addImageItem(side)
         self.gui_addSegmVisuals(side)
         self.gui_addRulerItems(side)
-        self.gui_addSpotsScatterItem(side)
-        self.gui_addSkeletonScatterItem(side)
+        self.gui_addSkelScatterItem(side)
         self.gui_addContourScatterItem(side)
+        self.gui_addSpotsScatterItem(side)
 
     def gui_removeAllItems(self, side):
         self.axes[side].clear()
 
-    def gui_createSpotsBrushesPens(self):
-        # Spots pens and brushes
-        alpha = float(self.df_settings.at['spots_transparency', 'value'])
-        penWidth = float(self.df_settings.at['spots_pen_width', 'value'])
-        self.spotsPens = {'left': {}, 'right': {}}
-        self.spotsBrushes = {'left': {}, 'right': {}}
-        for side, colors in self.colorItems.items():
-            for key, color in colors.items():
-                if key.lower().find('spot')==-1:
-                    continue
-                self.spotsPens[side][key] = pg.mkPen(color, width=penWidth)
-                brushColor = color.copy()
-                brushColor[-1] = int(color[-1]*alpha)
-                self.spotsBrushes[side][key] = (
-                    pg.mkBrush(brushColor), pg.mkBrush(color)
-                )
-
     def gui_createGraphicsItems(self):
-        self.gui_createSpotsBrushesPens()
-
         # Contour pens
         self.oldIDs_cpen = pg.mkPen(color=(200, 0, 0, 255*0.5), width=2)
         self.newIDs_cpen = pg.mkPen(color='r', width=3)
@@ -1365,7 +1321,7 @@ class spotMAX_Win(QMainWindow):
         # Create enough PlotDataItems and LabelItems to draw contours and IDs.
         maxID = 0
         for posData in self.expData[side]:
-            if posData.segm_data is not None and posData.segm_data.max()>maxID:
+            if posData.segm_data is not None:
                 maxID = posData.segm_data.max()
 
         numItems = maxID+10
@@ -1407,7 +1363,9 @@ class spotMAX_Win(QMainWindow):
         histItem.setImageItem(self.imgItems[side])
         histItem.sigContextMenu.connect(self.gui_raiseContextMenuLUT)
         histItem.sigLookupTableChanged.connect(self.histLUTchanged)
+
         self.axes[side].spotsScatterItem.sigClicked.connect(self.spotsClicked)
+        self.axes[side].skelScatterItem.sigClicked.connect(self.skelClicked)
 
 
     def gui_raiseContextMenuLUT(self, histItem, event):
@@ -1474,9 +1432,21 @@ class spotMAX_Win(QMainWindow):
             Y, X = layer0.shape
             if xdata >= 0 and xdata < X and ydata >= 0 and ydata < Y:
                 val = layer0[ydata, xdata]
-                self.wcLabel.setText(
-                    f'(x={x:.2f}, y={y:.2f}, value={val:.0f}, max={layer0.max():.3f})'
+                _max = layer0.max()
+                hoverText = (
+                    f'(x={x:.2f}, y={y:.2f}, value={val:.0f}, max={_max:.3f}'
                 )
+                if posData.rp is not None:
+                    frame_i = self.frame_i(side)
+                    rp = posData.regionprops(frame_i, returnDict=True)
+                    lab = posData.segmLabels(frame_i)
+                    ID = lab[ydata, xdata]
+                    hoverText = f'{hoverText}, ID={ID}'
+                    if ID > 0:
+                        obj = rp[ID]
+                        hoverText = f'{hoverText}, cell_vol_fl={obj.vol_fl:.2f}'
+                hoverText = f'{hoverText})'
+                self.wcLabel.setText(hoverText)
             else:
                 self.wcLabel.setText(f'')
 
@@ -1510,6 +1480,11 @@ class spotMAX_Win(QMainWindow):
             self.axes['left'].show()
 
         self.gui_hideInitItems(side=side)
+        self.gui_uncheckToolButtons()
+
+    def gui_uncheckToolButtons(self):
+        for button in self.checkableToolButtons:
+            button.setChecked(False)
 
     def gui_hideInitItems(self, side='all'):
         if side == 'all':
@@ -1518,10 +1493,9 @@ class spotMAX_Win(QMainWindow):
                     item.setVisible(False)
                     item.setEnabled(False)
                     try:
-                        if item.isCheckable():
-                            item.setChecked(False)
-                    except Exception as e:
-                        traceback.print_exc()
+                        item.setChecked(False)
+                    except AttributeError as e:
+                        pass
         else:
             for item in self.initiallyHiddenItems[side]:
                 item.setVisible(False)
@@ -1529,8 +1503,8 @@ class spotMAX_Win(QMainWindow):
                 try:
                     if item.isCheckable():
                         item.setChecked(False)
-                except Exception as e:
-                    traceback.print_exc()
+                except AttributeError as e:
+                    pass
 
     def gui_setItemsDataShape(self, side):
         if self.dataLoaded[side]:
@@ -1540,30 +1514,29 @@ class spotMAX_Win(QMainWindow):
         bottomWidgets['frame'].setVisible(True)
         bottomWidgets['frame'].setDisabled(False)
         posData = self.currentPosData(side)
-        numPos = len(self.expData[side])
+        numPos = posData.loadSizeS
         overlayButton = self.sideToolbar[side]['viewToolbar']['overlayButton']
 
         if posData.SizeZ > 1:
             midZslice = int(posData.SizeZ/2)
-            bottomWidgets['zSliceSbL0_label'].setStyleSheet('color: black')
             bottomWidgets['zSliceScrollbarLayer0'].setDisabled(False)
             bottomWidgets['zSliceScrollbarLayer0'].setMaximum(posData.SizeZ)
             bottomWidgets['zSliceScrollbarLayer1'].setMaximum(posData.SizeZ)
             bottomWidgets['zSliceScrollbarLayer0'].setSliderPosition(midZslice)
             zSliceSbL0_label = bottomWidgets['zSliceSbL0_label']
+            z_str = str(midZslice).zfill(len(str(posData.SizeZ)))
             zSliceSbL0_label.setText(
-                f'First layer z-slice {midZslice}/{posData.SizeZ}'
+                f'First layer z-slice {z_str}/{posData.SizeZ}'
             )
             bottomWidgets['zProjComboboxLayer0'].setDisabled(False)
         else:
-            bottomWidgets['zSliceSbL0_label'].setStyleSheet('color: gray')
             bottomWidgets['zSliceScrollbarLayer0'].setDisabled(True)
             bottomWidgets['zProjComboboxLayer0'].setDisabled(True)
         if posData.SizeT > 1:
-            numFrames = len(posData.chData)
             bottomWidgets['navigateScrollbar'].setSliderPosition(0)
+            t_str = str(1).zfill(len(str(posData.SizeT)))
             bottomWidgets['navigateScrollbar_label'].setText(
-                f'frame n. {1}/{numFrames}  '
+                f'frame n. {t_str}/{posData.SizeT}  '
             )
             bottomWidgets['navigateScrollbar'].setMaximum(posData.SizeT)
             bottomWidgets['navigateScrollbar'].setDisabled(False)
@@ -1577,39 +1550,27 @@ class spotMAX_Win(QMainWindow):
                 bottomWidgets['navigateScrollbar'].setDisabled(True)
 
         if not overlayButton.isChecked():
-            bottomWidgets['zSliceSbL1_label'].setStyleSheet('color: gray')
             bottomWidgets['zSliceScrollbarLayer1'].setDisabled(True)
             bottomWidgets['zProjComboboxLayer1'].setDisabled(True)
-            bottomWidgets['alphaScrollbar_label'].setStyleSheet('color: gray')
             bottomWidgets['alphaScrollbar'].setDisabled(True)
         elif overlayButton.isChecked() and posData.SizeZ > 1:
-            bottomWidgets['zSliceSbL1_label'].setStyleSheet('color: black')
             bottomWidgets['zSliceScrollbarLayer1'].setDisabled(False)
             bottomWidgets['zSliceScrollbarLayer1'].setSliderPosition(midZslice)
             bottomWidgets['zSliceScrollbarLayer1'].setMaximum(posData.SizeZ)
             zSliceSbL0_label = bottomWidgets['zSliceSbL1_label']
+            z_str = str(midZslice).zfill(len(str(posData.SizeZ)))
             zSliceSbL0_label.setText(
-                f'First layer z-slice {midZslice}/{posData.SizeZ}'
+                f'First layer z-slice {z_str}/{posData.SizeZ}'
             )
             bottomWidgets['zProjComboboxLayer1'].setDisabled(False)
-            bottomWidgets['alphaScrollbar_label'].setStyleSheet('color: black')
             bottomWidgets['alphaScrollbar'].setDisabled(False)
 
         if overlayButton.isChecked():
-            bottomWidgets['alphaScrollbar_label'].setStyleSheet('color: black')
             bottomWidgets['alphaScrollbar'].setDisabled(False)
 
     def gui_setVisibleItems(self, side):
-        print('-------------')
-        print(side)
-        print(self.dataLoaded[side])
-        print('------------')
-
         if self.dataLoaded[side]:
             return
-
-        self.topModeToolbar.setVisible(True)
-        self.topModeToolbar.setDisabled(False)
 
         self.topViewerToolbar.setVisible(True)
         self.topViewerToolbar.setDisabled(False)
@@ -1668,12 +1629,38 @@ class spotMAX_Win(QMainWindow):
 
 
     def gui_enableLoadButtons(self):
-        for side in ['left', 'right']:
-            fileToolbar = self.sideToolbar[side]['fileToolbar']
-            openFolderAction = fileToolbar['openFolderAction']
-            openFileAction = fileToolbar['openFileAction']
+        try:
+            isMultiChannel = len(self.ch_names) > 1
+        except AttributeError:
+            isMultiChannel = False
+
+        dataLoadedOnlyRight = self.expData['right'] and not self.expData['left']
+        dataLoadedOnlyLeft = self.expData['left'] and not self.expData['right']
+
+        # Check if enable right actions
+        fileToolbar = self.sideToolbar['right']['fileToolbar']
+        openFolderAction = fileToolbar['openFolderAction']
+        openFileAction = fileToolbar['openFileAction']
+        if dataLoadedOnlyLeft and isMultiChannel:
+            openFolderAction.setEnabled(True)
+            openFileAction.setEnabled(False)
+        else:
             openFolderAction.setEnabled(True)
             openFileAction.setEnabled(True)
+
+        # Check if enable left actions
+        fileToolbar = self.sideToolbar['left']['fileToolbar']
+        openFolderAction = fileToolbar['openFolderAction']
+        openFileAction = fileToolbar['openFileAction']
+        if dataLoadedOnlyRight and isMultiChannel:
+            openFolderAction.setEnabled(True)
+            openFileAction.setEnabled(False)
+        elif dataLoadedOnlyRight:
+            openFileAction.setEnabled(False)
+        else:
+            openFolderAction.setEnabled(True)
+            openFileAction.setEnabled(True)
+
 
     def gui_addTitleLabel(self, colspan=None):
         return
@@ -1683,12 +1670,16 @@ class spotMAX_Win(QMainWindow):
         # self.titleLabel = pg.LabelItem(justify='center', color='w', size='14pt')
         # self.graphLayout.addItem(self.titleLabel, row=0, col=1, colspan=colspan)
 
-    def modeChanged(self, mode):
-        if mode == 'Viewer':
+    def setMeasurements(self, checked=False):
+        pass
+
+    def showComputeDockWidget(self, checked=False):
+        if self.showComputeDockButton.isExpand:
             self.computeDockWidget.setVisible(False)
-        elif mode == 'Compute':
+        else:
             self.computeDockWidget.setVisible(True)
             self.computeDockWidget.setEnabled(True)
+            self.addInspectResultsTab(self.lastLoadedSide)
 
     def loadingDataAborted(self):
         # self.gui_addTitleLabel(colspan=2)
@@ -1837,7 +1828,7 @@ class spotMAX_Win(QMainWindow):
 
         if not button.isChecked():
             self.checkIfDisableOverlayWidgets(side)
-            self.axes[side].skeletonScatterItem.setData([], [])
+            self.axes[side].skelScatterItem.setData([], [])
             return
 
         posData = self.currentPosData(side)
@@ -1960,7 +1951,7 @@ class spotMAX_Win(QMainWindow):
             if not h5_files:
                 continue
             runsInfo[run] = h5_files
-        win = dialogs.selectSpotsH5File(runsInfo, parent=self)
+        win = dialogs.selectSpotsH5FileDialog(runsInfo, parent=self)
         win.show()
         win.exec_()
         if win.selectedFile is None:
@@ -2060,7 +2051,7 @@ class spotMAX_Win(QMainWindow):
         else:
             yy_skel, xx_skel = skelCoords['all']
 
-        self.axes[side].skeletonScatterItem.setData(xx_skel, yy_skel)
+        self.axes[side].skelScatterItem.setData(xx_skel, yy_skel)
 
     @exception_handler
     def plotContours(self, side):
@@ -2130,10 +2121,10 @@ class spotMAX_Win(QMainWindow):
         data = df['|abs|_spot'].round(4)
 
         # Add brushes and pens
-        brushes = self.spotsBrushes[side]
-        pens = self.spotsPens[side]
-        df['brush'] = brushes['All spots'][0]
-        df['pen'] = pens['All spots']
+        brushes = spotsScatterItem.brushes[side]
+        pens = spotsScatterItem.pens[side]
+        df['brush'] = brushes["Spots inside ref. channel"][0]
+        df['pen'] = pens["Spots inside ref. channel"]
 
         if 'is_spot_inside_ref_ch' in df.columns:
             in_ref_mask = df['is_spot_inside_ref_ch'] > 0
@@ -2157,7 +2148,7 @@ class spotMAX_Win(QMainWindow):
             size=int(self.df_settings.at['spots_size', 'value']),
             pen=df['pen'].to_list(),
             brush=df['brush'].to_list(),
-            hoverBrush=brushes['All spots'][1]
+            hoverBrush=brushes["Spots inside ref. channel"][1]
         )
 
     @exception_handler
@@ -2167,6 +2158,7 @@ class spotMAX_Win(QMainWindow):
         xClicked = int(spotItems[0].pos().x()-0.5)
         yClicked = int(spotItems[0].pos().y()-0.5)
         scatterItem.clickedSpot = (xClicked, yClicked)
+        scatterItem.clickedSpotItem = spotItems[0]
 
         left_click = event.button() == Qt.MouseButton.LeftButton
         right_click = event.button() == Qt.MouseButton.RightButton
@@ -2193,90 +2185,28 @@ class spotMAX_Win(QMainWindow):
             menu.exec(event.screenPos())
 
     @exception_handler
-    def selectSpotsColor(self):
-        """Callback of the actions from spotsClicked right-click QMenu"""
+    def skelClicked(self, scatterItem, spotItems, event):
+        side = self.side(self.axes['left'].spotsScatterItem, sender=scatterItem)
 
-        side = self.sender().parent().side
-        key = self.sender().text()
-        viewToolbar = self.sideToolbar[side]['viewToolbar']
+        xClicked = int(spotItems[0].pos().x()-0.5)
+        yClicked = int(spotItems[0].pos().y()-0.5)
+        scatterItem.clickedSpot = (xClicked, yClicked)
+        scatterItem.clickedSpotItem = spotItems[0]
 
-        # Trigger color button on the side toolbar which is connected to
-        # gui_setColor
-        colorButton = viewToolbar['colorButton']
-        colorButton.side = side
-        colorButton.key = key
-        colorButton.setColor(self.colorItems[side][key])
-        colorButton.selectColor()
+        left_click = event.button() == Qt.MouseButton.LeftButton
+        right_click = event.button() == Qt.MouseButton.RightButton
 
-    @exception_handler
-    def selectSpotStyle(self):
-        """Callback of the spotStyleAction from spotsClicked right-click QMenu"""
-        side = self.sender().parent().side
+        if right_click:
+            menu = QMenu(self)
+            menu.side = side
 
-        alpha = float(self.df_settings.at['spots_transparency', 'value'])
-        penWidth = float(self.df_settings.at['spots_pen_width', 'value'])
-        size = int(self.df_settings.at['spots_size', 'value'])
+            self.editSkelColorAction.setParent(menu)
+            menu.addAction(self.editSkelColorAction)
 
-        transparencyVal = int(alpha*100)
-        penWidthVal = int(penWidth*2)
+            self.skelStyleAction.setParent(menu)
+            menu.addAction(self.skelStyleAction)
 
-        self.origAlpha = alpha
-        self.origWidth = penWidth
-        self.origSize = size
-
-        self.spotStileWin = dialogs.spotStyleDock(
-            'Spots style', parent=self
-        )
-        self.spotStileWin.side = side
-
-        self.spotStileWin.transpSlider.setValue(transparencyVal)
-        self.spotStileWin.transpSlider.sigValueChange.connect(
-            self.gui_setSpotsTransparency
-        )
-
-        self.spotStileWin.penWidthSlider.setValue(penWidthVal)
-        self.spotStileWin.penWidthSlider.sigValueChange.connect(
-            self.gui_setSpotsPenWidth
-        )
-
-        self.spotStileWin.sizeSlider.setValue(size)
-        self.spotStileWin.sizeSlider.sigValueChange.connect(
-            self.gui_setSpotsSize
-        )
-
-        # self.spotStileWin.sigOk.connect(self.gui_setSpotsTransparency)
-        self.spotStileWin.sigCancel.connect(self.gui_spotStyleCanceled)
-
-        self.spotStileWin.show()
-
-    def gui_spotStyleCanceled(self):
-        self.df_settings.at['spots_transparency', 'value'] = self.origAlpha
-        self.df_settings.at['spots_pen_width', 'value'] = self.origWidth
-        self.df_settings.at['spots_size', 'value'] = self.origSize
-
-        self.gui_createSpotsBrushesPens()
-        self.plotSpotsCoords(self.spotStileWin.side)
-
-
-    def gui_setSpotsTransparency(self, transparencyVal):
-        alpha = transparencyVal/100
-        self.df_settings.at['spots_transparency', 'value'] = alpha
-
-        self.gui_createSpotsBrushesPens()
-        self.plotSpotsCoords(self.spotStileWin.side)
-
-    def gui_setSpotsPenWidth(self, penWidth):
-        penWidthVal = penWidth/2
-        self.df_settings.at['spots_pen_width', 'value'] = penWidthVal
-
-        self.gui_createSpotsBrushesPens()
-        self.plotSpotsCoords(self.spotStileWin.side)
-
-    def gui_setSpotsSize(self, size):
-        self.df_settings.at['spots_size', 'value'] = size
-
-        self.gui_createSpotsBrushesPens()
-        self.plotSpotsCoords(self.spotStileWin.side)
+            menu.exec(event.screenPos())
 
     def uncheckQButton(self, button):
         # Manual exclusive where we allow to uncheck all buttons
@@ -2294,10 +2224,20 @@ class spotMAX_Win(QMainWindow):
         pass
 
     def openFileLeft(self, checked=True):
-        self.openFile('left')
+        if self.expData['right']:
+            self.lastLoadedSide = 'left'
+            self.channelNameUtil.reloadLastSelectedChannel('left')
+            self.getChannelName()
+        else:
+            self.openFile('left')
 
     def openFileRight(self, checked=True):
-        self.openFile('right')
+        if self.expData['left']:
+            self.lastLoadedSide = 'right'
+            self.channelNameUtil.reloadLastSelectedChannel('right')
+            self.getChannelName()
+        else:
+            self.openFile('right')
 
     @exception_handler
     def openFile(self, side, file_path=''):
@@ -2314,53 +2254,39 @@ class spotMAX_Win(QMainWindow):
         dirpath = os.path.dirname(file_path)
         dirname = os.path.basename(dirpath)
         if dirname != 'Images':
-            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            acdc_folder = f'{timestamp}_acdc'
-            selectedPath = os.path.join(dirpath, acdc_folder, 'Images')
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+            spotmax_folder = f'{timestamp}_spotmax'
+            selectedPath = os.path.join(dirpath, spotmax_folder, 'Images')
             os.makedirs(selectedPath)
         else:
             selectedPath = dirpath
 
         filename, ext = os.path.splitext(os.path.basename(file_path))
-        if ext == '.tif' or ext == '.npz':
+        if ext == '.tif' or ext == '.npz' or ext == '.h5':
             self.openFolder(side, selectedPath=selectedPath, imageFilePath=file_path)
         else:
             self.logger.info('Copying file to .tif format...')
-            data = load.loadData(file_path, '')
-            data.loadImgData()
-            img = data.img_data
-            if img.ndim == 3 and (img.shape[-1] == 3 or img.shape[-1] == 4):
-                self.logger.info('Converting RGB image to grayscale...')
-                data.img_data = skimage.color.rgb2gray(data.img_data)
-                data.img_data = skimage.img_as_ubyte(data.img_data)
-            tif_path = os.path.join(selectedPath, f'{filename}.tif')
-            if data.img_data.ndim == 3:
-                SizeT = data.img_data.shape[0]
-                SizeZ = 1
-            elif data.img_data.ndim == 4:
-                SizeT = data.img_data.shape[0]
-                SizeZ = data.img_data.shape[1]
-            else:
-                SizeT = 1
-                SizeZ = 1
-            is_imageJ_dtype = (
-                data.img_data.dtype == np.uint8
-                or data.img_data.dtype == np.uint16
-                or data.img_data.dtype == np.float32
+            img = skimage.io.imread(file_path)
+            tif_path = utils.img_to_imageJ(img, selectedPath, filename)
+            self.openFolder(
+                side, selectedPath=selectedPath, imageFilePath=tif_path
             )
-            if not is_imageJ_dtype:
-                data.img_data = skimage.img_as_ubyte(data.img_data)
-
-            myutils.imagej_tiffwriter(
-                tif_path, data.img_data, {}, SizeT, SizeZ
-            )
-            self.openFolder(side, selectedPath=selectedPath, imageFilePath=tif_path)
 
     def openFolderRight(self, checked=True):
-        self.openFolder('right')
+        if self.expData['left']:
+            self.lastLoadedSide = 'right'
+            self.channelNameUtil.reloadLastSelectedChannel('right')
+            self.getChannelName()
+        else:
+            self.openFolder('right')
 
     def openFolderLeft(self, checked=True):
-        self.openFolder('left')
+        if self.expData['right']:
+            self.lastLoadedSide = 'left'
+            self.channelNameUtil.reloadLastSelectedChannel('left')
+            self.getChannelName()
+        else:
+            self.openFolder('left')
 
     @exception_handler
     def openFolder(self, side, selectedPath='', imageFilePath=''):
@@ -2386,6 +2312,14 @@ class spotMAX_Win(QMainWindow):
         -------
             None
         """
+        if self.threadCount > 0:
+            self.worker.exit = True
+            self.waitCond.wakeAll()
+
+        if self.isFirstOpen:
+            self.gui_createGraphicsPlots()
+            self.isFirstOpen = False
+
         self.funcDescription = 'load data'
         self.lastLoadedSide = side
 
@@ -2425,9 +2359,10 @@ class spotMAX_Win(QMainWindow):
         user_ch_name = None
         if imageFilePath:
             images_paths = [pathlib.Path(selectedPath)]
-            filenames = os.listdir(selectedPath)
+            self.images_paths = images_paths
+            filenames = utils.listdir(selectedPath)
             ch_names, basenameNotFound = (
-                channelNameUtil.getChannels(filenames, selectedPath)
+                self.channelNameUtil.getChannels(filenames, selectedPath)
             )
             filename = os.path.basename(imageFilePath)
             self.ch_names = ch_names
@@ -2447,7 +2382,7 @@ class spotMAX_Win(QMainWindow):
             images_paths = [pos_path / 'Images']
         else:
             pos_foldernames = [
-                f for f in os.listdir(selectedPath)
+                f for f in utils.listdir(selectedPath)
                 if f.find('Position_')!=-1
                 and os.path.isdir(os.path.join(selectedPath, f))
             ]
@@ -2504,14 +2439,30 @@ class spotMAX_Win(QMainWindow):
         elif nextStep == 'startSkeletonizeWorker':
             for posData in self.expData[side]:
                 posData.skeletonizedRelativeFilename = selectedRelFilename
+
+            self.progressWin = dialogs.QDialogWorkerProcess(
+                title='Skeletonizing...', parent=self,
+                pbarDesc=f'Skeletonizing {selectedRelFilename}...'
+            )
+            self.progressWin.mainPbar.setMaximum(len(self.expData[side]))
+            self.progressWin.show(self.app)
             self.startSkeletonizeWorker(side)
         elif nextStep == 'startContoursWorker':
             for posData in self.expData[side]:
                 posData.contouredRelativeFilename = selectedRelFilename
+
+            self.progressWin = dialogs.QDialogWorkerProcess(
+                title='Computing contours...', parent=self,
+                pbarDesc=f'Computing contours {selectedRelFilename}...'
+            )
+            self.progressWin.mainPbar.setMaximum(len(self.expData[side]))
+            self.progressWin.show(self.app)
+
             self.startContoursWorker(side)
 
     def workerProgress(self, text, loggerLevel):
-        self.progressWin.logConsole.append(text)
+        if self.progressWin is not None:
+            self.progressWin.logConsole.append(text)
         self.logger.log(getattr(logging, loggerLevel), text)
 
     def workerInitProgressbar(self, totalIter):
@@ -2523,7 +2474,8 @@ class spotMAX_Win(QMainWindow):
 
     @exception_handler
     def workerCritical(self, error):
-        self.progressWin.workerFinished = True
+        if self.progressWin is not None:
+            self.progressWin.workerFinished = True
         raise error
 
     def getChannelName(self):
@@ -2532,7 +2484,7 @@ class spotMAX_Win(QMainWindow):
         images_path = self.images_paths[0]
         abortedByUser = False
         user_ch_name = None
-        filenames = os.listdir(images_path)
+        filenames = utils.listdir(images_path)
         ch_names, basenameNotFound = (
             channelNameUtil.getChannels(filenames, images_path)
         )
@@ -2570,31 +2522,46 @@ class spotMAX_Win(QMainWindow):
     def getDataPaths(self):
         channelDataFilePaths = []
         for images_path in self.images_paths:
-            tif_found = False
-            files = os.listdir(images_path)
-            for file in files:
+            h5_aligned_path = ''
+            h5_path = ''
+            npz_aligned_path = ''
+            tif_path = ''
+            files = utils.listdir(images_path)
+            for file in (files):
                 channelDataPath = images_path / file
-                if file.endswith(f'{self.user_ch_name}_aligned.npz'):
-                    self.logger.info('Aligned file found, using it...')
-                    channelDataFilePaths.append(channelDataPath)
-                    break
+                if file.endswith(f'{self.user_ch_name}_aligned.h5'):
+                    h5_aligned_path = channelDataPath
+                elif file.endswith(f'{self.user_ch_name}.h5'):
+                    h5_path = channelDataPath
+                elif file.endswith(f'{self.user_ch_name}_aligned.npz'):
+                    npz_aligned_path = channelDataPath
                 elif file.endswith(f'{self.user_ch_name}.tif'):
-                    tif_found = True
-                    tifPath = channelDataPath
-            else:
-                self.logger.info(
-                    f'Aligned file not found in {images_path}, using .tif file...'
-                )
-                if tif_found:
-                    channelDataFilePaths.append(tifPath)
-                else:
-                    self.loadingDataAborted()
-                    self.criticalImgPathNotFound(images_path)
-                    return
+                    tif_path = channelDataPath
 
-        self.initGlobalAttr()
+            if h5_aligned_path:
+                self.logger.info(
+                    f'Using .h5 aligned file ({h5_aligned_path})...'
+                )
+                channelDataFilePaths.append(h5_aligned_path)
+            elif h5_path:
+                self.logger.info(f'Using .h5 file ({h5_path})...')
+                channelDataFilePaths.append(h5_path)
+            elif npz_aligned_path:
+                self.logger.info(
+                    f'Using .npz aligned file ({npz_aligned_path})...'
+                )
+                channelDataFilePaths.append(npz_aligned_path)
+            elif tif_path:
+                self.logger.info(f'Using .tif file ({tif_path})...')
+                channelDataFilePaths.append(tif_path)
+            else:
+                self.loadingDataAborted()
+                self.criticalImgPathNotFound(images_path)
+                return
 
         self.channelDataFilePaths = channelDataFilePaths
+
+        self.initGlobalAttr()
         self.splitExpPaths()
         self.loadSelectedData()
 
@@ -2613,31 +2580,58 @@ class spotMAX_Win(QMainWindow):
         navigateScrollbar.setSliderPosition(0)
 
     def splitExpPaths(self):
-        uniqueExpPaths = set([f.parents[2] for f in self.channelDataFilePaths])
-        expPaths = {}
+        uniqueExpPaths = set(
+            [f.parents[2] for f in self.channelDataFilePaths]
+        )
+        selectedPath = pathlib.Path(self.selectedPath)
+        expPaths = dict()
         for expPath in uniqueExpPaths:
-            expName = f'...{expPath.parent.name}{os.sep}{expPath.name}'
+            try:
+                expName = str(expPath.relative_to(selectedPath))
+            except ValueError:
+                expName = '.'
             expPaths[expName] = {
                 'path': expPath,
                 'channelDataPaths': []
             }
         for filePath in self.channelDataFilePaths:
             expPath = filePath.parents[2]
-            expName = f'...{expPath.parent.name}{os.sep}{expPath.name}'
+            try:
+                expName = str(expPath.relative_to(selectedPath))
+            except ValueError:
+                expName = '.'
             expPaths[expName]['channelDataPaths'].append(filePath)
 
-        self.expPaths = expPaths
-        self.addExpNameCombobox()
+        self.logger.info('Sorting expPaths...')
 
-    def addExpNameCombobox(self):
-        self.topFileToolBar.removeAction(self.expNameAction)
-        self.initiallyHiddenItems['top'].remove(self.expNameAction)
-        self.expNameCombobox = QComboBox(self.topFileToolBar)
-        self.expNameCombobox.SizeAdjustPolicy(QComboBox.AdjustToContents)
-        self.expNameCombobox.addItems(list(self.expPaths.keys()))
-        self.expNameCombobox.adjustSize()
-        self.expNameAction = self.topFileToolBar.addWidget(self.expNameCombobox)
-        self.initiallyHiddenItems['top'].append(self.expNameAction)
+        if len(expPaths) > 1:
+            expPaths = utils.natSortExpPaths(expPaths)
+        self.expPaths = expPaths
+
+        self.updateExpNameCombobox()
+
+    def updateExpNameCombobox(self):
+        self.expNameCombobox.currentTextChanged.disconnect()
+        items = list(self.expPaths.keys())
+        currentText = self.expNameCombobox.currentText()
+        self.expNameCombobox.clear()
+        self.expNameCombobox.addItems(items)
+        if len(items)==1:
+            self.expNameLabelAction.setVisible(False)
+            self.expNameAction.setVisible(False)
+        else:
+            self.expNameLabelAction.setVisible(True)
+            self.expNameAction.setVisible(True)
+            self.expNameAction.setEnabled(True)
+            self.expNameLabelAction.setEnabled(True)
+            if currentText in items:
+                self.expNameCombobox.setCurrentText(currentText)
+            else:
+                self.warnLoadedDifferentPaths()
+        self.expNameCombobox.currentTextChanged.connect(self.loadSelectedData)
+
+    def warnLoadedDifferentPaths(self):
+        pass
 
     def addPosCombobox(self, expName):
         try:
@@ -2672,6 +2666,7 @@ class spotMAX_Win(QMainWindow):
         posDataRef.loadChannelData()
         posDataRef.loadOtherFiles(load_metadata=True)
         proceed = posDataRef.askInputMetadata(
+            self.numPos,
             ask_SizeT=True,
             ask_TimeIncrement=True,
             ask_PhysicalSizes=True,
@@ -2682,18 +2677,87 @@ class spotMAX_Win(QMainWindow):
 
         return channelDataPath, posDataRef
 
+    def warnMemoryNotSufficient(self, total_ram, available_ram, required_ram):
+        total_ram = myutils._bytes_to_MB(total_ram)
+        available_ram = myutils._bytes_to_MB(available_ram)
+        required_ram = myutils._bytes_to_MB(required_ram)
+        msg = QMessageBox(self)
+        msg.setWindowTitle('Memory not sufficient')
+        msg.setIcon(msg.Warning)
+        msg.setText(f"""
+        <p style="font-size:10pt">
+            The total amount of data that you requested to load is about
+            <b>{required_ram} MB</b> but there are only
+            <b>{available_ram} MB</b> available.<br><br>
+            For optimal operation, we recommend loading <b>maximum 20%</b>
+            of the available memory. To do so, try to close open apps to
+            free up some memory or consider using .h5 files and load only
+            a portion of the file. Another option is to crop the images
+            using the data prep module.<br><br>
+            If you choose to continue, the <b>system might freeze</b>
+            or your OS could simply kill the process.<br><br>
+            What do you want to do?
+        </p>
+        """
+        )
+        continueButton = QPushButton('Continue anyway')
+        abortButton = QPushButton('Abort')
+        msg.addButton(continueButton, msg.YesRole)
+        msg.addButton(abortButton, msg.NoRole)
+        msg.exec_()
+        if msg.clickedButton() == continueButton:
+            return True
+        else:
+            return False
+
+    def checkMemoryRequirements(self, required_ram):
+        memory = psutil.virtual_memory()
+        total_ram = memory.total
+        available_ram = memory.available
+        if required_ram/available_ram > 0.2:
+            proceed = self.warnMemoryNotSufficient(
+                total_ram, available_ram, required_ram
+            )
+            return proceed
+        else:
+            return True
+
     def loadSelectedData(self):
         # self.titleLabel.setText('Loading data...', color='w')
         expName = self.expNameCombobox.currentText()
         expPath = self.expPaths[expName]['path']
+        self.expData[self.lastLoadedSide] = []
 
         selectedExpName = expName
+        self.numPos = len(self.expPaths[expName]['channelDataPaths'])
+
+        channelDataPaths = self.expPaths[expName]['channelDataPaths']
+        required_ram = utils.getMemoryFootprint(channelDataPaths)
+        proceed = self.checkMemoryRequirements(required_ram)
+        if not proceed:
+            self.logger.info(
+                'Loading process cancelled by the user because '
+                'memory not sufficient.'
+            )
+            self.loadingDataAborted()
+            return
 
         fisrtChannelDataPath, posDataRef = self.readMetadata(expName, 0)
         if not fisrtChannelDataPath:
             self.logger.info('Loading process cancelled by the user.')
             self.loadingDataAborted()
             return
+
+        required_ram = posDataRef.checkH5memoryFootprint()*posDataRef.loadSizeS
+        if required_ram > 0:
+            proceed = self.checkMemoryRequirements(required_ram)
+            if not proceed:
+                self.logger.info(
+                    'Loading process cancelled by the user because '
+                    'memory not sufficient.'
+                )
+                self.loadingDataAborted()
+                return
 
         if posDataRef.SizeT > 1:
             self.isTimeLapse = True
@@ -2709,7 +2773,9 @@ class spotMAX_Win(QMainWindow):
         )
         self.progressWin.show(self.app)
         self.posDataRef = posDataRef
-        self.startLoadDataWorker(selectedPos, selectedExpName)
+
+        func = partial(self.startLoadDataWorker, selectedPos, selectedExpName)
+        QTimer.singleShot(50, func)
 
     def startLoadDataWorker(self, selectedPos, selectedExpName):
         self.funcDescription = 'loading data'
@@ -2751,27 +2817,29 @@ class spotMAX_Win(QMainWindow):
             self.dataLoaded['left'] and self.dataLoaded['right']
         )
         if areBothPlotsVisible:
-            self.axes['left'].disableAutoRange()
-            self.axes['left'].disableAutoRange()
-
             self.axes['left'].setYLink(self.axes['right'])
             self.axes['left'].setXLink(self.axes['right'])
 
-            self.axes['left'].enableAutoRange()
-            self.axes['right'].enableAutoRange()
+        QTimer.singleShot(300, self.axes['left'].autoRange)
 
     def loadDataWorkerFinished(self):
         self.progressWin.workerFinished = True
         self.progressWin.close()
         self.loadingDataFinished()
 
+    def z(self, side, layer=0):
+        bottomWidgets = self.bottomWidgets[side]
+        z = bottomWidgets[f'zSliceScrollbarLayer{layer}'].sliderPosition()-1
+        return z
+
     def zStack_to_2D(self, side, zStack, layer=0):
         bottomWidgets = self.bottomWidgets[side]
+        posData = self.currentPosData(side)
         zProjHow = bottomWidgets[f'zProjComboboxLayer{layer}'].currentText()
-        z = bottomWidgets[f'zSliceScrollbarLayer{layer}'].sliderPosition()-1
+        z = self.z(side, layer=layer)
         if zProjHow == 'same as above':
             zProjHow = bottomWidgets[f'zProjComboboxLayer0'].currentText()
-            z = bottomWidgets[f'zSliceScrollbarLayer0'].sliderPosition()-1
+            z = self.z(side, layer=0) - posData.z0_window
 
         if zProjHow == 'single z-slice':
             img = zStack[z]
@@ -2877,32 +2945,24 @@ class spotMAX_Win(QMainWindow):
             bottomWidgets['zProjComboboxLayer1'].setEnabled(enabled)
             how = bottomWidgets['zProjComboboxLayer1'].currentText()
             if how.find('max') != -1 or how == 'same as above':
-                bottomWidgets['zSliceSbL1_label'].setStyleSheet('color: gray')
                 bottomWidgets['zSliceScrollbarLayer1'].setDisabled(True)
-            elif enabled:
-                bottomWidgets['zSliceSbL1_label'].setStyleSheet('color: black')
-            else:
-                bottomWidgets['zSliceSbL1_label'].setStyleSheet('color: gray')
 
         bottomWidgets['alphaScrollbar'].setEnabled(enabled)
-        if enabled:
-            bottomWidgets['alphaScrollbar_label'].setStyleSheet('color: black')
-        else:
-            bottomWidgets['alphaScrollbar_label'].setStyleSheet('color: gray')
 
     def layerImage(self, side, relFilename=''):
         posData = self.currentPosData(side)
 
         if not relFilename:
             data = posData.chData
+            frame_i = self.frame_i(side) - posData.t0_window
             layer = 0
         else:
             data = posData.loadedRelativeFilenamesData[relFilename]
+            frame_i = self.frame_i(side)
             layer = 1
 
         if posData.SizeT > 1 and posData.SizeZ > 1:
             # 4D data
-            frame_i = self.frame_i(side)
             zStack = data[frame_i]
             img = self.zStack_to_2D(side, zStack, layer=layer)
         elif posData.SizeT == 1 and posData.SizeZ > 1:
@@ -2910,7 +2970,6 @@ class spotMAX_Win(QMainWindow):
             img = self.zStack_to_2D(side, data, layer=layer)
         elif posData.SizeT > 1 and posData.SizeZ == 1:
             # 2D timelapse data
-            frame_i = self.frame_i(side)
             img = data[frame_i]
         else:
             img = data
@@ -2954,8 +3013,16 @@ class spotMAX_Win(QMainWindow):
                 BudMothLine.setData([], [])
             labelItem.setText('')
 
-    def updateImage(self, side):
+    def clearOverlayVisuals(self, side):
+        if self.axes[side].spotsScatterItem.getData()[0] is not None:
+            self.axes[side].spotsScatterItem.setData([], [])
+        if self.axes[side].contourScatterItem.getData()[0] is not None:
+            self.axes[side].contourScatterItem.setData([], [])
+        if self.axes[side].skelScatterItem.getData()[0] is not None:
+            self.axes[side].skelScatterItem.setData([], [])
 
+    @exception_handler
+    def updateImage(self, side):
         img = self.currentImage(side)
         self.imgItems[side].setImage(img)
 
@@ -2981,6 +3048,11 @@ class spotMAX_Win(QMainWindow):
         if posData.rp is not None:
             for obj in posData.regionprops(self.frame_i(side)):
                 self.drawID_and_Contour(obj, side)
+
+    def addInspectResultsTab(self, side):
+        posData = self.currentPosData(side)
+        tabControl = self.computeDockWidget.widget()
+        tabControl.addInspectResultsTab(posData)
 
     def updateHistogramItem(self, side):
         """
@@ -3100,6 +3172,16 @@ class spotMAX_Win(QMainWindow):
             side = 'right'
         return side
 
+    def updateLinkedCombobox(self, side, labelKey, text):
+        linkedSide = 'left' if side=='right' else 'right'
+        bottomWidgets = self.bottomWidgets[linkedSide]
+        combobox = bottomWidgets[labelKey]
+        if combobox.checkBox.isChecked():
+            return
+
+        combobox.setCurrentText(text)
+
+
     def howDrawSegmCombobox_cb(self, how):
         onlyIDs = how == 'Draw only IDs'
         nothing = how == 'Draw nothing'
@@ -3109,6 +3191,8 @@ class spotMAX_Win(QMainWindow):
         onlyMothBudLines = how == 'Draw only mother-bud lines'
 
         side = self.side(self.bottomWidgets['left']['howDrawSegmCombobox'])
+
+        self.updateLinkedCombobox(side, 'howDrawSegmCombobox', how)
 
         # Clear contours if requested
         if how.find('contours') == -1 or nothing:
@@ -3130,66 +3214,238 @@ class spotMAX_Win(QMainWindow):
 
         self.updateSegmVisuals(side)
 
+    def updateLinkedScrollbar(self, side, labelKey, position, labelText):
+        linkedSide = 'left' if side=='right' else 'right'
+        bottomWidgets = self.bottomWidgets[linkedSide]
+        scrollbar = bottomWidgets[labelKey]
+        if scrollbar.checkBox.isChecked():
+            return
+
+        scrollbar.label.setText(labelText)
+        scrollbar.setSliderPosition(position)
+
     def navigateScrollbarTriggered(self, action):
         side = self.side(self.bottomWidgets['left']['navigateScrollbar'])
         bottomWidgets = self.bottomWidgets[side]
         posData = self.currentPosData(side)
-        posName = posData.pos_foldername
-        bottomWidgets['navigateScrollbar_label'].setText(f'{posName} ')
+
+        if posData.SizeT > 1:
+            t_str = str(self.frame_i(side)+1).zfill(len(str(posData.SizeT)))
+            txt = f'frame n. {t_str}/{posData.SizeT}  '
+            bottomWidgets['navigateScrollbar_label'].setText(txt)
+        else:
+            posName = posData.pos_foldername
+            txt = f'{posName} '
+            bottomWidgets['navigateScrollbar_label'].setText(txt)
+
+        pos = self.sender().sliderPosition()
+        self.updateLinkedScrollbar(side, 'navigateScrollbar', pos, txt)
+
         isSliderDrag = (
             action == QAbstractSlider.SliderMove
             and self.sender().isSliderDown()
         )
         if isSliderDrag:
+            if self.isTimeLapse:
+                if not self.isImageDataAvailable(side):
+                    return
+
             self.clearSegmVisuals(side)
+            self.clearOverlayVisuals(side)
             # Slider is being dragged --> simply set the image
             self.axes[side].spotsScatterItem.setData([], [])
             img = self.currentImage(side)
             self.imgItems[side].setImage(img)
         else:
-            self.updateImage(side)
+            if self.threadCount > 0:
+                self.worker.H5readWait = True
+
+            if self.isImageDataAvailable(side):
+                self.updateImage(side)
+                self.updateSegmVisuals(side)
+                self.addInspectResultsTab(side)
+
+            if self.isTimeLapse:
+                current_t = self.frame_i(side)
+                self.startLoadTimeChunkDataWorker(current_t, posData, side)
+
+            if self.threadCount > 0:
+                QTimer.singleShot(50, self.waitCond.wakeAll)
+
+    def startLoadTimeChunkDataWorker(
+            self, current_t, posData, side, updateImgOnFinished=False
+        ):
+        self.funcDescription = 'loading time chunk'
+        self.progressWin = None
+        # Load only if we are not at the boundaries of (0, SizeT)
+        shouldLoad = posData.shouldLoadTchunk(current_t)
+        if not shouldLoad:
+            if updateImgOnFinished:
+                self.updateImageOnWorkerFinished(side)
+            return
+
+        self.startLoadChunkDataWorker(
+            posData, side, current_t, 0, updateImgOnFinished
+        )
+
+    def startLoadChunkDataWorker(
+            self, posData, side, current_idx, axis, updateImgOnFinished
+        ):
+
+        if self.threadCount == 0:
+            self.threadCount += 1
+            self.worker.setArgs(
+                posData, side, current_idx, axis, updateImgOnFinished
+            )
+            self.waitCond.wakeAll()
+        else:
+            self.threadQueue.put(
+                (posData, side, current_idx, axis, updateImgOnFinished)
+            )
+
+    def updateImageOnWorkerFinished(self, side):
+        self.updateImage(side)
+        self.updateSegmVisuals(side)
+        self.addInspectResultsTab(side)
+
+        if self.worker.sender is not None:
+            self.worker.sender.setDisabled(False)
+
+    def loadingNewChunk(self, chunk_range):
+        coord0_chunk, coord1_chunk = chunk_range
+        desc = (
+            f'Loading new window, range = ({coord0_chunk}, {coord1_chunk})...'
+        )
+        self.progressWin = dialogs.QDialogWorkerProcess(
+            title='Loading data...', parent=self, pbarDesc=desc
+        )
+        self.progressWin.mainPbar.setMaximum(0)
+        self.progressWin.show(self.app)
+
+    def loadChunkFinished(self, side):
+        self.logger.info('Load chunk data worker done.')
+        if self.worker.updateImgOnFinished:
+            self.updateImageOnWorkerFinished(side)
+
+        if self.progressWin is not None:
+            self.progressWin.workerFinished = True
+            self.progressWin.close()
+
+        self.threadCount -= 1
+        if not self.threadQueue.empty():
+            args = self.threadQueue.get()
+            self.startLoadChunkDataWorker(*args)
+            self.logger.info('Load chunk data worker started from queue')
 
     def navigateScrollbarReleased(self):
         side = self.side(self.bottomWidgets['left']['navigateScrollbar'])
-        self.updateImage(side)
-        self.updateSegmVisuals(side)
+
+        if self.isTimeLapse:
+            self.sender().setDisabled(True)
+            self.worker.sender = self.sender()
+            posData = self.currentPosData(side)
+            current_t = self.frame_i(side)
+            self.startLoadTimeChunkDataWorker(
+                current_t, posData, side, updateImgOnFinished=True
+            )
+        else:
+            self.updateImage(side)
+            self.updateSegmVisuals(side)
+            self.addInspectResultsTab(side)
+
+    def isImageDataAvailable(self, side):
+        z = self.z(side)
+        t = self.frame_i(side)
+        posData = self.currentPosData(side)
+        t1_window = posData.t0_window + posData.loadSizeT - 1
+        z1_window = posData.z0_window + posData.loadSizeZ - 1
+        isAvailable = not (
+            t > t1_window or t < posData.t0_window
+            or z > z1_window or z < posData.z0_window
+        )
+        return isAvailable
 
     def zSliceScrollbarLayerTriggered(self, action):
         side = self.sender().side
         layer = self.sender().layer
 
         posData = self.currentPosData(side)
-        z = self.sender().sliderPosition()
+        z = self.z(side)
         bottomWidgets = self.bottomWidgets[side]
-        zSliceSbL_label = bottomWidgets[f'zSliceSbL{layer}_label']
-        zSliceSbL_label.setText(f'First layer z-slice {z+1}/{posData.SizeZ}')
+        labelKey = f'zSliceSbL{layer}_label'
+        zSliceSbL_label = bottomWidgets[labelKey]
+        z_str = str(z+1).zfill(len(str(posData.SizeZ)))
+        txt = f'First layer z-slice {z_str}/{posData.SizeZ}'
+        zSliceSbL_label.setText(txt)
+
+        pos = self.sender().sliderPosition()
+        labelKey = f'zSliceScrollbarLayer{layer}'
+        self.updateLinkedScrollbar(side, labelKey, pos, txt)
 
         isSliderDrag = (
             action == QAbstractSlider.SliderMove
             and self.sender().isSliderDown()
         )
         if isSliderDrag:
-            # Slider is being dragged --> simply set the image
+            if not self.isImageDataAvailable(side):
+                return
             self.updateImage(side)
         else:
-            self.updateImage(side)
-            self.updateSegmVisuals(side)
+            if self.threadCount > 0:
+                # User required image update before worker finished.
+                # Pause it until image update is finished
+                self.worker.H5readWait = True
+
+            if self.isImageDataAvailable(side):
+                self.updateImage(side)
+                self.updateSegmVisuals(side)
+
+            current_z = z
+            self.startLoadZchunkDataWorker(current_z, posData, side)
+
+            if self.threadCount > 0:
+                # Wait until image update done and then restart worker
+                QTimer.singleShot(50, self.waitReadH5cond.wakeAll)
+
+    def startLoadZchunkDataWorker(
+            self, current_z, posData, side, updateImgOnFinished=False
+        ):
+        self.funcDescription = 'loading z- chunk'
+        self.progressWin = None
+        # Load only if we are not at the boundaries of (0, SizeZ)
+        shouldLoad = posData.shouldLoadZchunk(current_z)
+        if not shouldLoad:
+            if updateImgOnFinished:
+                self.updateImageOnWorkerFinished(side)
+            return
+
+        self.startLoadChunkDataWorker(
+            posData, side, current_z, 1, updateImgOnFinished
+        )
 
     def zSliceScrollbarLayerReleased(self):
         side = self.sender().side
-        self.updateImage(side)
-        self.updateSegmVisuals(side)
+
+        # Load only if we are not at the boundaries of (0, SizeZ)
+        self.sender().setDisabled(True)
+        self.worker.sender = self.sender()
+        current_z = self.z(side)
+        posData = self.currentPosData(side)
+        self.startLoadZchunkDataWorker(
+            current_z, posData, side, updateImgOnFinished=True
+        )
 
     def updateZprojLayer(self, how):
         side = self.sender().side
         layer = self.sender().layer
         bottomWidgets = self.bottomWidgets[side]
 
+        labelKey = f'zProjComboboxLayer{layer}'
+        self.updateLinkedCombobox(side, labelKey, how)
+
         if how.find('max') != -1 or how == 'same as above':
-            bottomWidgets[f'zSliceSbL{layer}_label'].setStyleSheet('color: gray')
             bottomWidgets[f'zSliceScrollbarLayer{layer}'].setDisabled(True)
         else:
-            bottomWidgets[f'zSliceSbL{layer}_label'].setStyleSheet('color: black')
             bottomWidgets[f'zSliceScrollbarLayer{layer}'].setDisabled(False)
 
         self.updateImage(side)
@@ -3282,7 +3538,26 @@ class spotMAX_Win(QMainWindow):
         self.logger.info(f'Opening recent folder: {path}')
         self.openFolder('left', selectedPath=path)
 
+    def loadChunkWorkerClosed(self):
+        print(r"""
+    |======    \\     //  ||========
+    |      \\   \\   //   ||
+    |      //    \\ //    ||
+    |======        //     ||======
+    |      \\     //      ||
+    |      //    //       ||
+    |======     //        ||========
+    """)
+        print('===============================================')
+        self.logger.info('Application closed. Have a good day!')
+        print('===============================================')
+
     def closeEvent(self, event):
+        # Close the inifinte loop of the thread
+        self.worker.exit = True
+        self.waitCond.wakeAll()
+        self.waitReadH5cond.wakeAll()
+
         self.saveWindowGeometry()
 
         with open(self.colorItems_path, mode='w') as file:
@@ -3311,13 +3586,19 @@ class spotMAX_Win(QMainWindow):
             else:
                 event.ignore()
 
+        # Close .h5 files
         for expData in self.expData.values():
             for posData in expData:
                 if not posData.h5_path:
                     continue
                 if posData.hdf_store is None:
                     continue
+                self.logger.info(f'Closing opened h5 files...')
                 posData.hdf_store.close()
+                try:
+                    posData.h5_dset.close()
+                except AttributeError:
+                    pass
 
         if self.buttonToRestore is not None and event.isAccepted():
             button, color, text = self.buttonToRestore
@@ -3329,6 +3610,7 @@ class spotMAX_Win(QMainWindow):
             self.mainWin.raise_()
 
     def saveWindowGeometry(self):
+        isMaximised = self.isMaximized()
         left = self.geometry().left()
         top = self.geometry().top()
         width = self.geometry().width()
@@ -3346,7 +3628,6 @@ class spotMAX_Win(QMainWindow):
         self.df_settings.at['geometry_width', 'value'] = width
         self.df_settings.at['geometry_height', 'value'] = height
         self.df_settings.at['screenName', 'value'] = screenName
-        isMaximised = self.windowState() == Qt.WindowMaximized
         isMaximised = 'Yes' if isMaximised else 'No'
         self.df_settings.at['isMaximised', 'value'] = isMaximised
         self.df_settings.to_csv(self.settings_csv_path)
@@ -3391,9 +3672,10 @@ class spotMAX_Win(QMainWindow):
         else:
             recentPaths = [selectedPath]
             openedOn = [datetime.datetime.now()]
-        df = pd.DataFrame({'path': recentPaths,
-                           'opened_last_on': pd.Series(openedOn,
-                                                       dtype='datetime64[ns]')})
+        df = pd.DataFrame({
+            'path': recentPaths,
+            'opened_last_on': pd.Series(openedOn, dtype='datetime64[ns]')
+        })
         df.index.name = 'index'
         df.to_csv(recentPaths_path)
 
@@ -3449,8 +3731,22 @@ class spotMAX_Win(QMainWindow):
 
         viewToolbar['colorButton'].setFixedHeight(h)
 
+        w = self.showComputeDockButton.width()
+        h = self.showComputeDockButton.height()
+        self.showComputeDockButton.setFixedWidth((int(w/2)))
+        self.showComputeDockButton.setFixedHeight(h*2)
 
         self.gui_hideInitItems()
+
+        # Set minumum width of the dock widget
+        # parametersTab = self.computeDockWidget.widget().parametersTab
+        # originalMinWidth = self.computeDockWidget.minimumWidth()
+        # horizontalScrollBar = parametersTab.horizontalScrollBar()
+        # i = 1
+        # while horizontalScrollBar.isVisible():
+        #     w = self.computeDockWidget.width()
+        #     self.computeDockWidget.setMinimumWidth(w+i)
+        #     i += 1
 
 
 if __name__ == "__main__":
@@ -3465,6 +3761,7 @@ if __name__ == "__main__":
 
     # Apply style
     app.setStyle(QStyleFactory.create('Fusion'))
+    app.setWindowIcon(QIcon(":icon.svg"))
     # src_path = os.path.dirname(os.path.abspath(__file__))
     # styles_path = os.path.join(src_path, 'styles')
     # dark_orange_path = os.path.join(styles_path, '01_buttons.qss')

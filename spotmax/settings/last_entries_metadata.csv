@@ -1,0 +1,12 @@
+Description,values
+LensNA,1.4
+DimensionOrder,XYZCT
+SizeT,60
+SizeZ,21
+TimeIncrement,180.0
+PhysicalSizeZ,0.952381
+PhysicalSizeY,0.1205938
+PhysicalSizeX,0.1205078
+channel_0_name,GFP
+channel_0_emWavelen,510.0
+segmSizeT,1

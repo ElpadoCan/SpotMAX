@@ -13,16 +13,19 @@ from pprint import pprint
 
 from tqdm import tqdm
 
+import h5py
 import numpy as np
 import pandas as pd
 from natsort import natsorted
 
+import skimage
 import skimage.io
+import skimage.color
 
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QMessageBox
 
-import dialogs, utils, core
+import dialogs, utils, core, html_func
 
 class channelName:
     def __init__(self, which_channel=None):
@@ -31,38 +34,48 @@ class channelName:
         self.last_sel_channel = self._load_last_selection()
         self.was_aborted = False
 
+    def reloadLastSelectedChannel(self, which):
+        self.which_channel = which
+        self.last_sel_channel = self._load_last_selection()
+
     def checkDataIntegrity(self, filenames):
         char = filenames[0][:2]
         startWithSameChar = all([f.startswith(char) for f in filenames])
         if not startWithSameChar:
             msg = QMessageBox()
-            msg.warning(
-               None, 'Data structure compromised',
-               'The system detected files inside the folder '
-               'that do not start with the same, common basename.\n\n'
-               'To ensure correct loading of the data, the folder where '
-               'the file(s) is/are should either contain a single image file or'
-               'only files that start with the same, common basename.\n\n'
-               'For example the following filenames:\n\n'
-               'F014_s01_phase_contr.tif\n'
-               'F014_s01_mCitrine.tif\n\n'
-               'are named correctly since they all start with the '
-               'the common basename "F014_s01_". After the common basename you '
-               'can write whatever text you want. In the example above, "phase_contr" '
-               'and "mCitrine" are the channel names.\n\n'
-               'We recommend using the provided Fiji/ImageJ macro to create the right '
-               'data structure.\n\n'
-               'Data loading may still be successfull, so the system will '
-               'still try to load data now.',
-               msg.Ok
-            )
+            msg.setIcon(msg.Warning)
+            msg.setWindowTitle('Data structure compromised')
+            txt = html_func.html_paragraph_10pt("""
+                The system detected files inside the folder
+                that <b>do not start with the same, common basename</b>
+                (see which filenames in the box below).<br><br>
+                To ensure correct loading of the data, the folder where
+                the file(s) is/are should either contain a single image file or
+                only files that <b>start with the same, common basename.</b><br><br>
+                For example the following filenames:<br><br>
+                F014_s01_phase_contr.tif<br>
+                F014_s01_mCitrine.tif<br><br>
+                are named correctly since they all start with the
+                the common basename "F014_s01_". After the common basename you
+                can write whatever text you want. In the example above,
+                "phase_contr"  and "mCitrine" are the channel names.<br><br>
+                We recommend using the module 0. or the provided Fiji/ImageJ
+                macro to create the right data structure.<br><br>
+                Data loading may still be successfull, so the system will
+                still try to load data now.
+            """)
+            msg.setText(txt)
+            details = "\n".join(files)
+            details = f'Files detected:\n\n{details}'
+            msg.setDetailedText(details)
+            msg.exec_()
             return False
         return True
 
-    def getChannels(self, filenames, images_path, useExt='.tif'):
+    def getChannels(self, filenames, images_path, useExt=('.tif', '.h5')):
         # First check if metadata.csv already has the channel names
         metadata_csv_path = None
-        for file in os.listdir(images_path):
+        for file in utils.listdir(images_path):
             if file.endswith('metadata.csv'):
                 metadata_csv_path = os.path.join(images_path, file)
                 break
@@ -104,7 +117,7 @@ class channelName:
                 i, j, k = sm.find_longest_match(0, len(file),
                                                 0, len(basename))
                 basename = file[i:i+k]
-            elif ext == useExt:
+            elif ext in useExt:
                 sm = difflib.SequenceMatcher(None, file, basename)
                 i, j, k = sm.find_longest_match(0, len(file),
                                                 0, len(basename))
@@ -119,7 +132,7 @@ class channelName:
                 if channel_name == filename:
                     # Warn that an intersection could not be found
                     basenameNotFound.append(True)
-            elif ext == useExt:
+            elif ext in useExt:
                 channel_name = filename.split(basename)[-1]
                 channel_names.append(channel_name)
                 if channel_name == filename:
@@ -177,7 +190,8 @@ class channelName:
         if win.cancel:
             self.was_aborted = True
         self.channel_name = win.selectedItemText
-        self._save_last_selection(self.channel_name)
+        if not win.cancel:
+            self._save_last_selection(self.channel_name)
         self.is_first_call = False
 
     def setUserChannelName(self):
@@ -227,7 +241,7 @@ class expFolderScanner:
                 )
                 signals.initProgressBar.emit(0)
 
-        ls = natsorted(os.listdir(path))
+        ls = natsorted(utils.listdir(path))
         isExpPath = any([
             f.find('Position_')!=-1 and os.path.isdir(os.path.join(path, f))
             for f in ls
@@ -243,13 +257,13 @@ class expFolderScanner:
         """
         See infoExpPaths for more details
         """
-        ls = natsorted(os.listdir(exp_path))
+        ls = natsorted(utils.listdir(exp_path))
 
-        posFoldernames = [
+        posFoldernames = natsorted([
             f for f in ls
             if f.find('Position_')!=-1
             and os.path.isdir(os.path.join(exp_path, f))
-        ]
+        ])
 
         self.paths[1][exp_path] = {
             'numPosSpotCounted': 0,
@@ -267,7 +281,7 @@ class expFolderScanner:
                     'isPosSpotSized': False
                 }
             else:
-                spotmaxFiles = natsorted(os.listdir(spotmaxOutPath))
+                spotmaxFiles = natsorted(utils.listdir(spotmaxOutPath))
                 if not spotmaxFiles:
                     continue
                 run_nums = self.runNumbers(spotmaxOutPath)
@@ -353,7 +367,7 @@ class expFolderScanner:
 
     def loadAnalysisInputs(self, spotmaxOutPath, run):
         df = None
-        for file in os.listdir(spotmaxOutPath):
+        for file in utils.listdir(spotmaxOutPath):
             m = re.match(f'{run}_(\w*)analysis_inputs.csv', file)
             if m is not None:
                 csvPath = os.path.join(spotmaxOutPath, file)
@@ -366,7 +380,7 @@ class expFolderScanner:
 
     def runNumbers(self, spotmaxOutPath):
         run_nums = set()
-        spotmaxFiles = natsorted(os.listdir(spotmaxOutPath))
+        spotmaxFiles = natsorted(utils.listdir(spotmaxOutPath))
         if not spotmaxFiles:
             return run_nums
         run_nums = [
@@ -385,7 +399,7 @@ class expFolderScanner:
 
         spotSize_csv_filename = f'{run}_4_spotfit_data_Summary'
         spotSize_h5_filename = f'{run}_4_spotFIT_data'
-        for file in os.listdir(spotmaxOutPath):
+        for file in utils.listdir(spotmaxOutPath):
             isSpotCountCsvPresent = (
                 file.find(p_ellip_test_csv_filename)!=-1
                 and file.endswith('.csv')
@@ -450,6 +464,10 @@ class loadData:
         # Contour coords as calulcated in self.contours()
         self.contCoords = {}
 
+        # For .h5 files we can load a subset of the entire file.
+        # loadSizeT and loadSizeZ are asked at askInputMetadata method
+        self.loadSizeT, self.loadSizeZ = None, None
+
         self.bkgrROIs = []
         self.parent = QParent
         self.channelDataPath = str(channelDataPath)
@@ -498,7 +516,7 @@ class loadData:
         self.metadata_df.to_csv(csv_path)
 
     def getBasenameAndChNames(self):
-        ls = os.listdir(self.images_path)
+        ls = utils.listdir(self.images_path)
         channelNameUtil = channelName()
         self.chNames, _ = channelNameUtil.getChannels(ls, self.images_path)
         self.basename = channelNameUtil.basename
@@ -507,18 +525,140 @@ class loadData:
             if os.path.splitext(file)[1] == '.tif'
             or os.path.splitext(file)[1] == '.npy'
             or os.path.splitext(file)[1] == '.npz'
+            or os.path.splitext(file)[1] == '.h5'
         ]
 
+    def checkH5memoryFootprint(self):
+        if self.ext != '.h5':
+            return 0
+        else:
+            Y, X = self.h5_dset.shape[-2:]
+            size = self.loadSizeT*self.loadSizeZ*Y*X
+            itemsize = self.h5_dset.dtype.itemsize
+            required_memory = size*itemsize
+            return required_memory
+
+    def shouldLoadTchunk(self, current_t):
+        if self.ext != '.h5':
+            return False
+
+        coord1_window = self.t0_window + self.loadSizeT - 1
+        halfWindowSize = int(self.loadSizeT/2)
+
+        coord0_chunk = coord1_window + 1
+        chunkSize = current_t + halfWindowSize - coord0_chunk + 1
+
+        rightBoundary = self.SizeT-halfWindowSize
+        leftBoundary = halfWindowSize
+
+        if current_t <= halfWindowSize and leftBoundary >= self.t0_window:
+            return False
+        elif current_t >= rightBoundary and rightBoundary <= coord1_window:
+            return False
+
+        return True
+
+    def shouldLoadZchunk(self, current_idx):
+        if self.ext != '.h5':
+            return False
+
+        coord1_window = self.z0_window + self.loadSizeZ - 1
+        halfWindowSize = int(self.loadSizeZ/2)
+
+        coord0_chunk = coord1_window + 1
+        chunkSize = current_idx + halfWindowSize - coord0_chunk + 1
+
+        rightBoundary = self.SizeZ-halfWindowSize
+        leftBoundary = halfWindowSize
+        if current_idx <= halfWindowSize and leftBoundary >= self.z0_window:
+            return False
+        elif current_idx >= rightBoundary and rightBoundary <= coord1_window:
+            return False
+
+        return True
+
+    def loadChannelDataChunk(self, current_idx, axis=0, worker=None):
+        is4D = self.SizeZ > 1 and self.SizeT > 1
+        is3Dz = self.SizeZ > 1 and self.SizeT == 1
+        is3Dt = self.SizeZ == 1 and self.SizeT > 1
+        is2D = self.SizeZ == 1 and self.SizeT == 1
+        if is4D:
+            if axis==0:
+                axis1_range = (self.z0_window, self.z0_window+self.loadSizeZ)
+                chData, t0_window, z0_window = utils.shiftWindow_axis0(
+                    self.h5_dset, self.chData, self.loadSizeT, self.t0_window,
+                    current_idx, axis1_range=axis1_range, worker=worker
+                )
+            elif axis==1:
+                axis0_range = (self.t0_window, self.t0_window+self.loadSizeT)
+                chData, t0_window, z0_window = utils.shiftWindow_axis1(
+                    self.h5_dset, self.chData, self.loadSizeZ, self.z0_window,
+                    current_idx, axis0_range=axis0_range, worker=worker
+                )
+        elif is3Dz:
+            chData, t0_window, z0_window = utils.shiftWindow_axis0(
+                self.h5_dset, self.chData, self.loadSizeZ, self.z0_window,
+                current_idx, axis1_range=None, worker=worker
+            )
+        elif is3Dt:
+            chData, t0_window, z0_window = utils.shiftWindow_axis0(
+                self.h5_dset, self.chData, self.loadSizeT, self.t0_window,
+                current_idx, axis1_range=None, worker=worker
+            )
+        self.chData = chData
+        self.t0_window = t0_window
+        self.z0_window = z0_window
+
     def loadChannelData(self):
-        if self.ext == '.npz':
+        self.z0_window = 0
+        self.t0_window = 0
+        if self.ext == '.h5':
+            self.h5f = h5py.File(self.channelDataPath, 'r')
+            self.h5_dset = self.h5f['data']
+            self.chData_shape = self.h5_dset.shape
+            readH5 = self.loadSizeT is not None or self.loadSizeZ is not None
+            if not readH5:
+                return
+
+            is4D = self.SizeZ > 1 and self.SizeT > 1
+            is3Dz = self.SizeZ > 1 and self.SizeT == 1
+            is3Dt = self.SizeZ == 1 and self.SizeT > 1
+            is2D = self.SizeZ == 1 and self.SizeT == 1
+            if is4D:
+                midZ = int(self.SizeZ/2)
+                halfZLeft = int(self.loadSizeZ/2)
+                halfZRight = self.loadSizeZ-halfZLeft
+                z0 = midZ-halfZLeft
+                z1 = midZ+halfZRight
+                self.z0_window = z0
+                self.t0_window = 0
+                self.chData = self.h5_dset[:self.loadSizeT, z0:z1]
+            elif is3Dz:
+                midZ = int(self.SizeZ/2)
+                halfZLeft = int(self.loadSizeZ/2)
+                halfZRight = self.loadSizeZ-halfZLeft
+                z0 = midZ-halfZLeft
+                z1 = midZ+halfZRight
+                self.z0_window = z0
+                self.chData = np.squeeze(self.h5_dset[z0:z1])
+            elif is3Dt:
+                self.t0_window = 0
+                self.chData = np.squeeze(self.h5_dset[:self.loadSizeT])
+            elif is2D:
+                self.chData = self.h5_dset[:]
+        elif self.ext == '.npz':
             self.chData = np.load(self.channelDataPath)['arr_0']
+            self.chData_shape = self.chData.shape
         elif self.ext == '.npy':
             self.chData = np.load(self.channelDataPath)
+            self.chData_shape = self.chData.shape
         else:
             try:
                 self.chData = skimage.io.imread(self.channelDataPath)
+                self.chData_shape = self.chData.shape
             except ValueError:
                 self.chData = self._loadVideo(self.channelDataPath)
+                self.chData_shape = self.chData.shape
             except Exception as e:
                 traceback.print_exc()
                 self.criticalExtNotValid()
@@ -544,7 +684,7 @@ class loadData:
         return os.path.join(self.images_path, absoluteFilename)
 
     def detectMultiSegmNpz(self):
-        ls = os.listdir(self.images_path)
+        ls = utils.listdir(self.images_path)
         segm_files = [file for file in ls if file.endswith('segm.npz')]
         is_multi_npz = len(segm_files)>1
         if is_multi_npz:
@@ -592,7 +732,7 @@ class loadData:
         self.dataPrep_ROIcoordsFound = False if load_dataPrep_ROIcoords else None
         self.TifPathFound = False if getTifPath else None
         self.refChMaskFound = False if load_ref_ch_mask else None
-        ls = os.listdir(self.images_path)
+        ls = utils.listdir(self.images_path)
 
         for file in ls:
             filePath = os.path.join(self.images_path, file)
@@ -641,7 +781,7 @@ class loadData:
                     bkgROIs_states = json.load(json_fp)
 
                 for roi_state in bkgROIs_states:
-                    Y, X = self.chData.shape[-2:]
+                    Y, X = self.chData_shape[-2:]
                     roi = pg.ROI(
                         [0, 0], [1, 1],
                         rotatable=False,
@@ -691,6 +831,16 @@ class loadData:
 
         self.setNotFoundData()
 
+    def segmLabels(self, frame_i):
+        if self.segm_data is None:
+            return None
+
+        if self.SizeT > 1:
+            lab = self.segm_data[frame_i]
+        else:
+            lab = self.segm_data
+        return lab
+
     def computeSegmRegionprops(self):
         if self.segm_data is None:
             self.rp = None
@@ -702,17 +852,35 @@ class loadData:
             ]
             self.newIDs = []
             self.IDs = []
+            self.rpDict = []
             for frame_i, rp in enumerate(self.rp):
                 if frame_i == 0:
                     self.newIDs.append([])
                     continue
                 prevIDs = [obj.label for obj in self.regionprops(frame_i-1)]
-                currentIDs = [obj.label for obj in self.regionprops(frame_i)]
+                currentIDs = [obj.label for obj in rp]
                 newIDs = [ID for ID in currentIDs if ID not in prevIDs]
+                self.IDs.append(currentIDs)
                 self.newIDs.append(newIDs)
+                self.computeRotationalCellVolume(rp)
+                rpDict = {obj.label:obj for obj in rp}
+                self.rpDict.append(rpDict)
         else:
             self.rp = skimage.measure.regionprops(self.segm_data)
             self.IDs = [obj.label for obj in self.rp]
+            self.rpDict = {obj.label:obj for obj in self.rp}
+            self.computeRotationalCellVolume(self.rp)
+
+    def computeRotationalCellVolume(self, rp):
+        for obj in rp:
+            vol_vox, vol_fl = core.rotationalVolume(
+                obj,
+                PhysicalSizeY=self.PhysicalSizeY,
+                PhysicalSizeX=self.PhysicalSizeX
+            )
+            obj.vol_vox, obj.vol_fl = vol_vox, vol_fl
+        return vol_vox, vol_fl
+
 
     def getNewIDs(self, frame_i):
         if frame_i == 0:
@@ -729,11 +897,17 @@ class loadData:
         else:
             return self.IDs
 
-    def regionprops(self, frame_i):
+    def regionprops(self, frame_i, returnDict=False):
         if self.SizeT > 1:
-            return self.rp[frame_i]
+            if returnDict:
+                return self.rpDict[frame_i]
+            else:
+                return self.rp[frame_i]
         else:
-            return self.rp
+            if returnDict:
+                return self.rpDict
+            else:
+                return self.rp
 
     def cca_df(self, frame_i):
         if self.acdc_df is None:
@@ -842,7 +1016,7 @@ class loadData:
             else:
                 self.SizeT, self.SizeZ = 1, len(self.chData)
         elif self.chData.ndim == 4:
-            self.SizeT, self.SizeZ = self.chData.shape[:2]
+            self.SizeT, self.SizeZ = self.chData_shape[:2]
         else:
             self.SizeT, self.SizeZ = 1, 1
 
@@ -894,7 +1068,7 @@ class loadData:
         self.metadata_csv_path = f'{base_path}metadata.csv'
 
     def setBlankSegmData(self, SizeT, SizeZ, SizeY, SizeX):
-        Y, X = self.chData.shape[-2:]
+        Y, X = self.chData_shape[-2:]
         if self.segmFound is not None and not self.segmFound:
             if SizeT > 1:
                 self.segm_data = np.zeros((SizeT, Y, X), int)
@@ -906,7 +1080,7 @@ class loadData:
         npy_paths = []
         npz_paths = []
         basename = self.basename[0:-1]
-        for filename in os.listdir(self.images_path):
+        for filename in utils.listdir(self.images_path):
             file_path = os.path.join(self.images_path, filename)
             f, ext = os.path.splitext(filename)
             m = re.match(f'{basename}.*\.tif', filename)
@@ -917,7 +1091,7 @@ class loadData:
                 npz = f'{f}_aligned.npz'
                 npy_found = False
                 npz_found = False
-                for name in os.listdir(self.images_path):
+                for name in utils.listdir(self.images_path):
                     _path = os.path.join(self.images_path, name)
                     if name == npy:
                         npy_paths.append(_path)
@@ -934,11 +1108,10 @@ class loadData:
         self.npz_paths = npz_paths
 
     def askInputMetadata(
-            self,
+            self, numPos,
             ask_SizeT=False,
             ask_TimeIncrement=False,
             ask_PhysicalSizes=False,
-            singlePos=False,
             save=False
         ):
         font = QFont()
@@ -946,9 +1119,10 @@ class loadData:
         metadataWin = dialogs.QDialogMetadata(
             self.SizeT, self.SizeZ, self.TimeIncrement,
             self.PhysicalSizeZ, self.PhysicalSizeY, self.PhysicalSizeX,
-            ask_SizeT, ask_TimeIncrement, ask_PhysicalSizes,
-            parent=self.parent, font=font, imgDataShape=self.chData.shape,
-            PosData=self, singlePos=singlePos)
+            ask_SizeT, ask_TimeIncrement, ask_PhysicalSizes, numPos,
+            parent=self.parent, font=font, imgDataShape=self.chData_shape,
+            PosData=self, fileExt=self.ext
+        )
         metadataWin.setFont(font)
         metadataWin.exec_()
         if metadataWin.cancel:
@@ -956,6 +1130,9 @@ class loadData:
 
         self.SizeT = metadataWin.SizeT
         self.SizeZ = metadataWin.SizeZ
+        self.loadSizeS = metadataWin.loadSizeS
+        self.loadSizeT = metadataWin.loadSizeT
+        self.loadSizeZ = metadataWin.loadSizeZ
 
         source = metadataWin if ask_TimeIncrement else self
         self.TimeIncrement = source.TimeIncrement
@@ -1032,7 +1209,7 @@ class loadData:
         p_ellip_test_h5_filename = f'{run}_3_p-_ellip_test_data'
         spotSize_h5_filename = f'{run}_4_spotFIT_data'
         h5_files = []
-        for file in os.listdir(self.spotmaxOutPath):
+        for file in utils.listdir(self.spotmaxOutPath):
             _, ext = os.path.splitext(file)
             if ext != '.h5':
                 continue
@@ -1141,8 +1318,10 @@ if __name__ == '__main__':
     app.setStyle(QStyleFactory.create('Fusion'))
 
     print('Searching experiment folders...')
+    homePath = r'G:\My Drive\1_MIA_Data\Anika\Mutants\Petite'
+    # homePath = r'G:\My Drive\1_MIA_Data\Anika\WTs\SCD'
     pathScanner = expFolderScanner(
-        homePath = r'G:\My Drive\1_MIA_Data\Anika\WTs\SCD'
+        homePath = homePath
     )
 
 

@@ -1,0 +1,104 @@
+{
+  "left": {
+    "Image": null,
+    "Overlay image": [
+      0,
+      255,
+      255,
+      255
+    ],
+    "Text on segmented objects": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "Contours of segmented objects": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "Contour color...": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "Clicked spot": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "Spots inside ref. channel": [
+      0,
+      0,
+      255,
+      6
+    ],
+    "Spots outside ref. channel": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "Skeleton color...": [
+      0,
+      255,
+      255,
+      255
+    ]
+  },
+  "right": {
+    "Image": null,
+    "Overlay image": [
+      255,
+      0,
+      255,
+      255
+    ],
+    "Text on segmented objects": [
+      255,
+      255,
+      255,
+      255
+    ],
+    "Contours of segmented objects": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "Contour color...": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "Clicked spot": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "Spots inside ref. channel": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "Spots outside ref. channel": [
+      255,
+      0,
+      0,
+      255
+    ],
+    "Skeleton color...": [
+      255,
+      0,
+      0,
+      255
+    ]
+  }
+}

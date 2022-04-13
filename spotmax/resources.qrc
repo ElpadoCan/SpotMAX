@@ -21,5 +21,10 @@
   <file alias="plotSpots.svg">resources/plotSpots.svg</file>
   <file alias="skeletonize.svg">resources/skeletonize.svg</file>
   <file alias="contour.svg">resources/contour.svg</file>
+  <file alias="info.svg">resources/info.svg</file>
+  <file alias="expand.svg">resources/expand.svg</file>
+  <file alias="collapse.svg">resources/collapse.svg</file>
+  <file alias="compute.svg">resources/compute.svg</file>
+  <file alias="apply.svg">resources/apply.svg</file>
 </qresource>
 </RCC>

@@ -1,6 +1,8 @@
 # Custom ignores
 src/test.py
+src/deprecated.py
 src/tests/*
+src/spotmax_v1_paramWin.png
 
 src/logs/*
 !src/logs/dummy.txt

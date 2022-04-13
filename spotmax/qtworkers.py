@@ -1,15 +1,17 @@
 import sys
 import os
+import time
 from functools import wraps
 
 import numpy as np
 import pandas as pd
+import h5py
 
 import skimage.io
 
 from PyQt5.QtCore import pyqtSignal, QObject, QRunnable
 
-import load
+import load, utils
 
 """
 QRunnables or QObjects that run in QThreadPool or QThread in a PyQT app
@@ -38,14 +40,15 @@ def loadDataWorkerFinished(self):
     ... more code
 """
 
-
 def worker_exception_handler(func):
     @wraps(func)
     def run(self):
         try:
-            func(self)
+            result = func(self)
         except Exception as error:
+            result = None
             self.signals.critical.emit(error)
+        return result
     return run
 
 class signals(QObject):
@@ -56,6 +59,7 @@ class signals(QObject):
     initProgressBar = pyqtSignal(int)
     progressBar = pyqtSignal(int)
     critical = pyqtSignal(object)
+    sigLoadingNewChunk = pyqtSignal(object)
 
 class pathScannerWorker(QRunnable):
     def __init__(self, selectedPath):
@@ -68,7 +72,7 @@ class pathScannerWorker(QRunnable):
         selectedPath = self.selectedPath
         areDirsPosFolders = [
             f.find('Position_')!=-1 and os.path.isdir(os.path.join(selectedPath, f))
-            for f in os.listdir(selectedPath)
+            for f in utils.listdir(selectedPath)
         ]
         is_selectedPath = any(areDirsPosFolders)
 
@@ -100,10 +104,11 @@ class loadDataWorker(QRunnable):
     @worker_exception_handler
     def run(self):
         expInfo = self.mainWin.expPaths[self.selectedExpName]
-        channelDataPaths = expInfo['channelDataPaths']
+
+        posDataRef = self.mainWin.posDataRef
+        channelDataPaths = expInfo['channelDataPaths'][:posDataRef.loadSizeS]
 
         user_ch_name = self.mainWin.user_ch_name
-        posDataRef = self.mainWin.posDataRef
         logger = self.mainWin.logger
         dataSide = self.mainWin.expData[self.mainWin.lastLoadedSide]
         self.signals.initProgressBar.emit(len(channelDataPaths))
@@ -123,6 +128,11 @@ class loadDataWorker(QRunnable):
                 f'Loading {posData.relPath}...',
                 'INFO'
             )
+            posData.loadSizeS = posDataRef.loadSizeS
+            posData.loadSizeT = posDataRef.loadSizeT
+            posData.loadSizeZ = posDataRef.loadSizeZ
+            posData.SizeT = posDataRef.SizeT
+            posData.SizeZ = posDataRef.SizeZ
             posData.getBasenameAndChNames()
             posData.buildPaths()
             posData.loadChannelData()
@@ -134,12 +144,12 @@ class loadDataWorker(QRunnable):
                 load_metadata=True,
                 load_ref_ch_mask=True,
             )
-            posData.SizeT = posDataRef.SizeT
             if posDataRef.SizeZ > 1:
-                SizeZ = posData.chData.shape[-3]
+                SizeZ = posData.chData_shape[-3]
                 posData.SizeZ = SizeZ
             else:
                 posData.SizeZ = 1
+
             posData.TimeIncrement = posDataRef.TimeIncrement
             posData.PhysicalSizeZ = posDataRef.PhysicalSizeZ
             posData.PhysicalSizeY = posDataRef.PhysicalSizeY
@@ -148,13 +158,71 @@ class loadDataWorker(QRunnable):
 
             posData.computeSegmRegionprops()
 
-            logger.info(f'Channel data shape = {posData.chData.shape}')
+            logger.info(f'Channel data shape = {posData.chData_shape}')
+            logger.info(f'Loaded data shape = {posData.chData.shape}')
             logger.info(f'Metadata:')
             logger.info(posData.metadata_df)
 
             dataSide.append(posData)
 
             self.signals.progressBar.emit(1)
+
+        self.signals.finished.emit(None)
+
+class loadChunkDataWorker(QObject):
+    sigLoadingFinished = pyqtSignal(object)
+
+    def __init__(self, mutex, waitCond, readH5mutex, waitReadH5cond):
+        QObject.__init__(self)
+        self.signals = signals()
+        self.mutex = mutex
+        self.waitCond = waitCond
+        self.exit = False
+        self.sender = None
+        self.H5readWait = False
+        self.waitReadH5cond = waitReadH5cond
+        self.readH5mutex = readH5mutex
+
+    def setArgs(self, posData, side, current_idx, axis, updateImgOnFinished):
+        self.wait = False
+        self.updateImgOnFinished = updateImgOnFinished
+        self.side = side
+        self.posData = posData
+        self.current_idx = current_idx
+        self.axis = axis
+
+    def pauseH5read(self):
+        self.readH5mutex.lock()
+        self.waitReadH5cond.wait(self.mutex)
+        self.readH5mutex.unlock()
+
+    def pause(self):
+        self.mutex.lock()
+        self.waitCond.wait(self.mutex)
+        self.mutex.unlock()
+
+    @worker_exception_handler
+    def run(self):
+        while True:
+            if self.exit:
+                self.signals.progress.emit(
+                    'Closing load chunk data worker...', 'INFO'
+                )
+                break
+            elif self.wait:
+                self.signals.progress.emit(
+                    'Load chunk data worker paused.', 'INFO'
+                )
+                self.pause()
+            else:
+                self.signals.progress.emit(
+                    'Load chunk data worker resumed.', 'INFO'
+                )
+                self.posData.loadChannelDataChunk(
+                    self.current_idx, axis=self.axis, worker=self
+                )
+                self.sigLoadingFinished.emit(self.side)
+                self.wait = True
 
         self.signals.finished.emit(None)
 
@@ -188,7 +256,8 @@ class load_H5Store_Worker(QRunnable):
 
 class load_relFilenameData_Worker(QRunnable):
     """
-    Load data given a list of relative filenames (filename without the common basename)
+    Load data given a list of relative filenames
+    (filename without the common basename)
     """
     def __init__(self, expData, relFilenames, side, nextStep):
         QRunnable.__init__(self)
@@ -214,6 +283,9 @@ class load_relFilenameData_Worker(QRunnable):
                     data = np.load(filepath)
                 elif ext == '.npz':
                     data = np.load(filepath)['arr_0']
+                elif ext == '.h5':
+                    h5f = h5py.File(filepath, 'r')
+                    data = h5f['data']
                 self.signals.sigLoadedData.emit(
                     posData, data, relFilename, self.nextStep
                 )
