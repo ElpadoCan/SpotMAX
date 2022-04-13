@@ -1,10 +1,10 @@
 import sys
 import time
 import re
-
 from pprint import pprint
-
 from functools import partial
+
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 from PyQt5.QtCore import (
     pyqtSignal, QTimer, Qt, QPoint, pyqtSlot, pyqtProperty,
@@ -21,7 +21,8 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QMainWindow, QStyleFactory,
     QLineEdit, QSlider, QSpinBox, QGridLayout, QDockWidget,
     QScrollArea, QSizePolicy, QComboBox, QPushButton, QScrollBar,
-    QGroupBox, QAbstractSlider, QDialog, QStyle, QSpacerItem
+    QGroupBox, QAbstractSlider, QDialog, QStyle, QSpacerItem,
+    QAction, QWidgetAction, QMenu, QActionGroup
 )
 
 import pyqtgraph as pg
@@ -30,6 +31,61 @@ from . import utils, dialogs, is_mac, is_win
 
 # NOTE: Enable icons
 from . import qrc_resources
+
+def removeHSVcmaps():
+    hsv_cmaps = []
+    for g, grad in pg.graphicsItems.GradientEditorItem.Gradients.items():
+        if grad['mode'] == 'hsv':
+            hsv_cmaps.append(g)
+    for g in hsv_cmaps:
+        del pg.graphicsItems.GradientEditorItem.Gradients[g]
+
+def renamePgCmaps():
+    Gradients = pg.graphicsItems.GradientEditorItem.Gradients
+    try:
+        Gradients['hot'] = Gradients.pop('thermal')
+    except KeyError:
+        pass
+    try:
+        Gradients.pop('greyclip')
+    except KeyError:
+        pass
+
+def addGradients():
+    Gradients = pg.graphicsItems.GradientEditorItem.Gradients
+    Gradients['cividis'] = {
+        'ticks': [
+            (0.0, (0, 34, 78, 255)),
+            (0.25, (66, 78, 108, 255)),
+            (0.5, (124, 123, 120, 255)),
+            (0.75, (187, 173, 108, 255)),
+            (1.0, (254, 232, 56, 255))],
+        'mode': 'rgb'
+    }
+    Gradients['cool'] = {
+        'ticks': [
+            (0.0, (0, 255, 255, 255)),
+            (1.0, (255, 0, 255, 255))],
+        'mode': 'rgb'
+    }
+    Gradients['sunset'] = {
+        'ticks': [
+            (0.0, (71, 118, 148, 255)),
+            (0.4, (222, 213, 141, 255)),
+            (0.8, (229, 184, 155, 255)),
+            (1.0, (240, 127, 97, 255))],
+        'mode': 'rgb'
+    }
+    cmaps = {}
+    for name, gradient in Gradients.items():
+        ticks = gradient['ticks']
+        colors = [tuple([v/255 for v in tick[1]]) for tick in ticks]
+        cmaps[name] = LinearSegmentedColormap.from_list(name, colors, N=256)
+    return cmaps
+
+renamePgCmaps()
+removeHSVcmaps()
+cmaps = addGradients()
 
 class myMessageBox(QDialog):
     def __init__(self, parent=None, showCentered=True):
@@ -913,6 +969,112 @@ class HistogramLUTItem(pg.HistogramLUTItem):
     def contextMenuEvent(self, event):
         self.sigContextMenu.emit(self, event)
 
+class myHistogramLUTitem(pg.HistogramLUTItem):
+    sigGradientMenuEvent = pyqtSignal(object)
+
+    def __init__(self, *args,**kwargs):
+        self.cmaps = cmaps
+
+        super().__init__(**kwargs)
+
+        for action in self.gradient.menu.actions():
+            if action.text() == 'HSV':
+                HSV_action = action
+            elif action.text() == 'RGB':
+                RGB_ation = action
+        self.gradient.menu.removeAction(HSV_action)
+        self.gradient.menu.removeAction(RGB_ation)
+
+        # Invert bw action
+        self.invertBwAction = QAction('Invert black/white', self)
+        self.invertBwAction.setCheckable(True)
+        self.gradient.menu.addAction(self.invertBwAction)
+        self.gradient.menu.addSeparator()
+
+        # Contours color button
+        hbox = QHBoxLayout()
+        hbox.addWidget(QLabel('Contours color: '))
+        self.contoursColorButton = pg.ColorButton(color=(25,25,25))
+        hbox.addWidget(self.contoursColorButton)
+        widget = QWidget()
+        widget.setLayout(hbox)
+        act = QWidgetAction(self)
+        act.setDefaultWidget(widget)
+        self.gradient.menu.addAction(act)
+
+        # Contours line weight
+        contLineWeightMenu = QMenu('Contours line weight', self.gradient.menu)
+        self.contLineWightActionGroup = QActionGroup(self)
+        self.contLineWightActionGroup.setExclusionPolicy(
+            QActionGroup.ExclusionPolicy.Exclusive
+        )
+        for w in range(1, 11):
+            action = QAction(str(w))
+            action.setCheckable(True)
+            if w == 2:
+                action.setChecked(True)
+            action.lineWeight = w
+            self.contLineWightActionGroup.addAction(action)
+            action = contLineWeightMenu.addAction(action)
+        self.gradient.menu.addMenu(contLineWeightMenu)
+
+        self.labelsAlphaMenu = self.gradient.menu.addMenu(
+            'Segm. masks overlay alpha...'
+        )
+        self.labelsAlphaMenu.setDisabled(True)
+        hbox = QHBoxLayout()
+        self.labelsAlphaSlider = sliderWithSpinBox(
+            title='Alpha', title_loc='in_line', is_float=True,
+            normalize=True
+        )
+        self.labelsAlphaSlider.setMaximum(100)
+        self.labelsAlphaSlider.setValue(0.3)
+        hbox.addWidget(self.labelsAlphaSlider)
+        shortCutText = 'Command+Up/Down' if is_mac else 'Ctrl+Up/Down'
+        hbox.addWidget(QLabel(f'({shortCutText})'))
+        widget = QWidget()
+        widget.setLayout(hbox)
+        act = QWidgetAction(self)
+        act.setDefaultWidget(widget)
+        self.labelsAlphaMenu.addSeparator()
+        self.labelsAlphaMenu.addAction(act)
+
+        # Default settings
+        self.defaultSettingsAction = QAction('Restore default settings...', self)
+        self.gradient.menu.addAction(self.defaultSettingsAction)
+
+        # Select channels section
+        self.gradient.menu.addSeparator()
+        self.gradient.menu.addSection('Select channel: ')
+
+        # hide histogram tool
+        self.vb.hide()
+
+    def uncheckContLineWeightActions(self):
+        for act in self.contLineWightActionGroup.actions():
+            act.toggled.disconnect()
+            act.setChecked(False)
+
+    def restoreState(self, df):
+        if 'contLineColor' in df.index:
+            rgba_str = df.at['contLineColor', 'value']
+            rgb = myutils.rgba_str_to_values(rgba_str)[:3]
+            self.contoursColorButton.setColor(rgb)
+
+        if 'contLineWeight' in df.index:
+            w = df.at['contLineWeight', 'value']
+            w = int(w)
+            for action in self.contLineWightActionGroup.actions():
+                if action.lineWeight == w:
+                    action.setChecked(True)
+                    break
+
+        if 'overlaySegmMasksAlpha' in df.index:
+            alpha = df.at['overlaySegmMasksAlpha', 'value']
+            self.labelsAlphaSlider.setValue(float(alpha))
+
+        checked = df.at['is_bw_inverted', 'value'] == 'Yes'
+        self.invertBwAction.setChecked(checked)
 
 class ScatterPlotItem(pg.ScatterPlotItem):
     sigClicked = pyqtSignal(object, object, object)

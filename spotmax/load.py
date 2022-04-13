@@ -28,11 +28,14 @@ from PyQt5.QtWidgets import QMessageBox
 from . import dialogs, utils, core, html_func
 
 class channelName:
-    def __init__(self, which_channel=None, QtParent=None):
+    def __init__(self, which_channel=None, QtParent=None, load=True):
         self.parent = QtParent
         self.is_first_call = True
         self.which_channel = which_channel
-        self.last_sel_channel = self._load_last_selection()
+        if load:
+            self.last_sel_channel = self._load_last_selection()
+        else:
+            self.last_sel_channel = None
         self.was_aborted = False
 
     def reloadLastSelectedChannel(self, which):
@@ -515,9 +518,9 @@ class loadData:
         csv_path = os.path.join(settings_path, 'last_entries_metadata.csv')
         self.metadata_df.to_csv(csv_path)
 
-    def getBasenameAndChNames(self):
+    def getBasenameAndChNames(self, load=True):
         ls = utils.listdir(self.images_path)
-        channelNameUtil = channelName()
+        channelNameUtil = channelName(load=load)
         self.chNames, _ = channelNameUtil.getChannels(ls, self.images_path)
         self.basename = channelNameUtil.basename
         self.allRelFilenames = [

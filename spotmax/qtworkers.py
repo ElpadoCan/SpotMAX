@@ -133,7 +133,7 @@ class loadDataWorker(QRunnable):
             posData.loadSizeZ = posDataRef.loadSizeZ
             posData.SizeT = posDataRef.SizeT
             posData.SizeZ = posDataRef.SizeZ
-            posData.getBasenameAndChNames()
+            posData.getBasenameAndChNames(load=False)
             posData.buildPaths()
             posData.loadChannelData()
             posData.loadOtherFiles(

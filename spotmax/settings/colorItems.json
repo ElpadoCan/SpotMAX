@@ -32,16 +32,16 @@
       255
     ],
     "Spots inside ref. channel": [
-      0,
-      0,
       255,
-      6
+      0,
+      0,
+      1
     ],
     "Spots outside ref. channel": [
       255,
       0,
       0,
-      255
+      1
     ],
     "Skeleton color...": [
       0,

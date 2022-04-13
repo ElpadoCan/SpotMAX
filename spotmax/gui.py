@@ -1159,7 +1159,7 @@ class spotMAX_Win(QMainWindow):
         self.histItems['right']['equalizeButton'] = equalizeHistButton
 
         # Left image histogram
-        histLeft = widgets.HistogramLUTItem()
+        histLeft = widgets.myHistogramLUTitem()
 
         self.graphLayout.addItem(histLeft, row=1, col=0)
         histLeft.hide()
@@ -1167,9 +1167,9 @@ class spotMAX_Win(QMainWindow):
 
         # Right image histogram
         try:
-            histRight = widgets.HistogramLUTItem(gradientPosition='left')
+            histRight = widgets.myHistogramLUTitem(gradientPosition='left')
         except TypeError:
-            histRight = widgets.HistogramLUTItem()
+            histRight = widgets.myHistogramLUTitem()
 
         self.graphLayout.addItem(histRight, row=1, col=3)
         histRight.hide()
@@ -1180,6 +1180,9 @@ class spotMAX_Win(QMainWindow):
         self.blank = np.zeros((256,256), np.uint8)
 
         imgItem = widgets.ImageItem(self.blank)
+        histItem = self.histItems[side]['hist']
+        # Use same left click menu as the hist item
+        imgItem.menu = histItem.gradient.menu
         self.imgItems[side] = imgItem
         self.axes[side].addItem(imgItem)
 
@@ -1328,7 +1331,7 @@ class spotMAX_Win(QMainWindow):
 
         histItem = self.histItems[side]['hist']
         histItem.setImageItem(self.imgItems[side])
-        histItem.sigContextMenu.connect(self.gui_raiseContextMenuLUT)
+        # histItem.sigContextMenu.connect(self.gui_raiseContextMenuLUT)
         histItem.sigLookupTableChanged.connect(self.histLUTchanged)
 
         self.axes[side].spotsScatterItem.sigClicked.connect(self.spotsClicked)
@@ -1379,7 +1382,7 @@ class spotMAX_Win(QMainWindow):
             self.xHoverImg, self.yHoverImg = None, None
 
         drawRulerLine = (
-            self.rulerButton.isChecked() and self.rulerHoverON
+            self.rulerButton.isChecked()
             and not event.isExit()
         )
         if drawRulerLine:
@@ -2386,7 +2389,7 @@ class spotMAX_Win(QMainWindow):
     def pathScannerWorkerFinished(self, pathScanner):
         self.progressWin.workerFinished = True
         self.progressWin.close()
-        pathScanner.input(app=app)
+        pathScanner.input(app=self.app)
         if pathScanner.selectedPaths:
             self.images_paths = pathScanner.selectedPaths
             self.getChannelName()
