@@ -1059,6 +1059,41 @@ class ScatterPlotItem(pg.ScatterPlotItem):
     def mouseClickEvent(self, ev):
         pass
 
+class colorToolButton(QToolButton):
+    sigClicked = pyqtSignal()
+
+    def __init__(self, parent=None, color=(0,255,255)):
+        super().__init__(parent)
+        self.setColor(color)
+
+    def setColor(self, color):
+        self.penColor = color
+        self.brushColor = [0, 0, 0, 150]
+        self.brushColor[:3] = color[:3]
+        self.update()
+
+    def mousePressEvent(self, event):
+        self.sigClicked.emit()
+
+    def paintEvent(self, event):
+        QToolButton.paintEvent(self, event)
+        p = QPainter(self)
+        w, h = self.width(), self.height()
+        sf = 0.6
+        p.scale(w*sf, h*sf)
+        p.translate(0.5/sf, 0.5/sf)
+        symbol = pg.graphicsItems.ScatterPlotItem.Symbols['s']
+        pen = pg.mkPen(color=self.penColor, width=2)
+        brush = pg.mkBrush(color=self.brushColor)
+        try:
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setPen(pen)
+            p.setBrush(brush)
+            p.drawPath(symbol)
+        except Exception as e:
+            traceback.print_exc()
+        finally:
+            p.end()
 
 class QLogConsole(QTextEdit):
     def __init__(self, parent=None):

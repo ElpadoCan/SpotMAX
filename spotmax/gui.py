@@ -614,7 +614,7 @@ class spotMAX_Win(QMainWindow):
         # fileToolBar.addAction(reloadAction)
         # self.initiallyHiddenItems[side].append(reloadAction)
 
-    def gui_createSideViewerToolbar(self, side):
+    def gui_createSideViewToolbar(self, side):
         self.sideToolbar[side]['viewToolbar'] = {}
         viewToolbarDict = self.sideToolbar[side]['viewToolbar']
 
@@ -628,18 +628,11 @@ class spotMAX_Win(QMainWindow):
         viewToolbarDict['overlayButton'] = overlayButton
         self.checkableToolButtons.append(overlayButton)
 
-        try:
-            # padding is new from pyqtgraph 0.12.3
-            colorButton = pg.ColorButton(
-                self, color=(0,255,255), padding=3
-            )
-        except Exception as e:
-            colorButton = pg.ColorButton(
-                self, color=(0,255,255)
-            )
+        colorButton = pg.ColorButton(
+            self, color=(0,255,255)
+        )
         colorButton.clicked.disconnect()
-        colorButton.setToolTip('Edit colors')
-        colorButton.setFlat(True)
+        colorButton.hide()
         viewToolbarDict['colorButton'] = colorButton
 
         plotSpotsCoordsButton = widgets.DblClickQToolButton(self)
@@ -672,7 +665,10 @@ class spotMAX_Win(QMainWindow):
         viewToolbarDict['overlayAction'] = overlayAction
         self.initiallyHiddenItems[side].append(overlayAction)
 
-        colorAction = viewToolbar.addWidget(colorButton)
+        toolColorButton = widgets.colorToolButton()
+        toolColorButton.setToolTip('Edit colors')
+        viewToolbarDict['toolColorButton'] = toolColorButton
+        colorAction = viewToolbar.addWidget(toolColorButton)
         viewToolbarDict['colorAction'] = colorAction
         self.initiallyHiddenItems[side].append(colorAction)
 
@@ -690,11 +686,11 @@ class spotMAX_Win(QMainWindow):
 
     def gui_createLeftToolBars(self):
         self.gui_createSideFileToolbar('left')
-        self.gui_createSideViewerToolbar('left')
+        self.gui_createSideViewToolbar('left')
 
     def gui_createRightToolBars(self):
         self.gui_createSideFileToolbar('right')
-        self.gui_createSideViewerToolbar('right')
+        self.gui_createSideViewToolbar('right')
 
     def gui_createStatusBar(self):
         self.statusbar = self.statusBar()
@@ -919,7 +915,8 @@ class spotMAX_Win(QMainWindow):
         viewToolbar = self.sideToolbar[side]['viewToolbar']
 
         colorButton = viewToolbar['colorButton']
-        colorButton.clicked.connect(self.gui_selectColor)
+        toolColorButton = viewToolbar['toolColorButton']
+        toolColorButton.sigClicked.connect(self.gui_selectColor)
         colorButton.sigColorChanging.connect(self.gui_setColor)
         colorButton.sigColorChanged.connect(self.gui_setColor)
 
@@ -956,7 +953,7 @@ class spotMAX_Win(QMainWindow):
 
     def gui_selectColor(self):
         viewToolbar = self.sideToolbar['left']['viewToolbar']
-        side = self.side(viewToolbar['colorButton'])
+        side = self.side(viewToolbar['toolColorButton'])
 
         win = dialogs.QDialogListbox(
             'Selec color to edit', 'Select which item\'s color to edit',
@@ -972,15 +969,20 @@ class spotMAX_Win(QMainWindow):
 
         viewToolbar = self.sideToolbar[side]['viewToolbar']
         colorButton = viewToolbar['colorButton']
+        toolColorButton = viewToolbar['toolColorButton']
         colorButton.side = side
         colorButton.key = win.selectedItems[0].text()
         colorButton.setColor(self.colorItems[side][colorButton.key])
+        toolColorButton.setColor(self.colorItems[side][colorButton.key])
         colorButton.selectColor()
 
     def gui_setColor(self, colorButton):
         side = colorButton.side
         key = colorButton.key
         rgb = list(colorButton.color(mode='byte'))
+        viewToolbar = self.sideToolbar[side]['viewToolbar']
+        toolColorButton = viewToolbar['toolColorButton']
+        toolColorButton.setColor(tuple(rgb))
         if key == 'All spots':
             self.colorItems[side]["Spots inside ref. channel"] = rgb
             self.colorItems[side]["Spots outside ref. channel"] = rgb
@@ -3502,7 +3504,7 @@ class spotMAX_Win(QMainWindow):
 
     def loadChunkWorkerClosed(self):
         print('********************************')
-        self.logger.info('spotMAX closed. Have a good day!')
+        print('spotMAX closed. Have a good day!')
         print('********************************')
 
     def closeEvent(self, event):
@@ -3552,6 +3554,12 @@ class spotMAX_Win(QMainWindow):
                     posData.h5_dset.close()
                 except AttributeError:
                     pass
+
+        self.logger.info('Closing logger...')
+        handlers = self.logger.handlers[:]
+        for handler in handlers:
+            handler.close()
+            self.logger.removeHandler(handler)
 
         if self.buttonToRestore is not None and event.isAccepted():
             button, color, text = self.buttonToRestore
