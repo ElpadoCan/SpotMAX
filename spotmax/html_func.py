@@ -1,6 +1,6 @@
 from functools import wraps
 
-def html_tag(tag_info='p style="font-size:10pt"'):
+def _tag(tag_info='p style="font-size:10px"'):
     def wrapper(func):
         @wraps(func)
         def inner(text):
@@ -10,19 +10,11 @@ def html_tag(tag_info='p style="font-size:10pt"'):
         return inner
     return wrapper
 
-@html_tag(tag_info='p style="font-size:10pt"')
-def html_paragraph_10pt(text):
-    return text
-
-@html_tag(tag_info='p style="font-size:11pt"')
-def html_paragraph_11pt(text):
-    return text
-
-@html_tag(tag_info='i')
+@_tag(tag_info='i')
 def italic(text):
     return text
 
-@html_tag(tag_info='b')
+@_tag(tag_info='b')
 def bold(text):
     return text
 
@@ -31,9 +23,12 @@ def tag(text, tag_info='p style="font-size:10pt"'):
     text = f'<{tag_info}>{text}</{tag}>'
     return text
 
+def paragraph(text, font_size='13px'):
+    return tag(text, tag_info=f'p style="font-size:{font_size}"')
+
 if __name__ == '__main__':
     text = 'ciao'
-    print(html_paragraph_10pt(text))
+    print(paragraph(text))
     print(italic(text))
     print(bold(text))
     print(tag(text))

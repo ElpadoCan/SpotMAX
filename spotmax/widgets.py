@@ -393,7 +393,7 @@ class formWidget(QWidget):
 
         if font is None:
             font = QFont()
-            font.setPointSize(10)
+            font.setPixelSize(13)
 
         self.labelLeft = QClickableLabel(widget)
         self.labelLeft.setText(labelTextLeft)
@@ -659,7 +659,7 @@ class intLineEdit(QLineEdit):
         self.setAlignment(Qt.AlignCenter)
 
         font = QFont()
-        font.setPointSize(10)
+        font.setPixelSize(13)
         self.setFont(font)
         self.setText('0')
 
@@ -691,7 +691,7 @@ class floatLineEdit(QLineEdit):
         self.setAlignment(Qt.AlignCenter)
 
         font = QFont()
-        font.setPointSize(10)
+        font.setPixelSize(13)
         self.setFont(font)
 
         self.textChanged.connect(self.emitValueChanged)
@@ -1065,7 +1065,7 @@ class QLogConsole(QTextEdit):
         super().__init__(parent)
         self.setReadOnly(True)
         font = QFont()
-        font.setPointSize(9)
+        font.setPixelSize(12)
         self.setFont(font)
 
     def write(self, message):

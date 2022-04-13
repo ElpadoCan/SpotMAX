@@ -80,7 +80,7 @@ from PyQt5.QtWidgets import (
 
 import pyqtgraph as pg
 
-from . import load, dialogs, utils, widgets, qtworkers
+from . import load, dialogs, utils, widgets, qtworkers, html_func
 
 # NOTE: Enable icons
 from . import qrc_resources
@@ -994,7 +994,7 @@ class spotMAX_Win(QMainWindow):
 
     def gui_createFonts(self):
         self.font10pt = QFont()
-        self.font10pt.setPointSize(10)
+        self.font10pt.setPixelSize(13)
 
     def gui_setListItems(self):
         self.drawSegmComboboxItems = [
@@ -2645,26 +2645,23 @@ class spotMAX_Win(QMainWindow):
         return channelDataPath, posDataRef
 
     def warnMemoryNotSufficient(self, total_ram, available_ram, required_ram):
-        total_ram = myutils._bytes_to_MB(total_ram)
-        available_ram = myutils._bytes_to_MB(available_ram)
-        required_ram = myutils._bytes_to_MB(required_ram)
+        total_ram = utils._bytes_to_MB(total_ram)
+        available_ram = utils._bytes_to_MB(available_ram)
+        required_ram = utils._bytes_to_MB(required_ram)
 
         msg = widgets.myMessageBox(self)
-        txt = (f"""
-        <p style="font-size:10pt">
-            The total amount of data that you requested to load is about
-            <b>{required_ram} MB</b> but there are only
-            <b>{available_ram} MB</b> available.<br><br>
-            For optimal operation, we recommend loading <b>maximum 20%</b>
-            of the available memory. To do so, try to close open apps to
-            free up some memory or consider using .h5 files and load only
-            a portion of the file. Another option is to crop the images
-            using the data prep module.<br><br>
-            If you choose to continue, the <b>system might freeze</b>
-            or your OS could simply kill the process.<br><br>
-            What do you want to do?
-        </p>
-        """
+        txt = html_func.paragraph(
+            'The total amount of data that you requested to load is about '
+            f'<b>{required_ram} MB</b> but there are only '
+            f'<b>{available_ram} MB</b> available.<br><br>'
+            'For optimal operation, we recommend loading <b>maximum 40%</b> '
+            'of the available memory. To do so, try to close open apps to '
+            'free up some memory or consider using .h5 files and load only '
+            'a portion of the file. Another option is to crop the images '
+            'using the data prep module.<br><br>'
+            'If you choose to continue, the <b>system might freeze</b> '
+            'or your OS could simply kill the process.<br><br>'
+            'What do you want to do?'
         )
         continueButton, abortButton = msg.warning(
             self, 'Memory not sufficient', txt,
@@ -2679,7 +2676,7 @@ class spotMAX_Win(QMainWindow):
         memory = psutil.virtual_memory()
         total_ram = memory.total
         available_ram = memory.available
-        if required_ram/available_ram > 0.2:
+        if required_ram/available_ram > 0.4:
             proceed = self.warnMemoryNotSufficient(
                 total_ram, available_ram, required_ram
             )

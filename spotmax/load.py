@@ -43,7 +43,7 @@ class channelName:
         char = filenames[0][:2]
         startWithSameChar = all([f.startswith(char) for f in filenames])
         if not startWithSameChar:
-            txt = html_func.html_paragraph_10pt("""
+            txt = html_func.paragraph("""
                 The system detected files inside the folder
                 that <b>do not start with the same, common basename</b>
                 (see which filenames in the box below).<br><br>
@@ -179,7 +179,7 @@ class channelName:
     def askSelectChannel(self, parent, channel_names, informativeText='',
                  CbLabel='Select channel name to load:  '):
         font = QFont()
-        font.setPointSize(10)
+        font.setPixelSize(13)
         win = dialogs.QDialogCombobox(
             'Select channel name', channel_names,
             informativeText, CbLabel=CbLabel,
@@ -689,7 +689,7 @@ class loadData:
         is_multi_npz = len(segm_files)>1
         if is_multi_npz:
             font = QFont()
-            font.setPointSize(9)
+            font.setPixelSize(13)
             win = apps.QDialogMultiSegmNpz(
                 segm_files, self.pos_path, parent=self.parent
             )
@@ -1115,7 +1115,7 @@ class loadData:
             save=False
         ):
         font = QFont()
-        font.setPointSize(10)
+        font.setPixelSize(13)
         metadataWin = dialogs.QDialogMetadata(
             self.SizeT, self.SizeZ, self.TimeIncrement,
             self.PhysicalSizeZ, self.PhysicalSizeY, self.PhysicalSizeX,

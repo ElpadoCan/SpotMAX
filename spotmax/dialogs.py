@@ -86,8 +86,8 @@ class guiBottomWidgets(QGroupBox):
             self, side, drawSegmComboboxItems, zProjItems,
             isCheckable=False, checked=False, parent=None
         ):
-        self.font10pt = QFont()
-        self.font10pt.setPointSize(10)
+        self.font13px = QFont()
+        self.font13px.setPixelSize(13)
 
         QGroupBox.__init__(self, parent)
 
@@ -139,7 +139,7 @@ class guiBottomWidgets(QGroupBox):
         row = 1
         col = initialCol +0
         navigateScrollbar_label = QLabel('frame n.  ')
-        navigateScrollbar_label.setFont(self.font10pt)
+        navigateScrollbar_label.setFont(self.font13px)
         layout.addWidget(
             navigateScrollbar_label, row, col, alignment=Qt.AlignRight
         )
@@ -159,7 +159,7 @@ class guiBottomWidgets(QGroupBox):
         row = 2
         col = initialCol +0
         zSliceSbL0_label = QLabel('First layer z-slice  ')
-        zSliceSbL0_label.setFont(self.font10pt)
+        zSliceSbL0_label.setFont(self.font13px)
         layout.addWidget(
             zSliceSbL0_label, row, col, alignment=Qt.AlignRight
         )
@@ -190,7 +190,7 @@ class guiBottomWidgets(QGroupBox):
         row = 3
         col = initialCol +0
         zSliceSbL1_label = QLabel('Second layer z-slice  ')
-        zSliceSbL1_label.setFont(self.font10pt)
+        zSliceSbL1_label.setFont(self.font13px)
         layout.addWidget(
             zSliceSbL1_label, row, col, alignment=Qt.AlignRight
         )
@@ -223,7 +223,7 @@ class guiBottomWidgets(QGroupBox):
         row = 4
         col = initialCol +0
         alphaScrollbar_label = QLabel('Overlay alpha  ')
-        alphaScrollbar_label.setFont(self.font10pt)
+        alphaScrollbar_label.setFont(self.font13px)
         layout.addWidget(
             alphaScrollbar_label, row, col, alignment=Qt.AlignRight
         )
@@ -331,7 +331,7 @@ class inspectResults(QGroupBox):
         self.row = 0
 
         font = QFont()
-        font.setPointSize(10)
+        font.setPixelSize(13)
         self.setFont(font)
 
         runsInfo = self.runsInfo(posData)
@@ -928,12 +928,10 @@ class QDialogMetadata(QDialog):
         buttonsLayout.setContentsMargins(0, 10, 0, 0)
 
         if imgDataShape is not None:
-            label = QLabel(
-                f"""
-                <p style="font-size:11pt">
-                    <i>Image data shape</i> = <b>{imgDataShape}</b><br>
-                </p>
-                """)
+            label = QLabel(html_func.paragraph(
+                    f'<i>Image data shape</i> = <b>{imgDataShape}</b><br>'
+                )
+            )
             mainLayout.addWidget(label, alignment=Qt.AlignCenter)
         mainLayout.addWidget(loadingSizesGroupbox)
         mainLayout.addStretch(1)
@@ -1013,32 +1011,26 @@ class QDialogMetadata(QDialog):
             valid2D = self.SizeT == 1 and self.SizeZ == 1
         valid = all([valid4D, valid3D, valid2D])
         if not valid4D:
-            txt = (f"""
-            <p style="font-size:10pt">
-                You loaded <b>4D data</b>, hence the number of frames MUST be
-                <b>{T}</b><br> nd the number of z-slices MUST be <b>{Z}</b>.<br><br>
-                What do you want to do?
-            </p>
-            """)
+            txt = html_func.paragraph(
+                'You loaded <b>4D data</b>, hence the number of frames MUST be '
+                f'<b>{T}</b><br> nd the number of z-slices MUST be <b>{Z}</b>.'
+                '<br><br> What do you want to do?'
+            )
         if not valid3D:
-            txt = (f"""
-            <p style="font-size:10pt">
-                You loaded <b>3D data</b>, hence either the number of frames is
-                <b>{TZ}</b><br> or the number of z-slices can be <b>{TZ}</b>.<br><br>
-                However, if the number of frames is greater than 1 then the<br>
-                number of z-slices MUST be 1, and vice-versa.<br><br>
-                What do you want to do?
-            </p>
-            """)
+            txt = html_func.paragraph(
+                'You loaded <b>3D data</b>, hence either the number of frames is '
+                f'<b>{TZ}</b><br> or the number of z-slices can be <b>{TZ}</b>.<br><br>'
+                'However, if the number of frames is greater than 1 then the<br>'
+                'number of z-slices MUST be 1, and vice-versa.<br><br>'
+                'What do you want to do?'
+            )
 
         if not valid2D:
-            txt = (f"""
-            <p style="font-size:10pt">
-                You loaded <b>2D data</b>, hence the number of frames MUST be <b>1</b>
-                and the number of z-slices MUST be <b>1</b>.<br><br>
-                What do you want to do?
-            </p>
-            """)
+            txt = html_func.paragraph(
+                'You loaded <b>2D data</b>, hence the number of frames MUST be <b>1</b> '
+                'and the number of z-slices MUST be <b>1</b>.<br><br>'
+                'What do you want to do?'
+            )
 
         if not valid:
             msg = widgets.myMessageBox(self)
@@ -1199,7 +1191,7 @@ class QDialogListbox(QDialog):
 
         label = QLabel(text)
         _font = QFont()
-        _font.setPointSize(10)
+        _font.setPixelSize(13)
         label.setFont(_font)
         # padding: top, left, bottom, right
         label.setStyleSheet("padding:0px 0px 3px 0px;")
@@ -1302,13 +1294,13 @@ class selectPathsSpotmax(QDialog):
 
         infoLabel = QLabel()
         text = 'Select <b>one or more folders</b> to load (Ctrl+A to select All) <br>'
-        htmlText = html_func.html_paragraph_11pt(text)
+        htmlText = html_func.paragraph(text)
         infoLabel.setText(htmlText)
 
         runNumberLayout = QHBoxLayout()
         runNumberLabel = QLabel()
         text = 'Number of pos. analysed for run number: '
-        htmlText = html_func.html_paragraph_10pt(text)
+        htmlText = html_func.paragraph(text)
         runNumberLabel.setText(htmlText)
         runNumberCombobox = QComboBox()
         runNumberCombobox.addItems([f'  {r}  ' for r in runs])
@@ -1380,7 +1372,7 @@ class selectPathsSpotmax(QDialog):
         self.pathSelector.setFocus(True)
 
         font = QFont()
-        font.setPointSize(10)
+        font.setPixelSize(13)
         self.setFont(font)
 
         self.setMyStyleSheet()
@@ -1474,7 +1466,7 @@ class selectPathsSpotmax(QDialog):
             return
 
         title = f'Analysis inputs table'
-        infoText = html_func.html_paragraph_10pt(
+        infoText = html_func.paragraph(
             f'Analysis inputs used to analyse <b>run number {run}</b> '
             f'of experiment:<br>"{relPath1}"<br>'
         )
@@ -1532,7 +1524,7 @@ class selectPathsSpotmax(QDialog):
             relPathLabel.item = relPathItem
             relPathLabel.clicked.connect(self.selectAllChildren)
             relPathText = f'{relPath} (<i>{nPSCtext}, {nPSStext}</i>)'
-            relPathLabel.setText(html_func.html_paragraph_10pt(relPathText))
+            relPathLabel.setText(html_func.paragraph(relPathText))
             pathSelector.setItemWidget(relPathItem, 0, relPathLabel)
 
             for pos in posFoldernames:
@@ -1552,7 +1544,7 @@ class selectPathsSpotmax(QDialog):
                 posLabel = widgets.QClickableLabel()
                 posLabel.item = posItem
                 posLabel.clicked.connect(self.selectAllChildren)
-                posLabel.setText(html_func.html_paragraph_10pt(posText))
+                posLabel.setText(html_func.paragraph(posText))
                 relPathItem.addChild(posItem)
                 pathSelector.setItemWidget(posItem, 0, posLabel)
         if relPathItem is not None and len(selectedRunPaths) == 1:
@@ -1567,7 +1559,7 @@ class selectPathsSpotmax(QDialog):
         msg = widgets.myMessageBox()
         msg.warning(
             self, 'Analysis inputs not found!',
-            html_func.html_paragraph_10pt(text)
+            html_func.paragraph(text)
         )
 
     def setMyStyleSheet(self):
@@ -1625,7 +1617,7 @@ class selectPathsSpotmax(QDialog):
         )
         msg = widgets.myMessageBox()
         msg.warning(
-            self, 'No path selected!', html_func.html_paragraph_10pt(text)
+            self, 'No path selected!', html_func.paragraph(text)
         )
 
     def warningNotPathsSelected(self):
@@ -1634,7 +1626,7 @@ class selectPathsSpotmax(QDialog):
         )
         msg = widgets.myMessageBox()
         doClose, _ = msg.warning(
-            self, 'No paths selected!', html_func.html_paragraph_10pt(text),
+            self, 'No paths selected!', html_func.paragraph(text),
             buttonsTexts=(' Yes ', 'No')
         )
         return msg.clickedButton==doClose
@@ -1900,7 +1892,7 @@ class selectSpotsH5FileDialog(QDialog):
         self.selectedFile = None
 
         font = QFont()
-        font.setPointSize(10)
+        font.setPixelSize(13)
         self.setFont(font)
 
         mainLayout = selectSpotsH5FileLayout(
@@ -1963,7 +1955,7 @@ class selectSpotsH5FileDialog(QDialog):
         )
         msg = widgets.myMessageBox()
         doClose, _ = msg.warning(
-            self, 'No files selected!', html_func.html_paragraph_10pt(text),
+            self, 'No files selected!', html_func.paragraph(text),
             buttonsTexts=(' Yes ', 'No')
         )
         return msg.clickedButton==doClose
@@ -1993,7 +1985,7 @@ class selectSpotsH5FileLayout(QVBoxLayout):
 
         infoLabel = QLabel()
         text = 'Select which analysis to load <br>'
-        htmlText = html_func.html_paragraph_11pt(text)
+        htmlText = html_func.paragraph(text)
         infoLabel.setText(htmlText)
 
         treeSelector = QTreeWidget()
