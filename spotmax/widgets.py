@@ -21,15 +21,291 @@ from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QMainWindow, QStyleFactory,
     QLineEdit, QSlider, QSpinBox, QGridLayout, QDockWidget,
     QScrollArea, QSizePolicy, QComboBox, QPushButton, QScrollBar,
-    QGroupBox, QAbstractSlider
+    QGroupBox, QAbstractSlider, QDialog, QStyle, QSpacerItem
 )
 
 import pyqtgraph as pg
 
-import utils, dialogs
+from . import utils, dialogs, is_mac, is_win
 
 # NOTE: Enable icons
-import qrc_resources
+from . import qrc_resources
+
+class myMessageBox(QDialog):
+    def __init__(self, parent=None, showCentered=True):
+        super().__init__(parent)
+
+        self.cancel = True
+        self.cancelButton = None
+
+        self.showCentered = showCentered
+
+        self.detailsWidget = None
+
+        self.layout = QGridLayout()
+        self.layout.setHorizontalSpacing(20)
+        self.buttonsLayout = QHBoxLayout()
+        self.buttonsLayout.setSpacing(2)
+        self.buttons = []
+
+        self.currentRow = 0
+        self._w = None
+
+        self.layout.setColumnStretch(1, 1)
+        self.setLayout(self.layout)
+
+    def setIcon(self, iconName='SP_MessageBoxInformation'):
+        label = QLabel(self)
+
+        standardIcon = getattr(QStyle, iconName)
+        icon = self.style().standardIcon(standardIcon)
+        pixmap = icon.pixmap(60, 60)
+        label.setPixmap(pixmap)
+
+        self.layout.addWidget(label, 0, 0, alignment=Qt.AlignTop)
+
+    def addShowInFileManagerButton(self, path, txt=None):
+        if txt is None:
+            txt = 'Reveal in Finder' if is_mac else 'Show in Explorer'
+        self.showInFileManagButton = QPushButton(txt)
+        self.buttonsLayout.addWidget(self.showInFileManagButton)
+        func = partial(utils.showInExplorer, path)
+        self.showInFileManagButton.clicked.connect(func)
+
+    def addCancelButton(self):
+        self.cancelButton = QPushButton('Cancel', self)
+        self.buttonsLayout.insertWidget(0, self.cancelButton)
+        self.buttonsLayout.insertSpacing(1, 20)
+
+    def addText(self, text):
+        label = QLabel(self)
+        label.setTextInteractionFlags(
+            Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard
+        )
+        label.setText(text)
+        label.setWordWrap(True)
+        label.setOpenExternalLinks(True)
+        self.layout.addWidget(label, self.currentRow, 1)#, alignment=Qt.AlignTop)
+        self.currentRow += 1
+        return label
+
+    def showDetails(self, checked):
+        if checked:
+            self.showDetailsButton.setText('Hide details')
+            self.detailsWidget.show()
+        else:
+            self.showDetailsButton.setText('Show details...')
+            self.detailsWidget.hide()
+            QTimer.singleShot(50, self._resize)
+
+    def _resize(self):
+        self.resize(self.width(), self._h)
+
+    def setDetailedText(self, text):
+        self.showDetailsButton = QPushButton('Show details...', self)
+        self.showDetailsButton.setCheckable(True)
+        self.showDetailsButton.clicked.connect(self.showDetails)
+        self.buttonsLayout.addWidget(self.showDetailsButton)
+        self.detailsWidget = QTextEdit()
+        self.detailsWidget.setReadOnly(True)
+        self.detailsWidget.setText(text)
+        self.detailsWidget.hide()
+
+    def addButton(self, buttonText):
+        button = QPushButton(buttonText, self)
+        if buttonText.find('Cancel') != -1:
+            self.cancelButton = button
+            self.buttonsLayout.insertWidget(0, button)
+            self.buttonsLayout.insertSpacing(1, 20)
+        else:
+            self.buttonsLayout.addWidget(button)
+        button.clicked.connect(self.close)
+        self.buttons.append(button)
+        return button
+
+    def addWidget(self, widget):
+        self.layout.addWidget(widget, self.currentRow, 1)
+        self.currentRow += 1
+
+    def addLayout(self, layout):
+        self.layout.addLayout(layout, self.currentRow, 1)
+        self.currentRow += 1
+
+    def setWidth(self, w):
+        self._w = w
+
+    def show(self, block=False):
+        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
+
+        # spacer
+        self.currentRow += 1
+        spacer = QSpacerItem(10, 10)
+        self.layout.addItem(spacer, self.currentRow, 1)
+
+        # buttons
+        self.currentRow += 1
+        self.layout.addLayout(
+            self.buttonsLayout, self.currentRow, 0, 1, 2,
+            alignment=Qt.AlignRight
+        )
+
+        # spacer
+        self.currentRow += 1
+        spacer = QSpacerItem(10, 10)
+        self.layout.addItem(spacer, self.currentRow, 1)
+
+        # Add stretch after buttons
+        self.currentRow += 1
+        self.layout.setRowStretch(self.currentRow, 1)
+
+        if self.detailsWidget is not None:
+            self.currentRow += 1
+            self.layout.addWidget(
+                self.detailsWidget, self.currentRow, 0, 1, 2
+            )
+
+        super().show()
+        widths = [button.width() for button in self.buttons]
+        if widths:
+            max_width = max(widths)
+            for button in self.buttons:
+                button.setMinimumWidth(max_width)
+
+        if self.width() < 350:
+            self.resize(350, self.height())
+
+        if self._w is not None:
+            self.resize(self._w, self.height())
+
+        if self.showCentered:
+            screen = self.screen()
+            screenWidth = screen.size().width()
+            screenHeight = screen.size().height()
+            w, h = self.width(), self.height()
+            left = int(screenWidth/2 - w/2)
+            top = int(screenHeight/2 - h/2)
+            self.move(left, top)
+
+        self._h = self.height()
+
+        if block:
+            self.loop = QEventLoop()
+            self.loop.exec_()
+
+    # def keyPressEvent(self, event):
+    #     print(self.height(), self._h)
+
+    def _template(
+            self, parent, title, message,
+            buttonsTexts=None, layouts=None, widgets=None,
+            detailedText=None, showPath=None
+        ):
+        if parent is not None:
+            self.setParent(parent)
+        self.setWindowTitle(title)
+        self.addText(message)
+        if layouts is not None:
+            if utils.is_iterable(layouts):
+                for layout in layouts:
+                    self.addLayout(layout)
+            else:
+                self.addLayout(layout)
+
+        if widgets is not None:
+            if utils.is_iterable(widgets):
+                for widget in widgets:
+                    self.addWidget(widget)
+            else:
+                self.addWidget(widgets)
+
+        buttons = []
+        if buttonsTexts is None:
+            okButton = self.addButton('  Ok  ')
+            buttons.append(okButton)
+        elif isinstance(buttonsTexts, str):
+            button = self.addButton(buttonsTexts)
+            buttons.append(button)
+        else:
+            for buttonText in buttonsTexts:
+                button = self.addButton(buttonText)
+                buttons.append(button)
+
+        if showPath is not None:
+            path, txt = showPath
+            self.addShowInFileManagerButton(path, txt=txt)
+
+        if detailedText is not None:
+            self.setDetailedText(detailedText)
+
+        return buttons
+
+    def critical(
+            self, parent, title, message,
+            buttonsTexts=None, layouts=None, widgets=None,
+            detailedText=None, showPath=None
+        ):
+        self.setIcon(iconName='SP_MessageBoxCritical')
+        buttons = self._template(
+            parent, title, message,
+            buttonsTexts=buttonsTexts, layouts=layouts, widgets=widgets,
+            detailedText=detailedText, showPath=showPath
+        )
+        self.exec_()
+        return buttons
+
+    def information(
+            self, parent, title, message,
+            buttonsTexts=None, layouts=None, widgets=None,
+            detailedText=None, showPath=None
+        ):
+        self.setIcon(iconName='SP_MessageBoxInformation')
+        buttons = self._template(
+            parent, title, message,
+            buttonsTexts=buttonsTexts, layouts=layouts, widgets=widgets,
+            detailedText=detailedText, showPath=showPath
+        )
+        self.exec_()
+        return buttons
+
+    def warning(
+            self, parent, title, message,
+            buttonsTexts=None, layouts=None, widgets=None,
+            detailedText=None, showPath=None
+        ):
+        self.setIcon(iconName='SP_MessageBoxWarning')
+        buttons = self._template(
+            parent, title, message,
+            buttonsTexts=buttonsTexts, layouts=layouts, widgets=widgets,
+            detailedText=detailedText, showPath=showPath
+        )
+        self.exec_()
+        return buttons
+
+    def question(
+            self, parent, title, message,
+            buttonsTexts=None, layouts=None, widgets=None,
+            detailedText=None, showPath=None
+        ):
+        self.setIcon(iconName='SP_MessageBoxQuestion')
+        buttons = self._template(
+            parent, title, message,
+            buttonsTexts=buttonsTexts, layouts=layouts, widgets=widgets,
+            detailedText=detailedText, showPath=showPath
+        )
+        self.exec_()
+        return buttons
+
+    def exec_(self):
+        self.show()
+        super().exec_()
+
+    def close(self):
+        self.clickedButton = self.sender()
+        if self.clickedButton is not None:
+            self.cancel = self.clickedButton == self.cancelButton
+        super().close()
+        if hasattr(self, 'loop'):
+            self.loop.exit()
 
 class QSpinBoxOdd(QSpinBox):
     def __init__(self, acceptedValues=(), parent=None):

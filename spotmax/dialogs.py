@@ -26,10 +26,10 @@ from PyQt5.QtWidgets import (
     QSlider, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
-import html_func, load, widgets, core, utils
+from . import html_func, load, widgets, core, utils
 
 # NOTE: Enable icons
-import qrc_resources
+from . import qrc_resources
 
 class measurementsQGroupBox(QGroupBox):
     def __init__(self, names, parent=None):
@@ -1041,20 +1041,12 @@ class QDialogMetadata(QDialog):
             """)
 
         if not valid:
-            msg = QMessageBox(self)
-            msg.setIcon(msg.Warning)
-            msg.setWindowTitle('Invalid entries')
-            msg.setText(txt)
-            continueButton = QPushButton(
-                f'Continue anyway'
+            msg = widgets.myMessageBox(self)
+            continueButton, cancelButton = msg.warning(
+                self, 'Invalid entries', txt,
+                buttonsTexts=('Continue', 'Let me correct')
             )
-            cancelButton = QPushButton(
-                f'Let me correct'
-            )
-            msg.addButton(continueButton, msg.YesRole)
-            msg.addButton(cancelButton, msg.NoRole)
-            msg.exec_()
-            if msg.clickedButton() == cancelButton:
+            if msg.clickedButton == cancelButton:
                 return
 
         if self.PosData is not None and self.sender() != self.okButton:
@@ -1112,8 +1104,8 @@ class QDialogMetadata(QDialog):
                             f'{acdc_df_path}\n\n'
                             'Close file and then press "Ok".'
                         )
-                        msg = QMessageBox()
-                        msg.critical(self, 'Permission denied', err_msg, msg.Ok)
+                        msg = widgets.myMessageBox()
+                        msg.critical(self, 'Permission denied', err_msg)
                         acdc_df.to_csv(acdc_df_path, index=False)
 
         elif self.sender() == self.selectButton:
@@ -1572,11 +1564,10 @@ class selectPathsSpotmax(QDialog):
             f'does not have the <b>"{run}_analysis_inputs.csv"</b> file.<br><br>'
             'Sorry about that.'
         )
-        msg = QMessageBox()
+        msg = widgets.myMessageBox()
         msg.warning(
             self, 'Analysis inputs not found!',
-            html_func.html_paragraph_10pt(text),
-            msg.Ok
+            html_func.html_paragraph_10pt(text)
         )
 
     def setMyStyleSheet(self):
@@ -1632,22 +1623,21 @@ class selectPathsSpotmax(QDialog):
             '<i>Note that if you select multiple experiments I will show you '
             'only the first one that you selected.</i>'
         )
-        msg = QMessageBox()
+        msg = widgets.myMessageBox()
         msg.warning(
-            self, 'No path selected!', html_func.html_paragraph_10pt(text),
-            msg.Ok
+            self, 'No path selected!', html_func.html_paragraph_10pt(text)
         )
 
     def warningNotPathsSelected(self):
         text = (
             '<b>You didn\'t select any path!</b> Do you want to cancel loading data?'
         )
-        msg = QMessageBox()
-        doClose = msg.warning(
+        msg = widgets.myMessageBox()
+        doClose, _ = msg.warning(
             self, 'No paths selected!', html_func.html_paragraph_10pt(text),
-            msg.Yes | msg.No
+            buttonsTexts=(' Yes ', 'No')
         )
-        return doClose==msg.Yes
+        return msg.clickedButton==doClose
 
     def cancel_cb(self, event):
         self.close()
@@ -1971,12 +1961,12 @@ class selectSpotsH5FileDialog(QDialog):
             'You didn\'t select <b>any analysis run!</b><br><br>'
             'Do you want to cancel the process?'
         )
-        msg = QMessageBox()
-        doClose = msg.warning(
+        msg = widgets.myMessageBox()
+        doClose, _ = msg.warning(
             self, 'No files selected!', html_func.html_paragraph_10pt(text),
-            msg.Yes | msg.No
+            buttonsTexts=(' Yes ', 'No')
         )
-        return doClose==msg.Yes
+        return msg.clickedButton==doClose
 
     def cancel_cb(self, checked=True):
         self.close()

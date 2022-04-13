@@ -25,10 +25,11 @@ import skimage.color
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QMessageBox
 
-import dialogs, utils, core, html_func
+from . import dialogs, utils, core, html_func
 
 class channelName:
-    def __init__(self, which_channel=None):
+    def __init__(self, which_channel=None, QtParent=None):
+        self.parent = QtParent
         self.is_first_call = True
         self.which_channel = which_channel
         self.last_sel_channel = self._load_last_selection()
@@ -42,9 +43,6 @@ class channelName:
         char = filenames[0][:2]
         startWithSameChar = all([f.startswith(char) for f in filenames])
         if not startWithSameChar:
-            msg = QMessageBox()
-            msg.setIcon(msg.Warning)
-            msg.setWindowTitle('Data structure compromised')
             txt = html_func.html_paragraph_10pt("""
                 The system detected files inside the folder
                 that <b>do not start with the same, common basename</b>
@@ -64,11 +62,13 @@ class channelName:
                 Data loading may still be successfull, so the system will
                 still try to load data now.
             """)
-            msg.setText(txt)
+            msg = widgets.myMessageBox()
             details = "\n".join(files)
             details = f'Files detected:\n\n{details}'
-            msg.setDetailedText(details)
-            msg.exec_()
+            msg.warning(
+                self.parent, 'Data structure compromised', txt,
+                detailedText=details
+            )
             return False
         return True
 
@@ -587,23 +587,23 @@ class loadData:
                 axis1_range = (self.z0_window, self.z0_window+self.loadSizeZ)
                 chData, t0_window, z0_window = utils.shiftWindow_axis0(
                     self.h5_dset, self.chData, self.loadSizeT, self.t0_window,
-                    current_idx, axis1_range=axis1_range, worker=worker
+                    current_idx, axis1_interval=axis1_range, worker=worker
                 )
             elif axis==1:
                 axis0_range = (self.t0_window, self.t0_window+self.loadSizeT)
                 chData, t0_window, z0_window = utils.shiftWindow_axis1(
                     self.h5_dset, self.chData, self.loadSizeZ, self.z0_window,
-                    current_idx, axis0_range=axis0_range, worker=worker
+                    current_idx, axis0_interval=axis0_range, worker=worker
                 )
         elif is3Dz:
             chData, t0_window, z0_window = utils.shiftWindow_axis0(
                 self.h5_dset, self.chData, self.loadSizeZ, self.z0_window,
-                current_idx, axis1_range=None, worker=worker
+                current_idx, axis1_interval=None, worker=worker
             )
         elif is3Dt:
             chData, t0_window, z0_window = utils.shiftWindow_axis0(
                 self.h5_dset, self.chData, self.loadSizeT, self.t0_window,
-                current_idx, axis1_range=None, worker=worker
+                current_idx, axis1_interval=None, worker=worker
             )
         self.chData = chData
         self.t0_window = t0_window

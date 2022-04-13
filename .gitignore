@@ -1,15 +1,17 @@
 # Custom ignores
-src/test.py
-src/deprecated.py
-src/tests/*
-src/spotmax_v1_paramWin.png
+data/*
+spotmax/qtest.py
+spotmax/test.py
+spotmax/deprecated.py
+spotmax/tests/*
+spotmax/spotmax_v1_paramWin.png
 
-src/logs/*
-!src/logs/dummy.txt
+spotmax/logs/*
+!spotmax/logs/dummy.txt
 
 
-src/settings/*
-!src/settings/dummy.txt
+spotmax/settings/*
+!spotmax/settings/dummy.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -60,7 +60,7 @@ from PyQt5.QtCore import (
     Qt, QFile, QTextStream, QSize, QRect, QRectF,
     QEventLoop, QTimer, QEvent, QThreadPool,
     QRunnable, pyqtSignal, QObject, QThread,
-    QMutex, QWaitCondition
+    QMutex, QWaitCondition, QSettings
 )
 from PyQt5.QtGui import (
     QIcon, QKeySequence, QCursor, QKeyEvent, QFont,
@@ -80,11 +80,10 @@ from PyQt5.QtWidgets import (
 
 import pyqtgraph as pg
 
-# Private modules
-import load, dialogs, utils, widgets, qtworkers
+from . import load, dialogs, utils, widgets, qtworkers
 
 # NOTE: Enable icons
-import qrc_resources
+from . import qrc_resources
 
 if os.name == 'nt':
     try:
@@ -155,25 +154,24 @@ def exception_handler(func):
         except Exception as e:
             result = None
             self.logger.exception(e)
-            msg = QMessageBox(self)
-            msg.setWindowTitle('Critical error')
-            msg.setIcon(msg.Critical)
+            msg = widgets.myMessageBox()
             err_msg = (f"""
-            <p style="font-size:10pt">
+            <p style="font-size:13px">
                 Error in function <b>{func.__name__}</b> when trying to
                 {self.funcDescription}.<br><br>
                 More details below or in the terminal/console.<br><br>
-                Note that the error details are also saved in the file
-                spotMAX/stdout.log
+                Note that the error details from this session are also saved
+                in the file<br>
+                {self.log_path}<br><br>
+                Please <b>send the log file</b> when reporting a bug, thanks!
             </p>
             """)
-            msg.setText(err_msg)
-            msg.setDetailedText(traceback.format_exc())
-            msg.exec_()
-            # self.titleLabel.setText(
-            #     'Error occured. See spotMAX/stdout.log file for more details',
-            #     color='r'
-            # )
+            msg = widgets.myMessageBox()
+            msg.critical(
+                self, 'Critical error', err_msg,
+                detailedText=traceback.format_exc(),
+                showPath=(self.logs_path, 'Show log file...')
+            )
             self.loadingDataAborted()
         return result
     return inner_function
@@ -186,7 +184,8 @@ class spotMAX_Win(QMainWindow):
         """Initializer."""
         super().__init__(parent)
 
-        self.setupLogger()
+        logger, self.log_path, self.logs_path = utils.setupLogger()
+        self.logger = logger
         self.loadLastSessionSettings()
 
         self.buttonToRestore = buttonToRestore
@@ -194,6 +193,8 @@ class spotMAX_Win(QMainWindow):
 
         self.app = app
         self.num_screens = len(app.screens())
+
+        self.funcDescription = 'Initializer'
 
         # Center main window and determine location of slideshow window
         # depending on number of screens available
@@ -279,44 +280,6 @@ class spotMAX_Win(QMainWindow):
         self.setCentralWidget(mainContainer)
 
         self.gui_init(first_call=True)
-
-    def setupLogger(self):
-        logger = logging.getLogger('spotMAX')
-        logger.setLevel(logging.INFO)
-
-        src_path = os.path.dirname(os.path.abspath(__file__))
-        logs_path = os.path.join(src_path, 'logs')
-        if not os.path.exists(logs_path):
-            os.mkdir(logs_path)
-        else:
-            # Keep 20 most recent logs
-            ls = utils.listdir(logs_path)
-            if len(ls)>20:
-                ls = [os.path.join(logs_path, f) for f in ls]
-                ls.sort(key=lambda x: os.path.getmtime(x))
-                for file in ls[:-20]:
-                    os.remove(file)
-
-        date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        log_filename = f'{date_time}_stdout.log'
-        log_path = os.path.join(logs_path, log_filename)
-
-        output_file_handler = logging.FileHandler(log_path, mode='w')
-        stdout_handler = logging.StreamHandler(sys.stdout)
-
-        # Format your logs (optional)
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s:\n'
-            '------------------------\n'
-            '%(message)s\n'
-            '------------------------\n',
-            datefmt='%d-%m-%Y, %H:%M:%S')
-        output_file_handler.setFormatter(formatter)
-
-        logger.addHandler(output_file_handler)
-        logger.addHandler(stdout_handler)
-
-        self.logger = logger
 
     def loadLastSessionSettings(self):
         src_path = os.path.dirname(os.path.realpath(__file__))
@@ -461,14 +424,16 @@ class spotMAX_Win(QMainWindow):
         else:
             event.ignore()
 
+    @exception_handler
     def keyPressEvent(self, ev):
         if ev.key() == Qt.Key_P:
-            posData = self.currentPosData('left')
-            print(posData.chData.shape)
-            print(posData.chData_shape)
-            print(sys.getsizeof(posData.chData)*1E-6)
-            print(f'Start t0 = {posData.t0_window}, start z0 = {posData.z0_window}')
-            pass
+            raise FileNotFoundError
+            # posData = self.currentPosData('left')
+            # print(posData.chData.shape)
+            # print(posData.chData_shape)
+            # print(sys.getsizeof(posData.chData)*1E-6)
+            # print(f'Start t0 = {posData.t0_window}, start z0 = {posData.z0_window}')
+            # pass
         elif ev.key() == Qt.Key_Left:
             if not self.dataLoaded['left'] and not self.dataLoaded['right']:
                 event.ignore()
@@ -1685,9 +1650,9 @@ class spotMAX_Win(QMainWindow):
         # self.gui_addTitleLabel(colspan=2)
         self.logger.info('Loading data aborted.')
         self.gui_enableLoadButtons()
-        self.axes['left'].show()
-        self.axes['right'].show()
-
+        if self.axes is not None:
+            self.axes['left'].show()
+            self.axes['right'].show()
 
     def setLastUserNormAction(self):
         how = self.df_settings.at['how_normIntensities', 'value']
@@ -2355,7 +2320,9 @@ class spotMAX_Win(QMainWindow):
         is_pos_path = selectedPath_basename.find('Position_')!=-1
         is_images_path = selectedPath_basename == 'Images'
 
-        self.channelNameUtil = load.channelName(which_channel=side)
+        self.channelNameUtil = load.channelName(
+            which_channel=side, QtParent=self
+        )
         user_ch_name = None
         if imageFilePath:
             images_paths = [pathlib.Path(selectedPath)]
@@ -2681,10 +2648,9 @@ class spotMAX_Win(QMainWindow):
         total_ram = myutils._bytes_to_MB(total_ram)
         available_ram = myutils._bytes_to_MB(available_ram)
         required_ram = myutils._bytes_to_MB(required_ram)
-        msg = QMessageBox(self)
-        msg.setWindowTitle('Memory not sufficient')
-        msg.setIcon(msg.Warning)
-        msg.setText(f"""
+
+        msg = widgets.myMessageBox(self)
+        txt = (f"""
         <p style="font-size:10pt">
             The total amount of data that you requested to load is about
             <b>{required_ram} MB</b> but there are only
@@ -2700,12 +2666,11 @@ class spotMAX_Win(QMainWindow):
         </p>
         """
         )
-        continueButton = QPushButton('Continue anyway')
-        abortButton = QPushButton('Abort')
-        msg.addButton(continueButton, msg.YesRole)
-        msg.addButton(abortButton, msg.NoRole)
-        msg.exec_()
-        if msg.clickedButton() == continueButton:
+        continueButton, abortButton = msg.warning(
+            self, 'Memory not sufficient', txt,
+            buttonsTexts=('Continue', 'Abort')
+        )
+        if msg.clickedButton == continueButton:
             return True
         else:
             return False
@@ -3472,8 +3437,8 @@ class spotMAX_Win(QMainWindow):
             or ending with \"{self.user_ch_name}_aligned.npz\".<br><br>
             Sorry about that.
         """)
-        msg = QMessageBox()
-        msg.critical(self, err_title, err_msg, msg.Ok)
+        msg = widgets.myMessageBox()
+        msg.critical(self, err_title, err_msg)
         self.logger.exception(
             f'Folder "{images_path}" does NOT contain valid data.'
         )
@@ -3487,8 +3452,8 @@ class spotMAX_Win(QMainWindow):
             'Try with "File --> Open image/video file..." and directly select '
             'the file you want to load.'
         )
-        msg = QMessageBox()
-        msg.critical(self, err_title, err_msg, msg.Ok)
+        msg = widgets.myMessageBox()
+        msg.critical(self, err_title, err_msg)
         self.logger.exception(f'No .tif files found in folder "{images_path}"')
 
 
@@ -3539,18 +3504,9 @@ class spotMAX_Win(QMainWindow):
         self.openFolder('left', selectedPath=path)
 
     def loadChunkWorkerClosed(self):
-        print(r"""
-    |======    \\     //  ||========
-    |      \\   \\   //   ||
-    |      //    \\ //    ||
-    |======        //     ||======
-    |      \\     //      ||
-    |      //    //       ||
-    |======     //        ||========
-    """)
-        print('===============================================')
-        self.logger.info('Application closed. Have a good day!')
-        print('===============================================')
+        print('********************************')
+        self.logger.info('spotMAX closed. Have a good day!')
+        print('********************************')
 
     def closeEvent(self, event):
         # Close the inifinte loop of the thread
@@ -3573,15 +3529,15 @@ class spotMAX_Win(QMainWindow):
             and (self.expData['left'] is None or self.expData['right'] is None)
         )
         if askSave:
-            msg = QMessageBox()
-            save = msg.question(
+            msg = widgets.myMessageBox()
+            saveButton, noButton, cancelButton = msg.question(
                 self, 'Save?', 'Do you want to save?',
-                msg.Yes | msg.No | msg.Cancel
+                buttonsTexts=('Yes', 'No', 'Cancel')
             )
-            if save == msg.Yes:
+            if msg.clickedButton == saveButton:
                 self.saveData()
                 event.accept()
-            elif save == msg.No:
+            elif msg.clickedButton == noButton:
                 event.accept()
             else:
                 event.ignore()
@@ -3608,30 +3564,6 @@ class spotMAX_Win(QMainWindow):
             self.mainWin.setWindowState(Qt.WindowNoState)
             self.mainWin.setWindowState(Qt.WindowActive)
             self.mainWin.raise_()
-
-    def saveWindowGeometry(self):
-        isMaximised = self.isMaximized()
-        left = self.geometry().left()
-        top = self.geometry().top()
-        width = self.geometry().width()
-        height = self.geometry().height()
-        try:
-            screenName = '/'.join(self.screen().name().split('\\'))
-        except AttributeError:
-            screenName = 'None'
-            self.logger.info(
-                'WARNING: could not retrieve screen name.'
-                'Please update to PyQt5 version >= 5.14'
-            )
-        self.df_settings.at['geometry_left', 'value'] = left
-        self.df_settings.at['geometry_top', 'value'] = top
-        self.df_settings.at['geometry_width', 'value'] = width
-        self.df_settings.at['geometry_height', 'value'] = height
-        self.df_settings.at['screenName', 'value'] = screenName
-        isMaximised = 'Yes' if isMaximised else 'No'
-        self.df_settings.at['isMaximised', 'value'] = isMaximised
-        self.df_settings.to_csv(self.settings_csv_path)
-        # print('Window screen name: ', screenName)
 
     def showInFileManager(self):
         posData = self.currentPosData('left')
@@ -3684,35 +3616,18 @@ class spotMAX_Win(QMainWindow):
         self.defaultToolBarButtonColor = c
         self.doublePressKeyButtonColor = '#fa693b'
 
+    def saveWindowGeometry(self):
+        settings = QSettings('schmollerlab', 'spotmax_gui')
+        settings.setValue("geometry", self.saveGeometry())
+
+    def readSettings(self):
+        settings = QSettings('schmollerlab', 'spotmax_gui')
+        if settings.value('geometry') is not None:
+            self.restoreGeometry(settings.value("geometry"))
+
     def show(self):
         # self.storeDefaultAndCustomColors()
         QMainWindow.show(self)
-
-        screenNames = []
-        for screen in self.app.screens():
-            name = '/'.join(screen.name().split('\\'))
-            screenNames.append(name)
-
-        if 'isMaximised' in self.df_settings.index:
-            self.df_settings.loc['isMaximised'] = (
-                self.df_settings.loc['isMaximised'].astype(str)
-            )
-
-        if 'geometry_left' in self.df_settings.index:
-            isMaximised = self.df_settings.at['isMaximised', 'value'] == 'Yes'
-            left = int(self.df_settings.at['geometry_left', 'value'])
-            screenName = self.df_settings.at['screenName', 'value']
-            if isMaximised:
-                g = self.geometry()
-                top, width, height = g.top(), g.width(), g.height()
-            else:
-                top = int(self.df_settings.at['geometry_top', 'value'])+10
-                width = int(self.df_settings.at['geometry_width', 'value'])
-                height = int(self.df_settings.at['geometry_height', 'value'])
-            if screenName in screenNames:
-                self.setGeometry(left, top, width, height)
-            if isMaximised:
-                self.showMaximized()
 
         h = self.bottomWidgets['left']['howDrawSegmCombobox'].size().height()
         self.bottomWidgets['left']['navigateScrollbar'].setFixedHeight(h)
@@ -3737,6 +3652,8 @@ class spotMAX_Win(QMainWindow):
         self.showComputeDockButton.setFixedHeight(h*2)
 
         self.gui_hideInitItems()
+
+        self.readSettings()
 
         # Set minumum width of the dock widget
         # parametersTab = self.computeDockWidget.widget().parametersTab

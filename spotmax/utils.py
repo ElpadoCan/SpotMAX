@@ -1,4 +1,5 @@
 import os
+import sys
 import pandas as pd
 import datetime
 import time
@@ -19,8 +20,59 @@ from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk
 )
 
+def showInExplorer(path):
+    if os.name == 'posix' or os.name == 'os2':
+        os.system(f'open "{path}"')
+    elif os.name == 'nt':
+        os.startfile(path)
+
+def is_iterable(item):
+     try:
+         iter(item)
+         return True
+     except TypeError as e:
+         return False
+
 def listdir(path):
     return [f for f in os.listdir(path) if not f.startswith('.')]
+
+def setupLogger():
+    logger = logging.getLogger('spotMAX')
+    logger.setLevel(logging.INFO)
+
+    src_path = os.path.dirname(os.path.abspath(__file__))
+    logs_path = os.path.join(src_path, 'logs')
+    if not os.path.exists(logs_path):
+        os.mkdir(logs_path)
+    else:
+        # Keep 20 most recent logs
+        ls = listdir(logs_path)
+        if len(ls)>20:
+            ls = [os.path.join(logs_path, f) for f in ls]
+            ls.sort(key=lambda x: os.path.getmtime(x))
+            for file in ls[:-20]:
+                os.remove(file)
+
+    date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    log_filename = f'{date_time}_stdout.log'
+    log_path = os.path.join(logs_path, log_filename)
+
+    output_file_handler = logging.FileHandler(log_path, mode='w')
+    stdout_handler = logging.StreamHandler(sys.stdout)
+
+    # Format your logs (optional)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s:\n'
+        '------------------------\n'
+        '%(message)s\n'
+        '------------------------\n',
+        datefmt='%d-%m-%Y, %H:%M:%S')
+    output_file_handler.setFormatter(formatter)
+
+    logger.addHandler(output_file_handler)
+    logger.addHandler(stdout_handler)
+
+    return logger, log_path, logs_path
 
 def _bytes_to_MB(size_bytes):
     i = int(math.floor(math.log(size_bytes, 1024)))

@@ -11,7 +11,7 @@ import skimage.io
 
 from PyQt5.QtCore import pyqtSignal, QObject, QRunnable
 
-import load, utils
+from . import load, utils
 
 """
 QRunnables or QObjects that run in QThreadPool or QThread in a PyQT app
