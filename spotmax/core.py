@@ -10,6 +10,13 @@ import cv2
 import skimage.morphology
 import skimage.measure
 
+class spotmaxCalc:
+    def __init__(self):
+        self._load_ref_ch = False
+
+    def segment_ref_ch(self):
+        pass
+
 def eucl_dist_point_2Dyx(points, all_others):
     """
     Given 2D array of [y, x] coordinates points and all_others return the
@@ -54,11 +61,11 @@ def calcMinSpotSize(
         xMinSize_pxl = yxMinSize_um/physicalSizeX
         yMinSize_pxl = yxMinSize_um/physicalSizeY
         zMinSize_pxl = zResolutionLimit_um/physicalSizeZ
-        zyxMinSize_pxl = (zMinSize_pxl, yMinSize_pxl, zyxMinSize_pxl)
-        zyxMinSize_um = (zResolutionLimit_um, yxMinSize_um, zyxMinSize_um)
+        zyxMinSize_pxl = (zMinSize_pxl, yMinSize_pxl, xMinSize_pxl)
+        zyxMinSize_um = (zResolutionLimit_um, yxMinSize_um, yxMinSize_um)
         return zyxMinSize_pxl, zyxMinSize_um
     except ZeroDivisionError as e:
-        warnings.warn(str(e), RuntimeWarning)
+        # warnings.warn(str(e), RuntimeWarning)
         return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
 
 

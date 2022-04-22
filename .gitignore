@@ -4,11 +4,12 @@ spotmax/qtest.py
 spotmax/test.py
 spotmax/deprecated.py
 spotmax/tests/*
+spotmax/mytests/*
 spotmax/spotmax_v1_paramWin.png
+spotmax/spotmax_v2_parameters.png
 
 spotmax/logs/*
 !spotmax/logs/dummy.txt
-
 
 spotmax/settings/*
 !spotmax/settings/dummy.txt

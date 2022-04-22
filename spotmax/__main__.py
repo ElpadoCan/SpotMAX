@@ -4,10 +4,12 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QStyleFactory
 
-from spotmax import gui, qrc_resources
+from spotmax import gui, qrc_resources, utils
 
 def run():
     print('Loading application...')
+    version = utils.read_version()
+
     # Handle high resolution displays:
     if hasattr(Qt, 'AA_EnableHighDpiScaling'):
         QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
@@ -30,12 +32,15 @@ def run():
     win = gui.spotMAX_Win(app)
     win.show()
 
-    # Run the event loop
     win.logger.info('Lauching application...')
-    win.logger.info(
-        'Done. If application GUI is not visible, it is probably minimized, '
-        'behind some other open window, or on second screen.'
-    )
+    print('**********************************************')
+    win.logger.info(f'Welcome to spotMAX v{version}!')
+    print('**********************************************')
+    print('-----------------------------------')
+    win.logger.info('NOTE: If application is not visible, it is probably minimized '
+          'or behind some other open window.')
+    print('-----------------------------------')
+
     sys.exit(app.exec_())
 
 if __name__ == "__main__":

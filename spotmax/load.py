@@ -1069,6 +1069,7 @@ class loadData:
         # self.dataPrepBkgrValues_path = f'{base_path}dataPrep_bkgrValues.csv'
         self.dataPrepBkgrROis_path = f'{base_path}dataPrep_bkgrROIs.json'
         self.metadata_csv_path = f'{base_path}metadata.csv'
+        self.analysis_inputs_path = f'{base_path}analysis_inputs.ini'
 
     def setBlankSegmData(self, SizeT, SizeZ, SizeY, SizeX):
         Y, X = self.chData_shape[-2:]

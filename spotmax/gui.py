@@ -83,7 +83,7 @@ import pyqtgraph as pg
 from . import load, dialogs, utils, widgets, qtworkers, html_func
 
 # NOTE: Enable icons
-from . import qrc_resources
+from . import qrc_resources, spotmax_path, settings_path
 
 if os.name == 'nt':
     try:
@@ -93,8 +93,6 @@ if os.name == 'nt':
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception as e:
         pass
-
-src_path = os.path.dirname(__file__)
 
 bottomWidgetsKeys = (
     'howDrawSegmCombobox',
@@ -282,8 +280,6 @@ class spotMAX_Win(QMainWindow):
         self.gui_init(first_call=True)
 
     def loadLastSessionSettings(self):
-        src_path = os.path.dirname(os.path.realpath(__file__))
-        settings_path = os.path.join(src_path, 'settings')
         self.colorItems_path = os.path.join(settings_path, 'colorItems.json')
         csv_path = os.path.join(settings_path, 'gui_settings.csv')
         self.settings_csv_path = csv_path
@@ -427,7 +423,8 @@ class spotMAX_Win(QMainWindow):
     @exception_handler
     def keyPressEvent(self, ev):
         if ev.key() == Qt.Key_P:
-            raise FileNotFoundError
+            print(self.computeDockWidget.frameSize())
+            pass
             # posData = self.currentPosData('left')
             # print(posData.chData.shape)
             # print(posData.chData_shape)
@@ -769,7 +766,7 @@ class spotMAX_Win(QMainWindow):
 
     def gui_createComputeDockWidget(self):
         self.computeDockWidget = QDockWidget('spotMAX Tab Control', self)
-        computeTabControl = dialogs.guiTabControl(self.computeDockWidget)
+        computeTabControl = dialogs.guiTabControl(parent=self.computeDockWidget)
 
         self.computeDockWidget.setWidget(computeTabControl)
         self.computeDockWidget.setFeatures(
@@ -780,7 +777,6 @@ class spotMAX_Win(QMainWindow):
         )
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.computeDockWidget)
-        self.computeDockWidget.hide()
 
     def gui_createSpotsClickedContextMenuActions(self):
         showGroup = QActionGroup(self)
@@ -1117,7 +1113,7 @@ class spotMAX_Win(QMainWindow):
 
     def gui_addGraphicsItems(self):
         # Welcome text
-        html_path = os.path.join(src_path, 'html_files', 'gui_welcome.html')
+        html_path = os.path.join(spotmax_path, 'html_files', 'gui_welcome.html')
         with open(html_path) as html_file:
             htmlText = html_file.read()
         self.welcomeTextLeft = self.graphLayout.addLabel(
@@ -1649,7 +1645,21 @@ class spotMAX_Win(QMainWindow):
         else:
             self.computeDockWidget.setVisible(True)
             self.computeDockWidget.setEnabled(True)
+            # if self.computeDockWidgetMinWidth is not None:
+            #     self.resizeDocks([self.computeDockWidget], [w+5], Qt.Horizontal)
             self.addInspectResultsTab(self.lastLoadedSide)
+
+    def getDockWidgetWidth(self):
+        self.count += 1
+        parametersTab = self.computeDockWidget.widget().parametersTab
+        horizontalScrollBar = parametersTab.horizontalScrollBar()
+        w = self.computeDockWidget.frameSize().width()
+        self.resizeDocks([self.computeDockWidget], [w+5], Qt.Horizontal)
+        if not horizontalScrollBar.isVisible() or self.count >= 50:
+            self.resizeTimer.stop()
+            self.computeDockWidgetMinWidth = w+5
+            self.computeDockWidget.hide()
+            self.count = 0
 
     def loadingDataAborted(self):
         # self.gui_addTitleLabel(colspan=2)
@@ -2214,12 +2224,9 @@ class spotMAX_Win(QMainWindow):
         self.funcDescription = 'load data'
 
         if not file_path:
-            self.getMostRecentPath()
-            file_path = QFileDialog.getOpenFileName(
-                self, 'Select image file', self.MostRecentPath,
-                "Images/Videos (*.png *.tif *.tiff *.jpg *.jpeg *.mov *.avi *.mp4)"
-                ";;All Files (*)")[0]
-            if file_path == '':
+            mostRecentPath = utils.getMostRecentPath()
+            file_path = widgets.getOpenImageFileName()
+            if not file_path:
                 return file_path
         dirpath = os.path.dirname(file_path)
         dirname = os.path.basename(dirpath)
@@ -2302,13 +2309,13 @@ class spotMAX_Win(QMainWindow):
             self.slideshowWin.close()
 
         if not selectedPath:
-            self.getMostRecentPath()
+            mostRecentPath = utils.getMostRecentPath()
             title = (
                 'Select experiment folder containing Position_n folders '
                 'or specific Position_n folder'
             )
             selectedPath = QFileDialog.getExistingDirectory(
-                self, title, self.MostRecentPath
+                self, title, mostRecentPath
             )
 
         if not selectedPath:
@@ -3466,9 +3473,8 @@ class spotMAX_Win(QMainWindow):
         # Step 0. Remove the old options from the menu
         self.openRecentMenu.clear()
         # Step 1. Read recent Paths
-        src_path = os.path.dirname(os.path.realpath(__file__))
         recentPaths_path = os.path.join(
-            src_path, 'settings', 'recentPaths.csv'
+            settings_path, 'recentPaths.csv'
         )
         if os.path.exists(recentPaths_path):
             df = pd.read_csv(recentPaths_path, index_col='index')
@@ -3485,21 +3491,6 @@ class spotMAX_Win(QMainWindow):
             actions.append(action)
         # Step 3. Add the actions to the menu
         self.openRecentMenu.addActions(actions)
-
-    def getMostRecentPath(self):
-        src_path = os.path.dirname(os.path.realpath(__file__))
-        recentPaths_path = os.path.join(
-            src_path, 'settings', 'recentPaths.csv'
-        )
-        if os.path.exists(recentPaths_path):
-            df = pd.read_csv(recentPaths_path, index_col='index')
-            if 'opened_last_on' in df.columns:
-                df = df.sort_values('opened_last_on', ascending=False)
-            self.MostRecentPath = df.iloc[0]['path']
-            if not isinstance(self.MostRecentPath, str):
-                self.MostRecentPath = ''
-        else:
-            self.MostRecentPath = ''
 
     def openRecentFile(self, path):
         self.logger.info(f'Opening recent folder: {path}')
@@ -3588,9 +3579,8 @@ class spotMAX_Win(QMainWindow):
     def addToRecentPaths(self, selectedPath):
         if not os.path.exists(selectedPath):
             return
-        src_path = os.path.dirname(os.path.realpath(__file__))
         recentPaths_path = os.path.join(
-            src_path, 'settings', 'recentPaths.csv'
+            settings_path, 'recentPaths.csv'
         )
         if os.path.exists(recentPaths_path):
             df = pd.read_csv(recentPaths_path, index_col='index')
@@ -3663,16 +3653,12 @@ class spotMAX_Win(QMainWindow):
 
         self.readSettings()
 
-        # Set minumum width of the dock widget
-        # parametersTab = self.computeDockWidget.widget().parametersTab
-        # originalMinWidth = self.computeDockWidget.minimumWidth()
-        # horizontalScrollBar = parametersTab.horizontalScrollBar()
-        # i = 1
-        # while horizontalScrollBar.isVisible():
-        #     w = self.computeDockWidget.width()
-        #     self.computeDockWidget.setMinimumWidth(w+i)
-        #     i += 1
-
+        # Dynamically resize dock widget until horizontalScrollBar is not visible
+        self.computeDockWidgetMinWidth = None
+        self.count = 0
+        self.resizeTimer = QTimer()
+        self.resizeTimer.timeout.connect(self.getDockWidgetWidth)
+        self.resizeTimer.start(1)
 
 if __name__ == "__main__":
     print('Loading application...')
@@ -3687,8 +3673,8 @@ if __name__ == "__main__":
     # Apply style
     app.setStyle(QStyleFactory.create('Fusion'))
     app.setWindowIcon(QIcon(":icon.svg"))
-    # src_path = os.path.dirname(os.path.abspath(__file__))
-    # styles_path = os.path.join(src_path, 'styles')
+    # spotmax_path = os.path.dirname(os.path.abspath(__file__))
+    # styles_path = os.path.join(spotmax_path, 'styles')
     # dark_orange_path = os.path.join(styles_path, '01_buttons.qss')
     # with open(dark_orange_path, mode='r') as txt:
     #     styleSheet = txt.read()

@@ -1,6 +1,7 @@
 import sys
 import time
 import re
+import traceback
 from pprint import pprint
 from functools import partial
 
@@ -10,11 +11,11 @@ from PyQt5.QtCore import (
     pyqtSignal, QTimer, Qt, QPoint, pyqtSlot, pyqtProperty,
     QPropertyAnimation, QEasingCurve, QSequentialAnimationGroup,
     QSize, QRectF, QPointF, QRect, QPoint, QEasingCurve, QRegExp,
-    QEvent
+    QEvent, qInstallMessageHandler
 )
 from PyQt5.QtGui import (
     QFont, QPalette, QColor, QPen, QPaintEvent, QBrush, QPainter,
-    QRegExpValidator, QIcon
+    QRegExpValidator, QIcon, QFontMetrics, QFocusEvent
 )
 from PyQt5.QtWidgets import (
     QTextEdit, QLabel, QProgressBar, QHBoxLayout, QToolButton, QCheckBox,
@@ -22,12 +23,12 @@ from PyQt5.QtWidgets import (
     QLineEdit, QSlider, QSpinBox, QGridLayout, QDockWidget,
     QScrollArea, QSizePolicy, QComboBox, QPushButton, QScrollBar,
     QGroupBox, QAbstractSlider, QDialog, QStyle, QSpacerItem,
-    QAction, QWidgetAction, QMenu, QActionGroup
+    QAction, QWidgetAction, QMenu, QActionGroup, QFileDialog
 )
 
 import pyqtgraph as pg
 
-from . import utils, dialogs, is_mac, is_win
+from . import utils, dialogs, is_mac, is_win, config, html_func
 
 # NOTE: Enable icons
 from . import qrc_resources
@@ -109,6 +110,8 @@ class myMessageBox(QDialog):
 
         self.layout.setColumnStretch(1, 1)
         self.setLayout(self.layout)
+
+        qInstallMessageHandler(self._resizeWarningHandler)
 
     def setIcon(self, iconName='SP_MessageBoxInformation'):
         label = QLabel(self)
@@ -221,35 +224,61 @@ class myMessageBox(QDialog):
             )
 
         super().show()
+        self._block = block
+        QTimer.singleShot(10, self._resize)
+
+    def _resize(self):
         widths = [button.width() for button in self.buttons]
         if widths:
             max_width = max(widths)
             for button in self.buttons:
                 button.setMinimumWidth(max_width)
 
-        if self.width() < 350:
-            self.resize(350, self.height())
+        if self._w is not None and self.width() < self._w:
+            self.resize(self._w, self.sizeHint().height())
 
-        if self._w is not None:
-            self.resize(self._w, self.height())
+        if self.width() < 350:
+            self.resize(350, self.sizeHint().height())
 
         if self.showCentered:
             screen = self.screen()
             screenWidth = screen.size().width()
             screenHeight = screen.size().height()
+            screenLeft = screen.geometry().x()
+            screenTop = screen.geometry().y()
             w, h = self.width(), self.height()
-            left = int(screenWidth/2 - w/2)
-            top = int(screenHeight/2 - h/2)
+            left = int(screenLeft + screenWidth/2 - w/2)
+            top = int(screenTop + screenHeight/2 - h/2)
             self.move(left, top)
 
         self._h = self.height()
 
-        if block:
-            self.loop = QEventLoop()
-            self.loop.exec_()
+        # Start resizing height every 1 ms
+        self.resizeCallsCount = 0
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._resizeHeight)
+        self.timer.start(1)
+
+    def _resizeWarningHandler(self, msg_type, msg_log_context, msg_string):
+        if msg_string.find('Unable to set geometry') != -1:
+            self.timer.stop()
+        elif msg_string:
+            print(msg_string)
+
+    def _resizeHeight(self):
+        # Resize until a "Unable to set geometry" warning is captured
+        # by self._resizeWarningHandler or height doesn't change anymore
+        self.resize(self.width(), self.height()-1)
+        if self.height() == self._h or self.resizeCallsCount > 500:
+            self.timer.stop()
+            return
+
+        self.resizeCallsCount += 1
+        self._h = self.height()
 
     # def keyPressEvent(self, event):
-    #     print(self.height(), self._h)
+    #     print(self.height())
+    #     print(self.minimumSizeHint())
 
     def _template(
             self, parent, title, message,
@@ -407,9 +436,70 @@ class measurementsQGroupBox(QGroupBox):
         for _formWidget in self.formWidgets:
             _formWidget.widget.setChecked(isChecked)
 
+class tooltipLineEdit(QLineEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.editingFinished.connect(self.setTextTooltip)
+
+    def setText(self, text):
+        QLineEdit.setText(self, text)
+        self.setToolTip(text)
+
+    def setTextTooltip(self):
+        self.setToolTip(self.text())
+
+def _refChThresholdFuncWidget():
+    widget = myQComboBox()
+    items = config.skimageAutoThresholdMethods()
+    widget.addItems(items)
+    return widget
+
+def _spotThresholdFunc():
+    widget = myQComboBox()
+    items = config.skimageAutoThresholdMethods()
+    widget.addItems(items)
+    return widget
+
+def _spotDetectionMethod():
+    widget = myQComboBox()
+    items = ['Detect local peaks', 'Label prediction mask']
+    widget.addItems(items)
+    return widget
+
+def _spotPredictionMethod():
+    widget = myQComboBox()
+    items = ['Thresholding', 'Neural network']
+    widget.addItems(items)
+    return widget
+
+def _gopMethod():
+    widget = myQComboBox()
+    items = ['Effect size', 't-test (p-value)']
+    widget.addItems(items)
+    return widget
+
+class _spotMinSizeLabels(QWidget):
+    def __init__(self):
+        QWidget.__init__(self)
+        font = config.font()
+        layout = QVBoxLayout()
+        self.umLabel = QLabel()
+        self.umLabel.setFont(font)
+        self.pixelLabel = QLabel()
+        self.pixelLabel.setFont(font)
+        layout.addWidget(self.umLabel)
+        layout.addWidget(self.pixelLabel)
+        self.setLayout(layout)
+
+    def setText(self, text):
+        self.umLabel.setText(text)
+        self.pixelLabel.setText(text)
+
 class formWidget(QWidget):
     sigApplyButtonClicked = pyqtSignal(object)
     sigComputeButtonClicked = pyqtSignal(object)
+    sigBrowseButtonClicked = pyqtSignal(object)
 
     def __init__(
             self, widget,
@@ -422,6 +512,7 @@ class formWidget(QWidget):
             addInfoButton=False,
             addApplyButton=False,
             addComputeButton=False,
+            addBrowseButton=False,
             key='',
             parent=None
         ):
@@ -432,16 +523,13 @@ class formWidget(QWidget):
 
         widget.setParent(self)
 
-        if anchor:
-            self.kwargs = utils.analysisInputsParams()[anchor]
-            labelTextLeft = self.kwargs['desc']
-            if initialVal is None:
-                initialVal = self.kwargs['initialVal']
-
         if isinstance(initialVal, bool):
             widget.setChecked(initialVal)
         elif isinstance(initialVal, str):
-            widget.setCurrentText(initialVal)
+            try:
+                widget.setCurrentText(initialVal)
+            except AttributeError:
+                widget.setText(initialVal)
         elif isinstance(initialVal, float) or isinstance(initialVal, int):
             widget.setValue(initialVal)
 
@@ -485,20 +573,27 @@ class formWidget(QWidget):
             infoButton.clicked.connect(self.showInfo)
             self.items.append(infoButton)
 
+        if addBrowseButton:
+            browseButton = QPushButton(self)
+            browseButton.setIcon(QIcon(":folder-open.svg"))
+            browseButton.setToolTip('Browse')
+            browseButton.clicked.connect(self.browseButtonClicked)
+            self.items.append(browseButton)
+
         if addApplyButton:
             applyButton = QPushButton(self)
             applyButton.setCursor(Qt.PointingHandCursor)
             applyButton.setCheckable(True)
             applyButton.setIcon(QIcon(":apply.svg"))
-            applyButton.setToolTip(f'Apply this step and visualize results')
+            applyButton.setToolTip('Apply this step and visualize results')
             applyButton.clicked.connect(self.applyButtonClicked)
             self.items.append(applyButton)
 
         if addComputeButton:
             computeButton = QPushButton(self)
-            computeButton.setCursor(Qt.BusyCursor)
+            # computeButton.setCursor(Qt.BusyCursor)
             computeButton.setIcon(QIcon(":compute.svg"))
-            computeButton.setToolTip(f'Compute this step and visualize results')
+            computeButton.setToolTip('Compute this step and visualize results')
             computeButton.clicked.connect(self.computeButtonClicked)
             self.items.append(computeButton)
 
@@ -511,6 +606,15 @@ class formWidget(QWidget):
         except AttributeError as e:
             pass
 
+    def browseButtonClicked(self):
+        mostRecentPath = utils.getMostRecentPath()
+        file_path = getOpenImageFileName()
+        if file_path == '':
+            return
+
+        self.widget.setText(file_path)
+        self.sigBrowseButtonClicked.emit(self)
+
     def applyButtonClicked(self):
         self.sigApplyButtonClicked.emit(self)
 
@@ -519,6 +623,14 @@ class formWidget(QWidget):
 
     def showInfo(self):
         anchor = self.anchor
+        txt = html_func.paragraph(config.paramsInfoText.get(anchor, ''))
+        if not txt:
+            return
+        msg = myMessageBox()
+        msg.setWidth(600)
+        msg.information(
+            self, f'{self.labelLeft.text()} info', txt
+        )
         # Here show user manual already scrolled at anchor
         # see https://stackoverflow.com/questions/20678610/qtextedit-set-anchor-and-scroll-to-it
 
@@ -557,7 +669,7 @@ class myFormLayout(QGridLayout):
             elif col==2:
                 alignment = Qt.AlignLeft
             else:
-                alignment = Qt.AlignCenter
+                alignment = Qt.AlignmentFlag()
             try:
                 self.addWidget(item, row, col, alignment=alignment)
             except TypeError:
@@ -737,7 +849,7 @@ class floatLineEdit(QLineEdit):
         self.notAllowed = notAllowed
 
         self.isNumericRegExp = (
-            '^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$'
+            r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$'
         )
         if not allowNegative:
             self.isNumericRegExp = self.isNumericRegExp.replace('[-+]?', '')
@@ -785,13 +897,22 @@ class floatLineEdit(QLineEdit):
             self.setStyleSheet('background: #ffffff;')
             self.valueChanged.emit(self.value())
 
+def getOpenImageFileName():
+    file_path = QFileDialog.getOpenFileName(
+        self, 'Select image file', mostRecentPath,
+        "Images/Videos (*.npy *.npz *.h5, *.png *.tif *.tiff *.jpg *.jpeg "
+        "*.mov *.avi *.mp4)"
+        ";;All Files (*)"
+    )[0]
+    return file_path
+
 class Toggle(QCheckBox):
     def __init__(
         self,
         initial=None,
         width=80,
         bg_color='#b3b3b3',
-        circle_color='#DDD',
+        circle_color='#dddddd',
         active_color='#005ce6',
         animation_curve=QEasingCurve.InOutQuad
     ):
@@ -803,6 +924,9 @@ class Toggle(QCheckBox):
         self._bg_color = bg_color
         self._circle_color = circle_color
         self._active_color = active_color
+        self._disabled_active_color = utils.lighten_color(active_color)
+        self._disabled_circle_color = utils.lighten_color(circle_color)
+        self._disabled_bg_color = utils.lighten_color(bg_color, amount=0.5)
         self._circle_margin = 10
 
         self._circle_position = int(self._circle_margin/2)
@@ -869,7 +993,24 @@ class Toggle(QCheckBox):
     def hitButton(self, pos: QPoint):
         return self.contentsRect().contains(pos)
 
+    def setDisabled(self, state):
+        QCheckBox.setDisabled(self, state)
+        self.update()
+
     def paintEvent(self, e):
+        circle_color = (
+            self._circle_color if self.isEnabled()
+            else self._disabled_circle_color
+        )
+        active_color = (
+            self._active_color if self.isEnabled()
+            else self._disabled_active_color
+        )
+        unchecked_color = (
+            self._bg_color if self.isEnabled()
+            else self._disabled_bg_color
+        )
+
         # set painter
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
@@ -882,14 +1023,14 @@ class Toggle(QCheckBox):
 
         if not self.isChecked():
             # Draw background
-            p.setBrush(QColor(self._bg_color))
+            p.setBrush(QColor(unchecked_color))
             half_h = int(self.height()/2)
             p.drawRoundedRect(
                 0, 0, rect.width(), self.height(), half_h, half_h
             )
 
             # Draw circle
-            p.setBrush(QColor(self._circle_color))
+            p.setBrush(QColor(circle_color))
             p.drawEllipse(
                 int(self._circle_position), int(self._circle_margin/2),
                 self.height()-self._circle_margin,
@@ -897,14 +1038,14 @@ class Toggle(QCheckBox):
             )
         else:
             # Draw background
-            p.setBrush(QColor(self._active_color))
+            p.setBrush(QColor(active_color))
             half_h = int(self.height()/2)
             p.drawRoundedRect(
                 0, 0, rect.width(), self.height(), half_h, half_h
             )
 
             # Draw circle
-            p.setBrush(QColor(self._circle_color))
+            p.setBrush(QColor(circle_color))
             p.drawEllipse(
                 int(self._circle_position), int(self._circle_margin/2),
                 self.height()-self._circle_margin,
@@ -1058,7 +1199,7 @@ class myHistogramLUTitem(pg.HistogramLUTItem):
     def restoreState(self, df):
         if 'contLineColor' in df.index:
             rgba_str = df.at['contLineColor', 'value']
-            rgb = myutils.rgba_str_to_values(rgba_str)[:3]
+            rgb = utils.rgba_str_to_values(rgba_str)[:3]
             self.contoursColorButton.setColor(rgb)
 
         if 'contLineWeight' in df.index:

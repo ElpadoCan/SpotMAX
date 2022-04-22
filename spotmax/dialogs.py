@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import (
     QSlider, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
-from . import html_func, load, widgets, core, utils
+from . import html_func, load, widgets, core, utils, config
 
 # NOTE: Enable icons
 from . import qrc_resources
@@ -303,8 +303,8 @@ class guiBottomWidgets(QGroupBox):
             combobox.setDisabled(True, applyToCheckbox=False)
 
 class guiTabControl(QTabWidget):
-    def __init__(self, *args):
-        super().__init__(args[0])
+    def __init__(self, parent=None):
+        super().__init__(parent)
 
         self.parametersTab = QScrollArea(self)
         self.parametersQGBox = analysisInputsQGBox(self.parametersTab)
@@ -384,212 +384,57 @@ class analysisInputsQGBox(QGroupBox):
         QGroupBox.__init__(self, *args)
 
         # mainLayout = QGridLayout(self)
-        mainLayout = widgets.myFormLayout()
+        mainLayout = QVBoxLayout()
 
-        font = QFont()
-        font.setPixelSize(13)
+        font = config.font()
 
-        row = 0
-        self.loadRefChWidget = widgets.formWidget(
-            widgets.Toggle(), anchor='loadRefCh',
-            stretchWidget=False, addInfoButton=True,
-            parent=self
-        )
-        mainLayout.addFormWidget(self.loadRefChWidget, row=row)
+        _params = config.analysisInputsParams()
+        self.params = {}
+        for section, section_params in _params.items():
+            formLayout = widgets.myFormLayout()
+            self.params[section] = {}
+            groupBox = QGroupBox(section)
+            if section != 'File paths':
+                groupBox.setCheckable(True)
+            groupBox.setFont(font)
+            for row, (anchor, paramValues) in enumerate(section_params.items()):
+                self.params[section][anchor] = paramValues.copy()
+                widgetFunc = paramValues.get('formWidgetFunc', None)
+                formWidget = widgets.formWidget(
+                    widgetFunc(),
+                    anchor=anchor,
+                    labelTextLeft=paramValues.get('desc', ''),
+                    initialVal=paramValues.get('initialVal', None),
+                    stretchWidget=paramValues.get('stretchWidget', True),
+                    addInfoButton=paramValues.get('addInfoButton', True),
+                    addComputeButton=paramValues.get('addComputeButton', False),
+                    addApplyButton=paramValues.get('addApplyButton', False),
+                    addBrowseButton=paramValues.get('addBrowseButton', False),
+                    parent=self
+                )
+                formLayout.addFormWidget(formWidget, row=row)
+                self.params[section][anchor]['widget'] = formWidget.widget
+                self.params[section][anchor]['formWidget'] = formWidget
+                self.params[section][anchor]['groupBox'] = groupBox
 
-        row += 1
-        self.refChSingleObjWidget = widgets.formWidget(
-            widgets.Toggle(), anchor='refChSingleObj',
-            stretchWidget=False, addInfoButton=True,
-            addApplyButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.refChSingleObjWidget, row=row)
+                isGroupChecked = paramValues.get('isSectionInConfig', True)
+                groupBox.setChecked(isGroupChecked)
 
-        row += 1
-        self.keepPeaksInsideRefWidget = widgets.formWidget(
-            widgets.Toggle(), anchor='keepPeaksInsideRef',
-            stretchWidget=False, addInfoButton=True,
-            addApplyButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.keepPeaksInsideRefWidget, row=row)
+                actions = paramValues.get('actions', None)
+                if actions is None:
+                    continue
 
-        row += 1
-        self.filterPeaksInsideRefWidget = widgets.formWidget(
-            widgets.Toggle(), anchor='filterPeaksInsideRef',
-            stretchWidget=False, addInfoButton=True,
-            addComputeButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.filterPeaksInsideRefWidget, row=row)
+                for action in actions:
+                    signal = getattr(formWidget.widget, action[0])
+                    signal.connect(getattr(self, action[1]))
 
-        row += 1
-        self.sharpenSpotsWidget = widgets.formWidget(
-            widgets.Toggle(), anchor='sharpenSpots',
-            stretchWidget=False, addInfoButton=True,
-            addComputeButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.sharpenSpotsWidget, row=row)
+            groupBox.setLayout(formLayout)
+            mainLayout.addWidget(groupBox)
 
-        row += 1
-        self.aggregateWidget = widgets.formWidget(
-            widgets.Toggle(), anchor='aggregate',
-            stretchWidget=False, addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.aggregateWidget, row=row)
-
-        row += 1
-        self.pixelWidthWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='pixelWidth',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.pixelWidthWidget, row=row)
-
-        row += 1
-        self.pixelHeightWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='pixelHeight',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.pixelHeightWidget, row=row)
-
-        row += 1
-        self.voxelDepthWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='voxelDepth',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.voxelDepthWidget, row=row)
-
-        row += 1
-        self.numApertureWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='numAperture',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.numApertureWidget, row=row)
-
-        row += 1
-        self.emWavelenWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='emWavelen',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.emWavelenWidget, row=row)
-
-        row += 1
-        self.zResolutionLimitWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='zResolutionLimit',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.zResolutionLimitWidget, row=row)
-
-        row += 1
-        self.yxResolLimitMultiplierWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='yxResolLimitMultiplier',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.yxResolLimitMultiplierWidget, row=row)
-
-        row += 1
-        txt = 'Spot (z,y,x) minimum dimensions'
-        label = QLabel(txt)
-        label.setFont(font)
-        mainLayout.addWidget(label, row, 0, 2, 1, alignment=Qt.AlignRight)
-
-        self.spotSize_um_label = QLabel()
-        self.spotSize_um_label.setFont(font)
-        mainLayout.addWidget(
-            self.spotSize_um_label, row, 1, alignment=Qt.AlignCenter
-        )
-
-        row += 1
-        self.spotSize_pxl_label = QLabel()
-        self.spotSize_pxl_label.setFont(font)
-        mainLayout.addWidget(
-            self.spotSize_pxl_label, row, 1, alignment=Qt.AlignCenter
-        )
-
-        row += 1
-        self.gaussSigmaWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='gaussSigma',
-            addInfoButton=True, addComputeButton=True,
-            parent=self
-        )
-        mainLayout.addFormWidget(self.gaussSigmaWidget, row=row)
-
-        row += 1
-        widget = widgets.myQComboBox()
-        items = utils.skimageAutoThresholdMethods()
-        widget.addItems(items)
-        self.refChThresholdFuncWidget = widgets.formWidget(
-            widget, anchor='refChThresholdFunc',
-            addInfoButton=True, addComputeButton=True,
-            parent=self
-        )
-        mainLayout.addFormWidget(self.refChThresholdFuncWidget, row=row)
-
-
-        row += 1
-        widget = widgets.myQComboBox()
-        items = utils.skimageAutoThresholdMethods()
-        widget.addItems(items)
-        self.spotThresholdFuncWidget = widgets.formWidget(
-            widget, anchor='spotThresholdFunc',
-            addInfoButton=True, addComputeButton=True,
-            parent=self
-        )
-        mainLayout.addFormWidget(self.spotThresholdFuncWidget, row=row)
-
-        row += 1
-        widget = widgets.myQComboBox()
-        items = ['Effect size', 't-test (p-value)']
-        widget.addItems(items)
-        self.gopMethodWidget = widgets.formWidget(
-            widget, anchor='gopMethod',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.gopMethodWidget, row=row)
-
-        row += 1
-        self.gopLimitWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='gopLimit',
-            addInfoButton=True, addComputeButton=True,
-            parent=self
-        )
-        mainLayout.addFormWidget(self.gopLimitWidget, row=row)
-
-        row += 1
-        self.doSpotFitWidget = widgets.formWidget(
-            widgets.Toggle(), anchor='doSpotFit',
-            stretchWidget=False, addInfoButton=True,
-            addComputeButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.doSpotFitWidget, row=row)
-
-        row += 1
-        self.minSpotSizeWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='minSpotSize',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.minSpotSizeWidget, row=row)
-
-        row += 1
-        self.maxSpotSizeWidget = widgets.formWidget(
-            widgets.floatLineEdit(), anchor='maxSpotSize',
-            addInfoButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.maxSpotSizeWidget, row=row)
-
-        row += 1
-        self.calcRefChNetLenWidget = widgets.formWidget(
-            widgets.Toggle(), anchor='calcRefChNetLen',
-            stretchWidget=False, addInfoButton=True,
-            addComputeButton=True, parent=self
-        )
-        mainLayout.addFormWidget(self.calcRefChNetLenWidget, row=row)
-
-        row += 1
-        mainLayout.setRowStretch(row, 1)
+        mainLayout.addStretch()
 
         self.setLayout(mainLayout)
-
         self.updateMinSpotSize()
-        self.connectActions()
 
     def connectActions(self):
         self.pixelWidthWidget.widget.valueChanged.connect(
@@ -612,13 +457,14 @@ class analysisInputsQGBox(QGroupBox):
         )
 
     def updateMinSpotSize(self, value=0.0):
-        physicalSizeX = self.pixelWidthWidget.widget.value()
-        physicalSizeY = self.pixelHeightWidget.widget.value()
-        physicalSizeZ = self.voxelDepthWidget.widget.value()
-        emWavelen = self.emWavelenWidget.widget.value()
-        NA = self.numApertureWidget.widget.value()
-        zResolutionLimit_um = self.zResolutionLimitWidget.widget.value()
-        yxResolMultiplier = self.yxResolLimitMultiplierWidget.widget.value()
+        metadata = self.params['METADATA']
+        physicalSizeX = metadata['pixelWidth']['widget'].value()
+        physicalSizeY = metadata['pixelHeight']['widget'].value()
+        physicalSizeZ = metadata['voxelDepth']['widget'].value()
+        emWavelen = metadata['emWavelen']['widget'].value()
+        NA = metadata['numAperture']['widget'].value()
+        zResolutionLimit_um = metadata['zResolutionLimit']['widget'].value()
+        yxResolMultiplier = metadata['yxResolLimitMultiplier']['widget'].value()
         zyxMinSize_pxl, zyxMinSize_um = core.calcMinSpotSize(
             emWavelen, NA, physicalSizeX, physicalSizeY, physicalSizeZ,
             zResolutionLimit_um, yxResolMultiplier
@@ -631,8 +477,9 @@ class analysisInputsQGBox(QGroupBox):
             .replace(']', ')')
             .replace('[', '(')
         )
-        self.spotSize_pxl_label.setText(zyxMinSize_pxl_txt)
-        self.spotSize_um_label.setText(zyxMinSize_um_txt)
+        spotMinSizeLabels = metadata['spotMinSizeLabels']['widget']
+        spotMinSizeLabels.pixelLabel.setText(zyxMinSize_pxl_txt)
+        spotMinSizeLabels.umLabel.setText(zyxMinSize_um_txt)
 
     def showInfo(self):
         print(self.sender().label.text())

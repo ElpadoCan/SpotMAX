@@ -9,16 +9,80 @@ import logging
 import numpy as np
 import tkinter as tk
 import pathlib
+import configparser
 from natsort import natsort_keygen
 
 from tifffile.tifffile import TiffWriter, TiffFile
 
 import skimage.color
-
+import colorsys
+import matplotlib.colors
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk
 )
+
+from . import settings_path
+
+def lighten_color(color, amount=0.3, hex=True):
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Examples:
+    >> lighten_color('g', 0.3)
+    >> lighten_color('#F034A3', 0.6)
+    >> lighten_color((.3,.55,.1), 0.5)
+    """
+
+    try:
+        c = matplotlib.colors.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*matplotlib.colors.to_rgb(c))
+    lightened_c = colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+    if hex:
+        lightened_c = tuple([int(round(v*255)) for v in lightened_c])
+        lightened_c = '#%02x%02x%02x' % lightened_c
+    return lightened_c
+
+def rgba_str_to_values(rgbaString, errorRgb=(255,255,255,255)):
+    try:
+        r, g, b, a = re.findall(r'(\d+), (\d+), (\d+), (\d+)', rgbaString)[0]
+        r, g, b, a = int(r), int(g), int(b), int(a)
+    except TypeError:
+        try:
+            r, g, b, a = rgbaString
+        except Exception as e:
+            r, g, b, a = errorRgb
+    return r, g, b, a
+
+def getMostRecentPath():
+    recentPaths_path = os.path.join(
+        settings_path, 'recentPaths.csv'
+    )
+    if os.path.exists(recentPaths_path):
+        df = pd.read_csv(recentPaths_path, index_col='index')
+        if 'opened_last_on' in df.columns:
+            df = df.sort_values('opened_last_on', ascending=False)
+        mostRecentPath = df.iloc[0]['path']
+        if not isinstance(mostRecentPath, str):
+            mostRecentPath = ''
+    else:
+        mostRecentPath = ''
+    return mostRecentPath
+
+def read_version():
+    try:
+        from setuptools_scm import get_version
+        version = get_version(root='..', relative_to=__file__)
+        return version
+    except Exception as e:
+        try:
+            from . import _version
+            return _version.version
+        except Exception as e:
+            return 'ND'
 
 def showInExplorer(path):
     if os.name == 'posix' or os.name == 'os2':
@@ -568,118 +632,11 @@ def natSortExpPaths(expPaths):
         }
     return expPaths
 
-
 def orderedUnique(iterable):
     # See https://stackoverflow.com/questions/480214/how-do-you-remove-duplicates-from-a-list-whilst-preserving-order
     seen = set()
     seen_add = seen.add
     return [x for x in iterable if not (x in seen or seen_add(x))]
-
-def analysisInputsParams():
-    params = {
-        'loadRefCh': {
-            'desc': 'Load and segment reference channel',
-            'initialVal': False
-        },
-        'refChSingleObj': {
-            'desc': 'Ref. channel is single object (e.g., nucleus)',
-            'initialVal': False
-        },
-        'keepPeaksInsideRef': {
-            'desc': 'Keep only spots that are inside reference channel',
-            'initialVal': False
-        },
-        'filterPeaksInsideRef': {
-            'desc': 'Filter spots by comparing to reference channel',
-            'initialVal': False
-        },
-        'sharpenSpots': {
-            'desc': 'Sharpen spots signal prior detection',
-            'initialVal': True
-        },
-        'aggregate': {
-            'desc': 'Aggregate cells prior detection',
-            'initialVal': True
-        },
-        'pixelWidth': {
-            'desc': 'Pixel width (μm)',
-            'initialVal': 0.0
-        },
-        'pixelHeight': {
-            'desc': 'Pixel height (μm)',
-            'initialVal': 0.0
-        },
-        'voxelDepth': {
-            'desc': 'Voxel depth (μm)',
-            'initialVal': 0.0
-        },
-        'numAperture': {
-            'desc': 'Numerical aperture',
-            'initialVal': 1.4
-        },
-        'emWavelen': {
-            'desc': 'Spots reporter emission wavelength (nm)',
-            'initialVal': 500
-        },
-        'zResolutionLimit': {
-            'desc': 'Spot minimum z-size (μm)',
-            'initialVal': 1.0
-        },
-        'yxResolLimitMultiplier': {
-            'desc': 'Resolution multiplier in y- and x- direction',
-            'initialVal': 1.0
-        },
-        'gaussSigma': {
-            'desc': 'Initial gaussian filter sigma',
-            'initialVal': 0.75
-        },
-        'refChThresholdFunc': {
-            'desc': 'Ref ch. threhsold function',
-            'initialVal': 'threshold_li'
-        },
-        'spotThresholdFunc': {
-            'desc': 'Spot detection threhsold function',
-            'initialVal': 'threshold_li'
-        },
-        'gopMethod': {
-            'desc': 'How should I filter good spots?',
-            'initialVal': 'Effect size'
-        },
-        'gopLimit': {
-            'desc': 'Filter good peaks threshold value',
-            'initialVal': 0.8
-        },
-        'doSpotFit': {
-            'desc': 'Compute spots size',
-            'initialVal': False
-        },
-        'minSpotSize': {
-            'desc': 'Discard spots with size less than: ',
-            'initialVal': 0.0
-        },
-        'maxSpotSize': {
-            'desc': 'Discard spots with size greater than: ',
-            'initialVal': 0.0
-        },
-        'calcRefChNetLen': {
-            'desc': 'Calculate reference channel network length',
-            'initialVal': False
-        }
-    }
-    return params
-
-
-def skimageAutoThresholdMethods():
-    methodsName = [
-        'threshold_li',
-        'threshold_isodata',
-        'threshold_otsu',
-        'threshold_minimum',
-        'threshold_triangle',
-        'threshold_mean',
-        'threshold_yen'
-    ]
-    return methodsName
 
 def RGBtoGray(img):
     img = skimage.img_as_ubyte(skimage.color.rgb2gray(img))
