@@ -1,3 +1,4 @@
+print('Configuring files...')
 import os
 import configparser
 import json

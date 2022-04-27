@@ -28,10 +28,12 @@ from PyQt5.QtWidgets import (
 
 import pyqtgraph as pg
 
-from . import utils, dialogs, is_mac, is_win, config, html_func
+from . import utils, dialogs, is_mac, is_win, config, html_func, config
 
 # NOTE: Enable icons
 from . import qrc_resources
+
+warningHandler = config.warningHandler
 
 def removeHSVcmaps():
     hsv_cmaps = []
@@ -270,7 +272,6 @@ class myMessageBox(QDialog):
         # Start resizing height every 1 ms
         self.resizeCallsCount = 0
         self.timer = QTimer()
-        from config import warningHandler
         warningHandler.sigGeometryWarning.connect(self.timer.stop)
         self.timer.timeout.connect(self._resizeHeight)
         self.timer.start(1)

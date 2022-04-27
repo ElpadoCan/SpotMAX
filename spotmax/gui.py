@@ -132,8 +132,6 @@ sideToolbarWidgetsKeys = {
     )
 }
 
-print('Initializing...')
-
 # Interpret image data as row-major instead of col-major
 pg.setConfigOption('imageAxisOrder', 'row-major') # best performance
 np.random.seed(1568)
@@ -189,7 +187,7 @@ class spotMAX_Win(QMainWindow):
         logger, self.log_path, self.logs_path = utils.setupLogger()
         self.logger = logger
         self.loadLastSessionSettings()
-
+        
         self.buttonToRestore = buttonToRestore
         self.mainWin = mainWin
 
