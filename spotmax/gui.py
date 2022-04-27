@@ -80,7 +80,7 @@ from PyQt5.QtWidgets import (
 
 import pyqtgraph as pg
 
-from . import load, dialogs, utils, widgets, qtworkers, html_func
+from . import io, dialogs, utils, widgets, qtworkers, html_func
 
 # NOTE: Enable icons
 from . import qrc_resources, config
@@ -187,7 +187,7 @@ class spotMAX_Win(QMainWindow):
         logger, self.log_path, self.logs_path = utils.setupLogger()
         self.logger = logger
         self.loadLastSessionSettings()
-        
+
         self.buttonToRestore = buttonToRestore
         self.mainWin = mainWin
 
@@ -228,7 +228,7 @@ class spotMAX_Win(QMainWindow):
         self.areActionsConnected = {'left': False, 'right': False}
         self.dataLoaded = {'left': False, 'right': False}
 
-        # List of load.loadData class for each position of the experiment
+        # List of io.loadData class for each position of the experiment
         self.expData = {'left': [], 'right': []}
 
         self.bottomWidgets = {'left': {}, 'right': {}}
@@ -2334,7 +2334,7 @@ class spotMAX_Win(QMainWindow):
         is_pos_path = selectedPath_basename.find('Position_')!=-1
         is_images_path = selectedPath_basename == 'Images'
 
-        self.channelNameUtil = load.channelName(
+        self.channelNameUtil = io.channelName(
             which_channel=side, QtParent=self
         )
         user_ch_name = None
@@ -2639,7 +2639,7 @@ class spotMAX_Win(QMainWindow):
         self.logger.info('Reading meatadata...')
         # Load first pos to read metadata
         channelDataPath = channelDataPaths[0]
-        posDataRef = load.loadData(
+        posDataRef = io.loadData(
             channelDataPath, self.user_ch_name, QParent=self
         )
         posDataRef.getBasenameAndChNames()
@@ -3461,7 +3461,7 @@ class spotMAX_Win(QMainWindow):
             f'The folder "{images_path}" does not contain .tif files.\n\n'
             'Only .tif files can be loaded with "Open Folder" button.\n\n'
             'Try with "File --> Open image/video file..." and directly select '
-            'the file you want to load.'
+            'the file you want to io.'
         )
         msg = widgets.myMessageBox()
         msg.critical(self, err_title, err_msg)

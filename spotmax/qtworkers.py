@@ -11,7 +11,7 @@ import skimage.io
 
 from PyQt5.QtCore import pyqtSignal, QObject, QRunnable
 
-from . import load, utils
+from . import io, utils
 
 """
 QRunnables or QObjects that run in QThreadPool or QThread in a PyQT app
@@ -76,7 +76,7 @@ class pathScannerWorker(QRunnable):
         ]
         is_selectedPath = any(areDirsPosFolders)
 
-        pathScanner = load.expFolderScanner(selectedPath)
+        pathScanner = io.expFolderScanner(selectedPath)
         if is_selectedPath:
             pathScanner.expPaths = [selectedPath]
         else:
@@ -123,7 +123,7 @@ class loadDataWorker(QRunnable):
                 # all pos for static data
                 continue
 
-            posData = load.loadData(channelDataPath, user_ch_name)
+            posData = io.loadData(channelDataPath, user_ch_name)
             self.signals.progress.emit(
                 f'Loading {posData.relPath}...',
                 'INFO'

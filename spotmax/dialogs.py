@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import (
     QSlider, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
-from . import html_func, load, widgets, core, utils, config
+from . import html_func, io, widgets, core, utils, config
 
 # NOTE: Enable icons
 from . import qrc_resources
@@ -897,7 +897,7 @@ class QDialogMetadata(QDialog):
                 and os.path.isdir(os.path.join(exp_path, pos))
             ]
             if self.sender() == self.selectButton:
-                select_folder = load.select_exp_folder()
+                select_folder = io.select_exp_folder()
                 select_folder.pos_foldernames = pos_foldernames
                 select_folder.QtPrompt(
                     self, pos_foldernames, allow_abort=False, toggleMulti=True
@@ -1304,7 +1304,7 @@ class selectPathsSpotmax(QDialog):
             exp_path = self.homePath / relPath / posFoldername
             spotmaxOutPath = exp_path / 'spotMAX_output'
             if os.path.exists(spotmaxOutPath):
-                df = load.scanExpFolders().loadAnalysisInputs(spotmaxOutPath, run)
+                df = io.scanExpFolders().loadAnalysisInputs(spotmaxOutPath, run)
             else:
                 df = None
 
@@ -1913,7 +1913,7 @@ if __name__ == '__main__':
 
             channelDataPath = r"G:\My Drive\1_MIA_Data\Dimitra\test_spotMAX_nucleusSegm_1\TIFFs\Position_2\Images\20210526_DCY8_SCGE_M2_10_s02_mCitr.tif"
             user_ch_name = 'mCitr'
-            posData = load.loadData(channelDataPath, user_ch_name)
+            posData = io.loadData(channelDataPath, user_ch_name)
 
             run_nums = posData.validRuns()
             runsInfo = {}
