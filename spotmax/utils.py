@@ -24,6 +24,12 @@ from matplotlib.backends.backend_tkagg import (
 
 from . import settings_path
 
+def _resizeWarningHandler(msg_type, msg_log_context, msg_string):
+    if msg_string.find('Unable to set geometry') != -1:
+        self.timer.stop()
+    elif msg_string:
+        print(msg_string)
+
 def lighten_color(color, amount=0.3, hex=True):
     """
     Lightens the given color by multiplying (1-luminosity) by the given amount.

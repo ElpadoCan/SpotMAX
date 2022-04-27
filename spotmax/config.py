@@ -2,17 +2,30 @@ import os
 import configparser
 
 from PyQt5.QtGui import QFont
-# from PyQt5.QtWidgets import QLineEdit
+from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
 
 from . import widgets, spotmax_path
+
+class QtWarningHandler(QObject):
+    sigGeometryWarning = pyqtSignal(str)
+
+    def _resizeWarningHandler(self, msg_type, msg_log_context, msg_string):
+        if msg_string.find('Unable to set geometry') != -1:
+            print('warning caught')
+            self.sigGeometryWarning.emit(msg_type)
+        elif msg_string:
+            print(msg_string)
+
+warningHandler = QtWarningHandler()
+qInstallMessageHandler(warningHandler._resizeWarningHandler)
 
 default_ini_path = os.path.join(spotmax_path, 'config.ini')
 
 paramsInfoText = {
     'spotsFilePath': (
         'Path of the image file with the <b>spots channel signal</b>.<br><br>'
-        'Allowed file formats: .npy .npz .h5 .png .tif .tiff .jpg .jpeg '
-        '.mov .avi .mp4'
+        'Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff, '
+        '.jpg, .jpeg, .mov, .avi, and .mp4'
     ),
     'segmFilePath': (
         'OPTIONAL: Path of the file with the <b>segmentation masks of '
@@ -27,8 +40,8 @@ paramsInfoText = {
         'Each pixel beloging to the object must have a <b>unique</b> integer '
         'or RGB(A) value, while background pixels must have 0 or black RGB(A) '
         'value.<br><br>'
-        'Allowed file formats: .npy .npz .h5 .png .tif .tiff .jpg .jpeg '
-        '.mov .avi .mp4'
+        'Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff, '
+        '.jpg, .jpeg, .mov, .avi, and .mp4'
     ),
     'refChFilePath': (
         ''

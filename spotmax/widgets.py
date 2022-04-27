@@ -11,7 +11,7 @@ from PyQt5.QtCore import (
     pyqtSignal, QTimer, Qt, QPoint, pyqtSlot, pyqtProperty,
     QPropertyAnimation, QEasingCurve, QSequentialAnimationGroup,
     QSize, QRectF, QPointF, QRect, QPoint, QEasingCurve, QRegExp,
-    QEvent, qInstallMessageHandler
+    QEvent
 )
 from PyQt5.QtGui import (
     QFont, QPalette, QColor, QPen, QPaintEvent, QBrush, QPainter,
@@ -104,14 +104,14 @@ class myMessageBox(QDialog):
         self.buttonsLayout = QHBoxLayout()
         self.buttonsLayout.setSpacing(2)
         self.buttons = []
+        self.widgets = []
+        self.layouts = []
 
         self.currentRow = 0
         self._w = None
 
         self.layout.setColumnStretch(1, 1)
         self.setLayout(self.layout)
-
-        qInstallMessageHandler(self._resizeWarningHandler)
 
     def setIcon(self, iconName='SP_MessageBoxInformation'):
         label = QLabel(self)
@@ -141,8 +141,10 @@ class myMessageBox(QDialog):
         label.setTextInteractionFlags(
             Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard
         )
+        label.setTextFormat(Qt.RichText)
         label.setText(text)
         label.setWordWrap(True)
+        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
         label.setOpenExternalLinks(True)
         self.layout.addWidget(label, self.currentRow, 1)#, alignment=Qt.AlignTop)
         self.currentRow += 1
@@ -184,10 +186,12 @@ class myMessageBox(QDialog):
 
     def addWidget(self, widget):
         self.layout.addWidget(widget, self.currentRow, 1)
+        self.widgets.append(widget)
         self.currentRow += 1
 
     def addLayout(self, layout):
         self.layout.addLayout(layout, self.currentRow, 1)
+        self.layouts.append(layout)
         self.currentRow += 1
 
     def setWidth(self, w):
@@ -224,8 +228,12 @@ class myMessageBox(QDialog):
             )
 
         super().show()
-        self._block = block
         QTimer.singleShot(10, self._resize)
+
+        if block:
+            self.loop = QEventLoop()
+            self.loop.exec_()
+
 
     def _resize(self):
         widths = [button.width() for button in self.buttons]
@@ -253,28 +261,33 @@ class myMessageBox(QDialog):
 
         self._h = self.height()
 
+        if self.widgets:
+            return
+
+        if self.layouts:
+            return
+
         # Start resizing height every 1 ms
         self.resizeCallsCount = 0
         self.timer = QTimer()
+        from config import warningHandler
+        warningHandler.sigGeometryWarning.connect(self.timer.stop)
         self.timer.timeout.connect(self._resizeHeight)
         self.timer.start(1)
 
-    def _resizeWarningHandler(self, msg_type, msg_log_context, msg_string):
-        if msg_string.find('Unable to set geometry') != -1:
-            self.timer.stop()
-        elif msg_string:
-            print(msg_string)
-
     def _resizeHeight(self):
-        # Resize until a "Unable to set geometry" warning is captured
-        # by self._resizeWarningHandler or height doesn't change anymore
-        self.resize(self.width(), self.height()-1)
-        if self.height() == self._h or self.resizeCallsCount > 500:
-            self.timer.stop()
-            return
+        try:
+            # Resize until a "Unable to set geometry" warning is captured
+            # by config.warningHandler._resizeWarningHandler or height doesn't change anymore
+            self.resize(self.width(), self.height()-1)
+            if self.height() == self._h or self.resizeCallsCount > 500:
+                self.timer.stop()
+                return
 
-        self.resizeCallsCount += 1
-        self._h = self.height()
+            self.resizeCallsCount += 1
+            self._h = self.height()
+        except Exception as e:
+            self.timer.stop()
 
     # def keyPressEvent(self, event):
     #     print(self.height())
@@ -382,7 +395,6 @@ class myMessageBox(QDialog):
 
     def exec_(self):
         self.show()
-        super().exec_()
 
     def close(self):
         self.clickedButton = self.sender()

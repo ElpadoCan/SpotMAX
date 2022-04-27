@@ -1,5 +1,7 @@
 from functools import wraps
 
+from . import is_mac
+
 def _tag(tag_info='p style="font-size:10px"'):
     def wrapper(func):
         @wraps(func)
@@ -19,6 +21,8 @@ def bold(text):
     return text
 
 def tag(text, tag_info='p style="font-size:10pt"'):
+    if is_mac:
+        text = text.replace(',', ',&nbsp;')
     tag = tag_info.split(' ')[0]
     text = f'<{tag_info}>{text}</{tag}>'
     return text
