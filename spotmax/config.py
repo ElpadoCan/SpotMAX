@@ -45,6 +45,8 @@ def initColorItems():
     with open(colorItems_path, mode='w') as file:
         json.dump(colors, file, indent=2)
 
+def initConfigINI():
+    pass
 
 def font(pixelSizeDelta=0):
     normalPixelSize = 13
@@ -490,7 +492,7 @@ paramsInfoText = {
         '.jpg, .jpeg, .mov, .avi, and .mp4'
     ),
     'segmFilePath': (
-        'OPTIONAL: Path of the file with the <b>segmentation masks of '
+        '<b>OPTIONAL</b>: Path of the file with the <b>segmentation masks of '
         'the objects of interest</b>. Typically the objects are the <b>cells '
         'or the nuclei</b>, but it can be any object.<br><br>'
         'While this is optional, <b>it improves accuracy</b>, because spotMAX will '
@@ -506,7 +508,13 @@ paramsInfoText = {
         '.jpg, .jpeg, .mov, .avi, and .mp4'
     ),
     'refChFilePath': (
-        ''
+        '<b>OPTIONAL</b>: Path of the file with the <b>reference channel '
+        'signal</b>.<br><br>'
+        'If you load the reference channel you can choose to automatically '
+        'segment it (see "Segment reference channel" parameter), or you can '
+        'provide '
+        'Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff, '
+        '.jpg, .jpeg, .mov, .avi, and .mp4'
     ),
     'refChSegmFilePath': (
         ''
