@@ -27,8 +27,6 @@ from PyQt5.QtWidgets import QMessageBox
 
 from . import dialogs, utils, core, html_func, config
 
-settings_path = config.settings_path
-
 class channelName:
     def __init__(self, which_channel=None, QtParent=None, load=True):
         self.parent = QtParent
@@ -163,7 +161,7 @@ class channelName:
         ch = self.which_channel
         if self.which_channel is not None:
             _path = os.path.dirname(os.path.realpath(__file__))
-            txt_path = os.path.join(settings_path, f'{ch}_last_sel.txt')
+            txt_path = os.path.join(config.settings_path, f'{ch}_last_sel.txt')
             if os.path.exists(txt_path):
                 with open(txt_path) as txt:
                     last_sel_channel = txt.read()
@@ -173,9 +171,9 @@ class channelName:
         ch = self.which_channel
         if self.which_channel is not None:
             _path = os.path.dirname(os.path.realpath(__file__))
-            if not os.path.exists(settings_path):
-                os.mkdir(settings_path)
-            txt_path = os.path.join(settings_path, f'{ch}_last_sel.txt')
+            if not os.path.exists(config.settings_path):
+                os.mkdir(config.settings_path)
+            txt_path = os.path.join(config.settings_path, f'{ch}_last_sel.txt')
             with open(txt_path, 'w') as txt:
                 txt.write(selection)
 
@@ -500,10 +498,10 @@ class loadData:
 
     def loadLastEntriesMetadata(self):
         src_path = os.path.dirname(os.path.realpath(__file__))
-        if not os.path.exists(settings_path):
+        if not os.path.exists(config.settings_path):
             self.last_md_df = None
             return
-        csv_path = os.path.join(settings_path, 'last_entries_metadata.csv')
+        csv_path = os.path.join(config.settings_path, 'last_entries_metadata.csv')
         if not os.path.exists(csv_path):
             self.last_md_df = None
         else:
@@ -513,7 +511,7 @@ class loadData:
         src_path = os.path.dirname(os.path.realpath(__file__))
         if not os.path.exists:
             return
-        csv_path = os.path.join(settings_path, 'last_entries_metadata.csv')
+        csv_path = os.path.join(config.settings_path, 'last_entries_metadata.csv')
         self.metadata_df.to_csv(csv_path)
 
     def getBasenameAndChNames(self, load=True):

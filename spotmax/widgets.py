@@ -33,8 +33,6 @@ from . import utils, dialogs, is_mac, is_win, config, html_func, config
 # NOTE: Enable icons
 from . import qrc_resources
 
-warningHandler = config.warningHandler
-
 def removeHSVcmaps():
     hsv_cmaps = []
     for g, grad in pg.graphicsItems.GradientEditorItem.Gradients.items():
@@ -272,14 +270,14 @@ class myMessageBox(QDialog):
         # Start resizing height every 1 ms
         self.resizeCallsCount = 0
         self.timer = QTimer()
-        warningHandler.sigGeometryWarning.connect(self.timer.stop)
+        config.warningHandler.sigGeometryWarning.connect(self.timer.stop)
         self.timer.timeout.connect(self._resizeHeight)
         self.timer.start(1)
 
     def _resizeHeight(self):
         try:
             # Resize until a "Unable to set geometry" warning is captured
-            # by config.warningHandler._resizeWarningHandler or height doesn't change anymore
+            # by config.config.warningHandler._resizeconfig.warningHandler or height doesn't change anymore
             self.resize(self.width(), self.height()-1)
             if self.height() == self._h or self.resizeCallsCount > 500:
                 self.timer.stop()

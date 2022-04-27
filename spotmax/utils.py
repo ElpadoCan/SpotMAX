@@ -24,8 +24,6 @@ from matplotlib.backends.backend_tkagg import (
 
 from . import config
 
-settings_path = config.settings_path
-
 def _resizeWarningHandler(msg_type, msg_log_context, msg_string):
     if msg_string.find('Unable to set geometry') != -1:
         self.timer.stop()
@@ -67,7 +65,7 @@ def rgba_str_to_values(rgbaString, errorRgb=(255,255,255,255)):
 
 def getMostRecentPath():
     recentPaths_path = os.path.join(
-        settings_path, 'recentPaths.csv'
+        config.settings_path, 'recentPaths.csv'
     )
     if os.path.exists(recentPaths_path):
         df = pd.read_csv(recentPaths_path, index_col='index')

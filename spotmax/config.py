@@ -2,6 +2,8 @@ print('Configuring files...')
 import os
 import configparser
 import json
+from pprint import pprint
+import pandas as pd
 
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
@@ -45,8 +47,29 @@ def initColorItems():
     with open(colorItems_path, mode='w') as file:
         json.dump(colors, file, indent=2)
 
-def initConfigINI():
-    pass
+def writeConfigINI(params=None):
+    config = configparser.ConfigParser()
+    # Do not lower case sections
+    config.optionxform = lambda option: option
+
+    if params is None:
+        params = analysisInputsParams()
+
+    # Create sections
+    for section, anchors in params.items():
+        config[section] = {}
+        for param in anchors.values():
+            if not param.get('isParam', True):
+                continue
+            key = param['desc']
+            val = param['loadedVal']
+            if val is None:
+                val = param['initialVal']
+            config[section][key] = str(val)
+
+    # Write config to file
+    with open(default_ini_path, 'w', encoding="utf-8") as file:
+        config.write(file)
 
 def font(pixelSizeDelta=0):
     normalPixelSize = 13
@@ -143,6 +166,26 @@ def readStoredParamsINI(ini_path, params):
             params[section][anchor]['loadedVal'] = config_value
     return params
 
+def metadataCSVtoINI(csv_path, ini_params):
+    df = pd.read_csv(csv_path).set_index('Description')
+    metadata = ini_params['METADATA']
+    pixelWidth = df.at['PhysicalSizeX', 'values']
+    pixelHeight = df.at['PhysicalSizeY', 'values']
+    voxelDepth = df.at['PhysicalSizeZ', 'values']
+    loadedPixelWidth = metadata['pixelWidth']['loadedVal']
+    if loadedPixelWidth == 0:
+        metadata['pixelWidth']['loadedVal'] = pixelWidth
+
+    loadedpixelHeight = metadata['pixelHeight']['loadedVal']
+    if loadedpixelHeight == 0:
+        metadata['pixelHeight']['loadedVal'] = pixelHeight
+
+    loadedVoxelDepth = metadata['voxelDepth']['loadedVal']
+    if loadedVoxelDepth == 0:
+        metadata['voxelDepth']['loadedVal'] = voxelDepth
+    return ini_params
+
+
 def analysisInputsParams(ini_path=default_ini_path):
     params = {
         # Section 0 (GroupBox)
@@ -156,7 +199,7 @@ def analysisInputsParams(ini_path=default_ini_path):
                 'addApplyButton': False,
                 'addBrowseButton': True,
                 'formWidgetFunc': widgets.tooltipLineEdit,
-                'actions': None,
+                'actions': None
             },
             'segmFilePath': {
                 'desc': 'Cells segmentation file path',
@@ -167,7 +210,7 @@ def analysisInputsParams(ini_path=default_ini_path):
                 'addApplyButton': False,
                 'addBrowseButton': True,
                 'formWidgetFunc': widgets.tooltipLineEdit,
-                'actions': None,
+                'actions': None
             },
             'refChFilePath': {
                 'desc': 'Reference channel file path',
@@ -178,7 +221,7 @@ def analysisInputsParams(ini_path=default_ini_path):
                 'addApplyButton': False,
                 'addBrowseButton': True,
                 'formWidgetFunc': widgets.tooltipLineEdit,
-                'actions': None,
+                'actions': None
             },
             'refChSegmFilePath': {
                 'desc': 'Ref. channel segmentation file path',
@@ -189,7 +232,7 @@ def analysisInputsParams(ini_path=default_ini_path):
                 'addApplyButton': False,
                 'addBrowseButton': True,
                 'formWidgetFunc': widgets.tooltipLineEdit,
-                'actions': None,
+                'actions': None
             }
         },
         # Section 1 (GroupBox)
@@ -284,7 +327,8 @@ def analysisInputsParams(ini_path=default_ini_path):
                 'stretchWidget': True,
                 'addInfoButton': False,
                 'formWidgetFunc': widgets._spotMinSizeLabels,
-                'actions': None
+                'actions': None,
+                'isParam': False
             }
         },
 
