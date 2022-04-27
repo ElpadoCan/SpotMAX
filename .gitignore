@@ -3,6 +3,7 @@ data/*
 spotmax/qtest.py
 spotmax/test.py
 spotmax/deprecated.py
+spotmax/_version.py
 spotmax/tests/*
 spotmax/mytests/*
 spotmax/spotmax_v1_paramWin.png

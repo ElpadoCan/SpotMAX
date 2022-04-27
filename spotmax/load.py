@@ -25,7 +25,9 @@ import skimage.color
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QMessageBox
 
-from . import dialogs, utils, core, html_func
+from . import dialogs, utils, core, html_func, config
+
+settings_path = config.settings_path
 
 class channelName:
     def __init__(self, which_channel=None, QtParent=None, load=True):
@@ -161,7 +163,6 @@ class channelName:
         ch = self.which_channel
         if self.which_channel is not None:
             _path = os.path.dirname(os.path.realpath(__file__))
-            settings_path = os.path.join(_path, 'settings')
             txt_path = os.path.join(settings_path, f'{ch}_last_sel.txt')
             if os.path.exists(txt_path):
                 with open(txt_path) as txt:
@@ -172,7 +173,6 @@ class channelName:
         ch = self.which_channel
         if self.which_channel is not None:
             _path = os.path.dirname(os.path.realpath(__file__))
-            settings_path = os.path.join(_path, 'settings')
             if not os.path.exists(settings_path):
                 os.mkdir(settings_path)
             txt_path = os.path.join(settings_path, f'{ch}_last_sel.txt')
@@ -500,7 +500,6 @@ class loadData:
 
     def loadLastEntriesMetadata(self):
         src_path = os.path.dirname(os.path.realpath(__file__))
-        settings_path = os.path.join(src_path, 'settings')
         if not os.path.exists(settings_path):
             self.last_md_df = None
             return
@@ -512,7 +511,6 @@ class loadData:
 
     def saveLastEntriesMetadata(self):
         src_path = os.path.dirname(os.path.realpath(__file__))
-        settings_path = os.path.join(src_path, 'settings')
         if not os.path.exists:
             return
         csv_path = os.path.join(settings_path, 'last_entries_metadata.csv')

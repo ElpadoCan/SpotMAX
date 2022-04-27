@@ -1,130 +1,49 @@
 import os
 import configparser
+import json
 
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
 
-from . import widgets, spotmax_path
+from . import widgets
 
-class QtWarningHandler(QObject):
-    sigGeometryWarning = pyqtSignal(str)
-
-    def _resizeWarningHandler(self, msg_type, msg_log_context, msg_string):
-        if msg_string.find('Unable to set geometry') != -1:
-            print('warning caught')
-            self.sigGeometryWarning.emit(msg_type)
-        elif msg_string:
-            print(msg_string)
-
-warningHandler = QtWarningHandler()
-qInstallMessageHandler(warningHandler._resizeWarningHandler)
-
+spotmax_path = os.path.dirname(os.path.abspath(__file__))
+settings_path = os.path.join(spotmax_path, 'settings')
 default_ini_path = os.path.join(spotmax_path, 'config.ini')
+colorItems_path = os.path.join(settings_path, 'colorItems.json')
 
-paramsInfoText = {
-    'spotsFilePath': (
-        'Path of the image file with the <b>spots channel signal</b>.<br><br>'
-        'Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff, '
-        '.jpg, .jpeg, .mov, .avi, and .mp4'
-    ),
-    'segmFilePath': (
-        'OPTIONAL: Path of the file with the <b>segmentation masks of '
-        'the objects of interest</b>. Typically the objects are the <b>cells '
-        'or the nuclei</b>, but it can be any object.<br><br>'
-        'While this is optional, <b>it improves accuracy</b>, because spotMAX will '
-        'detect only the spots that are inside the segmented objects.<br><br>'
-        'It needs to be a 2D or 3D (z-stack) array, eventually with '
-        'an additional dimension for frames over time.<br>'
-        'The Y and X dimensions <b>MUST be the same</b> as the spots '
-        'or reference channel images.<br><br>'
-        'Each pixel beloging to the object must have a <b>unique</b> integer '
-        'or RGB(A) value, while background pixels must have 0 or black RGB(A) '
-        'value.<br><br>'
-        'Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff, '
-        '.jpg, .jpeg, .mov, .avi, and .mp4'
-    ),
-    'refChFilePath': (
-        ''
-    ),
-    'refChSegmFilePath': (
-        ''
-    ),
-    'pixelWidth': (
-        ''
-    ),
-    'pixelHeight': (
-        ''
-    ),
-    'voxelDepth': (
-        ''
-    ),
-    'numAperture': (
-        ''
-    ),
-    'emWavelen': (
-        ''
-    ),
-    'zResolutionLimit': (
-        ''
-    ),
-    'yxResolLimitMultiplier': (
-        ''
-    ),
-    'spotMinSizeLabels': (
-        ''
-    ),
-    'aggregate': (
-        ''
-    ),
-    'gaussSigma': (
-        ''
-    ),
-    'sharpenSpots': (
-        ''
-    ),
-    'segmRefCh': (
-        ''
-    ),
-    'keepPeaksInsideRef': (
-        ''
-    ),
-    'filterPeaksInsideRef': (
-        ''
-    ),
-    'refChSingleObj': (
-        ''
-    ),
-    'refChThresholdFunc': (
-        ''
-    ),
-    'calcRefChNetLen': (
-        ''
-    ),
-    'spotDetectionMethod': (
-        ''
-    ),
-    'spotPredictionMethod': (
-        ''
-    ),
-    'spotThresholdFunc': (
-        ''
-    ),
-    'gopMethod': (
-        ''
-    ),
-    'gopLimit': (
-        ''
-    ),
-    'doSpotFit': (
-        ''
-    ),
-    'minSpotSize': (
-        ''
-    ),
-    'maxSpotSize': (
-        ''
-    )
-}
+def initColorItems():
+    if os.path.exists(colorItems_path):
+        return
+
+    colors = {
+      "left": {
+        "Image": None,
+        "Overlay image": [0, 255, 255, 255],
+        "Text on segmented objects": [255, 255, 255, 255],
+        "Contours of segmented objects": [255, 0, 0, 255],
+        "Contour color...": [255, 0, 0, 255],
+        "Clicked spot": [255, 0, 0, 255],
+        "Spots inside ref. channel": [255, 0, 0, 1],
+        "Spots outside ref. channel": [255, 0, 0, 1],
+        "Skeleton color...": [0, 255, 255, 255]
+      },
+      "right": {
+        "Image": None,
+        "Overlay image": [255, 0, 255, 255],
+        "Text on segmented objects": [255, 255, 255, 255],
+        "Contours of segmented objects": [255, 0, 0, 255],
+        "Contour color...": [255, 0, 0, 255],
+        "Clicked spot": [255, 0, 0, 255],
+        "Spots inside ref. channel": [255, 0, 0, 255],
+        "Spots outside ref. channel": [255, 0, 0, 255],
+        "Skeleton color...": [255, 0, 0, 255]
+      }
+    }
+
+    with open(colorItems_path, mode='w') as file:
+        json.dump(colors, file, indent=2)
+
 
 def font(pixelSizeDelta=0):
     normalPixelSize = 13
@@ -189,7 +108,6 @@ def readStoredParamsCSV(csv_path, params):
         else:
             params[section][anchor]['loadedVal'] = value
     return params
-
 
 def readStoredParamsINI(ini_path, params):
     sections = list(params.keys())
@@ -563,3 +481,126 @@ def skimageAutoThresholdMethods():
         'threshold_yen'
     ]
     return methodsName
+
+paramsInfoText = {
+    'spotsFilePath': (
+        'Path of the image file with the <b>spots channel signal</b>.<br><br>'
+        'Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff, '
+        '.jpg, .jpeg, .mov, .avi, and .mp4'
+    ),
+    'segmFilePath': (
+        'OPTIONAL: Path of the file with the <b>segmentation masks of '
+        'the objects of interest</b>. Typically the objects are the <b>cells '
+        'or the nuclei</b>, but it can be any object.<br><br>'
+        'While this is optional, <b>it improves accuracy</b>, because spotMAX will '
+        'detect only the spots that are inside the segmented objects.<br><br>'
+        'It needs to be a 2D or 3D (z-stack) array, eventually with '
+        'an additional dimension for frames over time.<br>'
+        'The Y and X dimensions <b>MUST be the same</b> as the spots '
+        'or reference channel images.<br><br>'
+        'Each pixel beloging to the object must have a <b>unique</b> integer '
+        'or RGB(A) value, while background pixels must have 0 or black RGB(A) '
+        'value.<br><br>'
+        'Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff, '
+        '.jpg, .jpeg, .mov, .avi, and .mp4'
+    ),
+    'refChFilePath': (
+        ''
+    ),
+    'refChSegmFilePath': (
+        ''
+    ),
+    'pixelWidth': (
+        ''
+    ),
+    'pixelHeight': (
+        ''
+    ),
+    'voxelDepth': (
+        ''
+    ),
+    'numAperture': (
+        ''
+    ),
+    'emWavelen': (
+        ''
+    ),
+    'zResolutionLimit': (
+        ''
+    ),
+    'yxResolLimitMultiplier': (
+        ''
+    ),
+    'spotMinSizeLabels': (
+        ''
+    ),
+    'aggregate': (
+        ''
+    ),
+    'gaussSigma': (
+        ''
+    ),
+    'sharpenSpots': (
+        ''
+    ),
+    'segmRefCh': (
+        ''
+    ),
+    'keepPeaksInsideRef': (
+        ''
+    ),
+    'filterPeaksInsideRef': (
+        ''
+    ),
+    'refChSingleObj': (
+        ''
+    ),
+    'refChThresholdFunc': (
+        ''
+    ),
+    'calcRefChNetLen': (
+        ''
+    ),
+    'spotDetectionMethod': (
+        ''
+    ),
+    'spotPredictionMethod': (
+        ''
+    ),
+    'spotThresholdFunc': (
+        ''
+    ),
+    'gopMethod': (
+        ''
+    ),
+    'gopLimit': (
+        ''
+    ),
+    'doSpotFit': (
+        ''
+    ),
+    'minSpotSize': (
+        ''
+    ),
+    'maxSpotSize': (
+        ''
+    )
+}
+
+
+class QtWarningHandler(QObject):
+    sigGeometryWarning = pyqtSignal(str)
+
+    def _resizeWarningHandler(self, msg_type, msg_log_context, msg_string):
+        if msg_string.find('Unable to set geometry') != -1:
+            print('warning caught')
+            self.sigGeometryWarning.emit(msg_type)
+        elif msg_string:
+            print(msg_string)
+
+# Install Qt Warnings handler
+warningHandler = QtWarningHandler()
+qInstallMessageHandler(warningHandler._resizeWarningHandler)
+
+# Initialize color items
+initColorItems()

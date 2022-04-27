@@ -83,7 +83,11 @@ import pyqtgraph as pg
 from . import load, dialogs, utils, widgets, qtworkers, html_func
 
 # NOTE: Enable icons
-from . import qrc_resources, spotmax_path, settings_path
+from . import qrc_resources, config
+
+spotmax_path = config.spotmax_path
+settings_path = config.settings_path
+colorItems_path = config.colorItems_path
 
 if os.name == 'nt':
     try:
@@ -280,7 +284,7 @@ class spotMAX_Win(QMainWindow):
         self.gui_init(first_call=True)
 
     def loadLastSessionSettings(self):
-        self.colorItems_path = os.path.join(settings_path, 'colorItems.json')
+        colorItems_path = os.path.join(settings_path, 'colorItems.json')
         csv_path = os.path.join(settings_path, 'gui_settings.csv')
         self.settings_csv_path = csv_path
         styleItems = ['spots', 'skel']
@@ -1012,7 +1016,7 @@ class spotMAX_Win(QMainWindow):
             'median z-proj.'
         ]
 
-        with open(self.colorItems_path) as file:
+        with open(colorItems_path) as file:
             self.colorItems = json.load(file)
 
     def gui_createBottomLayout(self):
@@ -3509,7 +3513,7 @@ class spotMAX_Win(QMainWindow):
 
         self.saveWindowGeometry()
 
-        with open(self.colorItems_path, mode='w') as file:
+        with open(colorItems_path, mode='w') as file:
             json.dump(self.colorItems, file, indent=2)
 
         if self.slideshowWin is not None:

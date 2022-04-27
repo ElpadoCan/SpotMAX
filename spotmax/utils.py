@@ -22,7 +22,9 @@ from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk
 )
 
-from . import settings_path
+from . import config
+
+settings_path = config.settings_path
 
 def _resizeWarningHandler(msg_type, msg_log_context, msg_string):
     if msg_string.find('Unable to set geometry') != -1:
