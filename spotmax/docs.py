@@ -84,13 +84,16 @@ def paramsInfoText():
         This parameter will be used to <b>convert the size of the diffraction
         limited spot</b> into pixels.
     """),
-    'numAperture': ("""
-        Numerical aperture of the objective used to acquire the images.<br><br>
-        This parameter is used to calculate the <b>radius <code>r</code>
-        of the diffraction limited spot</b> according to the
-        Abbe diffraction limit formula:<br>
-        <code>d</code>
-    """),
+    'numAperture': (
+        '<b>Numerical aperture</b> of the objective used to acquire the images.<br><br>'
+        'This parameter is used to calculate the <b>radius <code>r</code> '
+        'of the diffraction limited spot</b> according to the'
+        'Abbe diffraction limit formula:'
+        r'<math>r = \frac{\lambda}{2NA}</math>'
+        'where <code>\u03bb</code> is the emission wavelength '
+        'of the fluorescent reporter '
+        f'(see {get_href_tags()["emWavelen"]} parameter).'
+    ),
     'emWavelen': (
         """"""
     ),

@@ -6,6 +6,8 @@ import webbrowser
 from pprint import pprint
 from functools import partial
 
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 from PyQt5.QtCore import (
@@ -90,6 +92,27 @@ renamePgCmaps()
 removeHSVcmaps()
 cmaps = addGradients()
 
+def getMathLabels(text, parent=None):
+    untaggedParagraph, _ = html_func.untag(text, 'p')
+    if untaggedParagraph:
+        text = untaggedParagraph[0]
+
+    in_tag_texts, out_tag_texts = html_func.untag(text, 'math')
+    if not out_tag_texts:
+        label = QLabel(parent)
+        label.setText(text)
+        return label,
+
+    labels = []
+    for out_tag_text, in_tag_text in zip(out_tag_texts, in_tag_texts):
+        if out_tag_text:
+            labels.append(QLabel(out_tag_text, parent))
+        if in_tag_text:
+            tex_txt = fr'${in_tag_text}$'
+            labels.append(mathTeXLabel(tex_txt, parent))
+    return labels
+
+
 class myMessageBox(QDialog):
     def __init__(self, parent=None, showCentered=True):
         super().__init__(parent)
@@ -140,17 +163,23 @@ class myMessageBox(QDialog):
         self.buttonsLayout.insertSpacing(1, 20)
 
     def addText(self, text):
-        label = QLabel(self)
-        label.setTextInteractionFlags(
-            Qt.TextBrowserInteraction | Qt.TextSelectableByKeyboard
-        )
-        self.labels.append(label)
-        label.setTextFormat(Qt.RichText)
-        label.setText(text)
-        label.setWordWrap(True)
-        label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
-        label.setOpenExternalLinks(True)
-        self.layout.addWidget(label, self.currentRow, 1)#, alignment=Qt.AlignTop)
+        labels = getMathLabels(text)
+        layout = QVBoxLayout()
+        layout.addStretch()
+        for label in labels:
+            layout.addWidget(label)
+            if not isinstance(label, QLabel):
+                continue
+            label.setTextInteractionFlags(
+                Qt.TextBrowserInteraction | Qt.TextSelectableByKeyboard
+            )
+            self.labels.append(label)
+            label.setTextFormat(Qt.RichText)
+            label.setWordWrap(True)
+            label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Minimum)
+            label.setOpenExternalLinks(True)
+        layout.addStretch()
+        self.layout.addLayout(layout, self.currentRow, 1)
         self.currentRow += 1
         return label
 
@@ -1499,79 +1528,31 @@ class QProgressBarWithETA(QProgressBar):
         QProgressBar.hide(self)
         self.ETA_label.hide()
 
-if __name__ == '__main__':
-    class Window(QMainWindow):
-        def __init__(self):
-            super().__init__()
+class mathTeXLabel(QWidget):
+    def __init__(self, mathTeXtext, parent=None, font_size=15):
+        super(QWidget, self).__init__(parent)
 
-            toggle_1 = Toggle()
-            toggle_1.setChecked(True)
+        l=QVBoxLayout(self)
+        l.setContentsMargins(0,0,0,0)
 
-            container = QWidget()
-            layout = QVBoxLayout()
-            layout.addWidget(toggle_1)
+        r,g,b,a = self.palette().color(self.backgroundRole()).getRgbF()
 
-            le = intLineEdit()
-            layout.addWidget(le)
+        self._figure=Figure(edgecolor=(r,g,b), facecolor=(r,g,b,a))
+        self._canvas=FigureCanvasQTAgg(self._figure)
+        l.addWidget(self._canvas)
+        self._figure.clear()
+        text=self._figure.suptitle(
+            mathTeXtext,
+            x=0.0,
+            y=1.0,
+            horizontalalignment='left',
+            verticalalignment='top',
+            size=15
+        )
+        self._canvas.draw()
 
-            le.valueChanged.connect(self.lineEditValueChanged)
+        (x0,y0),(x1,y1)=text.get_window_extent().get_points()
+        w=x1-x0; h=y1-y0
 
-            le = floatLineEdit(notAllowed=[0])
-            layout.addWidget(le)
-
-            le.valueChanged.connect(self.lineEditValueChanged)
-
-            slider = sliderWithSpinBox(title='test slider')
-            layout.addWidget(slider)
-
-            ComboBox = myQComboBox()
-            ComboBox.addItems(['ciao', 'test'])
-            layout.addWidget(ComboBox)
-
-            plotSpotsCoordsButton = DblClickQToolButton(self)
-            plotSpotsCoordsButton.setIcon(QIcon(":plotSpots.svg"))
-            plotSpotsCoordsButton.setCheckable(True)
-            layout.addWidget(plotSpotsCoordsButton)
-
-            print(plotSpotsCoordsButton.isCheckable())
-
-            layout.addWidget(QSpinBoxOdd())
-            scrollbar = QScrollBar(Qt.Horizontal)
-            scrollbar.actionTriggered.connect(self.scrollbarAction)
-            layout.addWidget(scrollbar)
-            self.scrollbar = scrollbar
-
-
-            layout.addStretch(1)
-            container.setLayout(layout)
-            self.setCentralWidget(container)
-
-            self.setFocus()
-
-        def keyPressEvent(self, event):
-            if event.key() == Qt.Key_Right:
-                pos = self.scrollbar.sliderPosition()
-                self.scrollbar.setSliderPosition(pos+1)
-            elif event.key() == Qt.Key_Left:
-                pos = self.scrollbar.sliderPosition()
-                self.scrollbar.setSliderPosition(pos-1)
-
-        def scrollbarAction(self, action):
-            print(action)
-            print(action == QAbstractSlider.SliderMove)
-            print(action == QAbstractSlider.SliderPageStepAdd)
-            print(action == QAbstractSlider.SliderPageStepSub)
-
-        def lineEditValueChanged(self, value):
-            print(value)
-            print(self.sender().value())
-
-        def show(self):
-            QMainWindow.show(self)
-
-    app = QApplication(sys.argv)
-    app.setStyle(QStyleFactory.create('Fusion'))
-
-    w = Window()
-    w.show()
-    app.exec_()
+        self._figure.set_size_inches(w/80, h/80)
+        self.setFixedSize(w,h)
