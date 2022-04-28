@@ -57,21 +57,40 @@ def paramsInfoText():
         Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff,
         .jpg, .jpeg, .mov, .avi, and .mp4'
     """),
-    'refChSegmFilePath': (
-        """"""
-    ),
-    'pixelWidth': (
-        """"""
-    ),
-    'pixelHeight': (
-        """"""
-    ),
-    'voxelDepth': (
-        """"""
-    ),
-    'numAperture': (
-        """"""
-    ),
+    'refChSegmFilePath': (f"""
+        <b>OPTIONAL</b>: Path of the file with the <b>reference channel
+        segmentation mask</b>.<br><br>
+        The segmentation mask <b>MUST have the same shape</b> as the reference
+        channel signal.<br><br>
+        If you load a segmentation mask you can then choose to <b>remove
+        spots</b> that are detected <b>outside of the reference channel mask</b>
+        (see {get_href_tags()["keepPeaksInsideRef"]} parameter).
+    """),
+    'pixelWidth': ("""
+        <b>Physical size</b> of the pixel in the <b>X direction</b> (width).
+        The unit is \u00b5m/pixel.<br><br>
+        This parameter will be used to <b>convert the size of the resolution
+        limited volume</b> into pixels.
+    """),
+    'pixelHeight': ("""
+        <b>Physical size</b> of the pixel in the <b>Y direction</b> (height).
+        The unit is \u00b5m/pixel.<br><br>
+        This parameter will be used to <b>convert the size of the diffraction
+        limited spot</b> into pixels.
+    """),
+    'voxelDepth': ("""
+        <b>Physical size</b> of the voxel in the <b>Z direction</b> (depth),
+        i.e., the distance between each z-slice in \u00b5m.<br><br>
+        This parameter will be used to <b>convert the size of the diffraction
+        limited spot</b> into pixels.
+    """),
+    'numAperture': ("""
+        Numerical aperture of the objective used to acquire the images.<br><br>
+        This parameter is used to calculate the <b>radius <code>r</code>
+        of the diffraction limited spot</b> according to the
+        Abbe diffraction limit formula:<br>
+        <code>d</code>
+    """),
     'emWavelen': (
         """"""
     ),
