@@ -93,25 +93,38 @@ removeHSVcmaps()
 cmaps = addGradients()
 
 def getMathLabels(text, parent=None):
+    html_text = text
     untaggedParagraph, _ = html_func.untag(text, 'p')
     if untaggedParagraph:
+        html_text = text
         text = untaggedParagraph[0]
 
     in_tag_texts, out_tag_texts = html_func.untag(text, 'math')
-    if not out_tag_texts:
+    if not in_tag_texts[0]:
         label = QLabel(parent)
-        label.setText(text)
+        label.setText(html_text)
+
         return label,
 
     labels = []
     for out_tag_text, in_tag_text in zip(out_tag_texts, in_tag_texts):
         if out_tag_text:
+            out_tag_text = html_func.paragraph(out_tag_text)
             labels.append(QLabel(out_tag_text, parent))
         if in_tag_text:
             tex_txt = fr'${in_tag_text}$'
             labels.append(mathTeXLabel(tex_txt, parent))
     return labels
 
+class QClickableLabel(QLabel):
+    clicked = pyqtSignal(object)
+
+    def __init__(self, parent=None):
+        self.parent = parent
+        super().__init__(parent)
+
+    def mousePressEvent(self, event):
+        self.clicked.emit(self)
 
 class myMessageBox(QDialog):
     def __init__(self, parent=None, showCentered=True):
@@ -170,9 +183,9 @@ class myMessageBox(QDialog):
             layout.addWidget(label)
             if not isinstance(label, QLabel):
                 continue
-            label.setTextInteractionFlags(
-                Qt.TextBrowserInteraction | Qt.TextSelectableByKeyboard
-            )
+            # label.setTextInteractionFlags(
+            #     Qt.TextBrowserInteraction | Qt.TextSelectableByKeyboard
+            # )
             self.labels.append(label)
             label.setTextFormat(Qt.RichText)
             label.setWordWrap(True)
@@ -230,9 +243,12 @@ class myMessageBox(QDialog):
     def setWidth(self, w):
         self._w = w
 
-    # def keyPressEvent(self, event):
-    #     print(self.height())
-    #     print(self.minimumSizeHint())
+    def mousePressEvent(self, event):
+        for label in self.labels:
+            if isinstance(label, QLabel):
+                label.setTextInteractionFlags(
+                    Qt.TextBrowserInteraction | Qt.TextSelectableByKeyboard
+                )
 
     def _template(
             self, parent, title, message,
@@ -1485,16 +1501,6 @@ class QLogConsole(QTextEdit):
         message = message.replace('\r ', '')
         if message:
             self.apppendText(message)
-
-class QClickableLabel(QLabel):
-    clicked = pyqtSignal(object)
-
-    def __init__(self, parent=None):
-        self.parent = parent
-        super().__init__(parent)
-
-    def mousePressEvent(self, event):
-        self.clicked.emit(self)
 
 class QProgressBarWithETA(QProgressBar):
     def __init__(self, parent=None):

@@ -194,7 +194,7 @@ def analysisInputsParams(ini_path=default_ini_path):
                 'desc': 'Spot (z,y,x) minimum dimensions',
                 'initialVal': """""",
                 'stretchWidget': True,
-                'addInfoButton': False,
+                'addInfoButton': True,
                 'formWidgetFunc': widgets._spotMinSizeLabels,
                 'actions': None,
                 'isParam': False
