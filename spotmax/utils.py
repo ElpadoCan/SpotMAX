@@ -10,6 +10,7 @@ import numpy as np
 import tkinter as tk
 import pathlib
 import configparser
+from urllib.parse import urlparse
 from natsort import natsort_keygen
 
 from tifffile.tifffile import TiffWriter, TiffFile
@@ -22,7 +23,16 @@ from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk
 )
 
+from PyQt5.QtCore import QTimer
+
 from . import config
+
+def is_valid_url(x):
+    try:
+        result = urlparse(x)
+        return all([result.scheme, result.netloc])
+    except Exception as e:
+        return False
 
 def _resizeWarningHandler(msg_type, msg_log_context, msg_string):
     if msg_string.find('Unable to set geometry') != -1:
@@ -754,6 +764,55 @@ def seconds_to_ETA(seconds):
         h, m, s = str(ETA).split(':')
         ETA = f'{int(h):02}h:{int(m):02}m:{int(s):02}s'
     return ETA
+
+class widgetBlinker:
+    def __init__(
+            self, widget,
+            styleSheetOptions=('background-color',),
+            color='limegreen',
+            duration=2000
+        ):
+        self._widget = widget
+        self._color = color
+
+        self._on_style = ''
+        for option in styleSheetOptions:
+            if option.find('color') != -1:
+                self._on_style = f'{self._on_style};{option}: {color}'
+            elif option.find('font-weight')!= -1:
+                self._on_style = f'{self._on_style};{option}: bold'
+        self._on_style = self._on_style[1:]
+
+        self._off_style = ''
+        for option in styleSheetOptions:
+            if option.find('color')!= -1:
+                self._off_style = f'{self._off_style};{option}: none'
+            elif option.find('font-weight')!= -1:
+                self._off_style = f'{self._off_style};{option}: normal'
+        self._off_style = self._off_style[1:]
+
+        self._flag = True
+        self._blinkTimer = QTimer()
+        self._blinkTimer.timeout.connect(self.blinker)
+
+        self._stopBlinkTimer = QTimer()
+        self._stopBlinkTimer.timeout.connect(self.stopBlinker)
+        self._duration = duration
+
+    def start(self):
+        self._blinkTimer.start(100)
+        self._stopBlinkTimer.start(self._duration)
+
+    def blinker(self):
+        if self._flag:
+            self._widget.setStyleSheet(f'{self._on_style}')
+        else:
+            self._widget.setStyleSheet(f'{self._off_style}')
+        self._flag = not self._flag
+
+    def stopBlinker(self):
+        self._blinkTimer.stop()
+        self._widget.setStyleSheet(f'{self._off_style}')
 
 class imshow_tk:
     def __init__(self, img, dots_coords=None, x_idx=1, axis=None,

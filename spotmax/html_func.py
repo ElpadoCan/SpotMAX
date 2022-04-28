@@ -30,6 +30,12 @@ def tag(text, tag_info='p style="font-size:10pt"'):
 def paragraph(text, font_size='13px'):
     return tag(text, tag_info=f'p style="font-size:{font_size}"')
 
+def ul(*items):
+    txt = ''
+    for item in items:
+        txt = f"{txt}{tag(item, tag_info='li')}"
+    return tag(txt, tag_info='ul')
+
 if __name__ == '__main__':
     text = 'ciao'
     print(paragraph(text))

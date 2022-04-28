@@ -2,6 +2,7 @@ import sys
 import time
 import re
 import traceback
+import webbrowser
 from pprint import pprint
 from functools import partial
 
@@ -11,7 +12,7 @@ from PyQt5.QtCore import (
     pyqtSignal, QTimer, Qt, QPoint, pyqtSlot, pyqtProperty,
     QPropertyAnimation, QEasingCurve, QSequentialAnimationGroup,
     QSize, QRectF, QPointF, QRect, QPoint, QEasingCurve, QRegExp,
-    QEvent
+    QEvent, QEventLoop
 )
 from PyQt5.QtGui import (
     QFont, QPalette, QColor, QPen, QPaintEvent, QBrush, QPainter,
@@ -28,7 +29,8 @@ from PyQt5.QtWidgets import (
 
 import pyqtgraph as pg
 
-from . import utils, dialogs, is_mac, is_win, config, html_func, config
+from . import is_mac, is_win
+from . import utils, dialogs, config, html_func, docs
 
 # NOTE: Enable icons
 from . import qrc_resources
@@ -106,6 +108,7 @@ class myMessageBox(QDialog):
         self.buttons = []
         self.widgets = []
         self.layouts = []
+        self.labels = []
 
         self.currentRow = 0
         self._w = None
@@ -139,8 +142,9 @@ class myMessageBox(QDialog):
     def addText(self, text):
         label = QLabel(self)
         label.setTextInteractionFlags(
-            Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard
+            Qt.TextBrowserInteraction | Qt.TextSelectableByKeyboard
         )
+        self.labels.append(label)
         label.setTextFormat(Qt.RichText)
         label.setText(text)
         label.setWordWrap(True)
@@ -196,97 +200,6 @@ class myMessageBox(QDialog):
 
     def setWidth(self, w):
         self._w = w
-
-    def show(self, block=False):
-        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
-
-        # spacer
-        self.currentRow += 1
-        spacer = QSpacerItem(10, 10)
-        self.layout.addItem(spacer, self.currentRow, 1)
-
-        # buttons
-        self.currentRow += 1
-        self.layout.addLayout(
-            self.buttonsLayout, self.currentRow, 0, 1, 2,
-            alignment=Qt.AlignRight
-        )
-
-        # spacer
-        self.currentRow += 1
-        spacer = QSpacerItem(10, 10)
-        self.layout.addItem(spacer, self.currentRow, 1)
-
-        # Add stretch after buttons
-        self.currentRow += 1
-        self.layout.setRowStretch(self.currentRow, 1)
-
-        if self.detailsWidget is not None:
-            self.currentRow += 1
-            self.layout.addWidget(
-                self.detailsWidget, self.currentRow, 0, 1, 2
-            )
-
-        super().show()
-        QTimer.singleShot(10, self._resize)
-
-        if block:
-            self.loop = QEventLoop()
-            self.loop.exec_()
-
-
-    def _resize(self):
-        widths = [button.width() for button in self.buttons]
-        if widths:
-            max_width = max(widths)
-            for button in self.buttons:
-                button.setMinimumWidth(max_width)
-
-        if self._w is not None and self.width() < self._w:
-            self.resize(self._w, self.sizeHint().height())
-
-        if self.width() < 350:
-            self.resize(350, self.sizeHint().height())
-
-        if self.showCentered:
-            screen = self.screen()
-            screenWidth = screen.size().width()
-            screenHeight = screen.size().height()
-            screenLeft = screen.geometry().x()
-            screenTop = screen.geometry().y()
-            w, h = self.width(), self.height()
-            left = int(screenLeft + screenWidth/2 - w/2)
-            top = int(screenTop + screenHeight/2 - h/2)
-            self.move(left, top)
-
-        self._h = self.height()
-
-        if self.widgets:
-            return
-
-        if self.layouts:
-            return
-
-        # Start resizing height every 1 ms
-        self.resizeCallsCount = 0
-        self.timer = QTimer()
-        config.warningHandler.sigGeometryWarning.connect(self.timer.stop)
-        self.timer.timeout.connect(self._resizeHeight)
-        self.timer.start(1)
-
-    def _resizeHeight(self):
-        try:
-            # Resize until a "Unable to set geometry" warning is captured
-            # by config.config.warningHandler._resizeconfig.warningHandler or height doesn't change anymore
-            self.resize(self.width(), self.height()-1)
-            if self.height() == self._h or self.resizeCallsCount > 500:
-                self.timer.stop()
-                return
-
-            self.resizeCallsCount += 1
-            self._h = self.height()
-        except Exception as e:
-            self.timer.stop()
 
     # def keyPressEvent(self, event):
     #     print(self.height())
@@ -392,14 +305,106 @@ class myMessageBox(QDialog):
         self.exec_()
         return buttons
 
-    def exec_(self):
-        self.show()
+    def show(self, block=False):
+        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
 
-    def close(self):
+        # spacer
+        self.currentRow += 1
+        spacer = QSpacerItem(10, 10)
+        self.layout.addItem(spacer, self.currentRow, 1)
+
+        # buttons
+        self.currentRow += 1
+        self.layout.addLayout(
+            self.buttonsLayout, self.currentRow, 0, 1, 2,
+            alignment=Qt.AlignRight
+        )
+
+        # spacer
+        self.currentRow += 1
+        spacer = QSpacerItem(10, 10)
+        self.layout.addItem(spacer, self.currentRow, 1)
+
+        # Add stretch after buttons
+        self.currentRow += 1
+        self.layout.setRowStretch(self.currentRow, 1)
+
+        if self.detailsWidget is not None:
+            self.currentRow += 1
+            self.layout.addWidget(
+                self.detailsWidget, self.currentRow, 0, 1, 2
+            )
+
+        super().show()
+        QTimer.singleShot(10, self._resize)
+
+        if block:
+            self._block()
+
+    def exec_(self):
+        self.show(block=True)
+
+    def _block(self):
+        self.loop = QEventLoop()
+        self.loop.exec_()
+
+    def _resize(self):
+        widths = [button.width() for button in self.buttons]
+        if widths:
+            max_width = max(widths)
+            for button in self.buttons:
+                button.setMinimumWidth(max_width)
+
+        if self._w is not None and self.width() < self._w:
+            self.resize(self._w, self.sizeHint().height())
+
+        if self.width() < 350:
+            self.resize(350, self.sizeHint().height())
+
+        if self.showCentered:
+            screen = self.screen()
+            screenWidth = screen.size().width()
+            screenHeight = screen.size().height()
+            screenLeft = screen.geometry().x()
+            screenTop = screen.geometry().y()
+            w, h = self.width(), self.height()
+            left = int(screenLeft + screenWidth/2 - w/2)
+            top = int(screenTop + screenHeight/2 - h/2)
+            self.move(left, top)
+
+        self._h = self.height()
+
+        if self.widgets:
+            return
+
+        if self.layouts:
+            return
+
+        # Start resizing height every 1 ms
+        self.resizeCallsCount = 0
+        self.timer = QTimer()
+        config.warningHandler.sigGeometryWarning.connect(self.timer.stop)
+        self.timer.timeout.connect(self._resizeHeight)
+        self.timer.start(1)
+
+    def _resizeHeight(self):
+        try:
+            # Resize until a "Unable to set geometry" warning is captured
+            # by config.config.warningHandler._resizeconfig.warningHandler or height doesn't change anymore
+            self.resize(self.width(), self.height()-1)
+            if self.height() == self._h or self.resizeCallsCount > 500:
+                self.timer.stop()
+                return
+
+            self.resizeCallsCount += 1
+            self._h = self.height()
+        except Exception as e:
+            self.timer.stop()
+
+    def closeEvent(self, event):
         self.clickedButton = self.sender()
         if self.clickedButton is not None:
             self.cancel = self.clickedButton == self.cancelButton
-        super().close()
         if hasattr(self, 'loop'):
             self.loop.exit()
 
@@ -511,6 +516,7 @@ class formWidget(QWidget):
     sigApplyButtonClicked = pyqtSignal(object)
     sigComputeButtonClicked = pyqtSignal(object)
     sigBrowseButtonClicked = pyqtSignal(object)
+    sigLinkClicked = pyqtSignal(str)
 
     def __init__(
             self, widget,
@@ -632,16 +638,27 @@ class formWidget(QWidget):
     def computeButtonClicked(self):
         self.sigComputeButtonClicked.emit(self)
 
+    def linkActivatedCallBack(self, link):
+        if utils.is_valid_url(link):
+            webbrowser.open(link)
+        else:
+            self.sigLinkClicked.emit(link)
+
     def showInfo(self):
         anchor = self.anchor
-        txt = html_func.paragraph(config.paramsInfoText.get(anchor, ''))
+        txt = html_func.paragraph(docs.paramsInfoText().get(anchor, ''))
         if not txt:
             return
-        msg = myMessageBox()
+        msg = myMessageBox(parent=self)
+        msg.setIcon(iconName='SP_MessageBoxInformation')
+        msg.setWindowTitle(f'{self.labelLeft.text()} info')
+        msg.addText(txt)
         msg.setWidth(600)
-        msg.information(
-            self, f'{self.labelLeft.text()} info', txt
-        )
+        msg.addButton('  Ok  ')
+        for label in msg.labels:
+            label.setOpenExternalLinks(False)
+            label.linkActivated.connect(self.linkActivatedCallBack)
+        msg.exec_()
         # Here show user manual already scrolled at anchor
         # see https://stackoverflow.com/questions/20678610/qtextedit-set-anchor-and-scroll-to-it
 
@@ -935,6 +952,8 @@ class Toggle(QCheckBox):
         self._bg_color = bg_color
         self._circle_color = circle_color
         self._active_color = active_color
+        self._original_active_color = self._active_color
+        self._original_bg_color = self._bg_color
         self._disabled_active_color = utils.lighten_color(active_color)
         self._disabled_circle_color = utils.lighten_color(circle_color)
         self._disabled_bg_color = utils.lighten_color(bg_color, amount=0.5)
@@ -1064,6 +1083,21 @@ class Toggle(QCheckBox):
             )
 
         p.end()
+
+    def setStyleSheet(self, styleSheet):
+        if not self.isEnabled():
+            return
+        try:
+            color = re.findall('color: (\w+)', styleSheet)[0]
+            if color == 'none':
+                self._active_color = self._original_active_color
+                self._bg_color = self._original_bg_color
+            else:
+                self._active_color = color
+                self._bg_color = color
+            self.update()
+        except Exception as e:
+            pass
 
 class DblClickQToolButton(QToolButton):
     sigDoubleClickEvent = pyqtSignal(object, object)

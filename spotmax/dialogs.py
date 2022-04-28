@@ -3,6 +3,7 @@ import sys
 import re
 import pathlib
 import time
+import traceback
 from pprint import pprint
 
 import numpy as np
@@ -412,6 +413,8 @@ class analysisInputsQGBox(QGroupBox):
                     addBrowseButton=paramValues.get('addBrowseButton', False),
                     parent=self
                 )
+                formWidget.section = section
+                formWidget.sigLinkClicked.connect(self.infoLinkClicked)
                 formLayout.addFormWidget(formWidget, row=row)
                 self.params[section][anchor]['widget'] = formWidget.widget
                 self.params[section][anchor]['formWidget'] = formWidget
@@ -435,6 +438,27 @@ class analysisInputsQGBox(QGroupBox):
 
         self.setLayout(mainLayout)
         self.updateMinSpotSize()
+
+    def infoLinkClicked(self, link):
+        try:
+            # Stop previously blinking controls, if any
+            self.blinker.stopBlinker()
+            self.labelBlinker.stopBlinker()
+        except Exception as e:
+            pass
+
+        try:
+            section, anchor = link.split(';')
+            formWidget = self.params[section][anchor]['formWidget']
+            self.blinker = utils.widgetBlinker(formWidget.widget)
+            label = formWidget.labelLeft
+            self.labelBlinker = utils.widgetBlinker(
+                label, styleSheetOptions=('color',)
+            )
+            self.blinker.start()
+            self.labelBlinker.start()
+        except Exception as e:
+            traceback.print_exc()
 
     def connectActions(self):
         self.pixelWidthWidget.widget.valueChanged.connect(

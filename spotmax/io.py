@@ -6,6 +6,7 @@ import pathlib
 import time
 import copy
 import logging
+import configparser
 
 from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
@@ -26,6 +27,138 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QMessageBox
 
 from . import dialogs, utils, core, html_func, config
+
+def readStoredParamsCSV(csv_path, params):
+    """Read old format of analysis_inputs.csv file from spotMAX v1"""
+    old_csv_options_to_anchors = {
+        'Calculate ref. channel network length?':
+            ('Reference channel', 'calcRefChNetLen'),
+        'Compute spots size?':
+            ('Spots channel', 'Compute spots size'),
+        'EGFP emission wavelength (nm):':
+            ('METADATA', 'emWavelen'),
+        'Effect size used:':
+            ('Spots channel', 'gopLimit'),
+        'Filter good peaks method:':
+            ('Spots channel', 'gopMethod'),
+        'Filter spots by reference channel?':
+            ('Spots channel', 'filterPeaksInsideRef'),
+        'Fit 3D Gaussians?':
+            ('Spots channel', 'doSpotFit'),
+        'Gaussian filter sigma:':
+            ('Pre-processing', 'gaussSigma'),
+        'Is ref. channel a single object per cell?':
+            ('Reference channel', 'refChSingleObj'),
+        'Load a reference channel?':
+            ('Reference channel', 'segmRefCh'),
+        'Local or global threshold for spot detection?':
+            ('Reference channel', 'aggregate'),
+        'Numerical aperture:':
+            ('METADATA', 'numAperture'),
+        'Peak finder threshold function:':
+            ('Spots channel', 'spotThresholdFunc'),
+        'Reference channel threshold function:':
+            ('Reference channel', 'refChThresholdFunc'),
+        'Sharpen image prior spot detection?':
+            ('Pre-processing', 'sharpenSpots'),
+        'Spotsize limits (pxl)':
+            ('Spots channel', ('minSpotSize', 'maxSpotSize')),
+        'YX resolution multiplier:':
+            ('METADATA', 'yxResolLimitMultiplier'),
+        'Z resolution limit (um):':
+            ('METADATA', 'zResolutionLimit'),
+        'ZYX voxel size (um):':
+            ('METADATA', ('voxelDepth', 'pixelHeight', 'pixelWidth')),
+        'p-value limit:':
+            ('Spots channel', 'gopLimit'),
+    }
+    df = pd.read_csv(csv_path, index='Description')
+    for idx, section_anchor in old_csv_options_to_anchors.items():
+        section, anchor = section_anchor
+        try:
+            value = df.at[idx, 'Values']
+        except Exception as e:
+            value = None
+        if isinstance(anchor, tuple):
+            for val, sub_anchor in zip(value, anchor):
+                params[section][sub_anchor]['loadedVal'] = val
+        else:
+            params[section][anchor]['loadedVal'] = value
+    return params
+
+def readStoredParamsINI(ini_path, params):
+    sections = list(params.keys())
+    section_params = list(params.values())
+    config = configparser.ConfigParser()
+    config.optionxform = lambda option: option
+    config.read(ini_path, encoding="utf-8")
+    configSections = config.sections()
+    for section, section_params in zip(sections, section_params):
+        anchors = list(section_params.keys())
+        for anchor in anchors:
+            option = section_params[anchor]['desc']
+            defaultVal = section_params[anchor]['initialVal']
+            config_value = None
+            if section not in config:
+                params[section][anchor]['isSectionInConfig'] = False
+                params[section][anchor]['loadedVal'] = None
+                continue
+
+            if isinstance(defaultVal, bool):
+                config_value = config.getboolean(section, option, fallback=None)
+            elif isinstance(defaultVal, float):
+                config_value = config.getfloat(section, option, fallback=None)
+            elif isinstance(defaultVal, int):
+                config_value = config.getint(section, option, fallback=None)
+            elif isinstance(defaultVal, str):
+                config_value = config.get(section, option, fallback=None)
+
+            params[section][anchor]['isSectionInConfig'] = True
+            params[section][anchor]['loadedVal'] = config_value
+    return params
+
+def metadataCSVtoINI(csv_path, ini_params):
+    df = pd.read_csv(csv_path).set_index('Description')
+    metadata = ini_params['METADATA']
+    pixelWidth = df.at['PhysicalSizeX', 'values']
+    pixelHeight = df.at['PhysicalSizeY', 'values']
+    voxelDepth = df.at['PhysicalSizeZ', 'values']
+    loadedPixelWidth = metadata['pixelWidth']['loadedVal']
+    if loadedPixelWidth == 0:
+        metadata['pixelWidth']['loadedVal'] = pixelWidth
+
+    loadedpixelHeight = metadata['pixelHeight']['loadedVal']
+    if loadedpixelHeight == 0:
+        metadata['pixelHeight']['loadedVal'] = pixelHeight
+
+    loadedVoxelDepth = metadata['voxelDepth']['loadedVal']
+    if loadedVoxelDepth == 0:
+        metadata['voxelDepth']['loadedVal'] = voxelDepth
+    return ini_params
+
+def writeConfigINI(params=None):
+    config = configparser.ConfigParser()
+    # Do not lower case sections
+    config.optionxform = lambda option: option
+
+    if params is None:
+        params = analysisInputsParams()
+
+    # Create sections
+    for section, anchors in params.items():
+        config[section] = {}
+        for param in anchors.values():
+            if not param.get('isParam', True):
+                continue
+            key = param['desc']
+            val = param['loadedVal']
+            if val is None:
+                val = param['initialVal']
+            config[section][key] = str(val)
+
+    # Write config to file
+    with open(default_ini_path, 'w', encoding="utf-8") as file:
+        config.write(file)
 
 class channelName:
     def __init__(self, which_channel=None, QtParent=None, load=True):
