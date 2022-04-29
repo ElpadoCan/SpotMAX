@@ -9,6 +9,7 @@ import cv2
 
 import skimage.morphology
 import skimage.measure
+import skimage.transform
 
 class spotmaxCalc:
     def __init__(self):
