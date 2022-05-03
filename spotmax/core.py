@@ -11,7 +11,7 @@ import skimage.morphology
 import skimage.measure
 import skimage.transform
 
-class spotmaxCalc:
+class spotmaxCore:
     def __init__(self):
         self._load_ref_ch = False
 
