@@ -11,7 +11,7 @@ import skimage.morphology
 import skimage.measure
 import skimage.transform
 
-class kernel:
+class Kernel:
     def __init__(self):
         self._load_ref_ch = False
 
