@@ -13,7 +13,7 @@ from natsort import natsorted
 from collections import defaultdict
 
 from PyQt5 import QtCore
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QEventLoop
 from PyQt5.QtGui import (
     QFont, QFontMetrics, QTextDocument, QPalette, QColor,
     QIcon
@@ -30,7 +30,29 @@ from PyQt5.QtWidgets import (
 from . import html_func, io, widgets, core, utils, config
 
 # NOTE: Enable icons
-from . import qrc_resources
+from . import qrc_resources, printl
+from . import is_mac, is_win, is_linux
+
+font = QFont()
+font.setPixelSize(13)
+
+class QBaseDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def show(self, block=False):
+        self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
+        super().show()
+        if block:
+            self.loop = QEventLoop()
+            self.loop.exec_()
+
+    def exec_(self):
+        self.show(block=True)
+
+    def closeEvent(self, event):
+        if hasattr(self, 'loop'):
+            self.loop.exit()
 
 class measurementsQGroupBox(QGroupBox):
     def __init__(self, names, parent=None):
@@ -331,8 +353,6 @@ class inspectResults(QGroupBox):
         QGroupBox.__init__(self, parent)
         self.row = 0
 
-        font = QFont()
-        font.setPixelSize(13)
         self.setFont(font)
 
         runsInfo = self.runsInfo(posData)
@@ -578,7 +598,7 @@ class spotStyleDock(QDockWidget):
         self.activateWindow()
 
 
-class QDialogMetadata(QDialog):
+class QDialogMetadata(QBaseDialog):
     def __init__(
             self, SizeT, SizeZ, TimeIncrement,
             PhysicalSizeZ, PhysicalSizeY, PhysicalSizeX,
@@ -817,7 +837,6 @@ class QDialogMetadata(QDialog):
         cancelButton.clicked.connect(self.cancel_cb)
 
         self.setLayout(mainLayout)
-        self.setModal(True)
 
     def SizeZvalueChanged(self, val):
         if len(self.imgDataShape) < 3:
@@ -980,7 +999,7 @@ class QDialogMetadata(QDialog):
         self.cancel = True
         self.close()
 
-class QDialogCombobox(QDialog):
+class QDialogCombobox(QBaseDialog):
     def __init__(
             self, title, ComboBoxItems, informativeText,
             CbLabel='Select value:  ', parent=None,
@@ -1033,8 +1052,6 @@ class QDialogCombobox(QDialog):
         mainLayout.addLayout(bottomLayout)
         self.setLayout(mainLayout)
 
-        self.setModal(True)
-
         # Connect events
         okButton.clicked.connect(self.ok_cb)
         cancelButton.clicked.connect(self.close)
@@ -1046,7 +1063,7 @@ class QDialogCombobox(QDialog):
         self.selectedItemIdx = self.ComboBox.currentIndex()
         self.close()
 
-class QDialogListbox(QDialog):
+class QDialogListbox(QBaseDialog):
     def __init__(
             self, title, text, items, moreButtonFuncText='Cancel',
             multiSelection=True, currentItem=None,
@@ -1061,9 +1078,8 @@ class QDialogListbox(QDialog):
         bottomLayout = QHBoxLayout()
 
         label = QLabel(text)
-        _font = QFont()
-        _font.setPixelSize(13)
-        label.setFont(_font)
+
+        label.setFont(font)
         # padding: top, left, bottom, right
         label.setStyleSheet("padding:0px 0px 3px 0px;")
         topLayout.addWidget(label, alignment=Qt.AlignCenter)
@@ -1112,7 +1128,6 @@ class QDialogListbox(QDialog):
             moreButton.clicked.connect(self.browse)
 
         listBox.setFocus(True)
-        self.setModal(True)
         self.setMyStyleSheet()
 
     def setMyStyleSheet(self):
@@ -1150,7 +1165,7 @@ class QDialogListbox(QDialog):
         self.selectedItemsText = None
         self.close()
 
-class selectPathsSpotmax(QDialog):
+class selectPathsSpotmax(QBaseDialog):
     def __init__(self, paths, homePath, parent=None, app=None):
         super().__init__(parent)
 
@@ -1242,12 +1257,9 @@ class selectPathsSpotmax(QDialog):
 
         self.pathSelector.setFocus(True)
 
-        font = QFont()
-        font.setPixelSize(13)
         self.setFont(font)
 
         self.setMyStyleSheet()
-        self.setModal(True)
 
     def on_focusChanged(self):
         self.isCtrlDown = False
@@ -1312,10 +1324,12 @@ class selectPathsSpotmax(QDialog):
             relPath1 = re.findall('...(.+) \(', plainText)[0]
             relPath1 = pathlib.Path(relPath1)
             relPath = pathlib.Path(*relPath1.parts[1:])
+            if str(relPath) == '.':
+                relPath = ''
             exp_path = os.path.join(self.homePath, relPath)
 
             selectedRunPaths = self.paths[run]
-            df = selectedRunPaths[str(exp_path)].get('analysisInputs')
+            df = selectedRunPaths[os.path.normpath(exp_path)].get('analysisInputs')
         else:
             posFoldername = re.findall('(.+) \(', plainText)[0]
             parentLabel = label = self.pathSelector.itemWidget(parent, 0)
@@ -1328,7 +1342,7 @@ class selectPathsSpotmax(QDialog):
             exp_path = self.homePath / relPath / posFoldername
             spotmaxOutPath = exp_path / 'spotMAX_output'
             if os.path.exists(spotmaxOutPath):
-                df = io.scanExpFolders().loadAnalysisInputs(spotmaxOutPath, run)
+                df = io.expFolderScanner().loadAnalysisInputs(spotmaxOutPath, run)
             else:
                 df = None
 
@@ -1363,6 +1377,8 @@ class selectPathsSpotmax(QDialog):
         for exp_path, expInfo in selectedRunPaths.items():
             exp_path = pathlib.Path(exp_path)
             rel = exp_path.relative_to(self.homePath)
+            if str(rel) == '.':
+                rel = ''
             relPath = f'...{self.homePath.name}{os.path.sep}{rel}'
 
             numPosSpotCounted = expInfo['numPosSpotCounted']
@@ -1428,6 +1444,7 @@ class selectPathsSpotmax(QDialog):
             'Sorry about that.'
         )
         msg = widgets.myMessageBox()
+        msg.addShowInFileManagerButton(exp_path)
         msg.warning(
             self, 'Analysis inputs not found!',
             html_func.paragraph(text)
@@ -1527,11 +1544,13 @@ class selectPathsSpotmax(QDialog):
 
         self.pathSelector.setMinimumWidth(w)
 
-    def show(self):
-        QDialog.show(self)
+    def show(self, block=False):
+        super().show(block=False)
         self.resizeSelector()
+        if block:
+            super().show(block=True)
 
-class QDialogWorkerProcess(QDialog):
+class QDialogWorkerProcess(QBaseDialog):
     def __init__(
             self, title='Progress', infoTxt='',
             showInnerPbar=False, pbarDesc='',
@@ -1542,7 +1561,12 @@ class QDialogWorkerProcess(QDialog):
         self.clickCount = 0
         super().__init__(parent)
 
-        self.setWindowTitle(title)
+        abort_text = (
+            'Option+Command+C to abort' if is_mac else 'Ctrl+Alt+C to abort'
+        )
+        self.abort_text = abort_text
+
+        self.setWindowTitle(f'{title} ({abort_text})')
 
         mainLayout = QVBoxLayout()
         pBarLayout = QGridLayout()
@@ -1570,10 +1594,7 @@ class QDialogWorkerProcess(QDialog):
 
         self.logConsole = widgets.QLogConsole()
 
-        abortButton = widgets.cancelPushButton('   Abort process   ')
-        abortButton.clicked.connect(self.abort)
         buttonsLayout.addStretch(1)
-        buttonsLayout.addWidget(abortButton)
         # buttonsLayout.addStretch(1)
         buttonsLayout.setContentsMargins(0,10,0,5)
 
@@ -1583,21 +1604,36 @@ class QDialogWorkerProcess(QDialog):
         mainLayout.addLayout(buttonsLayout)
 
         self.setLayout(mainLayout)
-        self.setModal(True)
 
-    def abort(self):
-        self.clickCount += 1
-        self.aborted = True
-        if self.clickCount > 3:
-            self.workerFinished = True
-            self.close()
+    def keyPressEvent(self, event):
+        isCtrlAlt = event.modifiers() == (Qt.ControlModifier | Qt.AltModifier)
+        if isCtrlAlt and event.key() == Qt.Key_C:
+            doAbort = self.askAbort()
+            if doAbort:
+                self.aborted = True
+                self.workerFinished = True
+                self.close()
+
+    def askAbort(self):
+        msg = widgets.myMessageBox()
+        txt = html_func.paragraph(f"""
+            Aborting with <code>{self.abort_text}</code> is <b>not safe</b>.<br><br>
+            The system status cannot be predicted and
+            it will <b>require a restart</b>.<br><br>
+            Are you sure you want to abort?
+        """)
+        yesButton, noButton = msg.critical(
+            self, 'Are you sure you want to abort?', txt,
+            buttonsTexts=('Yes', 'No')
+        )
+        return msg.clickedButton == yesButton
 
     def closeEvent(self, event):
         if not self.workerFinished:
             event.ignore()
 
-    def show(self, app):
-        QDialog.show(self)
+    def show(self, app, block=False):
+        super().show(block=False)
         screen = app.primaryScreen()
         screenWidth = screen.size().width()
         screenHeight = screen.size().height()
@@ -1615,6 +1651,8 @@ class QDialogWorkerProcess(QDialog):
         top = int(mainWinCenterY - height/2)
 
         self.setGeometry(left, top, width, height)
+        if block:
+            super().show(block=True)
 
 class DataFrameModel(QtCore.QAbstractTableModel):
     # https://stackoverflow.com/questions/44603119/how-to-display-a-pandas-data-frame-with-pyqt5-pyside2
@@ -1752,7 +1790,7 @@ class pdDataFrameWidget(QMainWindow):
     def closeEvent(self, event):
         self.parent.ccaTableWin = None
 
-class selectSpotsH5FileDialog(QDialog):
+class selectSpotsH5FileDialog(QBaseDialog):
     def __init__(self, runsInfo, parent=None, app=None):
         QDialog.__init__(self, parent)
 
@@ -1763,8 +1801,6 @@ class selectSpotsH5FileDialog(QDialog):
         self.runsInfo = runsInfo
         self.selectedFile = None
 
-        font = QFont()
-        font.setPixelSize(13)
         self.setFont(font)
 
         mainLayout = selectSpotsH5FileLayout(
@@ -1786,7 +1822,6 @@ class selectSpotsH5FileDialog(QDialog):
 
         self.mainLayout = mainLayout
         self.setLayout(mainLayout)
-        self.setModal(True)
 
         self.setMyStyleSheet()
 
@@ -1845,8 +1880,10 @@ class selectSpotsH5FileDialog(QDialog):
         self.mainLayout.treeSelector.setMinimumWidth(w)
 
     def show(self):
-        QDialog.show(self)
+        super().show(block=False)
         self.resizeSelector()
+        if block:
+            super().show(block=True)
 
 class selectSpotsH5FileLayout(QVBoxLayout):
     def __init__(self, runsInfo, font=None, parent=None, app=None):

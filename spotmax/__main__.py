@@ -30,6 +30,7 @@ def run():
 
 
     win = gui.spotMAX_Win(app)
+    win.setVersion(version)
     win.show()
 
     win.logger.info('Lauching application...')
@@ -37,8 +38,10 @@ def run():
     win.logger.info(f'Welcome to spotMAX v{version}!')
     print('**********************************************\n')
     print('-----------------------------------')
-    win.logger.info('NOTE: If application is not visible, it is probably minimized '
-          'or behind some other open window.')
+    win.logger.info(
+        'NOTE: If application is not visible, it is probably minimized '
+        'or behind some other open window.'
+    )
     print('-----------------------------------')
 
     sys.exit(app.exec_())

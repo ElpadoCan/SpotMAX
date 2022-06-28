@@ -27,7 +27,7 @@ from PyQt5.QtWidgets import (
     QScrollArea, QSizePolicy, QComboBox, QPushButton, QScrollBar,
     QGroupBox, QAbstractSlider, QDialog, QStyle, QSpacerItem,
     QAction, QWidgetAction, QMenu, QActionGroup, QFileDialog, QFrame,
-    QListWidget
+    QListWidget, QPlainTextEdit
 )
 
 import pyqtgraph as pg
@@ -361,7 +361,7 @@ class myMessageBox(QDialog):
             txt = 'Reveal in Finder...' if is_mac else 'Show in Explorer...'
         self.showInFileManagButton = showInFileManagerButton(txt)
         self.buttonsLayout.addWidget(self.showInFileManagButton)
-        func = partial(myutils.showInExplorer, path)
+        func = partial(utils.showInExplorer, path)
         self.showInFileManagButton.clicked.connect(func)
 
     def addCancelButton(self, button=None, connect=False):
@@ -605,14 +605,14 @@ class myMessageBox(QDialog):
         self.setWindowTitle(title)
         self.addText(message)
         if layouts is not None:
-            if myutils.is_iterable(layouts):
+            if utils.is_iterable(layouts):
                 for layout in layouts:
                     self.addLayout(layout)
             else:
                 self.addLayout(layout)
 
         if widgets is not None:
-            if myutils.is_iterable(widgets):
+            if utils.is_iterable(widgets):
                 for widget in widgets:
                     self.addWidget(widget)
             else:
@@ -907,8 +907,9 @@ class formWidget(QWidget):
             pass
 
     def browseButtonClicked(self):
-        mostRecentPath = utils.getMostRecentPath()
-        file_path = getOpenImageFileName()
+        file_path = getOpenImageFileName(
+            parent=self, mostRecentPath=utils.getMostRecentPath()
+        )
         if file_path == '':
             return
 
@@ -1208,9 +1209,9 @@ class floatLineEdit(QLineEdit):
             self.setStyleSheet('background: #ffffff;')
             self.valueChanged.emit(self.value())
 
-def getOpenImageFileName():
+def getOpenImageFileName(parent=None, mostRecentPath=''):
     file_path = QFileDialog.getOpenFileName(
-        self, 'Select image file', mostRecentPath,
+        parent, 'Select image file', mostRecentPath,
         "Images/Videos (*.npy *.npz *.h5, *.png *.tif *.tiff *.jpg *.jpeg "
         "*.mov *.avi *.mp4)"
         ";;All Files (*)"

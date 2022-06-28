@@ -33,7 +33,6 @@ import uuid
 import psutil
 from pprint import pprint
 from functools import partial, wraps
-from tqdm import tqdm
 from natsort import natsorted
 from queue import Queue
 import time
@@ -141,41 +140,6 @@ def qt_debug_trace():
     pyqtRemoveInputHook()
     import pdb; pdb.set_trace()
 
-def exception_handler(func):
-    @wraps(func)
-    def inner_function(self, *args, **kwargs):
-        try:
-            if func.__code__.co_argcount==1 and func.__defaults__ is None:
-                result = func(self)
-            elif func.__code__.co_argcount>1 and func.__defaults__ is None:
-                result = func(self, *args)
-            else:
-                result = func(self, *args, **kwargs)
-        except Exception as e:
-            result = None
-            self.logger.exception(e)
-            msg = widgets.myMessageBox()
-            err_msg = (f"""
-            <p style="font-size:13px">
-                Error in function <b>{func.__name__}</b> when trying to
-                {self.funcDescription}.<br><br>
-                More details below or in the terminal/console.<br><br>
-                Note that the error details from this session are also saved
-                in the file<br>
-                {self.log_path}<br><br>
-                Please <b>send the log file</b> when reporting a bug, thanks!
-            </p>
-            """)
-            msg = widgets.myMessageBox()
-            msg.critical(
-                self, 'Critical error', err_msg,
-                detailedText=traceback.format_exc(),
-                showPath=(self.logs_path, 'Show log file...')
-            )
-            self.loadingDataAborted()
-        return result
-    return inner_function
-
 
 class spotMAX_Win(QMainWindow):
     """Main Window."""
@@ -280,6 +244,9 @@ class spotMAX_Win(QMainWindow):
         self.setCentralWidget(mainContainer)
 
         self.gui_init(first_call=True)
+
+    def setVersion(self, version):
+        self._version = version
 
     def loadLastSessionSettings(self):
         colorItems_path = os.path.join(settings_path, 'colorItems.json')
@@ -422,7 +389,7 @@ class spotMAX_Win(QMainWindow):
         else:
             event.ignore()
 
-    @exception_handler
+    @utils.exception_handler
     def keyPressEvent(self, ev):
         if ev.key() == Qt.Key_P:
             print(self.computeDockWidget.frameSize())
@@ -1652,16 +1619,28 @@ class spotMAX_Win(QMainWindow):
             self.addInspectResultsTab(self.lastLoadedSide)
 
     def getDockWidgetWidth(self):
+        if 'computeDockWidgetMinWidth' in self.df_settings.index:
+            w = int(self.df_settings.at['computeDockWidgetMinWidth', 'value'])
+            self.computeDockWidgetMinWidth = w
+            self.resizeTimer.stop()
+            self.resizeDocks([self.computeDockWidget], [w+5], Qt.Horizontal)
+            self.computeDockWidget.hide()
+            self.count = 0
+            return
+
         self.count += 1
         parametersTab = self.computeDockWidget.widget().parametersTab
         horizontalScrollBar = parametersTab.horizontalScrollBar()
         w = self.computeDockWidget.frameSize().width()
         self.resizeDocks([self.computeDockWidget], [w+5], Qt.Horizontal)
-        if not horizontalScrollBar.isVisible() or self.count >= 50:
+        if not horizontalScrollBar.isVisible() or self.count >= 200:
             self.resizeTimer.stop()
             self.computeDockWidgetMinWidth = w+5
             self.computeDockWidget.hide()
             self.count = 0
+            val = self.computeDockWidgetMinWidth
+            self.df_settings.at['computeDockWidgetMinWidth', 'value'] = val
+            self.df_settings.to_csv(self.settings_csv_path)
 
     def loadingDataAborted(self):
         # self.gui_addTitleLabel(colspan=2)
@@ -1783,7 +1762,7 @@ class spotMAX_Win(QMainWindow):
         w, h = LabelItemID.rect().right(), LabelItemID.rect().bottom()
         LabelItemID.setPos(x-w/2, y-h/2)
 
-    @exception_handler
+    @utils.exception_handler
     def channelNameLUTmenuActionTriggered(self, action):
         if action in self.histItems['left']['actionGroup'].actions():
             side = 'left'
@@ -1802,7 +1781,7 @@ class spotMAX_Win(QMainWindow):
         filename = f'{posData.basename}{chName}'
         return filename
 
-    @exception_handler
+    @utils.exception_handler
     def plotSkeletonClicked(self, button, event):
         self.funcDescription = 'plotting skeleton'
         viewToolbar = self.sideToolbar['left']['viewToolbar']
@@ -1856,7 +1835,7 @@ class spotMAX_Win(QMainWindow):
         worker.signals.critical.connect(self.workerCritical)
         self.threadPool.start(worker)
 
-    @exception_handler
+    @utils.exception_handler
     def plotContoursClicked(self, button, event):
         self.funcDescription = 'plotting contour'
         viewToolbar = self.sideToolbar['left']['viewToolbar']
@@ -1910,7 +1889,7 @@ class spotMAX_Win(QMainWindow):
         worker.signals.critical.connect(self.workerCritical)
         self.threadPool.start(worker)
 
-    @exception_handler
+    @utils.exception_handler
     def plotSpotsCoordsClicked(self, button, event):
         self.funcDescription = 'plotting spots coordinates'
         viewToolbar = self.sideToolbar['left']['viewToolbar']
@@ -1981,7 +1960,7 @@ class spotMAX_Win(QMainWindow):
         if disable:
             self.setEnabledOverlayWidgets(side, False)
 
-    @exception_handler
+    @utils.exception_handler
     def changeFontSize(self, action):
         self.fontSize = f'{action.text()}pt'
         self.df_settings.at['fontSize', 'value'] = self.fontSize
@@ -2009,7 +1988,7 @@ class spotMAX_Win(QMainWindow):
                 w, h = ax2_LI.rect().right(), ax2_LI.rect().bottom()
                 ax2_LI.setPos(xc-w/2, yc-h/2)
 
-    @exception_handler
+    @utils.exception_handler
     def plotSkeleton(self, side):
         posData = self.currentPosData(side)
         if posData.SizeT > 1:
@@ -2035,7 +2014,7 @@ class spotMAX_Win(QMainWindow):
 
         self.axes[side].skelScatterItem.setData(xx_skel, yy_skel)
 
-    @exception_handler
+    @utils.exception_handler
     def plotContours(self, side):
         posData = self.currentPosData(side)
         if posData.SizeT > 1:
@@ -2068,7 +2047,7 @@ class spotMAX_Win(QMainWindow):
         side = self.sender().parent().side
         self.plotSpotsCoords(side)
 
-    @exception_handler
+    @utils.exception_handler
     def plotSpotsCoords(self, side):
         posData = self.currentPosData(side)
         if posData.hdf_store is None:
@@ -2133,7 +2112,7 @@ class spotMAX_Win(QMainWindow):
             hoverBrush=brushes["Spots inside ref. channel"][1]
         )
 
-    @exception_handler
+    @utils.exception_handler
     def spotsClicked(self, scatterItem, spotItems, event):
         side = self.side(self.axes['left'].spotsScatterItem, sender=scatterItem)
 
@@ -2166,7 +2145,7 @@ class spotMAX_Win(QMainWindow):
 
             menu.exec(event.screenPos())
 
-    @exception_handler
+    @utils.exception_handler
     def skelClicked(self, scatterItem, spotItems, event):
         side = self.side(self.axes['left'].spotsScatterItem, sender=scatterItem)
 
@@ -2221,7 +2200,7 @@ class spotMAX_Win(QMainWindow):
         else:
             self.openFile('right')
 
-    @exception_handler
+    @utils.exception_handler
     def openFile(self, side, file_path=''):
         self.funcDescription = 'load data'
 
@@ -2267,7 +2246,7 @@ class spotMAX_Win(QMainWindow):
         else:
             self.openFolder('left')
 
-    @exception_handler
+    @utils.exception_handler
     def openFolder(self, side, selectedPath='', imageFilePath=''):
         """Main function used to load data into GUI. Multi-step function:
             1. openFolder
@@ -2453,7 +2432,7 @@ class spotMAX_Win(QMainWindow):
     def workerUpdateProgressbar(self, step):
         self.progressWin.mainPbar.update(step)
 
-    @exception_handler
+    @utils.exception_handler
     def workerCritical(self, error):
         if self.progressWin is not None:
             self.progressWin.workerFinished = True
@@ -2763,7 +2742,7 @@ class spotMAX_Win(QMainWindow):
         worker.signals.critical.connect(self.workerCritical)
         self.threadPool.start(worker)
 
-    @exception_handler
+    @utils.exception_handler
     def loadingDataFinished(self):
         # self.clearAxes(self.lastLoadedSide)
         self.gui_removeAllItems(self.lastLoadedSide)
@@ -2786,6 +2765,8 @@ class spotMAX_Win(QMainWindow):
         self.updateImage(self.lastLoadedSide)
         self.updateSegmVisuals(self.lastLoadedSide)
 
+        self.setInputPaths()
+
         # self.titleLabel.setText('', color='w')
         self.dataLoaded[self.lastLoadedSide] = True
 
@@ -2797,6 +2778,18 @@ class spotMAX_Win(QMainWindow):
             self.axes['left'].setXLink(self.axes['right'])
 
         QTimer.singleShot(300, self.axes['left'].autoRange)
+
+    def setInputPaths(self):
+        params = self.computeDockWidget.widget().parametersQGBox.params
+
+        section = 'File paths'
+        if self.lastLoadedSide == 'left':
+            anchor = 'spotsFilePath'
+        else:
+            anchor = 'refChFilePath'
+
+        posData = self.currentPosData(self.lastLoadedSide)
+        params[section][anchor]['widget'].setText(posData.channelDataPath)
 
     def loadDataWorkerFinished(self):
         self.progressWin.workerFinished = True
@@ -2997,7 +2990,7 @@ class spotMAX_Win(QMainWindow):
         if self.axes[side].skelScatterItem.getData()[0] is not None:
             self.axes[side].skelScatterItem.setData([], [])
 
-    @exception_handler
+    @utils.exception_handler
     def updateImage(self, side):
         img = self.currentImage(side)
         self.imgItems[side].setImage(img)
@@ -3488,6 +3481,8 @@ class spotMAX_Win(QMainWindow):
         # Step 2. Dynamically create the actions
         actions = []
         for path in recentPaths:
+            if not os.path.exists(path):
+                continue
             action = QAction(path, self)
             action.triggered.connect(partial(self.openRecentFile, path))
             actions.append(action)
@@ -3597,8 +3592,8 @@ class spotMAX_Win(QMainWindow):
                 openedOn.pop(pop_idx)
             recentPaths.insert(0, selectedPath)
             openedOn.insert(0, datetime.datetime.now())
-            # Keep max 20 recent paths
-            if len(recentPaths) > 20:
+            # Keep max 30 recent paths
+            if len(recentPaths) > 30:
                 recentPaths.pop(-1)
                 openedOn.pop(-1)
         else:
@@ -3661,35 +3656,3 @@ class spotMAX_Win(QMainWindow):
         self.resizeTimer = QTimer()
         self.resizeTimer.timeout.connect(self.getDockWidgetWidth)
         self.resizeTimer.start(1)
-
-if __name__ == "__main__":
-    print('Loading application...')
-    # Handle high resolution displays:
-    if hasattr(Qt, 'AA_EnableHighDpiScaling'):
-        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    if hasattr(Qt, 'AA_UseHighDpiPixmaps'):
-        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-    # Create the application
-    app = QApplication(sys.argv)
-
-    # Apply style
-    app.setStyle(QStyleFactory.create('Fusion'))
-    app.setWindowIcon(QIcon(":icon.svg"))
-    # spotmax_path = os.path.dirname(os.path.abspath(__file__))
-    # styles_path = os.path.join(spotmax_path, 'styles')
-    # dark_orange_path = os.path.join(styles_path, '01_buttons.qss')
-    # with open(dark_orange_path, mode='r') as txt:
-    #     styleSheet = txt.read()
-    # app.setStyleSheet(styleSheet)
-
-
-    win = spotMAX_Win(app)
-    win.show()
-
-    # Run the event loop
-    win.logger.info('Lauching application...')
-    win.logger.info(
-        'Done. If application GUI is not visible, it is probably minimized, '
-        'behind some other open window, or on second screen.'
-    )
-    sys.exit(app.exec_())

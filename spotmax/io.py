@@ -201,9 +201,9 @@ class channelName:
             msg = widgets.myMessageBox()
             details = "\n".join(files)
             details = f'Files detected:\n\n{details}'
+            msg.setDetailedText(details)
             msg.warning(
-                self.parent, 'Data structure compromised', txt,
-                detailedText=details
+                self.parent, 'Data structure compromised', txt
             )
             return False
         return True
@@ -391,6 +391,7 @@ class expFolderScanner:
         """
         See infoExpPaths for more details
         """
+        exp_path = os.path.normpath(exp_path)
         ls = natsorted(utils.listdir(exp_path))
 
         posFoldernames = natsorted([
@@ -446,7 +447,8 @@ class expFolderScanner:
                         self.paths[run][exp_path]['numPosSpotSized'] += 1
 
     def addMissingRunsInfo(self):
-        paths = copy.deepcopy(self.paths)
+        # paths = copy.deepcopy(self.paths)
+        missingKeys = []
         for run, runInfo in self.paths.items():
             for exp_path, expInfo in runInfo.items():
                 posFoldernames = expInfo['posFoldernames']
@@ -454,11 +456,15 @@ class expFolderScanner:
                     try:
                         posInfo = expInfo[pos]
                     except KeyError as e:
-                        paths[run][exp_path][pos] = {
-                            'isPosSpotCounted': False,
-                            'isPosSpotSized': False
-                        }
-        self.paths = paths
+                        missingKey = (run, os.path.normpath(exp_path), pos)
+                        missingKeys.append(missingKey)
+
+        for keys in missingKeys:
+            run, exp_path, pos = keys
+            self.paths[run][exp_path][pos] = {
+                'isPosSpotCounted': False,
+                'isPosSpotSized': False
+            }
 
     def infoExpPaths(self, expPaths, signals=None):
         """Method used to determine how each experiment was analysed.
@@ -486,6 +492,7 @@ class expFolderScanner:
 
 
         if signals is not None:
+            print('')
             signals.progress.emit(
                 'Scanning experiment folder(s)...',
                 'INFO'
@@ -568,7 +575,6 @@ class expFolderScanner:
 
     def input(self, app=None):
         win = dialogs.selectPathsSpotmax(self.paths, self.homePath, app=app)
-        win.show()
         win.exec_()
         self.selectedPaths = win.selectedPaths
 
@@ -814,27 +820,6 @@ class loadData:
     def absoluteFilepath(self, relFilename):
         absoluteFilename = f'{self.basename}{relFilename}'
         return os.path.join(self.images_path, absoluteFilename)
-
-    def detectMultiSegmNpz(self):
-        ls = utils.listdir(self.images_path)
-        segm_files = [file for file in ls if file.endswith('segm.npz')]
-        is_multi_npz = len(segm_files)>1
-        if is_multi_npz:
-            font = QFont()
-            font.setPixelSize(13)
-            win = apps.QDialogMultiSegmNpz(
-                segm_files, self.pos_path, parent=self.parent
-            )
-            win.setFont(font)
-            win.exec_()
-            if win.removeOthers:
-                for file in segm_files:
-                    if file == win.selectedItemText:
-                        continue
-                    os.remove(os.path.join(self.images_path, file))
-            return win.selectedItemText, win.cancel
-        else:
-            return '', False
 
     def loadOtherFiles(
             self,

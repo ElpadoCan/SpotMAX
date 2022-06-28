@@ -6,10 +6,12 @@ import time
 import math
 import cv2
 import logging
+import traceback
 import numpy as np
 import tkinter as tk
 import pathlib
 import configparser
+from functools import wraps, partial
 from urllib.parse import urlparse
 from natsort import natsort_keygen
 
@@ -25,7 +27,42 @@ from matplotlib.backends.backend_tkagg import (
 
 from PyQt5.QtCore import QTimer
 
-from . import config
+from . import config, widgets
+
+def exception_handler(func):
+    @wraps(func)
+    def inner_function(self, *args, **kwargs):
+        try:
+            if func.__code__.co_argcount==1 and func.__defaults__ is None:
+                result = func(self)
+            elif func.__code__.co_argcount>1 and func.__defaults__ is None:
+                result = func(self, *args)
+            else:
+                result = func(self, *args, **kwargs)
+        except Exception as e:
+            result = None
+            self.logger.exception(e)
+            msg = widgets.myMessageBox()
+            err_msg = (f"""
+            <p style="font-size:13px">
+                Error in function <b>{func.__name__}</b> when trying to
+                {self.funcDescription}.<br><br>
+                More details below or in the terminal/console.<br><br>
+                Note that the error details from this session are also saved
+                in the file<br>
+                {self.log_path}<br><br>
+                Please <b>send the log file</b> when reporting a bug, thanks!
+            </p>
+            """)
+            msg = widgets.myMessageBox()
+            msg.setDetailedText(traceback.format_exc())
+            msg.addShowInFileManagerButton(self.logs_path, 'Show log file...')
+            msg.critical(
+                self, 'Critical error', err_msg
+            )
+            self.loadingDataAborted()
+        return result
+    return inner_function
 
 def is_valid_url(x):
     try:
@@ -101,9 +138,11 @@ def read_version():
             return 'ND'
 
 def showInExplorer(path):
-    if os.name == 'posix' or os.name == 'os2':
+    if is_mac:
         os.system(f'open "{path}"')
-    elif os.name == 'nt':
+    elif is_linux:
+        os.system(f'xdg-open "{path}"')
+    else:
         os.startfile(path)
 
 def is_iterable(item):
