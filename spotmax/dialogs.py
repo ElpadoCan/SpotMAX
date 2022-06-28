@@ -54,7 +54,7 @@ class measurementsQGroupBox(QGroupBox):
         self.selectAllButton = QPushButton('Deselect all', self)
         self.selectAllButton.setCheckable(True)
         self.selectAllButton.setChecked(True)
-        helpButton = QPushButton('Help', self)
+        helpButton = widgets.helpPushButton('Help', self)
         buttonsLayout.addStretch(1)
         buttonsLayout.addWidget(self.selectAllButton)
         buttonsLayout.addWidget(helpButton)
@@ -538,10 +538,10 @@ class spotStyleDock(QDockWidget):
         self.sizeSlider.setMinimum(1)
         slidersLayout.addWidget(self.sizeSlider, row, 0)
 
-        okButton = QPushButton('Ok')
+        okButton = widgets.okPushButton('Ok')
         okButton.setShortcut(Qt.Key_Enter)
 
-        cancelButton = QPushButton('Cancel')
+        cancelButton = widgets.cancelPushButton('Cancel')
 
         buttonsLayout.addStretch(1)
         buttonsLayout.addWidget(okButton)
@@ -759,7 +759,7 @@ class QDialogMetadata(QDialog):
             okTxt = 'Apply only to this Position'
         else:
             okTxt = 'Ok for loaded Positions'
-        okButton = QPushButton(okTxt)
+        okButton = widgets.okPushButton(okTxt)
         okButton.setToolTip(
             'Save metadata only for current positionh'
         )
@@ -787,7 +787,7 @@ class QDialogMetadata(QDialog):
             self.selectButton = None
             okButton.setText('Ok')
 
-        cancelButton = QPushButton('Cancel')
+        cancelButton = widgets.cancelPushButton('Cancel')
 
         buttonsLayout.addWidget(okButton, 0, 0)
         if ask_TimeIncrement or ask_PhysicalSizes:
@@ -1020,11 +1020,11 @@ class QDialogCombobox(QDialog):
         topLayout.addWidget(combobox)
         topLayout.setContentsMargins(0, 10, 0, 0)
 
-        okButton = QPushButton('Ok')
+        okButton = widgets.okPushButton('Ok')
         okButton.setShortcut(Qt.Key_Enter)
         bottomLayout.addWidget(okButton, alignment=Qt.AlignRight)
 
-        cancelButton = QPushButton('Cancel')
+        cancelButton = widgets.cancelPushButton('Cancel')
         bottomLayout.addWidget(cancelButton, alignment=Qt.AlignLeft)
         bottomLayout.setContentsMargins(0, 10, 0, 0)
 
@@ -1076,7 +1076,7 @@ class QDialogListbox(QDialog):
                         filteredItems.append(item)
             items = filteredItems
 
-        listBox = QListWidget()
+        listBox = widgets.listWidget()
         listBox.setFont(_font)
         listBox.addItems(items)
         if multiSelection:
@@ -1091,7 +1091,7 @@ class QDialogListbox(QDialog):
         listBox.itemDoubleClicked.connect(self.ok_cb)
         topLayout.addWidget(listBox)
 
-        okButton = QPushButton('Ok')
+        okButton = widgets.okPushButton('Ok')
         okButton.setShortcut(Qt.Key_Enter)
         bottomLayout.addWidget(okButton, alignment=Qt.AlignRight)
 
@@ -1177,7 +1177,7 @@ class selectPathsSpotmax(QDialog):
         runNumberCombobox.addItems([f'  {r}  ' for r in runs])
         runNumberCombobox.setCurrentIndex(len(runs)-1)
         self.runNumberCombobox = runNumberCombobox
-        showAnalysisTableButton = QPushButton(
+        showAnalysisTableButton = widgets.showPushButton(
             'Show analysis inputs for selected run and selected experiment'
         )
 
@@ -1210,11 +1210,11 @@ class selectPathsSpotmax(QDialog):
         self.populatePathSelector()
 
         buttonsLayout = QHBoxLayout()
-        okButton = QPushButton('Ok')
-        okButton.setShortcut(Qt.Key_Enter)
+        okButton = widgets.okPushButton('Ok')
+        # okButton.setShortcut(Qt.Key_Enter)
         buttonsLayout.addWidget(okButton, alignment=Qt.AlignRight)
 
-        cancelButton = QPushButton('Cancel')
+        cancelButton = widgets.cancelPushButton('Cancel')
         buttonsLayout.addWidget(cancelButton, alignment=Qt.AlignLeft)
         buttonsLayout.setContentsMargins(0, 20, 0, 0)
 
@@ -1570,7 +1570,7 @@ class QDialogWorkerProcess(QDialog):
 
         self.logConsole = widgets.QLogConsole()
 
-        abortButton = QPushButton('   Abort process   ')
+        abortButton = widgets.cancelPushButton('   Abort process   ')
         abortButton.clicked.connect(self.abort)
         buttonsLayout.addStretch(1)
         buttonsLayout.addWidget(abortButton)
@@ -1707,7 +1707,6 @@ class pdDataFrameWidget(QMainWindow):
         self.tableView.setModel(model)
         for i in range(len(df.columns)):
             self.tableView.resizeColumnToContents(i)
-        # layout.addWidget(QPushButton('Ok', self))
         mainContainer.setLayout(layout)
 
     def updateTable(self, df):
@@ -1773,11 +1772,11 @@ class selectSpotsH5FileDialog(QDialog):
         )
 
         buttonsLayout = QHBoxLayout()
-        okButton = QPushButton('Ok')
+        okButton = widgets.okPushButton('Ok')
         okButton.setShortcut(Qt.Key_Enter)
         buttonsLayout.addWidget(okButton, alignment=Qt.AlignRight)
 
-        cancelButton = QPushButton('Cancel')
+        cancelButton = widgets.cancelPushButton('Cancel')
         buttonsLayout.addWidget(cancelButton, alignment=Qt.AlignLeft)
         buttonsLayout.setContentsMargins(0, 20, 0, 0)
         mainLayout.addLayout(buttonsLayout)
