@@ -37,5 +37,6 @@
   <file alias="help.svg">resources/icons/help.svg</file>
   <file alias="magnGlass.svg">resources/icons/magnGlass.svg</file>
   <file alias="apply.svg">resources/icons/apply.svg</file>
+  <file alias="more.svg">resources/icons/more.svg</file>
 </qresource>
 </RCC>

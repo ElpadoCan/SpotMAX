@@ -130,6 +130,11 @@ class reloadPushButton(QPushButton):
         super().__init__(*args)
         self.setIcon(QIcon(':reload.svg'))
 
+class reloadPushButton(QPushButton):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.setIcon(QIcon(':more.svg'))
+
 class savePushButton(QPushButton):
     def __init__(self, *args):
         super().__init__(*args)
