@@ -29,6 +29,23 @@ from PyQt5.QtCore import QTimer
 
 from . import config, widgets
 
+def exception_handler_cli(func):
+    @wraps(func)
+    def inner_function(self, *args, **kwargs):
+        try:
+            if func.__code__.co_argcount==1 and func.__defaults__ is None:
+                result = func(self)
+            elif func.__code__.co_argcount>1 and func.__defaults__ is None:
+                result = func(self, *args)
+            else:
+                result = func(self, *args, **kwargs)
+        except Exception as e:
+            result = None
+            self.logger.exception(e)
+            self.quit(is_error=True)
+        return result
+    return inner_function
+
 def exception_handler(func):
     @wraps(func)
     def inner_function(self, *args, **kwargs):
@@ -48,9 +65,11 @@ def exception_handler(func):
                 Error in function <b>{func.__name__}</b> when trying to
                 {self.funcDescription}.<br><br>
                 More details below or in the terminal/console.<br><br>
-                Note that the error details from this session are also saved
-                in the file<br>
-                {self.log_path}<br><br>
+                Note that the <b>error details</b> from this session are
+                also <b>saved in the following file</b>:
+                <br><br>
+                <code>{self.log_path}</code>
+                <br><br>
                 Please <b>send the log file</b> when reporting a bug, thanks!
             </p>
             """)
@@ -155,12 +174,25 @@ def is_iterable(item):
 def listdir(path):
     return [f for f in os.listdir(path) if not f.startswith('.')]
 
-def setupLogger():
-    logger = logging.getLogger('spotMAX')
+def get_salute_string():
+    time_now = datetime.datetime.now().time()
+    time_end_morning = datetime.time(12,00,00)
+    time_end_afternoon = datetime.time(15,00,00)
+    time_end_evening = datetime.time(20,00,00)
+    if time_now < time_end_morning:
+        return 'Have a good day!'
+    elif time_now < time_end_morning:
+        return 'Have a good afternoon!'
+    elif time_now < time_end_evening:
+        return 'Have a good evening!'
+    else:
+        return 'Have a good night!'
+
+def setupLogger(name='gui'):
+    logger = logging.getLogger(f'spotmax-logger-{name}')
     logger.setLevel(logging.INFO)
 
-    src_path = os.path.dirname(os.path.abspath(__file__))
-    logs_path = os.path.join(src_path, 'logs')
+    logs_path = config.logs_path
     if not os.path.exists(logs_path):
         os.mkdir(logs_path)
     else:
@@ -173,7 +205,7 @@ def setupLogger():
                 os.remove(file)
 
     date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    log_filename = f'{date_time}_stdout.log'
+    log_filename = f'{date_time}_{name}_stdout.log'
     log_path = os.path.join(logs_path, log_filename)
 
     output_file_handler = logging.FileHandler(log_path, mode='w')

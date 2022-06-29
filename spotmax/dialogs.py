@@ -415,7 +415,9 @@ class analysisInputsQGBox(QGroupBox):
             formLayout = widgets.myFormLayout()
             self.params[section] = {}
             groupBox = QGroupBox(section)
-            if section != 'File paths':
+            if section == 'File paths' or section == 'METADATA':
+                groupBox.setCheckable(False)
+            else:
                 groupBox.setCheckable(True)
             groupBox.setFont(font)
             for row, (anchor, paramValues) in enumerate(section_params.items()):
@@ -431,6 +433,7 @@ class analysisInputsQGBox(QGroupBox):
                     addComputeButton=paramValues.get('addComputeButton', False),
                     addApplyButton=paramValues.get('addApplyButton', False),
                     addBrowseButton=paramValues.get('addBrowseButton', False),
+                    addAutoButton=paramValues.get('addAutoButton', False),
                     parent=self
                 )
                 formWidget.section = section

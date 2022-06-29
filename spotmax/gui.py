@@ -144,9 +144,14 @@ def qt_debug_trace():
 class spotMAX_Win(QMainWindow):
     """Main Window."""
 
-    def __init__(self, app, parent=None, buttonToRestore=None, mainWin=None):
+    def __init__(
+            self, app, debug=False,
+            parent=None, buttonToRestore=None, mainWin=None
+        ):
         """Initializer."""
         super().__init__(parent)
+
+        self.debug = debug
 
         logger, self.log_path, self.logs_path = utils.setupLogger()
         self.logger = logger
@@ -2765,7 +2770,7 @@ class spotMAX_Win(QMainWindow):
         self.updateImage(self.lastLoadedSide)
         self.updateSegmVisuals(self.lastLoadedSide)
 
-        self.setInputPaths()
+        self.setParams()
 
         # self.titleLabel.setText('', color='w')
         self.dataLoaded[self.lastLoadedSide] = True
@@ -2779,7 +2784,7 @@ class spotMAX_Win(QMainWindow):
 
         QTimer.singleShot(300, self.axes['left'].autoRange)
 
-    def setInputPaths(self):
+    def setParams(self):
         params = self.computeDockWidget.widget().parametersQGBox.params
 
         section = 'File paths'
@@ -2790,6 +2795,9 @@ class spotMAX_Win(QMainWindow):
 
         posData = self.currentPosData(self.lastLoadedSide)
         params[section][anchor]['widget'].setText(posData.channelDataPath)
+
+        params['METADATA']['SizeT']['widget'].setValue(posData.SizeT)
+        params['METADATA']['SizeZ']['widget'].setValue(posData.SizeZ)
 
     def loadDataWorkerFinished(self):
         self.progressWin.workerFinished = True

@@ -1,8 +1,10 @@
 print('Configuring files...')
 import os
 import json
+import pathlib
 from pprint import pprint
 import pandas as pd
+import configparser
 
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
@@ -10,9 +12,24 @@ from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
 from . import widgets, html_func, io
 
 spotmax_path = os.path.dirname(os.path.abspath(__file__))
-settings_path = os.path.join(spotmax_path, 'settings')
-default_ini_path = os.path.join(spotmax_path, 'config.ini')
+home_path = pathlib.Path.home()
+spotmax_appdata_path = os.path.join(home_path, 'spotmax_appdata')
+
+logs_path = os.path.join(spotmax_appdata_path, 'logs')
+if not os.path.exists(logs_path):
+    os.makedirs(logs_path)
+
+settings_path = os.path.join(spotmax_appdata_path, 'settings')
+if not os.path.exists(settings_path):
+    os.makedirs(settings_path)
+
+default_ini_path = os.path.join(spotmax_appdata_path, 'config.ini')
 colorItems_path = os.path.join(settings_path, 'colorItems.json')
+
+class ConfigParser(configparser.ConfigParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.optionxform = str
 
 def initColorItems():
     if os.path.exists(colorItems_path):
@@ -52,7 +69,7 @@ def font(pixelSizeDelta=0):
     font.setPixelSize(normalPixelSize+pixelSizeDelta)
     return font
 
-def analysisInputsParams(ini_path=default_ini_path):
+def analysisInputsParams(params_path=default_ini_path):
     # NOTE: if you change the anchors (i.e., the key of each second level
     # dictionary, e.g., 'spotsFilePath') remember to change them also in
     # docs.paramsInfoText dictionary keys
@@ -102,10 +119,32 @@ def analysisInputsParams(ini_path=default_ini_path):
                 'addBrowseButton': True,
                 'formWidgetFunc': widgets.tooltipLineEdit,
                 'actions': None
-            }
+            },
         },
         # Section 1 (GroupBox)
         'METADATA': {
+            'SizeT': {
+                'desc': 'Number of frames (SizeT)',
+                'initialVal': 1,
+                'stretchWidget': True,
+                'addInfoButton': True,
+                'addComputeButton': False,
+                'addApplyButton': False,
+                'addAutoButton': True,
+                'formWidgetFunc': widgets.intLineEdit,
+                'actions': None,
+            },
+            'SizeZ': {
+                'desc': 'Number of z-slices (SizeT)',
+                'initialVal': 1,
+                'stretchWidget': True,
+                'addInfoButton': True,
+                'addComputeButton': False,
+                'addApplyButton': False,
+                'addAutoButton': True,
+                'formWidgetFunc': widgets.intLineEdit,
+                'actions': None,
+            },
             'pixelWidth': {
                 'desc': 'Pixel width (μm)',
                 'initialVal': 0.0,
@@ -383,7 +422,10 @@ def analysisInputsParams(ini_path=default_ini_path):
             }
         }
     }
-    params = io.readStoredParamsINI(ini_path, params)
+    if params_path.endswith('.ini'):
+        params = io.readStoredParamsINI(params_path, params)
+    else:
+        params = io.readStoredParamsCSV(params_path, params)
     return params
 
 def skimageAutoThresholdMethods():

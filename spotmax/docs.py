@@ -83,6 +83,23 @@ def paramsInfoText():
         path of the reference channel segmentation mask of any of these Positions.
         <br><br>
     """),
+    'SizeT': ("""
+        <b>Number of frames</b> (i.e. number of time points) in time-lapse data.
+        <br><br>
+        Write 1 if your data does not have frames over time.<br><br>
+        You can also automatically infer from the data (click the cog button
+        on the right).<br>
+        The first dimension of the data will be used as the number of frames,
+        i.e., data with shape (120, 40, 512, 512) has 120 frames.
+    """),
+    'SizeZ': ("""
+        <b>Number of z-slices</b> in each z-stack.<br><br>
+        Write 1 if your data does not have z-slices.<br><br>
+        You can also automatically infer from the data (click the cog button
+        on the right).<br>
+        The third-last dimension of the data will be used as the number
+        of z-slices, i.e., data with shape (120, 40, 512, 512) has 40 z-slices.
+    """),
     'pixelWidth': ("""
         <b>Physical size</b> of the pixel in the <b>X-direction</b> (width).
         The unit is \u00b5m/pixel.<br><br>

@@ -24,19 +24,21 @@
   <file alias="info.svg">resources/icons/info.svg</file>
   <file alias="expand.svg">resources/icons/expand.svg</file>
   <file alias="collapse.svg">resources/icons/collapse.svg</file>
+  <file alias="binoculars.svg">resources/icons/binoculars.svg</file>
   <file alias="compute.svg">resources/icons/compute.svg</file>
   <file alias="continue.svg">resources/icons/continue.svg</file>
   <file alias="hideUp.svg">resources/icons/hideUp.svg</file>
   <file alias="showDown.svg">resources/icons/showDown.svg</file>
   <file alias="cancelButton.svg">resources/icons/cancelButton.svg</file>
   <file alias="no.svg">resources/icons/no.svg</file>
+  <file alias="cog_play.svg">resources/icons/cog_play.svg</file>
   <file alias="edit-id.svg">resources/icons/edit-id.svg</file>
   <file alias="bin.svg">resources/icons/bin.svg</file>
   <file alias="yesGray.svg">resources/icons/yesGray.svg</file>
   <file alias="cog.svg">resources/icons/cog.svg</file>
   <file alias="help.svg">resources/icons/help.svg</file>
   <file alias="magnGlass.svg">resources/icons/magnGlass.svg</file>
-  <file alias="apply.svg">resources/icons/apply.svg</file>
+  <file alias="magnGlassSpot.svg">resources/icons/magnGlass.svg</file>
   <file alias="more.svg">resources/icons/more.svg</file>
 </qresource>
 </RCC>

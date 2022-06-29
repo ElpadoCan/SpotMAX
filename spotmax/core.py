@@ -10,13 +10,65 @@ import cv2
 import skimage.morphology
 import skimage.measure
 import skimage.transform
+import skimage.filters
+
+from . import config, utils, issues_url, printl
 
 class Kernel:
-    def __init__(self):
-        self._load_ref_ch = False
+    def __init__(self, debug=False):
+        self.logger, self.log_path, self.logs_path = utils.setupLogger('cli')
+        self.debug = debug
 
-    def segment_ref_ch(self):
-        pass
+    @utils.exception_handler_cli
+    def init_params(self, params_path):
+        self._params = config.analysisInputsParams(params_path)
+
+    @utils.exception_handler_cli
+    def set_metadata(self):
+        section = 'METADATA'
+        self.PhysicalSizeX = self._params[section]['pixelWidth']
+        self.PhysicalSizeY = self._params[section]['pixelHeight']
+        self.PhysicalSizeZ = self._params[section]['voxelDepth']
+        self.NA = self._params[section]['numAperture']
+        self.wavelen = self._params[section]['emWavelens']
+        self.z_res_limit = self._params[section]['zResolutionLimit']
+        self.yx_multiplier = self._params[section]['yxResolLimitMultiplier']
+        self.wavelen = self._params[section]['emWavelen']
+        self.SizeT = self._params[section]['SizeT']
+        self.SizeZ = self._params[section]['SizeZ']
+
+
+    @utils.exception_handler_cli
+    def preprocess(self, image_data):
+        section = 'Pre-processing'
+        anchor = 'gaussSigma'
+        options = self._params[section][anchor]
+        initialVal = options['initialVal']
+        sigma = options.get('loadedVal', initialVal)
+        self.logger.info(f'Applying a gaussian filter with sigma={sigma}...')
+
+    @utils.exception_handler_cli
+    def segment_ref_ch(self, ref_ch_data=None):
+        if ref_ch_data is None:
+            image_data = 5
+
+    def quit(self, is_error=False):
+        print('='*50)
+        if is_error:
+            err_msg = (
+                'spotMAX aborted due to **error**. '
+                'More details above or in the folowing log file:\n\n'
+                f'{self.log_path}\n\n'
+                'You can report this error by opening an issue on our '
+                'GitHub page at the following link:\n\n'
+                f'{issues_url}\n\n'
+                'Please **send the log file** when reporting a bug, thanks!'
+            )
+            print(err_msg)
+        else:
+            print(f'spotMAX command line-interface closed.')
+        print('='*50)
+        exit(utils.get_salute_string())
 
 def eucl_dist_point_2Dyx(points, all_others):
     """

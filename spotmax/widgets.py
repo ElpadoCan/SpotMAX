@@ -170,6 +170,11 @@ class calcPushButton(QPushButton):
         super().__init__(*args)
         self.setIcon(QIcon(':calc.svg'))
 
+class autoPushButton(QPushButton):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.setIcon(QIcon(':cog_play.svg'))
+
 class showInFileManagerButton(QPushButton):
     def __init__(self, *args):
         super().__init__(*args)
@@ -223,7 +228,7 @@ class editPushButton(QPushButton):
 class applyPushButton(QPushButton):
     def __init__(self, *args):
         super().__init__(*args)
-        self.setIcon(QIcon(':apply.svg'))
+        self.setIcon(QIcon(':magnGlass.svg'))
 
 class helpPushButton(QPushButton):
     def __init__(self, *args):
@@ -804,6 +809,7 @@ class formWidget(QWidget):
     sigApplyButtonClicked = pyqtSignal(object)
     sigComputeButtonClicked = pyqtSignal(object)
     sigBrowseButtonClicked = pyqtSignal(object)
+    sigAutoButtonClicked = pyqtSignal(object)
     sigLinkClicked = pyqtSignal(str)
 
     def __init__(
@@ -818,6 +824,7 @@ class formWidget(QWidget):
             addApplyButton=False,
             addComputeButton=False,
             addBrowseButton=False,
+            addAutoButton=False,
             key='',
             parent=None
         ):
@@ -891,6 +898,13 @@ class formWidget(QWidget):
             applyButton.clicked.connect(self.applyButtonClicked)
             self.items.append(applyButton)
 
+        if addAutoButton:
+            autoButton = autoPushButton(self)
+            autoButton.setCheckable(True)
+            autoButton.setToolTip('Automatically infer this parameter')
+            autoButton.clicked.connect(self.autoButtonClicked)
+            self.items.append(autoButton)
+
         if addComputeButton:
             computeButton = computePushButton(self)
             computeButton.setToolTip('Compute this step and visualize results')
@@ -915,6 +929,9 @@ class formWidget(QWidget):
 
         self.widget.setText(file_path)
         self.sigBrowseButtonClicked.emit(self)
+
+    def autoButtonClicked(self):
+        self.sigAutoButtonClicked.emit(self)
 
     def applyButtonClicked(self):
         self.sigApplyButtonClicked.emit(self)
@@ -1144,6 +1161,9 @@ class intLineEdit(QLineEdit):
         self.setText('0')
 
         self.textChanged.connect(self.emitValueChanged)
+
+    def setValue(self, value: int):
+        self.setText(str(value))
 
     def value(self):
         return int(self.text())

@@ -28,21 +28,151 @@ from PyQt5.QtWidgets import QMessageBox
 
 from . import dialogs, utils, core, html_func, config
 
+acdc_df_bool_cols = [
+    'is_cell_dead',
+    'is_cell_excluded',
+    'is_history_known',
+    'corrected_assignment'
+]
+
+def read_json(json_path, logger_func=print, desc='custom annotations'):
+    json_data = {}
+    try:
+        with open(json_path) as file:
+            json_data = json.load(file)
+    except Exception as e:
+        print('****************************')
+        logger_func(traceback.format_exc())
+        print('****************************')
+        logger_func(f'json path: {json_path}')
+        print('----------------------------')
+        logger_func(f'Error while reading saved {desc}. See above')
+        print('============================')
+    return json_data
+
+def h5py_iter(g, prefix=''):
+    for key, item in g.items():
+        path = '{}/{}'.format(prefix, key)
+        if isinstance(item, h5py.Dataset): # test for dataset
+            yield (path, item)
+        elif isinstance(item, h5py.Group): # test for group (go down)
+            yield from h5py_iter(item, path)
+
+def h5dump_to_arr(h5path):
+    data_dict = {}
+    with h5py.File(h5path, 'r') as f:
+        for (path, dset) in h5py_iter(f):
+            data_dict[dset.name] = dset[()]
+    sorted_keys = natsorted(data_dict.keys())
+    arr = np.array([data_dict[key] for key in sorted_keys])
+    return arr
+
+def get_user_ch_paths(images_paths, user_ch_name):
+    user_ch_file_paths = []
+    for images_path in images_paths:
+        img_aligned_found = False
+        for filename in myutils.listdir(images_path):
+            if filename.find(f'{user_ch_name}_aligned.np') != -1:
+                img_path_aligned = f'{images_path}/{filename}'
+                img_aligned_found = True
+            elif filename.find(f'{user_ch_name}.tif') != -1:
+                img_path_tif = f'{images_path}/{filename}'
+
+        if img_aligned_found:
+            img_path = img_path_aligned
+        else:
+            img_path = img_path_tif
+        user_ch_file_paths.append(img_path)
+        print(f'Loading {img_path}...')
+    return user_ch_file_paths
+
+def get_segm_files(images_path):
+    ls = myutils.listdir(images_path)
+
+    segm_files = [
+        file for file in ls if file.endswith('segm.npz')
+        or file.find('segm_raw_postproc') != -1
+        or file.endswith('segm_raw.npz')
+        or (file.endswith('.npz') and file.find('segm') != -1)
+    ]
+    return segm_files
+
+def get_existing_segm_endnames(basename, segm_files):
+    existing_endnames = []
+    for f in segm_files:
+        filename, _ = os.path.splitext(f)
+        endname = filename[len(basename):]
+        # Remove the 'segm_' part
+        # endname = endname.replace('segm', '', 1).replace('_', '', 1)
+        # endname = endname.replace('_', '', 1)
+        existing_endnames.append(endname)
+    return existing_endnames
+
+def get_endname_from_channels(filename, channels):
+    endname = None
+    for ch in channels:
+        ch_aligned = f'{ch}_aligned'
+        m = re.search(fr'{ch}(.\w+)*$', filename)
+        m_aligned = re.search(fr'{ch_aligned}(.\w+)*$', filename)
+        if m_aligned is not None:
+            return endname
+        elif m is not None:
+            return endname
+
+def pd_int_to_bool(acdc_df, colsToCast=None):
+    if colsToCast is None:
+        colsToCast = acdc_df_bool_cols
+    for col in colsToCast:
+        try:
+            acdc_df[col] = acdc_df[col] > 0
+        except KeyError:
+            continue
+    return acdc_df
+
+def pd_bool_to_int(acdc_df, colsToCast=None, csv_path=None, inplace=True):
+    """
+    Function used to convert "FALSE" strings and booleans to 0s and 1s
+    to avoid pandas interpreting as strings or numbers
+    """
+    if not inplace:
+        acdc_df = acdc_df.copy()
+    if colsToCast is None:
+        colsToCast = acdc_df_bool_cols
+    for col in colsToCast:
+        try:
+            isInt = pd.api.types.is_integer_dtype(acdc_df[col])
+            isFloat = pd.api.types.is_float_dtype(acdc_df[col])
+            isObject = pd.api.types.is_object_dtype(acdc_df[col])
+            isString = pd.api.types.is_string_dtype(acdc_df[col])
+            isBool = pd.api.types.is_bool_dtype(acdc_df[col])
+            if isFloat or isBool:
+                acdc_df[col] = acdc_df[col].astype(int)
+            elif isString or isObject:
+                # Object data type can have mixed data types so we first convert
+                # to strings
+                acdc_df[col] = acdc_df[col].astype(str)
+                acdc_df[col] = (acdc_df[col].str.lower() == 'true').astype(int)
+        except KeyError:
+            continue
+    if csv_path is not None:
+        acdc_df.to_csv(csv_path)
+    return acdc_df
+
 def readStoredParamsCSV(csv_path, params):
     """Read old format of analysis_inputs.csv file from spotMAX v1"""
     old_csv_options_to_anchors = {
         'Calculate ref. channel network length?':
             ('Reference channel', 'calcRefChNetLen'),
         'Compute spots size?':
-            ('Spots channel', 'Compute spots size'),
-        'EGFP emission wavelength (nm):':
+            ('Spots channel', 'doSpotFit'),
+        'emission wavelength (nm):':
             ('METADATA', 'emWavelen'),
         'Effect size used:':
             ('Spots channel', 'gopLimit'),
         'Filter good peaks method:':
             ('Spots channel', 'gopMethod'),
         'Filter spots by reference channel?':
-            ('Spots channel', 'filterPeaksInsideRef'),
+            ('Reference channel', 'filterPeaksInsideRef'),
         'Fit 3D Gaussians?':
             ('Spots channel', 'doSpotFit'),
         'Gaussian filter sigma:':
@@ -52,7 +182,7 @@ def readStoredParamsCSV(csv_path, params):
         'Load a reference channel?':
             ('Reference channel', 'segmRefCh'),
         'Local or global threshold for spot detection?':
-            ('Reference channel', 'aggregate'),
+            ('Pre-processing', 'aggregate'),
         'Numerical aperture:':
             ('METADATA', 'numAperture'),
         'Peak finder threshold function:':
@@ -72,13 +202,21 @@ def readStoredParamsCSV(csv_path, params):
         'p-value limit:':
             ('Spots channel', 'gopLimit'),
     }
-    df = pd.read_csv(csv_path, index='Description')
+    df = pd.read_csv(csv_path, index_col='Description')
     for idx, section_anchor in old_csv_options_to_anchors.items():
         section, anchor = section_anchor
         try:
             value = df.at[idx, 'Values']
         except Exception as e:
-            value = None
+            try:
+                idxMask = df.index.str.contains(idx, regex=False)
+                if any(idxMask):
+                    value = df['Values'][idxMask]
+                else:
+                    raise e
+            except Exception as e:
+                print(f'"{idx}" not found in CSV file. Using default value.')
+                value = None
         if isinstance(anchor, tuple):
             for val, sub_anchor in zip(value, anchor):
                 params[section][sub_anchor]['loadedVal'] = val
@@ -86,40 +224,47 @@ def readStoredParamsCSV(csv_path, params):
             params[section][anchor]['loadedVal'] = value
     return params
 
-def readStoredParamsINI(ini_path, params):
+def readStoredParamsINI(ini_path, params, metadata_csv_path=None):
     sections = list(params.keys())
     section_params = list(params.values())
-    config = configparser.ConfigParser()
-    config.optionxform = lambda option: option
-    config.read(ini_path, encoding="utf-8")
-    configSections = config.sections()
+    configPars = config.ConfigParser()
+    configPars.read(ini_path, encoding="utf-8")
+    configSections = configPars.sections()
     for section, section_params in zip(sections, section_params):
         anchors = list(section_params.keys())
         for anchor in anchors:
             option = section_params[anchor]['desc']
             defaultVal = section_params[anchor]['initialVal']
             config_value = None
-            if section not in config:
+            if section not in configPars:
                 params[section][anchor]['isSectionInConfig'] = False
                 params[section][anchor]['loadedVal'] = None
                 continue
 
             if isinstance(defaultVal, bool):
-                config_value = config.getboolean(section, option, fallback=None)
+                config_value = configPars.getboolean(section, option, fallback=None)
             elif isinstance(defaultVal, float):
-                config_value = config.getfloat(section, option, fallback=None)
+                config_value = configPars.getfloat(section, option, fallback=None)
             elif isinstance(defaultVal, int):
-                config_value = config.getint(section, option, fallback=None)
+                config_value = configPars.getint(section, option, fallback=None)
             elif isinstance(defaultVal, str):
-                config_value = config.get(section, option, fallback=None)
+                config_value = configPars.get(section, option, fallback=None)
 
             params[section][anchor]['isSectionInConfig'] = True
             params[section][anchor]['loadedVal'] = config_value
+    if metadata_csv_path is not None:
+        params = metadataCSVtoINI(csv_path, params)
     return params
 
 def metadataCSVtoINI(csv_path, ini_params):
     df = pd.read_csv(csv_path).set_index('Description')
     metadata = ini_params['METADATA']
+
+    SizeT = df.at['SizeT', 'values']
+    SizeZ = df.at['SizeZ', 'values']
+    metadata['SizeT']['loadedVal'] = pixelWidth
+    metadata['SizeZ']['loadedVal'] = pixelWidth
+
     pixelWidth = df.at['PhysicalSizeX', 'values']
     pixelHeight = df.at['PhysicalSizeY', 'values']
     voxelDepth = df.at['PhysicalSizeZ', 'values']
@@ -136,10 +281,8 @@ def metadataCSVtoINI(csv_path, ini_params):
         metadata['voxelDepth']['loadedVal'] = voxelDepth
     return ini_params
 
-def writeConfigINI(params=None):
-    config = configparser.ConfigParser()
-    # Do not lower case sections
-    config.optionxform = lambda option: option
+def writeConfigINI(params=None, ini_path=None):
+    configPars = config.ConfigParser()
 
     if params is None:
         params = analysisInputsParams()
@@ -158,7 +301,14 @@ def writeConfigINI(params=None):
 
     # Write config to file
     with open(default_ini_path, 'w', encoding="utf-8") as file:
-        config.write(file)
+        configPars.write(file)
+
+    if ini_path is None:
+        return
+
+    with open(ini_path, 'w', encoding="utf-8") as file:
+        configPars.write(file)
+
 
 class channelName:
     def __init__(self, which_channel=None, QtParent=None, load=True):
@@ -874,8 +1024,8 @@ class loadData:
                 acdc_df = pd.read_csv(
                       filePath, index_col=['frame_i', 'Cell_ID']
                 )
-                acdc_df = self.BooleansTo0s1s(acdc_df, inplace=True)
-                acdc_df = self.intToBoolean(acdc_df)
+                acdc_df = pd_bool_to_int(acdc_df, acdc_df_bool_cols, inplace=True)
+                acdc_df = pd_int_to_bool(acdc_df, acdc_df_bool_cols)
                 self.acdc_df = acdc_df
             elif load_shifts and file.endswith('align_shift.npy'):
                 self.shiftsFound = True
@@ -997,7 +1147,6 @@ class loadData:
             )
             obj.vol_vox, obj.vol_fl = vol_vox, vol_fl
         return vol_vox, vol_fl
-
 
     def getNewIDs(self, frame_i):
         if frame_i == 0:
@@ -1360,14 +1509,14 @@ class loadData:
             for data in dataToCont:
                 contCoords = core.findContours(data, is_zstack=self.SizeZ>1)
                 self.contCoords.append(contCoords)
-                contScatterCoords = self.scatterContCoors(contCoords)
+                contScatterCoords = self.scatterContCoords(contCoords)
                 self.contScatterCoords.append(contScatterCoords)
         else:
             contCoords = core.findContours(dataToCont, is_zstack=self.SizeZ>1)
             self.contCoords = contCoords
-            self.contScatterCoords = self.scatterContCoors(contCoords)
+            self.contScatterCoords = self.scatterContCoords(contCoords)
 
-    def scatterContCoors(self, contCoords):
+    def scatterContCoords(self, contCoords):
         contScatterCoords = {}
         for z, allObjContours in contCoords.items():
             xx_cont = []
@@ -1379,35 +1528,11 @@ class loadData:
             contScatterCoords[z] = (np.array(xx_cont), np.array(yy_cont))
         return contScatterCoords
 
-    @staticmethod
-    def BooleansTo0s1s(acdc_df, csv_path=None, inplace=True):
-        """
-        Function used to convert "FALSE" strings and booleans to 0s and 1s
-        to avoid pandas interpreting as strings or numbers
-        """
-        if not inplace:
-            acdc_df = acdc_df.copy()
-        colsToCast = ['is_cell_dead', 'is_cell_excluded']
-        for col in colsToCast:
-            isInt = pd.api.types.is_integer_dtype(acdc_df[col])
-            isFloat = pd.api.types.is_float_dtype(acdc_df[col])
-            isObject = pd.api.types.is_object_dtype(acdc_df[col])
-            isString = pd.api.types.is_string_dtype(acdc_df[col])
-            isBool = pd.api.types.is_bool_dtype(acdc_df[col])
-            if isFloat or isBool:
-                acdc_df[col] = acdc_df[col].astype(int)
-            elif isString or isObject:
-                acdc_df[col] = (acdc_df[col].str.lower() == 'true').astype(int)
-        if csv_path is not None:
-            acdc_df.to_csv(csv_path)
-        return acdc_df
-
     def intToBoolean(self, acdc_df):
         colsToCast = ['is_cell_dead', 'is_cell_excluded']
         for col in colsToCast:
             acdc_df[col] = acdc_df[col] > 0
         return acdc_df
-
 
     def criticalExtNotValid(self):
         err_title = f'File extension {self.ext} not valid.'
