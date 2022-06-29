@@ -224,7 +224,7 @@ def readStoredParamsCSV(csv_path, params):
             params[section][anchor]['loadedVal'] = value
     return params
 
-def readStoredParamsINI(ini_path, params, metadata_csv_path=None):
+def readStoredParamsINI(ini_path, params):
     sections = list(params.keys())
     section_params = list(params.values())
     configPars = config.ConfigParser()
@@ -252,8 +252,6 @@ def readStoredParamsINI(ini_path, params, metadata_csv_path=None):
 
             params[section][anchor]['isSectionInConfig'] = True
             params[section][anchor]['loadedVal'] = config_value
-    if metadata_csv_path is not None:
-        params = metadataCSVtoINI(csv_path, params)
     return params
 
 def metadataCSVtoINI(csv_path, ini_params):
@@ -262,8 +260,8 @@ def metadataCSVtoINI(csv_path, ini_params):
 
     SizeT = df.at['SizeT', 'values']
     SizeZ = df.at['SizeZ', 'values']
-    metadata['SizeT']['loadedVal'] = pixelWidth
-    metadata['SizeZ']['loadedVal'] = pixelWidth
+    metadata['SizeT']['loadedVal'] = SizeT
+    metadata['SizeZ']['loadedVal'] = SizeZ
 
     pixelWidth = df.at['PhysicalSizeX', 'values']
     pixelHeight = df.at['PhysicalSizeY', 'values']

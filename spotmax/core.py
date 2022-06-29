@@ -12,7 +12,7 @@ import skimage.measure
 import skimage.transform
 import skimage.filters
 
-from . import config, utils, issues_url, printl
+from . import config, utils, issues_url, printl, io
 
 class Kernel:
     def __init__(self, debug=False):
@@ -20,8 +20,10 @@ class Kernel:
         self.debug = debug
 
     @utils.exception_handler_cli
-    def init_params(self, params_path):
+    def init_params(self, params_path, metadata_csv_path=''):
         self._params = config.analysisInputsParams(params_path)
+        if metadata_csv_path:
+            self._params = io.metadataCSVtoINI(metadata_csv_path, self._params)
 
     @utils.exception_handler_cli
     def set_metadata(self):
@@ -36,7 +38,6 @@ class Kernel:
         self.wavelen = self._params[section]['emWavelen']
         self.SizeT = self._params[section]['SizeT']
         self.SizeZ = self._params[section]['SizeZ']
-
 
     @utils.exception_handler_cli
     def preprocess(self, image_data):

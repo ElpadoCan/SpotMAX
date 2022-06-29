@@ -20,6 +20,14 @@ def cli_parser():
     )
 
     ap.add_argument(
+        '-m',
+        default='',
+        type=str,
+        metavar='PATH_TO_METADATA_CSV',
+        help=('Path of the "_metadata.csv" file')
+    )
+
+    ap.add_argument(
         '-d', '--debug',
         action='store_true',
         help=(
@@ -74,14 +82,16 @@ def run_gui(debug=False):
 
     sys.exit(app.exec_())
 
-def run_cli(params_path, debug=False):
+def run_cli(parsers_args, debug=False):
+    params_path = parsers_args['p']
+    metadata_csv_path = parsers_args['m']
     if not os.path.exists(params_path):
         raise FileNotFoundError(
             f'The following parameters file provided does not exist: "{params_path}"'
         )
         return
     kernel = core.Kernel(debug=debug)
-    kernel.init_params(params_path)
+    kernel.init_params(params_path, metadata_csv_path=metadata_csv_path)
 
 def run():
     parsers_args = cli_parser()
@@ -90,7 +100,7 @@ def run():
     debug = parsers_args['debug']
 
     if params_path:
-        run_cli(params_path, debug=debug)
+        run_cli(parsers_args, debug=debug)
     else:
         run_gui(debug=debug)
 
