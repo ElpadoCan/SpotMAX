@@ -47,11 +47,25 @@ class Kernel:
         initialVal = options['initialVal']
         sigma = options.get('loadedVal', initialVal)
         self.logger.info(f'Applying a gaussian filter with sigma={sigma}...')
+    
+    @utils.exception_handler_cli
+    def _preproces_ref(self, image_data):
+        pass
 
     @utils.exception_handler_cli
     def segment_ref_ch(self, ref_ch_data=None):
         if ref_ch_data is None:
-            image_data = 5
+            ref_ch_path = self._params['File paths']['refChFilePath']
+            self.check_file_exists(ref_ch_path, desc=' (reference channel)')
+            image_data = io.load_image_data()
+            image_data = self.preprocess(image_data)
+
+
+    def check_file_exists(self, file_path, desc=''):
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(
+                f'The following file does not exist{desc}: "{file_path}"'
+            )
 
     def quit(self, is_error=False):
         print('='*50)
@@ -159,7 +173,7 @@ def findContours(dataToCont, is_zstack=False):
             contCoords[z] = allObjContours
         dataToCont2D = dataToCont.max(axis=0)
     else:
-        dataToCont2D = dataToSkel.max(axis=0)
+        dataToCont2D = dataToCont.max(axis=0)
 
     lab = skimage.measure.label(dataToCont2D)
     rp = skimage.measure.regionprops(lab)

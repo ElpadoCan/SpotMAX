@@ -7,6 +7,9 @@ import time
 import copy
 import logging
 import configparser
+import json
+import traceback
+import cv2
 
 from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
@@ -23,10 +26,12 @@ import skimage
 import skimage.io
 import skimage.color
 
+import pyqtgraph as pg
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QMessageBox
+from PyQt5.QtCore import QRect, QRectF
 
-from . import dialogs, utils, core, html_func, config
+from . import dialogs, utils, core, html_func, config, widgets
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -71,7 +76,7 @@ def get_user_ch_paths(images_paths, user_ch_name):
     user_ch_file_paths = []
     for images_path in images_paths:
         img_aligned_found = False
-        for filename in myutils.listdir(images_path):
+        for filename in utils.listdir(images_path):
             if filename.find(f'{user_ch_name}_aligned.np') != -1:
                 img_path_aligned = f'{images_path}/{filename}'
                 img_aligned_found = True
@@ -87,7 +92,7 @@ def get_user_ch_paths(images_paths, user_ch_name):
     return user_ch_file_paths
 
 def get_segm_files(images_path):
-    ls = myutils.listdir(images_path)
+    ls = utils.listdir(images_path)
 
     segm_files = [
         file for file in ls if file.endswith('segm.npz')
@@ -157,6 +162,33 @@ def pd_bool_to_int(acdc_df, colsToCast=None, csv_path=None, inplace=True):
     if csv_path is not None:
         acdc_df.to_csv(csv_path)
     return acdc_df
+
+def _load_video(path):
+    video = cv2.VideoCapture(path)
+    num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
+    for i in range(num_frames):
+        _, frame = video.read()
+        if frame.shape[-1] == 3:
+            frame = skimage.color.rgb2gray(frame)
+        if i == 0:
+            chData = np.zeros((num_frames, *frame.shape), frame.dtype)
+        chData[i] = frame
+    return chData
+
+def load_image_data(path: os.PathLike):
+    filename, ext = os.path.splitext(path)
+    if ext == '.npz':
+        with np.load(path) as data:
+            key = list(data.keys())[0]
+            image_data = np.load(path)[key]
+    elif ext == '.npy':
+        image_data = np.load(path)
+    else:
+        try:
+            image_data = skimage.io.imread(path)
+        except Exception as e:
+            image_data = _load_video(path)
+    return image_data
 
 def readStoredParamsCSV(csv_path, params):
     """Read old format of analysis_inputs.csv file from spotMAX v1"""
@@ -283,7 +315,7 @@ def writeConfigINI(params=None, ini_path=None):
     configPars = config.ConfigParser()
 
     if params is None:
-        params = analysisInputsParams()
+        params = config.analysisInputsParams()
 
     # Create sections
     for section, anchors in params.items():
@@ -298,7 +330,7 @@ def writeConfigINI(params=None, ini_path=None):
             config[section][key] = str(val)
 
     # Write config to file
-    with open(default_ini_path, 'w', encoding="utf-8") as file:
+    with open(ini_path, 'w', encoding="utf-8") as file:
         configPars.write(file)
 
     if ini_path is None:
@@ -347,7 +379,7 @@ class channelName:
                 still try to load data now.
             """)
             msg = widgets.myMessageBox()
-            details = "\n".join(files)
+            details = "\n".join(filenames)
             details = f'Files detected:\n\n{details}'
             msg.setDetailedText(details)
             msg.warning(
@@ -943,23 +975,11 @@ class loadData:
                 self.chData = skimage.io.imread(self.channelDataPath)
                 self.chData_shape = self.chData.shape
             except ValueError:
-                self.chData = self._loadVideo(self.channelDataPath)
+                self.chData = _load_video(self.channelDataPath)
                 self.chData_shape = self.chData.shape
             except Exception as e:
                 traceback.print_exc()
                 self.criticalExtNotValid()
-
-    def _loadVideo(self, path):
-        video = cv2.VideoCapture(path)
-        num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-        for i in range(num_frames):
-            _, frame = video.read()
-            if frame.shape[-1] == 3:
-                frame = skimage.color.rgb2gray(frame)
-            if i == 0:
-                chData = np.zeros((num_frames, *frame.shape), frame.dtype)
-            chData[i] = frame
-        return chData
 
     def absoluteFilename(self, relFilename):
         absoluteFilename = f'{self.basename}{relFilename}'

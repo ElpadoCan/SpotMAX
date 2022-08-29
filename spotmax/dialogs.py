@@ -1096,7 +1096,7 @@ class QDialogListbox(QBaseDialog):
             items = filteredItems
 
         listBox = widgets.listWidget()
-        listBox.setFont(_font)
+        listBox.setFont(font)
         listBox.addItems(items)
         if multiSelection:
             listBox.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -1882,7 +1882,7 @@ class selectSpotsH5FileDialog(QBaseDialog):
         )
         self.mainLayout.treeSelector.setMinimumWidth(w)
 
-    def show(self):
+    def show(self, block=False):
         super().show(block=False)
         self.resizeSelector()
         if block:

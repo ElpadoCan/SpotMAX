@@ -588,7 +588,7 @@ class myMessageBox(QDialog):
     def _resizeHeight(self):
         try:
             # Resize until a "Unable to set geometry" warning is captured
-            # by copnfig.warningHandler._resizeWarningHandler or #
+            # by config.warningHandler._resizeWarningHandler or #
             # height doesn't change anymore
             self.resize(self.width(), self.height()-1)
             if self.height() == self._h or self.resizeCallsCount > 100:

@@ -10,10 +10,11 @@ import traceback
 import numpy as np
 import tkinter as tk
 import pathlib
+import re
 import configparser
 from functools import wraps, partial
 from urllib.parse import urlparse
-from natsort import natsort_keygen
+from natsort import natsort_keygen, natsorted
 
 from tifffile.tifffile import TiffWriter, TiffFile
 
@@ -27,7 +28,7 @@ from matplotlib.backends.backend_tkagg import (
 
 from PyQt5.QtCore import QTimer
 
-from . import config, widgets
+from . import config, widgets, is_mac, is_linux
 
 def exception_handler_cli(func):
     @wraps(func)
@@ -89,12 +90,6 @@ def is_valid_url(x):
         return all([result.scheme, result.netloc])
     except Exception as e:
         return False
-
-def _resizeWarningHandler(msg_type, msg_log_context, msg_string):
-    if msg_string.find('Unable to set geometry') != -1:
-        self.timer.stop()
-    elif msg_string:
-        print(msg_string)
 
 def lighten_color(color, amount=0.3, hex=True):
     """
@@ -172,7 +167,11 @@ def is_iterable(item):
          return False
 
 def listdir(path):
-    return [f for f in os.listdir(path) if not f.startswith('.')]
+    return natsorted([
+        f for f in os.listdir(path)
+        if not f.startswith('.')
+        and not f == 'desktop.ini'
+    ])
 
 def get_salute_string():
     time_now = datetime.datetime.now().time()
@@ -437,7 +436,7 @@ def shiftWindow_axis0(
 
         axis0_interval = (coord0_chunk, coord0_chunk+chunkSize)
         if axis1_interval is None:
-            axis1_interval = (0, Z)
+            # axis1_interval = (0, Z)
             chunk = index_3D_dset_for(dset, axis0_interval, worker=worker)
         else:
             axis1_c0, axis1_c1 = axis1_interval
