@@ -305,6 +305,7 @@ class spotMAX_Win(QMainWindow):
         file_path = event.mimeData().urls()[0].toLocalFile()
         if os.path.isdir(file_path):
             selectedPath = file_path
+            basename = os.path.basename(file_path)
             if basename.find('Position_')!=-1 or basename=='Images':
                 event.accept()
             else:
@@ -407,7 +408,7 @@ class spotMAX_Win(QMainWindow):
             # pass
         elif ev.key() == Qt.Key_Left:
             if not self.dataLoaded['left'] and not self.dataLoaded['right']:
-                event.ignore()
+                ev.ignore()
                 return
 
             areBothPlotsVisible = (
@@ -423,7 +424,7 @@ class spotMAX_Win(QMainWindow):
 
         elif ev.key() == Qt.Key_Right:
             if not self.dataLoaded['left'] and not self.dataLoaded['right']:
-                event.ignore()
+                ev.ignore()
                 return
 
             areBothPlotsVisible = (
@@ -1691,7 +1692,7 @@ class spotMAX_Win(QMainWindow):
                 color = self.color(side, 'Text on segmented objects')
                 bold = False
         else:
-            cca_df_ID = df.loc[ID]
+            cca_df_ID = cca_df.loc[ID]
             ccs = cca_df_ID['cell_cycle_stage']
             relationship = cca_df_ID['relationship']
             generation_num = cca_df_ID['generation_num']
@@ -1737,8 +1738,6 @@ class spotMAX_Win(QMainWindow):
             )
 
             txt = f'{ccs}-{generation_num}'
-            if updateColor:
-                LabelItemID.setText(txt, size=self.fontSize)
             if ccs == 'G1':
                 color = self.color(side, 'Text on segmented objects', desc='G1')
                 bold = False
@@ -3615,7 +3614,7 @@ class spotMAX_Win(QMainWindow):
         df.to_csv(recentPaths_path)
 
     def storeDefaultAndCustomColors(self):
-        c = overlayButton.palette().button().color().name()
+        c = self.overlayButton.palette().button().color().name()
         self.defaultToolBarButtonColor = c
         self.doublePressKeyButtonColor = '#fa693b'
 

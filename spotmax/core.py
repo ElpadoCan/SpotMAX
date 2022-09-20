@@ -12,7 +12,8 @@ import skimage.measure
 import skimage.transform
 import skimage.filters
 
-from . import config, utils, issues_url, printl, io
+from . import utils
+from . import config, issues_url, printl, io
 
 class Kernel:
     def __init__(self, debug=False):

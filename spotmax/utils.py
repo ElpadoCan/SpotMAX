@@ -187,7 +187,7 @@ def get_salute_string():
     else:
         return 'Have a good night!'
 
-def setupLogger(name='gui'):
+def setupLogger(name='spotmax_gui'):
     logger = logging.getLogger(f'spotmax-logger-{name}')
     logger.setLevel(logging.INFO)
 
