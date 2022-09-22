@@ -5,8 +5,11 @@
    viewBox="0 0 32.000001 32.000001"
    version="1.1"
    id="svg8"
-   inkscape:version="1.1.2 (b8e25be8, 2022-02-05)"
+   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
    sodipodi:docname="logo.svg"
+   inkscape:export-filename="G:\My Drive\01_Postdoc_HMGU\Python_MyScripts\MIA\Git\spotMAX_v2\spotmax\resources\logo.png"
+   inkscape:export-xdpi="300"
+   inkscape:export-ydpi="300"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -159,10 +162,10 @@
      inkscape:current-layer="layer1"
      inkscape:document-rotation="0"
      showgrid="false"
-     inkscape:window-width="1680"
-     inkscape:window-height="925"
-     inkscape:window-x="0"
-     inkscape:window-y="25"
+     inkscape:window-width="1920"
+     inkscape:window-height="1017"
+     inkscape:window-x="1912"
+     inkscape:window-y="-8"
      inkscape:window-maximized="1"
      inkscape:pagecheckerboard="0">
     <inkscape:grid
@@ -177,7 +180,6 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>

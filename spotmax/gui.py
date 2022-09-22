@@ -181,7 +181,7 @@ class spotMAX_Win(QMainWindow):
 
         self.setWindowTitle("spotMAX - GUI")
 
-        self.setWindowIcon(QIcon(":icon.svg"))
+        self.setWindowIcon(QIcon(":logo.svg"))
         self.setAcceptDrops(True)
 
         self.rightClickButtons = []

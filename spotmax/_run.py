@@ -22,7 +22,7 @@ def run_gui(debug=False, app=None):
 
         # Apply style
         app.setStyle(QStyleFactory.create('Fusion'))
-        app.setWindowIcon(QIcon(":icon.svg"))
+        app.setWindowIcon(QIcon(":logo.svg"))
         # src_path = os.path.dirname(os.path.abspath(__file__))
         # styles_path = os.path.join(src_path, 'styles')
         # dark_orange_path = os.path.join(styles_path, '01_buttons.qss')
