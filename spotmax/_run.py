@@ -32,7 +32,7 @@ def run_gui(debug=False, app=None):
         EXEC = True
 
     version = utils.read_version()
-    win = gui.spotMAX_Win(app, debug=debug)
+    win = gui.spotMAX_Win(app, debug=debug, executed=EXEC)
     win.setVersion(version)
     win.show()
 

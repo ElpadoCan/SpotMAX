@@ -31,6 +31,8 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import QRect, QRectF
 
+from cellacdc import widgets as acdc_widgets
+
 from . import dialogs, utils, core, html_func, config, widgets
 
 acdc_df_bool_cols = [
@@ -378,7 +380,7 @@ class channelName:
                 Data loading may still be successfull, so the system will
                 still try to load data now.
             """)
-            msg = widgets.myMessageBox()
+            msg = acdc_widgets.myMessageBox()
             details = "\n".join(filenames)
             details = f'Files detected:\n\n{details}'
             msg.setDetailedText(details)

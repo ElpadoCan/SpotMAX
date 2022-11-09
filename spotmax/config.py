@@ -9,6 +9,8 @@ import configparser
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
 
+from cellacdc import widgets as acdc_widgets
+
 from . import widgets, html_func, io
 
 spotmax_path = os.path.dirname(os.path.abspath(__file__))
@@ -249,7 +251,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.Toggle,
+                'formWidgetFunc': acdc_widgets.Toggle,
                 'actions': None
             },
             'gaussSigma': {
@@ -269,7 +271,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.Toggle,
+                'formWidgetFunc': acdc_widgets.Toggle,
                 'actions': None
             },
         },
@@ -283,7 +285,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.Toggle,
+                'formWidgetFunc': acdc_widgets.Toggle,
                 'actions': None
             },
             'keepPeaksInsideRef': {
@@ -293,7 +295,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': True,
-                'formWidgetFunc': widgets.Toggle,
+                'formWidgetFunc': acdc_widgets.Toggle,
                 'actions': None
             },
             'filterPeaksInsideRef': {
@@ -303,7 +305,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.Toggle,
+                'formWidgetFunc': acdc_widgets.Toggle,
                 'actions': None
             },
             'refChSingleObj': {
@@ -313,7 +315,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': True,
-                'formWidgetFunc': widgets.Toggle,
+                'formWidgetFunc': acdc_widgets.Toggle,
                 'actions': None
             },
             'refChThresholdFunc': {
@@ -333,7 +335,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.Toggle,
+                'formWidgetFunc': acdc_widgets.Toggle,
                 'actions': None
             }
         },
@@ -397,7 +399,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.Toggle,
+                'formWidgetFunc': acdc_widgets.Toggle,
                 'actions': None
             },
             'minSpotSize': {

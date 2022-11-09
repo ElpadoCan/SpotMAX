@@ -27,6 +27,8 @@ from PyQt5.QtWidgets import (
     QSlider, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
+from cellacdc import widgets as acdc_widgets
+
 from . import html_func, io, widgets, core, utils, config
 
 # NOTE: Enable icons
@@ -76,7 +78,7 @@ class measurementsQGroupBox(QGroupBox):
         self.selectAllButton = QPushButton('Deselect all', self)
         self.selectAllButton.setCheckable(True)
         self.selectAllButton.setChecked(True)
-        helpButton = widgets.helpPushButton('Help', self)
+        helpButton = widgets.acdc_widgets.helpPushButton('Help', self)
         buttonsLayout.addStretch(1)
         buttonsLayout.addWidget(self.selectAllButton)
         buttonsLayout.addWidget(helpButton)
@@ -561,14 +563,16 @@ class spotStyleDock(QDockWidget):
         self.sizeSlider.setMinimum(1)
         slidersLayout.addWidget(self.sizeSlider, row, 0)
 
-        okButton = widgets.okPushButton('Ok')
+        okButton = acdc_widgets.okPushButton('Ok')
         okButton.setShortcut(Qt.Key_Enter)
 
-        cancelButton = widgets.cancelPushButton('Cancel')
+        cancelButton = acdc_widgets.cancelPushButton('Cancel')
 
         buttonsLayout.addStretch(1)
-        buttonsLayout.addWidget(okButton)
         buttonsLayout.addWidget(cancelButton)
+        buttonsLayout.addSpacing(20)
+        buttonsLayout.addWidget(okButton)
+        
         buttonsLayout.setContentsMargins(0, 10, 0, 0)
 
         mainLayout.addLayout(slidersLayout)
@@ -782,7 +786,7 @@ class QDialogMetadata(QBaseDialog):
             okTxt = 'Apply only to this Position'
         else:
             okTxt = 'Ok for loaded Positions'
-        okButton = widgets.okPushButton(okTxt)
+        okButton = acdc_widgets.okPushButton(okTxt)
         okButton.setToolTip(
             'Save metadata only for current positionh'
         )
@@ -810,7 +814,7 @@ class QDialogMetadata(QBaseDialog):
             self.selectButton = None
             okButton.setText('Ok')
 
-        cancelButton = widgets.cancelPushButton('Cancel')
+        cancelButton = acdc_widgets.cancelPushButton('Cancel')
 
         buttonsLayout.addWidget(okButton, 0, 0)
         if ask_TimeIncrement or ask_PhysicalSizes:
@@ -926,7 +930,7 @@ class QDialogMetadata(QBaseDialog):
             )
 
         if not valid:
-            msg = widgets.myMessageBox(self)
+            msg = acdc_widgets.myMessageBox(self)
             continueButton, cancelButton = msg.warning(
                 self, 'Invalid entries', txt,
                 buttonsTexts=('Continue', 'Let me correct')
@@ -989,7 +993,7 @@ class QDialogMetadata(QBaseDialog):
                             f'{acdc_df_path}\n\n'
                             'Close file and then press "Ok".'
                         )
-                        msg = widgets.myMessageBox()
+                        msg = acdc_widgets.myMessageBox()
                         msg.critical(self, 'Permission denied', err_msg)
                         acdc_df.to_csv(acdc_df_path, index=False)
 
@@ -1042,11 +1046,11 @@ class QDialogCombobox(QBaseDialog):
         topLayout.addWidget(combobox)
         topLayout.setContentsMargins(0, 10, 0, 0)
 
-        okButton = widgets.okPushButton('Ok')
+        okButton = acdc_widgets.okPushButton('Ok')
         okButton.setShortcut(Qt.Key_Enter)
         bottomLayout.addWidget(okButton, alignment=Qt.AlignRight)
 
-        cancelButton = widgets.cancelPushButton('Cancel')
+        cancelButton = acdc_widgets.cancelPushButton('Cancel')
         bottomLayout.addWidget(cancelButton, alignment=Qt.AlignLeft)
         bottomLayout.setContentsMargins(0, 10, 0, 0)
 
@@ -1095,7 +1099,7 @@ class QDialogListbox(QBaseDialog):
                         filteredItems.append(item)
             items = filteredItems
 
-        listBox = widgets.listWidget()
+        listBox = acdc_widgets.listWidget()
         listBox.setFont(font)
         listBox.addItems(items)
         if multiSelection:
@@ -1110,7 +1114,7 @@ class QDialogListbox(QBaseDialog):
         listBox.itemDoubleClicked.connect(self.ok_cb)
         topLayout.addWidget(listBox)
 
-        okButton = widgets.okPushButton('Ok')
+        okButton = acdc_widgets.okPushButton('Ok')
         okButton.setShortcut(Qt.Key_Enter)
         bottomLayout.addWidget(okButton, alignment=Qt.AlignRight)
 
@@ -1172,6 +1176,8 @@ class selectPathsSpotmax(QBaseDialog):
     def __init__(self, paths, homePath, parent=None, app=None):
         super().__init__(parent)
 
+        self.cancel = True
+
         self.selectedPaths = []
         self.paths = paths
         runs = sorted(list(self.paths.keys()))
@@ -1182,8 +1188,14 @@ class selectPathsSpotmax(QBaseDialog):
         self.setWindowTitle('Select experiments to load')
 
         infoLabel = QLabel()
-        text = 'Select <b>one or more folders</b> to load (Ctrl+A to select All) <br>'
-        htmlText = html_func.paragraph(text)
+        text = (
+            'Select <b>one or more folders</b> to load<br><br>'
+            '<code>Click</code> on experiment path <i>to select all positions</i><br>'
+            '<code>Ctrl+Click</code> <i>to select multiple items</i><br>'
+            '<code>Shift+Click</code> <i>to select a range of items</i><br>'
+            '<code>Ctrl+A</code> <i>to select all</i><br>'
+        )
+        htmlText = html_func.paragraph(text, center=True)
         infoLabel.setText(htmlText)
 
         runNumberLayout = QHBoxLayout()
@@ -1228,14 +1240,14 @@ class selectPathsSpotmax(QBaseDialog):
         self.populatePathSelector()
 
         buttonsLayout = QHBoxLayout()
-        okButton = widgets.okPushButton('Ok')
+        cancelButton = acdc_widgets.cancelPushButton('Cancel')
+        buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(cancelButton)
+        buttonsLayout.addSpacing(20)
+
+        okButton = acdc_widgets.okPushButton('Ok')
         # okButton.setShortcut(Qt.Key_Enter)
         buttonsLayout.addWidget(okButton, alignment=Qt.AlignRight)
-
-        cancelButton = widgets.cancelPushButton('Cancel')
-        buttonsLayout.addWidget(cancelButton, alignment=Qt.AlignLeft)
-        buttonsLayout.setContentsMargins(0, 20, 0, 0)
-
 
         mainLayout = QVBoxLayout()
         mainLayout.addWidget(infoLabel, alignment=Qt.AlignCenter)
@@ -1243,6 +1255,7 @@ class selectPathsSpotmax(QBaseDialog):
         runNumberLayout.setContentsMargins(0, 0, 0, 10)
         mainLayout.addLayout(checkBoxesLayout)
         mainLayout.addWidget(pathSelector)
+        mainLayout.addSpacing(20)
         mainLayout.addLayout(buttonsLayout)
         self.setLayout(mainLayout)
 
@@ -1256,7 +1269,6 @@ class selectPathsSpotmax(QBaseDialog):
 
         if app is not None:
             app.focusChanged.connect(self.on_focusChanged)
-
 
         self.pathSelector.setFocus(True)
 
@@ -1382,7 +1394,10 @@ class selectPathsSpotmax(QBaseDialog):
             rel = exp_path.relative_to(self.homePath)
             if str(rel) == '.':
                 rel = ''
-            relPath = f'...{self.homePath.name}{os.path.sep}{rel}'
+            relPath = (
+                f'...{self.homePath.parent.name}{os.path.sep}'
+                f'{self.homePath.name}{os.path.sep}{rel}'
+            )
 
             numPosSpotCounted = expInfo['numPosSpotCounted']
             numPosSpotSized = expInfo['numPosSpotSized']
@@ -1410,7 +1425,7 @@ class selectPathsSpotmax(QBaseDialog):
 
             relPathItem = QTreeWidgetItem()
             pathSelector.addTopLevelItem(relPathItem)
-            relPathLabel = widgets.QClickableLabel()
+            relPathLabel = acdc_widgets.QClickableLabel()
             relPathLabel.item = relPathItem
             relPathLabel.clicked.connect(self.selectAllChildren)
             relPathText = f'{relPath} (<i>{nPSCtext}, {nPSStext}</i>)'
@@ -1431,7 +1446,7 @@ class selectPathsSpotmax(QBaseDialog):
                     if not addSpotCounted:
                         continue
                 posItem = QTreeWidgetItem()
-                posLabel = widgets.QClickableLabel()
+                posLabel = acdc_widgets.QClickableLabel()
                 posLabel.item = posItem
                 posLabel.clicked.connect(self.selectAllChildren)
                 posLabel.setText(html_func.paragraph(posText))
@@ -1446,7 +1461,7 @@ class selectPathsSpotmax(QBaseDialog):
             f'does not have the <b>"{run}_analysis_inputs.csv"</b> file.<br><br>'
             'Sorry about that.'
         )
-        msg = widgets.myMessageBox()
+        msg = acdc_widgets.myMessageBox()
         msg.addShowInFileManagerButton(exp_path)
         msg.warning(
             self, 'Analysis inputs not found!',
@@ -1506,7 +1521,7 @@ class selectPathsSpotmax(QBaseDialog):
             '<i>Note that if you select multiple experiments I will show you '
             'only the first one that you selected.</i>'
         )
-        msg = widgets.myMessageBox()
+        msg = acdc_widgets.myMessageBox()
         msg.warning(
             self, 'No path selected!', html_func.paragraph(text)
         )
@@ -1515,7 +1530,7 @@ class selectPathsSpotmax(QBaseDialog):
         text = (
             '<b>You didn\'t select any path!</b> Do you want to cancel loading data?'
         )
-        msg = widgets.myMessageBox()
+        msg = acdc_widgets.myMessageBox()
         doClose, _ = msg.warning(
             self, 'No paths selected!', html_func.paragraph(text),
             buttonsTexts=(' Yes ', 'No')
@@ -1618,7 +1633,7 @@ class QDialogWorkerProcess(QBaseDialog):
                 self.close()
 
     def askAbort(self):
-        msg = widgets.myMessageBox()
+        msg = acdc_widgets.myMessageBox()
         txt = html_func.paragraph(f"""
             Aborting with <code>{self.abort_text}</code> is <b>not safe</b>.<br><br>
             The system status cannot be predicted and
@@ -1811,17 +1826,17 @@ class selectSpotsH5FileDialog(QBaseDialog):
         )
 
         buttonsLayout = QHBoxLayout()
-        okButton = widgets.okPushButton('Ok')
+        okButton = acdc_widgets.okPushButton('Ok')
         okButton.setShortcut(Qt.Key_Enter)
         buttonsLayout.addWidget(okButton, alignment=Qt.AlignRight)
 
-        cancelButton = widgets.cancelPushButton('Cancel')
+        cancelButton = acdc_widgets.cancelPushButton('Cancel')
         buttonsLayout.addWidget(cancelButton, alignment=Qt.AlignLeft)
         buttonsLayout.setContentsMargins(0, 20, 0, 0)
         mainLayout.addLayout(buttonsLayout)
 
         okButton.clicked.connect(self.ok_cb)
-        cancelButton.clicked.connect(self.cancel_cb)
+        cancelButton.clicked.connect(self.close)
 
         self.mainLayout = mainLayout
         self.setLayout(mainLayout)
@@ -1851,6 +1866,7 @@ class selectSpotsH5FileDialog(QBaseDialog):
             if doClose:
                 self.close()
             return
+        self.cancel = False
         selectedItem = selectedItems[0]
         runItem = selectedItem.parent()
         runNumber = int(re.findall('(\d+)', runItem.text(0))[0])
@@ -1863,7 +1879,7 @@ class selectSpotsH5FileDialog(QBaseDialog):
             'You didn\'t select <b>any analysis run!</b><br><br>'
             'Do you want to cancel the process?'
         )
-        msg = widgets.myMessageBox()
+        msg = acdc_widgets.myMessageBox()
         doClose, _ = msg.warning(
             self, 'No files selected!', html_func.paragraph(text),
             buttonsTexts=(' Yes ', 'No')

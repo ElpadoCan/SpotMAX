@@ -32,6 +32,8 @@ from PyQt5.QtWidgets import (
 
 import pyqtgraph as pg
 
+from cellacdc import widgets as acdc_widgets
+
 from . import is_mac, is_win
 from . import utils, dialogs, config, html_func, docs
 
@@ -117,589 +119,20 @@ def getMathLabels(text, parent=None):
             labels.append(mathTeXLabel(tex_txt, parent))
     return labels
 
-class okPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':yesGray.svg'))
-        self.setDefault(True)
-        # QShortcut(Qt.Key_Return, self, self.click)
-        # QShortcut(Qt.Key_Enter, self, self.click)
-
-class reloadPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':reload.svg'))
-
-class reloadPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':more.svg'))
-
-class savePushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':file-save.svg'))
-
-class newFilePushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':file-new.svg'))
-
-class infoPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':info.svg'))
-
-class addPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':add.svg'))
-
-class subtractPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':subtract.svg'))
-
-class continuePushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':continue.svg'))
-
-class calcPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':calc.svg'))
-
-class autoPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':cog_play.svg'))
-
-class showInFileManagerButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':folder-open.svg'))
-
-class showDetailsButton(QPushButton):
-    def __init__(self, *args, txt='Show details...'):
-        super().__init__(*args)
-        self.setText(txt)
-        self.txt = txt
-        self.checkedIcon = QIcon(':hideUp.svg')
-        self.uncheckedIcon = QIcon(':showDown.svg')
-        self.setIcon(self.uncheckedIcon)
-        self.toggled.connect(self.onClicked)
-        w = self.sizeHint().width()
-        self.setFixedWidth(w)
-
-    def onClicked(self, checked):
-        if checked:
-            self.setText(' Hide details   ')
-            self.setIcon(self.checkedIcon)
-        else:
-            self.setText(self.txt)
-            self.setIcon(self.uncheckedIcon)
-
-class cancelPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':cancelButton.svg'))
-
 class showPushButton(QPushButton):
     def __init__(self, *args):
         super().__init__(*args)
         self.setIcon(QIcon(':magnGlass.svg'))
-
-class setPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':cog.svg'))
-
-class noPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':no.svg'))
-
-class editPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':edit-id.svg'))
 
 class applyPushButton(QPushButton):
     def __init__(self, *args):
         super().__init__(*args)
         self.setIcon(QIcon(':magnGlass.svg'))
 
-class helpPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':help.svg'))
-
 class computePushButton(QPushButton):
     def __init__(self, *args):
         super().__init__(*args)
         self.setIcon(QIcon(':compute.svg'))
-
-class delPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.setIcon(QIcon(':bin.svg'))
-
-class browseFileButton(QPushButton):
-    sigPathSelected = pyqtSignal(str)
-
-    def __init__(self, *args, ext=None, title='Select file', start_dir=''):
-        super().__init__(*args)
-        self.setIcon(QIcon(':folder-open.svg'))
-        self.clicked.connect(self.browse)
-        self._file_types = 'All Files (*)'
-        self._title = title
-        self._start_dir = start_dir
-        if ext is not None:
-            s = ''
-            s_li = []
-            for name, extensions in ext.items():
-                _s = ''
-                for ext in extensions:
-                    _s = f'{_s}*{ext} '
-                s_li.append(f'{name} {_s.strip()}')
-
-            self._file_types = ';;'.join(s_li)
-            self._file_types = f'{self._file_types};;All Files (*)'
-
-    def browse(self):
-        print(self._start_dir)
-        file_path = QFileDialog.getOpenFileName(
-            self, self._title, self._start_dir, self._file_types
-        )[0]
-        if file_path:
-            self.sigPathSelected.emit(file_path)
-
-class QHLine(QFrame):
-    def __init__(self):
-        super(QHLine, self).__init__()
-        self.setFrameShape(QFrame.HLine)
-        self.setFrameShadow(QFrame.Sunken)
-
-class listWidget(QListWidget):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.setStyleSheet("""
-            QListWidget::item:hover {background-color:#E6E6E6;}
-            QListWidget::item:selected {background-color:#CFEB9B;}
-            QListWidget::item:selected {color:black;}
-            QListView {
-                selection-background-color: #CFEB9B;
-                selection-color: white;
-                show-decoration-selected: 1;
-            }
-        """)
-
-class QClickableLabel(QLabel):
-    clicked = pyqtSignal(object)
-
-    def __init__(self, parent=None):
-        self.parent = parent
-        super().__init__(parent)
-
-    def mousePressEvent(self, event):
-        self.clicked.emit(self)
-
-class myMessageBox(QDialog):
-    def __init__(
-            self, parent=None, showCentered=True, wrapText=True,
-            scrollableText=False, enlargeWidthFactor=0,
-            resizeButtons=True
-        ):
-        super().__init__(parent)
-
-        self.wrapText = wrapText
-        self.enlargeWidthFactor = enlargeWidthFactor
-        self.resizeButtons = resizeButtons
-
-        self.cancel = True
-        self.cancelButton = None
-        self.okButton = None
-        self.clickedButton = None
-
-        self.showCentered = showCentered
-
-        self.scrollableText = scrollableText
-
-        self.layout = QGridLayout()
-        self.layout.setHorizontalSpacing(20)
-        self.buttonsLayout = QHBoxLayout()
-        self.buttonsLayout.setSpacing(2)
-        self.buttons = []
-        self.widgets = []
-        self.layouts = []
-        self.labels = []
-        self.detailsTextWidget = None
-        self.showInFileManagButton = None
-        self.visibleDetails = False
-        self.doNotShowAgainCheckbox = None
-
-        self.currentRow = 0
-        self._w = None
-
-        self.layout.setColumnStretch(1, 1)
-        self.setLayout(self.layout)
-
-    def mousePressEvent(self, event):
-        for label in self.labels:
-            label.setTextInteractionFlags(
-                Qt.TextBrowserInteraction | Qt.TextSelectableByKeyboard
-            )
-
-    def setIcon(self, iconName='SP_MessageBoxInformation'):
-        label = QLabel(self)
-
-        standardIcon = getattr(QStyle, iconName)
-        icon = self.style().standardIcon(standardIcon)
-        pixmap = icon.pixmap(60, 60)
-        label.setPixmap(pixmap)
-
-        self.layout.addWidget(label, 0, 0, alignment=Qt.AlignTop)
-
-    def addShowInFileManagerButton(self, path, txt=None):
-        if txt is None:
-            txt = 'Reveal in Finder...' if is_mac else 'Show in Explorer...'
-        self.showInFileManagButton = showInFileManagerButton(txt)
-        self.buttonsLayout.addWidget(self.showInFileManagButton)
-        func = partial(utils.showInExplorer, path)
-        self.showInFileManagButton.clicked.connect(func)
-
-    def addCancelButton(self, button=None, connect=False):
-        if button is None:
-            self.cancelButton = cancelPushButton('Cancel')
-        else:
-            self.cancelButton = button
-            self.cancelButton.setIcon(QIcon(':cancelButton.svg'))
-
-        self.buttonsLayout.insertWidget(0, self.cancelButton)
-        self.buttonsLayout.insertSpacing(1, 20)
-        if connect:
-            self.cancelButton.clicked.connect(self.buttonCallBack)
-
-    def addText(self, text):
-        label = QLabel(self)
-        label.setText(text)
-        label.setWordWrap(self.wrapText)
-        label.setOpenExternalLinks(True)
-        self.labels.append(label)
-        if self.scrollableText:
-            textWidget = QScrollArea()
-            textWidget.setFrameStyle(QFrame.NoFrame)
-            textWidget.setWidget(label)
-        else:
-            textWidget = label
-
-        self.layout.addWidget(textWidget, self.currentRow, 1)#, alignment=Qt.AlignTop)
-        self.currentRow += 1
-        return label
-
-    def addButton(self, buttonText):
-        if not isinstance(buttonText, str):
-            # Passing button directly
-            button = buttonText
-            self.buttonsLayout.addWidget(button)
-            button.clicked.connect(self.buttonCallBack)
-            self.buttons.append(button)
-            return button
-
-        isCancelButton = (
-            buttonText.lower().find('cancel') != -1
-            or buttonText.lower().find('abort') != -1
-        )
-        isYesButton = (
-            buttonText.lower().find('yes') != -1
-            or buttonText.lower().find('ok') != -1
-            or buttonText.lower().find('continue') != -1
-            or buttonText.lower().find('recommended') != -1
-        )
-        isSettingsButton = buttonText.lower().find('set') != -1
-        isNoButton = buttonText.replace(' ', '').lower() == 'no'
-        isDelButton = buttonText.lower().find('delete') != -1
-
-        if isCancelButton:
-            button = cancelPushButton(buttonText, self)
-            self.addCancelButton(button=button)
-        elif isYesButton:
-            button = okPushButton(buttonText, self)
-            self.buttonsLayout.addWidget(button)
-            self.okButton = button
-        elif isSettingsButton:
-            button = setPushButton(buttonText, self)
-            self.buttonsLayout.addWidget(button)
-        elif isNoButton:
-            button = noPushButton(buttonText, self)
-            self.buttonsLayout.addWidget(button)
-        elif isDelButton:
-            button = delPushButton(buttonText, self)
-            self.buttonsLayout.addWidget(button)
-        else:
-            button = QPushButton(buttonText, self)
-            self.buttonsLayout.addWidget(button)
-
-        button.clicked.connect(self.buttonCallBack)
-        self.buttons.append(button)
-        return button
-
-    def addDoNotShowAgainCheckbox(self, text='Do not show again'):
-        self.doNotShowAgainCheckbox = QCheckBox('Do not show again')
-
-    def addWidget(self, widget):
-        self.layout.addWidget(widget, self.currentRow, 1)
-        self.widgets.append(widget)
-        self.currentRow += 1
-
-    def addLayout(self, layout):
-        self.layout.addLayout(layout, self.currentRow, 1)
-        self.layouts.append(layout)
-        self.currentRow += 1
-
-    def setWidth(self, w):
-        self._w = w
-
-    def show(self, block=False):
-        self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
-        # spacer
-        spacer = QSpacerItem(10, 10)
-        self.layout.addItem(spacer, self.currentRow, 1)
-        self.layout.setRowStretch(self.currentRow, 0)
-
-        # buttons
-        self.currentRow += 1
-
-        if self.detailsTextWidget is not None:
-            self.buttonsLayout.insertWidget(1, self.detailsButton)
-
-        # Do not show again checkbox
-        if self.doNotShowAgainCheckbox is not None:
-            self.layout.addWidget(
-                self.doNotShowAgainCheckbox, self.currentRow, 0, 1, 2
-            )
-            self.currentRow += 1
-
-        self.layout.addLayout(
-            self.buttonsLayout, self.currentRow, 0, 1, 2,
-            alignment=Qt.AlignRight
-        )
-
-        # Details
-        if self.detailsTextWidget is not None:
-            self.currentRow += 1
-            self.layout.addWidget(
-                self.detailsTextWidget, self.currentRow, 0, 1, 2
-            )
-
-        # spacer
-        self.currentRow += 1
-        spacer = QSpacerItem(10, 10)
-        self.layout.addItem(spacer, self.currentRow, 1)
-        self.layout.setRowStretch(self.currentRow, 0)
-
-        super().show()
-        QTimer.singleShot(5, self._resize)
-
-        if block:
-            self._block()
-
-    def setDetailedText(self, text, visible=False):
-        self.detailsTextWidget = QPlainTextEdit(text)
-        self.detailsTextWidget.setReadOnly(True)
-        self.detailsButton = showDetailsButton()
-        self.detailsButton.setCheckable(True)
-        self.detailsButton.clicked.connect(self._showDetails)
-        self.detailsTextWidget.hide()
-        self.visibleDetails = visible
-
-    def _showDetails(self, checked):
-        if checked:
-            self.origHeight = self.height()
-            self.resize(self.width(), self.height()+300)
-            self.detailsTextWidget.show()
-        else:
-            self.detailsTextWidget.hide()
-            func = partial(self.resize, self.width(), self.origHeight)
-            QTimer.singleShot(10, func)
-
-
-    def _resize(self):
-        if self.resizeButtons:
-            widths = [button.width() for button in self.buttons]
-            if widths:
-                max_width = max(widths)
-                for button in self.buttons:
-                    button.setMinimumWidth(max_width)
-
-        heights = [button.height() for button in self.buttons]
-        if heights:
-            max_h = max(heights)
-            for button in self.buttons:
-                button.setMinimumHeight(max_h)
-            if self.detailsTextWidget is not None:
-                self.detailsButton.setMinimumHeight(max_h)
-            if self.showInFileManagButton is not None:
-                self.showInFileManagButton.setMinimumHeight(max_h)
-
-        if self._w is not None and self.width() < self._w:
-            self.resize(self._w, self.height())
-
-        if self.width() < 350:
-            self.resize(350, self.height())
-
-        if self.enlargeWidthFactor > 0:
-            self.resize(int(self.width()*self.enlargeWidthFactor), self.height())
-
-        if self.visibleDetails:
-            self.detailsButton.click()
-
-        if self.showCentered:
-            screen = self.screen()
-            screenWidth = screen.size().width()
-            screenHeight = screen.size().height()
-            screenLeft = screen.geometry().x()
-            screenTop = screen.geometry().y()
-            w, h = self.width(), self.height()
-            left = int(screenLeft + screenWidth/2 - w/2)
-            top = int(screenTop + screenHeight/2 - h/2)
-            self.move(left, top)
-
-        self._h = self.height()
-
-        if self.okButton is not None:
-            self.okButton.setFocus(True)
-
-        if self.widgets:
-            return
-
-        if self.layouts:
-            return
-
-        # # Start resizing height every 1 ms
-        # self.resizeCallsCount = 0
-        # self.timer = QTimer()
-        # from config import warningHandler
-        # warningHandler.sigGeometryWarning.connect(self.timer.stop)
-        # self.timer.timeout.connect(self._resizeHeight)
-        # self.timer.start(1)
-
-    def _resizeHeight(self):
-        try:
-            # Resize until a "Unable to set geometry" warning is captured
-            # by config.warningHandler._resizeWarningHandler or #
-            # height doesn't change anymore
-            self.resize(self.width(), self.height()-1)
-            if self.height() == self._h or self.resizeCallsCount > 100:
-                self.timer.stop()
-                return
-
-            self.resizeCallsCount += 1
-            self._h = self.height()
-        except Exception as e:
-            # traceback.format_exc()
-            self.timer.stop()
-
-    def _template(
-            self, parent, title, message,
-            buttonsTexts=None, layouts=None, widgets=None
-        ):
-        if parent is not None:
-            self.setParent(parent)
-        self.setWindowTitle(title)
-        self.addText(message)
-        if layouts is not None:
-            if utils.is_iterable(layouts):
-                for layout in layouts:
-                    self.addLayout(layout)
-            else:
-                self.addLayout(layout)
-
-        if widgets is not None:
-            if utils.is_iterable(widgets):
-                for widget in widgets:
-                    self.addWidget(widget)
-            else:
-                self.addWidget(widgets)
-
-        buttons = []
-        if buttonsTexts is None:
-            okButton = self.addButton('  Ok  ')
-            buttons.append(okButton)
-        elif isinstance(buttonsTexts, str):
-            button = self.addButton(buttonsTexts)
-            buttons.append(button)
-        else:
-            for buttonText in buttonsTexts:
-                button = self.addButton(buttonText)
-                buttons.append(button)
-        return buttons
-
-    def critical(
-            self, parent, title, message,
-            buttonsTexts=None, layouts=None, widgets=None
-        ):
-        self.setIcon(iconName='SP_MessageBoxCritical')
-        buttons = self._template(
-            parent, title, message,
-            buttonsTexts=buttonsTexts, layouts=layouts, widgets=widgets
-        )
-        self.exec_()
-        return buttons
-
-    def information(
-            self, parent, title, message,
-            buttonsTexts=None, layouts=None, widgets=None
-        ):
-        self.setIcon(iconName='SP_MessageBoxInformation')
-        buttons = self._template(
-            parent, title, message,
-            buttonsTexts=buttonsTexts, layouts=layouts, widgets=widgets
-        )
-        self.exec_()
-        return buttons
-
-    def warning(
-            self, parent, title, message,
-            buttonsTexts=None, layouts=None, widgets=None
-        ):
-        self.setIcon(iconName='SP_MessageBoxWarning')
-        buttons = self._template(
-            parent, title, message,
-            buttonsTexts=buttonsTexts, layouts=layouts, widgets=widgets
-        )
-        self.exec_()
-        return buttons
-
-    def question(
-            self, parent, title, message,
-            buttonsTexts=None, layouts=None, widgets=None
-        ):
-        self.setIcon(iconName='SP_MessageBoxQuestion')
-        buttons = self._template(
-            parent, title, message,
-            buttonsTexts=buttonsTexts, layouts=layouts, widgets=widgets
-        )
-        self.exec_()
-        return buttons
-
-    def _block(self):
-        self.loop = QEventLoop()
-        self.loop.exec_()
-
-    def exec_(self):
-        self.show(block=True)
-
-    def buttonCallBack(self, checked=True):
-        self.clickedButton = self.sender()
-        if self.clickedButton != self.cancelButton:
-            self.cancel = False
-        self.close()
-
-    def closeEvent(self, event):
-        if hasattr(self, 'loop'):
-            self.loop.exit()
 
 class QSpinBoxOdd(QSpinBox):
     def __init__(self, acceptedValues=(), parent=None):
@@ -851,7 +284,7 @@ class formWidget(QWidget):
             font = QFont()
             font.setPixelSize(13)
 
-        self.labelLeft = QClickableLabel(widget)
+        self.labelLeft = acdc_widgets.QClickableLabel(widget)
         self.labelLeft.setText(labelTextLeft)
         self.labelLeft.setFont(font)
         self.items.append(self.labelLeft)
@@ -865,13 +298,13 @@ class formWidget(QWidget):
         else:
             self.items.append(widget)
 
-        self.labelRight = QClickableLabel(widget)
+        self.labelRight = acdc_widgets.QClickableLabel(widget)
         self.labelRight.setText(labelTextRight)
         self.labelRight.setFont(font)
         self.items.append(self.labelRight)
 
         if addInfoButton:
-            infoButton = infoPushButton(self)
+            infoButton = acdc_widgets.infoPushButton(self)
             infoButton.setCursor(Qt.WhatsThisCursor)
             if labelTextLeft:
                 infoButton.setToolTip(
@@ -885,7 +318,7 @@ class formWidget(QWidget):
             self.items.append(infoButton)
 
         if addBrowseButton:
-            browseButton = showInFileManagerButton(self)
+            browseButton = acdc_widgets.showInFileManagerButton(self)
             browseButton.setToolTip('Browse')
             browseButton.clicked.connect(self.browseButtonClicked)
             self.items.append(browseButton)
@@ -899,7 +332,7 @@ class formWidget(QWidget):
             self.items.append(applyButton)
 
         if addAutoButton:
-            autoButton = autoPushButton(self)
+            autoButton = acdc_widgets.autoPushButton(self)
             autoButton.setCheckable(True)
             autoButton.setToolTip('Automatically infer this parameter')
             autoButton.clicked.connect(self.autoButtonClicked)
@@ -1059,7 +492,6 @@ class myQScrollBar(QScrollBar):
         elif self.label is not None:
             self.label.setStyleSheet('color: black')
 
-
 class myQComboBox(QComboBox):
     def __init__(self, checkBox=None, parent=None):
         QComboBox.__init__(self, parent)
@@ -1091,59 +523,6 @@ class myQComboBox(QComboBox):
             QComboBox.setDisabled(self, True)
         if applyToCheckbox and self.checkBox is not None:
             self.checkBox.setDisabled(disabled)
-
-class sliderWithSpinBox(QWidget):
-    sigValueChange = pyqtSignal(int)
-
-    def __init__(self, *args, **kwargs):
-        QWidget.__init__(self, *args)
-
-        layout = QGridLayout()
-
-        title = kwargs.get('title')
-        if title is not None:
-            titleLabel = QLabel(self)
-            titleLabel.setText(title)
-            layout.addWidget(titleLabel, 0, 0, alignment=Qt.AlignLeft)
-
-        self.slider = QSlider(Qt.Horizontal, self)
-        layout.addWidget(self.slider, 1, 0)
-
-        self.spinBox = QSpinBox(self)
-        self.spinBox.setAlignment(Qt.AlignCenter)
-        layout.addWidget(self.spinBox, 1, 1)
-        layout.setColumnStretch(0, 6)
-        layout.setColumnStretch(1, 1)
-
-        self.slider.valueChanged.connect(self.sliderValueChanged)
-        self.spinBox.valueChanged.connect(self.spinboxValueChanged)
-        self.setLayout(layout)
-
-    def setValue(self, value):
-        self.slider.setValue(value)
-
-    def setMaximum(self, max):
-        self.slider.setMaximum(max)
-        self.spinBox.setMaximum(max)
-
-    def setMinimum(self, min):
-        self.slider.setMinimum(min)
-        self.spinBox.setMinimum(min)
-
-    def sliderValueChanged(self, val):
-        self.spinBox.valueChanged.disconnect()
-        self.spinBox.setValue(val)
-        self.spinBox.valueChanged.connect(self.spinboxValueChanged)
-        self.sigValueChange.emit(val)
-
-    def spinboxValueChanged(self, val):
-        self.slider.valueChanged.disconnect()
-        self.slider.setValue(val)
-        self.slider.valueChanged.connect(self.sliderValueChanged)
-        self.sigValueChange.emit(val)
-
-    def value(self):
-        return self.slider.value()
 
 class intLineEdit(QLineEdit):
     valueChanged = pyqtSignal(int)
@@ -1238,171 +617,6 @@ def getOpenImageFileName(parent=None, mostRecentPath=''):
     )[0]
     return file_path
 
-class Toggle(QCheckBox):
-    def __init__(
-        self,
-        initial=None,
-        width=80,
-        bg_color='#b3b3b3',
-        circle_color='#dddddd',
-        active_color='#005ce6',
-        animation_curve=QEasingCurve.InOutQuad
-    ):
-        QCheckBox.__init__(self)
-
-        # self.setFixedSize(width, 28)
-        self.setCursor(Qt.PointingHandCursor)
-
-        self._bg_color = bg_color
-        self._circle_color = circle_color
-        self._active_color = active_color
-        self._original_active_color = self._active_color
-        self._original_bg_color = self._bg_color
-        self._disabled_active_color = utils.lighten_color(active_color)
-        self._disabled_circle_color = utils.lighten_color(circle_color)
-        self._disabled_bg_color = utils.lighten_color(bg_color, amount=0.5)
-        self._circle_margin = 10
-
-        self._circle_position = int(self._circle_margin/2)
-        self.animation = QPropertyAnimation(self, b'circle_position', self)
-        self.animation.setEasingCurve(animation_curve)
-        self.animation.setDuration(200)
-
-        self.stateChanged.connect(self.start_transition)
-        self.requestedState = None
-
-        self.installEventFilter(self)
-
-        if initial is not None:
-            self.setChecked(initial)
-
-    def sizeHint(self):
-        return QSize(45, 22)
-
-    def eventFilter(self, object, event):
-        # To get the actual position of the circle we need to wait that
-        # the widget is visible before setting the state
-        if event.type() == QEvent.Show and self.requestedState is not None:
-            self.setChecked(self.requestedState)
-        return False
-
-    def setChecked(self, state):
-        # To get the actual position of the circle we need to wait that
-        # the widget is visible before setting the state
-        if self.isVisible():
-            self.requestedState = None
-            QCheckBox.setChecked(self, state>0)
-        else:
-            self.requestedState = state
-
-    def circlePos(self, state: bool):
-        start = int(self._circle_margin/2)
-        if state:
-            if self.isVisible():
-                height, width = self.height(), self.width()
-            else:
-                sizeHint = self.sizeHint()
-                height, width = sizeHint.height(), sizeHint.width()
-            circle_diameter = height-self._circle_margin
-            pos = width-start-circle_diameter
-        else:
-            pos = start
-        return pos
-
-    @pyqtProperty(float)
-    def circle_position(self):
-        return self._circle_position
-
-    @circle_position.setter
-    def circle_position(self, pos):
-        self._circle_position = pos
-        self.update()
-
-    def start_transition(self, state):
-        self.animation.stop()
-        pos = self.circlePos(state)
-        self.animation.setEndValue(pos)
-        self.animation.start()
-
-    def hitButton(self, pos: QPoint):
-        return self.contentsRect().contains(pos)
-
-    def setDisabled(self, state):
-        QCheckBox.setDisabled(self, state)
-        self.update()
-
-    def paintEvent(self, e):
-        circle_color = (
-            self._circle_color if self.isEnabled()
-            else self._disabled_circle_color
-        )
-        active_color = (
-            self._active_color if self.isEnabled()
-            else self._disabled_active_color
-        )
-        unchecked_color = (
-            self._bg_color if self.isEnabled()
-            else self._disabled_bg_color
-        )
-
-        # set painter
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-
-        # set no pen
-        p.setPen(Qt.NoPen)
-
-        # draw rectangle
-        rect = QRect(0, 0, self.width(), self.height())
-
-        if not self.isChecked():
-            # Draw background
-            p.setBrush(QColor(unchecked_color))
-            half_h = int(self.height()/2)
-            p.drawRoundedRect(
-                0, 0, rect.width(), self.height(), half_h, half_h
-            )
-
-            # Draw circle
-            p.setBrush(QColor(circle_color))
-            p.drawEllipse(
-                int(self._circle_position), int(self._circle_margin/2),
-                self.height()-self._circle_margin,
-                self.height()-self._circle_margin
-            )
-        else:
-            # Draw background
-            p.setBrush(QColor(active_color))
-            half_h = int(self.height()/2)
-            p.drawRoundedRect(
-                0, 0, rect.width(), self.height(), half_h, half_h
-            )
-
-            # Draw circle
-            p.setBrush(QColor(circle_color))
-            p.drawEllipse(
-                int(self._circle_position), int(self._circle_margin/2),
-                self.height()-self._circle_margin,
-                self.height()-self._circle_margin
-            )
-
-        p.end()
-
-    def setStyleSheet(self, styleSheet):
-        if not self.isEnabled():
-            return
-        try:
-            color = re.findall('color: (\w+)', styleSheet)[0]
-            if color == 'none':
-                self._active_color = self._original_active_color
-                self._bg_color = self._original_bg_color
-            else:
-                self._active_color = color
-                self._bg_color = color
-            self.update()
-        except Exception as e:
-            pass
-
 class DblClickQToolButton(QToolButton):
     sigDoubleClickEvent = pyqtSignal(object, object)
     sigClickEvent = pyqtSignal(object, object)
@@ -1436,7 +650,6 @@ class DblClickQToolButton(QToolButton):
                 self.setChecked(not self.isChecked())
             self.sigClickEvent.emit(self, self.event)
 
-
 class ImageItem(pg.ImageItem):
     sigHoverEvent = pyqtSignal(object, object)
 
@@ -1445,126 +658,6 @@ class ImageItem(pg.ImageItem):
 
     def hoverEvent(self, event):
         self.sigHoverEvent.emit(self, event)
-
-class HistogramLUTItem(pg.HistogramLUTItem):
-    sigContextMenu = pyqtSignal(object, object)
-
-    def __init__(self, *args, **kwargs):
-        pg.HistogramLUTItem.__init__(self, *args, **kwargs)
-
-        # Remove default ViewBox raiseContextMenu event
-        self.vb.raiseContextMenu = lambda ev: ev.ignore()
-        self.vb.contextMenuEvent = self.contextMenuEvent
-
-    def contextMenuEvent(self, event):
-        self.sigContextMenu.emit(self, event)
-
-class myHistogramLUTitem(pg.HistogramLUTItem):
-    sigGradientMenuEvent = pyqtSignal(object)
-
-    def __init__(self, *args,**kwargs):
-        self.cmaps = cmaps
-
-        super().__init__(**kwargs)
-
-        for action in self.gradient.menu.actions():
-            if action.text() == 'HSV':
-                HSV_action = action
-            elif action.text() == 'RGB':
-                RGB_ation = action
-        self.gradient.menu.removeAction(HSV_action)
-        self.gradient.menu.removeAction(RGB_ation)
-
-        # Invert bw action
-        self.invertBwAction = QAction('Invert black/white', self)
-        self.invertBwAction.setCheckable(True)
-        self.gradient.menu.addAction(self.invertBwAction)
-        self.gradient.menu.addSeparator()
-
-        # Contours color button
-        hbox = QHBoxLayout()
-        hbox.addWidget(QLabel('Contours color: '))
-        self.contoursColorButton = pg.ColorButton(color=(25,25,25))
-        hbox.addWidget(self.contoursColorButton)
-        widget = QWidget()
-        widget.setLayout(hbox)
-        act = QWidgetAction(self)
-        act.setDefaultWidget(widget)
-        self.gradient.menu.addAction(act)
-
-        # Contours line weight
-        contLineWeightMenu = QMenu('Contours line weight', self.gradient.menu)
-        self.contLineWightActionGroup = QActionGroup(self)
-        self.contLineWightActionGroup.setExclusionPolicy(
-            QActionGroup.ExclusionPolicy.Exclusive
-        )
-        for w in range(1, 11):
-            action = QAction(str(w))
-            action.setCheckable(True)
-            if w == 2:
-                action.setChecked(True)
-            action.lineWeight = w
-            self.contLineWightActionGroup.addAction(action)
-            action = contLineWeightMenu.addAction(action)
-        self.gradient.menu.addMenu(contLineWeightMenu)
-
-        self.labelsAlphaMenu = self.gradient.menu.addMenu(
-            'Segm. masks overlay alpha...'
-        )
-        self.labelsAlphaMenu.setDisabled(True)
-        hbox = QHBoxLayout()
-        self.labelsAlphaSlider = sliderWithSpinBox(
-            title='Alpha', title_loc='in_line', is_float=True,
-            normalize=True
-        )
-        self.labelsAlphaSlider.setMaximum(100)
-        self.labelsAlphaSlider.setValue(0.3)
-        hbox.addWidget(self.labelsAlphaSlider)
-        shortCutText = 'Command+Up/Down' if is_mac else 'Ctrl+Up/Down'
-        hbox.addWidget(QLabel(f'({shortCutText})'))
-        widget = QWidget()
-        widget.setLayout(hbox)
-        act = QWidgetAction(self)
-        act.setDefaultWidget(widget)
-        self.labelsAlphaMenu.addSeparator()
-        self.labelsAlphaMenu.addAction(act)
-
-        # Default settings
-        self.defaultSettingsAction = QAction('Restore default settings...', self)
-        self.gradient.menu.addAction(self.defaultSettingsAction)
-
-        # Select channels section
-        self.gradient.menu.addSeparator()
-        self.gradient.menu.addSection('Select channel: ')
-
-        # hide histogram tool
-        self.vb.hide()
-
-    def uncheckContLineWeightActions(self):
-        for act in self.contLineWightActionGroup.actions():
-            act.toggled.disconnect()
-            act.setChecked(False)
-
-    def restoreState(self, df):
-        if 'contLineColor' in df.index:
-            rgba_str = df.at['contLineColor', 'value']
-            rgb = utils.rgba_str_to_values(rgba_str)[:3]
-            self.contoursColorButton.setColor(rgb)
-
-        if 'contLineWeight' in df.index:
-            w = df.at['contLineWeight', 'value']
-            w = int(w)
-            for action in self.contLineWightActionGroup.actions():
-                if action.lineWeight == w:
-                    action.setChecked(True)
-                    break
-
-        if 'overlaySegmMasksAlpha' in df.index:
-            alpha = df.at['overlaySegmMasksAlpha', 'value']
-            self.labelsAlphaSlider.setValue(float(alpha))
-
-        checked = df.at['is_bw_inverted', 'value'] == 'Yes'
-        self.invertBwAction.setChecked(checked)
 
 class ScatterPlotItem(pg.ScatterPlotItem):
     sigClicked = pyqtSignal(object, object, object)

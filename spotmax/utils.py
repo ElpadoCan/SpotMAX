@@ -28,6 +28,8 @@ from matplotlib.backends.backend_tkagg import (
 
 from PyQt5.QtCore import QTimer
 
+from cellacdc import widgets as acdc_widgets
+
 from . import config, widgets, is_mac, is_linux
 
 def exception_handler_cli(func):
@@ -60,7 +62,7 @@ def exception_handler(func):
         except Exception as e:
             result = None
             self.logger.exception(e)
-            msg = widgets.myMessageBox()
+            msg = acdc_widgets.myMessageBox()
             err_msg = (f"""
             <p style="font-size:13px">
                 Error in function <b>{func.__name__}</b> when trying to
@@ -74,7 +76,7 @@ def exception_handler(func):
                 Please <b>send the log file</b> when reporting a bug, thanks!
             </p>
             """)
-            msg = widgets.myMessageBox()
+            msg = acdc_widgets.myMessageBox()
             msg.setDetailedText(traceback.format_exc())
             msg.addShowInFileManagerButton(self.logs_path, 'Show log file...')
             msg.critical(

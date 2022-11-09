@@ -76,8 +76,33 @@ def tag(text, tag_info='p style="font-size:10pt"'):
     text = f'<{tag_info}>{text}</{tag}>'
     return text
 
-def paragraph(text, font_size='13px'):
-    return tag(text, tag_info=f'p style="font-size:{font_size}"')
+def paragraph(txt, font_size='13px', font_color=None, wrap=True, center=False):
+    # if is_mac:
+    #     # Qt < 5.15.3 has a bug on macOS and the space after comma and perdiod
+    #     # are super small. Force a non-breaking space (except for 'e.g.,').
+    #     txt = txt.replace(',', ',&nbsp;')
+    #     txt = txt.replace('.', '.&nbsp;')
+    #     txt = txt.replace('e.&nbsp;g.&nbsp;', 'e.g.')
+    #     txt = txt.replace('.&nbsp;.&nbsp;.&nbsp;', '...')
+    #     txt = txt.replace('i.&nbsp;e.&nbsp;', 'i.e.')
+    #     txt = txt.replace('etc.&nbsp;)', 'etc.)')
+    if not wrap:
+        txt = txt.replace(' ', '&nbsp;')
+    if font_color is None:
+        s = (f"""
+        <p style="font-size:{font_size};">
+            {txt}
+        </p>
+        """)
+    else:
+        s = (f"""
+        <p style="font-size:{font_size}; color:{font_color}">
+            {txt}
+        </p>
+        """)
+    if center:
+        s = re.sub(r'<p style="(.*)">', r'<p style="\1; text-align:center">', s)
+    return s
 
 def ul(*items):
     txt = ''

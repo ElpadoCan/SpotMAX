@@ -79,6 +79,8 @@ from PyQt5.QtWidgets import (
 
 import pyqtgraph as pg
 
+from cellacdc import widgets as acdc_widgets
+
 from . import io, dialogs, utils, widgets, qtworkers, html_func
 
 # NOTE: Enable icons
@@ -143,15 +145,18 @@ def qt_debug_trace():
 
 class spotMAX_Win(QMainWindow):
     """Main Window."""
+    sigClosed = pyqtSignal(object)
 
     def __init__(
             self, app, debug=False,
-            parent=None, buttonToRestore=None, mainWin=None
+            parent=None, buttonToRestore=None, mainWin=None,
+            executed=False
         ):
         """Initializer."""
         super().__init__(parent)
 
         self.debug = debug
+        self.executed = executed
 
         logger, self.log_path, self.logs_path = utils.setupLogger()
         self.logger = logger
@@ -1130,7 +1135,7 @@ class spotMAX_Win(QMainWindow):
         self.histItems['right']['equalizeButton'] = equalizeHistButton
 
         # Left image histogram
-        histLeft = widgets.myHistogramLUTitem()
+        histLeft = acdc_widgets.myHistogramLUTitem()
 
         self.graphLayout.addItem(histLeft, row=1, col=0)
         histLeft.hide()
@@ -1138,9 +1143,9 @@ class spotMAX_Win(QMainWindow):
 
         # Right image histogram
         try:
-            histRight = widgets.myHistogramLUTitem(gradientPosition='left')
+            histRight = acdc_widgets.myHistogramLUTitem(gradientPosition='left')
         except TypeError:
-            histRight = widgets.myHistogramLUTitem()
+            histRight = acdc_widgets.myHistogramLUTitem()
 
         self.graphLayout.addItem(histRight, row=1, col=3)
         histRight.hide()
@@ -2646,7 +2651,7 @@ class spotMAX_Win(QMainWindow):
         available_ram = utils._bytes_to_MB(available_ram)
         required_ram = utils._bytes_to_MB(required_ram)
 
-        msg = widgets.myMessageBox(self)
+        msg = acdc_widgets.myMessageBox(self)
         txt = html_func.paragraph(
             'The total amount of data that you requested to load is about '
             f'<b>{required_ram} MB</b> but there are only '
@@ -3448,7 +3453,7 @@ class spotMAX_Win(QMainWindow):
             or ending with \"{self.user_ch_name}_aligned.npz\".<br><br>
             Sorry about that.
         """)
-        msg = widgets.myMessageBox()
+        msg = acdc_widgets.myMessageBox()
         msg.critical(self, err_title, err_msg)
         self.logger.exception(
             f'Folder "{images_path}" does NOT contain valid data.'
@@ -3463,7 +3468,7 @@ class spotMAX_Win(QMainWindow):
             'Try with "File --> Open image/video file..." and directly select '
             'the file you want to io.'
         )
-        msg = widgets.myMessageBox()
+        msg = acdc_widgets.myMessageBox()
         msg.critical(self, err_title, err_msg)
         self.logger.exception(f'No .tif files found in folder "{images_path}"')
 
@@ -3501,9 +3506,12 @@ class spotMAX_Win(QMainWindow):
         self.openFolder('left', selectedPath=path)
 
     def loadChunkWorkerClosed(self):
-        print('********************************')
-        print('spotMAX closed. Have a good day!')
-        print('********************************')
+        if self.executed:
+            print('********************************')
+            print('spotMAX closed. Have a good day!')
+            print('********************************')
+        else:
+            print('spotMAX closed.')
 
     def closeEvent(self, event):
         # Close the inifinte loop of the thread
@@ -3526,7 +3534,7 @@ class spotMAX_Win(QMainWindow):
             and (self.expData['left'] is None or self.expData['right'] is None)
         )
         if askSave:
-            msg = widgets.myMessageBox()
+            msg = acdc_widgets.myMessageBox()
             saveButton, noButton, cancelButton = msg.question(
                 self, 'Save?', 'Do you want to save?',
                 buttonsTexts=('Yes', 'No', 'Cancel')
@@ -3567,6 +3575,8 @@ class spotMAX_Win(QMainWindow):
             self.mainWin.setWindowState(Qt.WindowNoState)
             self.mainWin.setWindowState(Qt.WindowActive)
             self.mainWin.raise_()
+        
+        self.sigClosed.emit(self)
 
     def showInFileManager(self):
         posData = self.currentPosData('left')
