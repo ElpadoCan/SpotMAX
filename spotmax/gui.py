@@ -79,6 +79,7 @@ from PyQt5.QtWidgets import (
 
 import pyqtgraph as pg
 
+from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 
 from . import io, dialogs, utils, widgets, qtworkers, html_func
@@ -2730,6 +2731,23 @@ class spotMAX_Win(QMainWindow):
         else:
             self.isTimeLapse = False
             selectedPos = None
+        
+        existingSegmEndNames = self.getExistingSegmEndNames(selectedExpName)
+        self.selectedSegmEndame = ''
+        if len(existingSegmEndNames) > 1:
+            win = acdc_apps.QDialogMultiSegmNpz(
+                existingSegmEndNames, self.expPaths[selectedExpName]['path'], 
+                parent=self, addNewFileButton=False, basename=None
+            )
+            win.exec_()
+            if win.cancel:
+                self.logger.info(
+                    'Loading process cancelled by the user.'
+                )
+                self.loadingDataAborted()
+            self.selectedSegmEndame = win.selectedItemText
+        elif len(existingSegmEndNames) == 1:
+            self.selectedSegmEndame = list(existingSegmEndNames)[0]
 
         self.progressWin = dialogs.QDialogWorkerProcess(
             title='Loading data...', parent=self,
@@ -2740,6 +2758,18 @@ class spotMAX_Win(QMainWindow):
 
         func = partial(self.startLoadDataWorker, selectedPos, selectedExpName)
         QTimer.singleShot(50, func)
+    
+    def getExistingSegmEndNames(self, selectedExpName):
+        expInfo = self.expPaths[selectedExpName]
+        channelDataPaths = expInfo['channelDataPaths']
+        existingSegmEndNames = set()
+        for channelDataPath in channelDataPaths:
+            imagesPath = os.path.dirname(channelDataPath)
+            basename, _ = io.get_basename_and_ch_names(imagesPath)
+            segmFiles = io.get_segm_files(imagesPath)
+            endnames = io.get_existing_segm_endnames(basename, segmFiles)
+            existingSegmEndNames.update(endnames)
+        return existingSegmEndNames
 
     def startLoadDataWorker(self, selectedPos, selectedExpName):
         self.funcDescription = 'loading data'

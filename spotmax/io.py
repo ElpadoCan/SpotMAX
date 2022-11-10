@@ -31,9 +31,10 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtCore import QRect, QRectF
 
+from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 
-from . import dialogs, utils, core, html_func, config, widgets
+from . import dialogs, utils, core, html_func, config, printl
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -97,10 +98,8 @@ def get_segm_files(images_path):
     ls = utils.listdir(images_path)
 
     segm_files = [
-        file for file in ls if file.endswith('segm.npz')
-        or file.find('segm_raw_postproc') != -1
-        or file.endswith('segm_raw.npz')
-        or (file.endswith('.npz') and file.find('segm') != -1)
+        file for file in ls if file.endswith('.npz')
+        and file.find('_segm') != -1
     ]
     return segm_files
 
@@ -390,7 +389,11 @@ class channelName:
             return False
         return True
 
-    def getChannels(self, filenames, images_path, useExt=('.tif', '.h5')):
+    def getChannels(
+            self, filenames, images_path, useExt=('.tif', '.h5'),
+            channelExt=('.h5', '.tif', 'aligned.npz'), 
+            validEndnames=('aligned.npz', 'acdc_output.csv', 'segm.npz')
+        ):
         # First check if metadata.csv already has the channel names
         metadata_csv_path = None
         for file in utils.listdir(images_path):
@@ -401,19 +404,30 @@ class channelName:
         chNames_found = False
         if metadata_csv_path is not None:
             df = pd.read_csv(metadata_csv_path)
+            basename = None
             if 'Description' in df.columns:
-                channelNamesMask = df.Description.str.contains('channel_\d+_name')
+                channelNamesMask = df.Description.str.contains(r'channel_\d+_name')
                 channelNames = df[channelNamesMask]['values'].to_list()
-                if channelNames:
-                    channel_names = channelNames.copy()
+                try:
+                    basename = df.set_index('Description').at['basename', 'values']
+                except Exception as e:
                     basename = None
+                if channelNames and basename is None:
+                    channel_names = channelNames.copy()
                     for chName in channelNames:
                         chSaved = []
                         for file in filenames:
-                            if file.find(chName) != -1:
+                            patterns = (
+                                f'{chName}.tif', f'{chName}_aligned.npz'
+                            )
+                            ends = [p for p in patterns if file.endswith(p)]
+                            if ends:
+                                pattern = ends[0]
                                 chSaved.append(True)
-                                chName_idx = file.find(chName)
+                                m = tuple(re.finditer(pattern, file))[-1]
+                                chName_idx = m.start()
                                 basename = file[:chName_idx]
+                                break
                         if not any(chSaved):
                             channel_names.remove(chName)
 
@@ -421,41 +435,56 @@ class channelName:
                         self.basenameNotFound = False
                         self.basename = basename
                         return channel_names, False
+                elif channelNames and basename is not None:
+                    self.basename = basename
+                    self.basenameNotFound = False
+                    return channelNames, True
 
         # Find basename as intersection of filenames
-        channel_names = []
+        channel_names = set()
         self.basenameNotFound = False
-        isBasenamePresent = self.checkDataIntegrity(filenames)
+        isBasenamePresent = utils.checkDataIntegrity(filenames, images_path)
         basename = filenames[0]
         for file in filenames:
             # Determine the basename based on intersection of all .tif
             _, ext = os.path.splitext(file)
+            validFile = False
             if useExt is None:
-                sm = difflib.SequenceMatcher(None, file, basename)
-                i, j, k = sm.find_longest_match(0, len(file),
-                                                0, len(basename))
-                basename = file[i:i+k]
+                validFile = True
             elif ext in useExt:
-                sm = difflib.SequenceMatcher(None, file, basename)
-                i, j, k = sm.find_longest_match(0, len(file),
-                                                0, len(basename))
-                basename = file[i:i+k]
+                validFile = True
+            elif any([file.endswith(end) for end in validEndnames]):
+                validFile = True
+            else:
+                validFile = (
+                    (file.find('_acdc_output_') != -1 and ext == '.csv')
+                    or (file.find('_segm_') != -1 and ext == '.npz')
+                )
+            if not validFile:
+                continue
+            sm = difflib.SequenceMatcher(None, file, basename)
+            i, j, k = sm.find_longest_match(0, len(file),
+                                            0, len(basename))
+            basename = file[i:i+k]
         self.basename = basename
         basenameNotFound = [False]
         for file in filenames:
             filename, ext = os.path.splitext(file)
-            if useExt is None:
-                channel_name = filename.split(basename)[-1]
-                channel_names.append(channel_name)
-                if channel_name == filename:
-                    # Warn that an intersection could not be found
-                    basenameNotFound.append(True)
-            elif ext in useExt:
-                channel_name = filename.split(basename)[-1]
-                channel_names.append(channel_name)
-                if channel_name == filename:
-                    # Warn that an intersection could not be found
-                    basenameNotFound.append(True)
+            validImageFile = False
+            if ext in channelExt:
+                validImageFile = True
+            elif file.endswith('aligned.npz'):
+                validImageFile = True
+                filename = filename[:-len('_aligned')]
+            if not validImageFile:
+                continue
+
+            channel_name = filename.split(basename)[-1]
+            channel_names.add(channel_name)
+            if channel_name == filename:
+                # Warn that an intersection could not be found
+                basenameNotFound.append(True)
+        channel_names = list(channel_names)
         if any(basenameNotFound):
             self.basenameNotFound = True
             filenameNOext, _ = os.path.splitext(basename)
@@ -1005,7 +1034,7 @@ class loadData:
             load_dataPrep_ROIcoords=False,
             getTifPath=False,
             load_ref_ch_mask=False,
-            selectedSegmNpz=''
+            endNameSegm=''
         ):
         self.segmFound = False if load_segm_data else None
         self.acd_df_found = False if load_acdc_df else None
@@ -1021,10 +1050,22 @@ class loadData:
         self.refChMaskFound = False if load_ref_ch_mask else None
         ls = utils.listdir(self.images_path)
 
+        if not hasattr(self, 'basename'):
+            self.getBasenameAndChNames(load=False)
+
         for file in ls:
             filePath = os.path.join(self.images_path, file)
-            if selectedSegmNpz:
-                is_segm_file = file == selectedSegmNpz
+            filename, ext = os.path.splitext(file)
+            endName = filename[len(self.basename):]
+
+            loadMetadata = (
+                load_metadata and file.endswith('metadata.csv')
+                and not file.endswith('segm_metadata.csv')
+            )
+
+            if endNameSegm:
+                self.endNameSegm = endNameSegm
+                is_segm_file = endName == endNameSegm and ext == '.npz'
             else:
                 is_segm_file = file.endswith('segm.npz')
 
@@ -1085,9 +1126,7 @@ class loadData:
                     if 'value' in df.columns:
                         self.dataPrep_ROIcoordsFound = True
                         self.dataPrep_ROIcoords = df
-            elif (load_metadata and file.endswith('metadata.csv')
-                and not file.endswith('segm_metadata.csv')
-                ):
+            elif loadMetadata:
                 self.metadataFound = True
                 self.metadata_df = pd.read_csv(filePath).set_index('Description')
                 self.extractMetadata()
@@ -1573,6 +1612,13 @@ class loadData:
             msg = QMessageBox()
             msg.critical(self.parent, err_title, err_msg, msg.Ok)
             return None
+
+def get_basename_and_ch_names(images_path):
+    ls = utils.listdir(images_path)
+    channelNameUtil = channelName(load=False)
+    channel_names, _ = channelNameUtil.getChannels(ls, images_path)
+    basename = channelNameUtil.basename
+    return basename, channel_names
 
 if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication, QStyleFactory

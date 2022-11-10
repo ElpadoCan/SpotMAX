@@ -1338,7 +1338,7 @@ class selectPathsSpotmax(QBaseDialog):
         if parent is None:
             relPath1 = re.findall('...(.+) \(', plainText)[0]
             relPath1 = pathlib.Path(relPath1)
-            relPath = pathlib.Path(*relPath1.parts[1:])
+            relPath = pathlib.Path(*relPath1.parts[2:])
             if str(relPath) == '.':
                 relPath = ''
             exp_path = os.path.join(self.homePath, relPath)
@@ -1352,7 +1352,7 @@ class selectPathsSpotmax(QBaseDialog):
             parentText = doc.toPlainText()
             relPath1 = re.findall('...(.+) \(', parentText)[0]
             relPath1 = pathlib.Path(relPath1)
-            relPath = pathlib.Path(*relPath1.parts[1:])
+            relPath = pathlib.Path(*relPath1.parts[2:])
             relPath1 = relPath / posFoldername
             exp_path = self.homePath / relPath / posFoldername
             spotmaxOutPath = exp_path / 'spotMAX_output'
@@ -1410,7 +1410,7 @@ class selectPathsSpotmax(QBaseDialog):
                 if not addSpotCounted:
                     continue
             else:
-                nPSCtext = ''
+                nPSCtext = 'Never spotCOUNTED'
 
             if numPosSpotSized < totPos and numPosSpotSized>0:
                 nPSStext = f'Number of spotSIZED pos. = {numPosSpotSized}'
@@ -1421,7 +1421,7 @@ class selectPathsSpotmax(QBaseDialog):
             elif numPosSpotCounted>0:
                 nPSStext = 'NONE of the pos. spotSIZED'
             else:
-                nPSStext = ''
+                nPSStext = 'Never spotSIZED'
 
             relPathItem = QTreeWidgetItem()
             pathSelector.addTopLevelItem(relPathItem)
@@ -1445,6 +1445,8 @@ class selectPathsSpotmax(QBaseDialog):
                     posText = f'{posText} (spotCOUNTED, NOT spotSIZED)'
                     if not addSpotCounted:
                         continue
+                else:
+                    posText = f'{posText} (never spotANALYSED)'
                 posItem = QTreeWidgetItem()
                 posLabel = acdc_widgets.QClickableLabel()
                 posLabel.item = posItem
@@ -1501,7 +1503,7 @@ class selectPathsSpotmax(QBaseDialog):
             parentText = doc.toPlainText()
             relPath = re.findall('...(.+) \(', parentText)[0]
             relPath = pathlib.Path(relPath)
-            relPath = pathlib.Path(*relPath.parts[1:])
+            relPath = pathlib.Path(*relPath.parts[2:])
             absPath = self.homePath / relPath / posFoldername
             imagesPath = absPath / 'Images'
             self.selectedPaths.append(imagesPath)

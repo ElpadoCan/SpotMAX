@@ -30,7 +30,7 @@ from PyQt5.QtCore import QTimer
 
 from cellacdc import widgets as acdc_widgets
 
-from . import config, widgets, is_mac, is_linux
+from . import config, widgets, is_mac, is_linux, io
 
 def exception_handler_cli(func):
     @wraps(func)

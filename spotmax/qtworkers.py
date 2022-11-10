@@ -143,6 +143,7 @@ class loadDataWorker(QRunnable):
                 load_last_tracked_i=True,
                 load_metadata=True,
                 load_ref_ch_mask=True,
+                endNameSegm=self.mainWin.selectedSegmEndame
             )
             if posDataRef.SizeZ > 1:
                 SizeZ = posData.chData_shape[-3]
