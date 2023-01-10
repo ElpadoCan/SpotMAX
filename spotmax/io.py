@@ -391,7 +391,7 @@ class channelName:
 
     def getChannels(
             self, filenames, images_path, useExt=('.tif', '.h5'),
-            channelExt=('.h5', '.tif', 'aligned.npz'), 
+            channelExt=('.h5', '.tif', '_aligned.npz'), 
             validEndnames=('aligned.npz', 'acdc_output.csv', 'segm.npz')
         ):
         # First check if metadata.csv already has the channel names
@@ -400,8 +400,9 @@ class channelName:
             if file.endswith('metadata.csv'):
                 metadata_csv_path = os.path.join(images_path, file)
                 break
-
+        
         chNames_found = False
+        channel_names = set()
         if metadata_csv_path is not None:
             df = pd.read_csv(metadata_csv_path)
             basename = None
@@ -412,7 +413,9 @@ class channelName:
                     basename = df.set_index('Description').at['basename', 'values']
                 except Exception as e:
                     basename = None
-                if channelNames and basename is None:
+                if channelNames:
+                    # There are channel names in metadata --> check that they 
+                    # are still existing as files
                     channel_names = channelNames.copy()
                     for chName in channelNames:
                         chSaved = []
@@ -426,7 +429,8 @@ class channelName:
                                 chSaved.append(True)
                                 m = tuple(re.finditer(pattern, file))[-1]
                                 chName_idx = m.start()
-                                basename = file[:chName_idx]
+                                if basename is None:
+                                    basename = file[:chName_idx]
                                 break
                         if not any(chSaved):
                             channel_names.remove(chName)
@@ -434,16 +438,26 @@ class channelName:
                     if basename is not None:
                         self.basenameNotFound = False
                         self.basename = basename
-                        return channel_names, False
                 elif channelNames and basename is not None:
                     self.basename = basename
                     self.basenameNotFound = False
-                    return channelNames, True
+                    channel_names = channelNames
+
+            if channel_names and basename is not None:
+                # Add additional channels existing as file but not in metadata.csv
+                for file in filenames:
+                    ends = [ext for ext in channelExt if file.endswith(ext)]
+                    if ends:
+                        endName = file[len(basename):]
+                        chName = endName.replace(ends[0], '')
+                        if chName not in channel_names:
+                            channel_names.append(chName)
+                return channel_names, False
 
         # Find basename as intersection of filenames
         channel_names = set()
         self.basenameNotFound = False
-        isBasenamePresent = utils.checkDataIntegrity(filenames, images_path)
+        isBasenamePresent = self.checkDataIntegrity(filenames)
         basename = filenames[0]
         for file in filenames:
             # Determine the basename based on intersection of all .tif

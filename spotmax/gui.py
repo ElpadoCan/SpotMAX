@@ -81,6 +81,7 @@ import pyqtgraph as pg
 
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
+from cellacdc import qutils as acdc_qutils
 
 from . import io, dialogs, utils, widgets, qtworkers, html_func
 
@@ -972,17 +973,20 @@ class spotMAX_Win(QMainWindow):
         self.updateImage(side)
 
     def gui_createFonts(self):
-        self.font10pt = QFont()
-        self.font10pt.setPixelSize(13)
+        self._font = QFont()
+        self._font.setPixelSize(11)
 
     def gui_setListItems(self):
         self.drawSegmComboboxItems = [
-            'Draw only contours',
             'Draw IDs and contours',
+            'Draw IDs and overlay segm. masks',
             'Draw only cell cycle info',
             'Draw cell cycle info and contours',
+            'Draw cell cycle info and overlay segm. masks',
             'Draw only mother-bud lines',
             'Draw only IDs',
+            'Draw only contours',
+            'Draw only overlay segm. masks',
             'Draw nothing'
         ]
 
@@ -1014,7 +1018,7 @@ class spotMAX_Win(QMainWindow):
     def gui_createBottomWidgets(self, side):
         frame = dialogs.guiBottomWidgets(
             side, self.drawSegmComboboxItems, self.zProjItems,
-            isCheckable=True, checked=side=='left'
+            isCheckable=True, checked=side=='left', font=self._font
         )
         bottomWidgets = frame.bottomWidgets
         bottomWidgets['zProjComboboxLayer0'].setCurrentText('single z-slice')
@@ -1821,7 +1825,7 @@ class spotMAX_Win(QMainWindow):
             return
 
         selectedRelFilenames = selectChannelWin.selectedItemsText
-        self.progressWin = dialogs.QDialogWorkerProcess(
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
             title='Loading data...', parent=self,
             pbarDesc=f'Loading "{selectedRelFilenames[0]}"...'
         )
@@ -1875,7 +1879,7 @@ class spotMAX_Win(QMainWindow):
             return
 
         selectedRelFilenames = selectChannelWin.selectedItemsText
-        self.progressWin = dialogs.QDialogWorkerProcess(
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
             title='Loading data...', parent=self,
             pbarDesc=f'Loading "{selectedRelFilenames[0]}"...'
         )
@@ -1934,7 +1938,7 @@ class spotMAX_Win(QMainWindow):
             self.plotSpotsCoords(side)
             return
 
-        self.progressWin = dialogs.QDialogWorkerProcess(
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
             title='Loading spots data...', parent=self,
             pbarDesc=f'Loading "{win.selectedFile}"...'
         )
@@ -2360,7 +2364,7 @@ class spotMAX_Win(QMainWindow):
                 pos = pos_foldernames[0]
                 images_paths = [pathlib.Path(selectedPath) / pos / 'Images']
             else:
-                self.progressWin = dialogs.QDialogWorkerProcess(
+                self.progressWin = acdc_apps.QDialogWorkerProgress(
                     title='Path scanner progress', parent=self,
                     pbarDesc='Scanning experiment folder...'
                 )
@@ -2410,7 +2414,7 @@ class spotMAX_Win(QMainWindow):
             for posData in self.expData[side]:
                 posData.skeletonizedRelativeFilename = selectedRelFilename
 
-            self.progressWin = dialogs.QDialogWorkerProcess(
+            self.progressWin = acdc_apps.QDialogWorkerProgress(
                 title='Skeletonizing...', parent=self,
                 pbarDesc=f'Skeletonizing {selectedRelFilename}...'
             )
@@ -2421,7 +2425,7 @@ class spotMAX_Win(QMainWindow):
             for posData in self.expData[side]:
                 posData.contouredRelativeFilename = selectedRelFilename
 
-            self.progressWin = dialogs.QDialogWorkerProcess(
+            self.progressWin = acdc_apps.QDialogWorkerProgress(
                 title='Computing contours...', parent=self,
                 pbarDesc=f'Computing contours {selectedRelFilename}...'
             )
@@ -2749,7 +2753,7 @@ class spotMAX_Win(QMainWindow):
         elif len(existingSegmEndNames) == 1:
             self.selectedSegmEndame = list(existingSegmEndNames)[0]
 
-        self.progressWin = dialogs.QDialogWorkerProcess(
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
             title='Loading data...', parent=self,
             pbarDesc=f'Loading "{fisrtChannelDataPath}"...'
         )
@@ -2803,6 +2807,8 @@ class spotMAX_Win(QMainWindow):
         self.gui_enableLoadButtons()
         self.updateImage(self.lastLoadedSide)
         self.updateSegmVisuals(self.lastLoadedSide)
+
+        self.drawAnnotCombobox_to_options(self.lastLoadedSide)
 
         self.setParams()
 
@@ -2911,7 +2917,7 @@ class spotMAX_Win(QMainWindow):
         ])
 
         if shouldLoad:
-            self.progressWin = dialogs.QDialogWorkerProcess(
+            self.progressWin = acdc_apps.QDialogWorkerProgress(
                 title='Loading data...', parent=self,
                 pbarDesc=f'Loading "{selectedRelFilenames[0]}"...'
             )
@@ -3191,7 +3197,24 @@ class spotMAX_Win(QMainWindow):
             return
 
         combobox.setCurrentText(text)
+    
+    def drawAnnotCombobox_to_options(self, side):
+        how = self.bottomWidgets[side]['howDrawSegmCombobox'].currentText()
+        bottomWidgetsFrame = self.bottomWidgets[side]['frame']
+        bottomWidgetsFrame.setAnnotOptionsChecked(False)
 
+        if how.find('IDs') != -1:
+            bottomWidgetsFrame.checkboxes['IDs'].setChecked(True)
+        if how.find('cell cycle info') != -1:
+            bottomWidgetsFrame.checkboxes['Cell cycle info'].setChecked(True) 
+        if how.find('contours') != -1:
+            bottomWidgetsFrame.checkboxes['Contours'].setChecked(True) 
+        if how.find('segm. masks') != -1:
+            bottomWidgetsFrame.checkboxes['Segm. masks'].setChecked(True) 
+        if how.find('mother-bud lines') != -1:
+            bottomWidgetsFrame.checkboxes['Only mother-daughter line'].setChecked(True) 
+        if how.find('nothing') != -1:
+            bottomWidgetsFrame.checkboxes['Do not annotate'].setChecked(True)
 
     def howDrawSegmCombobox_cb(self, how):
         onlyIDs = how == 'Draw only IDs'
@@ -3327,7 +3350,7 @@ class spotMAX_Win(QMainWindow):
         desc = (
             f'Loading new window, range = ({coord0_chunk}, {coord1_chunk})...'
         )
-        self.progressWin = dialogs.QDialogWorkerProcess(
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
             title='Loading data...', parent=self, pbarDesc=desc
         )
         self.progressWin.mainPbar.setMaximum(0)
@@ -3542,12 +3565,29 @@ class spotMAX_Win(QMainWindow):
             print('********************************')
         else:
             print('spotMAX closed.')
+    
+    def _waitLazyLoaderWorkerClosed(self):
+        if self.worker.isFinished:
+            self.waitLazyLoaderWorkerClosedLoop.stop()
 
     def closeEvent(self, event):
         # Close the inifinte loop of the thread
         self.worker.exit = True
         self.waitCond.wakeAll()
         self.waitReadH5cond.wakeAll()
+
+        progressWin = acdc_apps.QDialogWorkerProgress(
+            title='Closing lazy loader', parent=self,
+            pbarDesc='Closing lazy loader...'
+        )
+        progressWin.show(self.app)
+        progressWin.mainPbar.setMaximum(0)
+        self.waitLazyLoaderWorkerClosedLoop = acdc_qutils.QWhileLoop(
+            self._waitLazyLoaderWorkerClosed, period=250
+        )
+        self.waitLazyLoaderWorkerClosedLoop.exec_()
+        progressWin.workerFinished = True
+        progressWin.close()
 
         self.saveWindowGeometry()
 
@@ -3671,7 +3711,7 @@ class spotMAX_Win(QMainWindow):
         # self.storeDefaultAndCustomColors()
         QMainWindow.show(self)
 
-        h = self.bottomWidgets['left']['howDrawSegmCombobox'].size().height()
+        h = self.bottomWidgets['left']['zProjComboboxLayer0'].size().height()
         self.bottomWidgets['left']['navigateScrollbar'].setFixedHeight(h)
         self.bottomWidgets['left']['zSliceScrollbarLayer0'].setFixedHeight(h)
         self.bottomWidgets['left']['zSliceScrollbarLayer1'].setFixedHeight(h)

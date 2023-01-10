@@ -37,7 +37,7 @@ from . import qrc_resources, printl
 from . import is_mac, is_win, is_linux
 
 font = QFont()
-font.setPixelSize(13)
+font.setPixelSize(11)
 
 class QBaseDialog(QDialog):
     def __init__(self, parent=None):
@@ -110,10 +110,14 @@ class measurementsQGroupBox(QGroupBox):
 class guiBottomWidgets(QGroupBox):
     def __init__(
             self, side, drawSegmComboboxItems, zProjItems,
-            isCheckable=False, checked=False, parent=None
+            isCheckable=False, checked=False, parent=None,
+            font=None
         ):
-        self.font13px = QFont()
-        self.font13px.setPixelSize(13)
+        if font is None:
+            self._font = QFont()
+            self._font.setPixelSize(11)
+        else:
+            self._font = font
 
         QGroupBox.__init__(self, parent)
 
@@ -148,7 +152,6 @@ class guiBottomWidgets(QGroupBox):
             layout.addWidget(zSliceL1checkbox, 3, 0, alignment=Qt.AlignCenter)
             initialCol = 1
 
-
         row = 0
         col = initialCol +1
         howDrawSegmCombobox = widgets.myQComboBox(checkBox=howToDrawCheckbox)
@@ -157,15 +160,35 @@ class guiBottomWidgets(QGroupBox):
         howDrawSegmCombobox.setSizeAdjustPolicy(
             howDrawSegmCombobox.AdjustToContents
         )
-        layout.addWidget(
-            howDrawSegmCombobox, row, col, alignment=Qt.AlignCenter
-        )
+        # layout.addWidget(
+        #     howDrawSegmCombobox, row, col, alignment=Qt.AlignCenter
+        # )
         bottomWidgets['howDrawSegmCombobox'] = howDrawSegmCombobox
+        howDrawSegmCombobox.hide()
+        checkboxes_text = (
+            'IDs', 'Cell cycle info', 'Only mother-daughter line', '|', 
+            'Contours', 'Segm. masks', '|' , 'Do not annotate'
+        )
+        self.checkboxes = {}
+        checkboxesLayout = QHBoxLayout()
+        checkboxesLayout.addStretch(1)
+        checkboxesLayout.addWidget(QLabel(' | '))
+        for text in checkboxes_text:
+            if text == '|':
+                checkboxesLayout.addWidget(QLabel(' | '))
+                continue
+            checkbox = QCheckBox(text, self)
+            self.checkboxes[text] = checkbox
+            checkboxesLayout.addWidget(checkbox)
+            checkbox.clicked.connect(self.annotOptionClicked)
+        checkboxesLayout.addWidget(QLabel(' | '))
+        checkboxesLayout.addStretch(1)
+        layout.addLayout(checkboxesLayout, row, col)
 
         row = 1
         col = initialCol +0
         navigateScrollbar_label = QLabel('frame n.  ')
-        navigateScrollbar_label.setFont(self.font13px)
+        navigateScrollbar_label.setFont(self._font)
         layout.addWidget(
             navigateScrollbar_label, row, col, alignment=Qt.AlignRight
         )
@@ -185,7 +208,7 @@ class guiBottomWidgets(QGroupBox):
         row = 2
         col = initialCol +0
         zSliceSbL0_label = QLabel('First layer z-slice  ')
-        zSliceSbL0_label.setFont(self.font13px)
+        zSliceSbL0_label.setFont(self._font)
         layout.addWidget(
             zSliceSbL0_label, row, col, alignment=Qt.AlignRight
         )
@@ -216,7 +239,7 @@ class guiBottomWidgets(QGroupBox):
         row = 3
         col = initialCol +0
         zSliceSbL1_label = QLabel('Second layer z-slice  ')
-        zSliceSbL1_label.setFont(self.font13px)
+        zSliceSbL1_label.setFont(self._font)
         layout.addWidget(
             zSliceSbL1_label, row, col, alignment=Qt.AlignRight
         )
@@ -249,7 +272,7 @@ class guiBottomWidgets(QGroupBox):
         row = 4
         col = initialCol +0
         alphaScrollbar_label = QLabel('Overlay alpha  ')
-        alphaScrollbar_label.setFont(self.font13px)
+        alphaScrollbar_label.setFont(self._font)
         layout.addWidget(
             alphaScrollbar_label, row, col, alignment=Qt.AlignRight
         )
@@ -289,14 +312,108 @@ class guiBottomWidgets(QGroupBox):
 
             zSliceL1checkbox.setChecked(~checked)
             zSliceL1checkbox.setChecked(checked)
+    
+    def annotOptionClicked(self):
+        # First manually set exclusive with uncheckable
+        clickedIDs = self.sender() == self.checkboxes['IDs']
+        clickedCca = self.sender() == self.checkboxes['Cell cycle info']
+        clickedMBline = self.sender() == self.checkboxes['Only mother-daughter line']
+        if self.checkboxes['IDs'].isChecked() and clickedIDs:
+            if self.checkboxes['Cell cycle info'].isChecked():
+                self.checkboxes['Cell cycle info'].setChecked(False)
+            if self.checkboxes['Only mother-daughter line'].isChecked():
+                self.checkboxes['Only mother-daughter line'].setChecked(False)
+        
+        if self.checkboxes['Cell cycle info'].isChecked() and clickedCca:
+            if self.checkboxes['IDs'].isChecked():
+                self.checkboxes['IDs'].setChecked(False)
+            if self.checkboxes['Only mother-daughter line'].isChecked():
+                self.checkboxes['Only mother-daughter line'].setChecked(False)
+        
+        if self.checkboxes['Only mother-daughter line'].isChecked() and clickedMBline:
+            if self.checkboxes['IDs'].isChecked():
+                self.checkboxes['IDs'].setChecked(False)
+            if self.checkboxes['Cell cycle info'].isChecked():
+                self.checkboxes['Cell cycle info'].setChecked(False)
+        
+        clickedCont = self.sender() == self.checkboxes['Contours']
+        clickedSegm = self.sender() == self.checkboxes['Segm. masks']
+        if self.checkboxes['Contours'].isChecked() and clickedCont:
+            if self.checkboxes['Segm. masks'].isChecked():
+                self.checkboxes['Segm. masks'].setChecked(False)
+        
+        if self.checkboxes['Segm. masks'].isChecked() and clickedSegm:
+            if self.checkboxes['Contours'].isChecked():
+                self.checkboxes['Contours'].setChecked(False)
+        
+        clickedDoNot = self.sender() == self.checkboxes['Do not annotate']
+        if clickedDoNot:
+            self.checkboxes['IDs'].setChecked(False)
+            self.checkboxes['Cell cycle info'].setChecked(False)
+            self.checkboxes['Contours'].setChecked(False)
+            self.checkboxes['Segm. masks'].setChecked(False)
+            self.checkboxes['Only mother-daughter line'].setChecked(False)
+        else:
+            self.checkboxes['Do not annotate'].setChecked(False)
+        
+        self.annotOptionsToComboboxText()
+    
+    def annotOptionsToComboboxText(self):
+        if self.checkboxes['IDs'].isChecked():
+            if self.checkboxes['Contours'].isChecked():
+                t = 'Draw IDs and contours'
+                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            elif self.checkboxes['Segm. masks'].isChecked():
+                t = 'Draw IDs and overlay segm. masks'
+                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            else:
+                t = 'Draw only IDs'
+                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            return
+        
+        if self.checkboxes['Cell cycle info'].isChecked():
+            if self.checkboxes['Contours'].isChecked():
+                t = 'Draw cell cycle info and contours'
+                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            elif self.checkboxes['Segm. masks'].isChecked():
+                t = 'Draw cell cycle info and overlay segm. masks'
+                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            else:
+                t = 'Draw only cell cycle info'
+                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            return
+        
+        if self.checkboxes['Segm. masks'].isChecked():
+            t = 'Draw only overlay segm. masks'
+            self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            return
+
+        if self.checkboxes['Contours'].isChecked():
+            t = 'Draw only contours'
+            self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            return
+        
+        if self.checkboxes['Only mother-daughter line'].isChecked():
+            t = 'Draw only mother-bud lines'
+            self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            return
+        
+        if self.checkboxes['Do not annotate'].isChecked():
+            t = 'Draw nothing'
+            self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+            return
+        
+        t = 'Draw nothing'
+        self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
+    
+    def setAnnotOptionsChecked(self, checked):
+        for checkbox in self.checkboxes.values():
+            checkbox.setChecked(checked)
 
     def setHowToDrawEnabled(self, state):
         bottomWidgets = self.bottomWidgets
-        combobox = bottomWidgets['howDrawSegmCombobox']
-        if state:
-            combobox.setDisabled(False, applyToCheckbox=False)
-        else:
-            combobox.setDisabled(True, applyToCheckbox=False)
+        for checkbox in self.checkboxes.values():
+            checkbox.setDisabled(not state)
 
     def setNavigateEnabled(self, state):
         bottomWidgets = self.bottomWidgets
@@ -1573,110 +1690,6 @@ class selectPathsSpotmax(QBaseDialog):
     def show(self, block=False):
         super().show(block=False)
         self.resizeSelector()
-        if block:
-            super().show(block=True)
-
-class QDialogWorkerProcess(QBaseDialog):
-    def __init__(
-            self, title='Progress', infoTxt='',
-            showInnerPbar=False, pbarDesc='',
-            parent=None
-        ):
-        self.workerFinished = False
-        self.aborted = False
-        self.clickCount = 0
-        super().__init__(parent)
-
-        abort_text = (
-            'Option+Command+C to abort' if is_mac else 'Ctrl+Alt+C to abort'
-        )
-        self.abort_text = abort_text
-
-        self.setWindowTitle(f'{title} ({abort_text})')
-
-        mainLayout = QVBoxLayout()
-        pBarLayout = QGridLayout()
-        buttonsLayout = QHBoxLayout()
-
-        if infoTxt:
-            infoLabel = QLabel(infoTxt)
-            mainLayout.addWidget(infoLabel, alignment=Qt.AlignCenter)
-
-        self.progressLabel = QLabel(pbarDesc)
-
-        self.mainPbar = acdc_widgets.QProgressBarWithETA(self)
-        self.mainPbar.setValue(0)
-        pBarLayout.addWidget(self.mainPbar, 0, 0)
-        pBarLayout.addWidget(self.mainPbar.ETA_label, 0, 1)
-
-        self.innerPbar = acdc_widgets.QProgressBarWithETA(self)
-        self.innerPbar.setValue(0)
-        pBarLayout.addWidget(self.innerPbar, 1, 0)
-        pBarLayout.addWidget(self.innerPbar.ETA_label, 1, 1)
-        if showInnerPbar:
-            self.innerPbar.show()
-        else:
-            self.innerPbar.hide()
-
-        self.logConsole = widgets.QLogConsole()
-
-        buttonsLayout.addStretch(1)
-        # buttonsLayout.addStretch(1)
-        buttonsLayout.setContentsMargins(0,10,0,5)
-
-        mainLayout.addWidget(self.progressLabel)
-        mainLayout.addLayout(pBarLayout)
-        mainLayout.addWidget(self.logConsole)
-        mainLayout.addLayout(buttonsLayout)
-
-        self.setLayout(mainLayout)
-
-    def keyPressEvent(self, event):
-        isCtrlAlt = event.modifiers() == (Qt.ControlModifier | Qt.AltModifier)
-        if isCtrlAlt and event.key() == Qt.Key_C:
-            doAbort = self.askAbort()
-            if doAbort:
-                self.aborted = True
-                self.workerFinished = True
-                self.close()
-
-    def askAbort(self):
-        msg = acdc_widgets.myMessageBox()
-        txt = html_func.paragraph(f"""
-            Aborting with <code>{self.abort_text}</code> is <b>not safe</b>.<br><br>
-            The system status cannot be predicted and
-            it will <b>require a restart</b>.<br><br>
-            Are you sure you want to abort?
-        """)
-        yesButton, noButton = msg.critical(
-            self, 'Are you sure you want to abort?', txt,
-            buttonsTexts=('Yes', 'No')
-        )
-        return msg.clickedButton == yesButton
-
-    def closeEvent(self, event):
-        if not self.workerFinished:
-            event.ignore()
-
-    def show(self, app, block=False):
-        super().show(block=False)
-        screen = app.primaryScreen()
-        screenWidth = screen.size().width()
-        screenHeight = screen.size().height()
-        parentGeometry = self.parent().geometry()
-        mainWinLeft, mainWinWidth = parentGeometry.left(), parentGeometry.width()
-        mainWinTop, mainWinHeight = parentGeometry.top(), parentGeometry.height()
-        mainWinCenterX = int(mainWinLeft+mainWinWidth/2)
-        mainWinCenterY = int(mainWinTop+mainWinHeight/2)
-
-        width = int(screenWidth/3)
-        width = width if self.width() < width else self.width()
-        height = int(screenHeight/3)
-        left = int(mainWinCenterX - width/2)
-        left = left if left >= 0 else 0
-        top = int(mainWinCenterY - height/2)
-
-        self.setGeometry(left, top, width, height)
         if block:
             super().show(block=True)
 

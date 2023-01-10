@@ -17,7 +17,7 @@ from . import io, utils
 QRunnables or QObjects that run in QThreadPool or QThread in a PyQT app
 example of usage:
 
-    self.progressWin = dialogs.QDialogWorkerProcess(
+    self.progressWin = acdc_apps.QDialogWorkerProgress(
         title='Loading data...', parent=self,
         pbarDesc=f'Loading "{channelDataPath}"...'
     )
@@ -183,6 +183,7 @@ class loadChunkDataWorker(QObject):
         self.H5readWait = False
         self.waitReadH5cond = waitReadH5cond
         self.readH5mutex = readH5mutex
+        self.isFinished = False
 
     def setArgs(self, posData, side, current_idx, axis, updateImgOnFinished):
         self.wait = False
@@ -207,17 +208,17 @@ class loadChunkDataWorker(QObject):
         while True:
             if self.exit:
                 self.signals.progress.emit(
-                    'Closing load chunk data worker...', 'INFO'
+                    'Closing lazy loader...', 'INFO'
                 )
                 break
             elif self.wait:
                 self.signals.progress.emit(
-                    'Load chunk data worker paused.', 'INFO'
+                    'Lazy loader paused.', 'INFO'
                 )
                 self.pause()
             else:
                 self.signals.progress.emit(
-                    'Load chunk data worker resumed.', 'INFO'
+                    'Lazy loader resumed.', 'INFO'
                 )
                 self.posData.loadChannelDataChunk(
                     self.current_idx, axis=self.axis, worker=self
@@ -226,6 +227,7 @@ class loadChunkDataWorker(QObject):
                 self.wait = True
 
         self.signals.finished.emit(None)
+        self.isFinished = True
 
 class load_H5Store_Worker(QRunnable):
     def __init__(self, expData, h5_filename, side):
