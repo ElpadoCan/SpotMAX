@@ -1004,7 +1004,7 @@ class spotMAX_Win(QMainWindow):
         self.sideLayout = QVBoxLayout()
 
     def gui_addSideLayoutWidgets(self):
-        self.showComputeDockButton = widgets.expandCollapseButton()
+        self.showComputeDockButton = acdc_widgets.expandCollapseButton()
         self.showComputeDockButton.setToolTip('Analysis parameters')
         self.sideLayout.addWidget(self.showComputeDockButton)
         self.sideLayout.setSpacing(0)
@@ -2821,11 +2821,11 @@ class spotMAX_Win(QMainWindow):
     def setParams(self):
         params = self.computeDockWidget.widget().parametersQGBox.params
 
-        section = 'File paths'
+        section = 'File paths and channels'
         if self.lastLoadedSide == 'left':
-            anchor = 'spotsFilePath'
+            anchor = 'spotsEndName'
         else:
-            anchor = 'refChFilePath'
+            anchor = 'refChEndName'
 
         posData = self.currentPosData(self.lastLoadedSide)
         params[section][anchor]['widget'].setText(posData.channelDataPath)

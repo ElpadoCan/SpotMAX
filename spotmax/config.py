@@ -73,53 +73,69 @@ def font(pixelSizeDelta=0):
 
 def analysisInputsParams(params_path=default_ini_path):
     # NOTE: if you change the anchors (i.e., the key of each second level
-    # dictionary, e.g., 'spotsFilePath') remember to change them also in
+    # dictionary, e.g., 'spotsEndName') remember to change them also in
     # docs.paramsInfoText dictionary keys
     params = {
         # Section 0 (GroupBox)
-        'File paths': {
-            'spotsFilePath': {
-                'desc': 'Spots channel file path',
+        'File paths and channels': {
+            'filePathsToAnalyse': {
+                'desc': 'Experiment folder paths to analyse',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'addBrowseButton': True,
-                'formWidgetFunc': widgets.tooltipLineEdit,
+                'addBrowseButton': False,
+                'addEditButton': True,
+                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
                 'actions': None
             },
-            'segmFilePath': {
-                'desc': 'Cells segmentation file path',
+            'spotsEndName': {
+                'desc': 'Spots channel end name',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'addBrowseButton': True,
-                'formWidgetFunc': widgets.tooltipLineEdit,
+                'addBrowseButton': False,
+                'addEditButton': True,
+                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
                 'actions': None
             },
-            'refChFilePath': {
-                'desc': 'Reference channel file path',
+            'segmEndName': {
+                'desc': 'Cells segmentation end name',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'addBrowseButton': True,
-                'formWidgetFunc': widgets.tooltipLineEdit,
+                'addBrowseButton': False,
+                'addEditButton': True,
+                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
                 'actions': None
             },
-            'refChSegmFilePath': {
-                'desc': 'Ref. channel segmentation file path',
+            'refChEndName': {
+                'desc': 'Reference channel end name',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'addBrowseButton': True,
-                'formWidgetFunc': widgets.tooltipLineEdit,
+                'addBrowseButton': False,
+                'addEditButton': True,
+                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
+                'actions': None
+            },
+            'refChSegmEndName': {
+                'desc': 'Ref. channel segmentation end name',
+                'initialVal': """""",
+                'stretchWidget': True,
+                'addInfoButton': True,
+                'addComputeButton': False,
+                'addApplyButton': False,
+                'addBrowseButton': False,
+                'addEditButton': True,
+                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
                 'actions': None
             },
         },
@@ -447,8 +463,10 @@ class QtWarningHandler(QObject):
 
     def _resizeWarningHandler(self, msg_type, msg_log_context, msg_string):
         if msg_string.find('Unable to set geometry') != -1:
-            print('warning caught')
-            self.sigGeometryWarning.emit(msg_type)
+            try:
+                self.sigGeometryWarning.emit(msg_type)
+            except Exception as e:
+                pass
         elif msg_string:
             print(msg_string)
 

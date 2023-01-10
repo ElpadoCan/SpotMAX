@@ -244,6 +244,7 @@ class formWidget(QWidget):
     sigBrowseButtonClicked = pyqtSignal(object)
     sigAutoButtonClicked = pyqtSignal(object)
     sigLinkClicked = pyqtSignal(str)
+    sigEditClicked = pyqtSignal(object)
 
     def __init__(
             self, widget,
@@ -258,6 +259,7 @@ class formWidget(QWidget):
             addComputeButton=False,
             addBrowseButton=False,
             addAutoButton=False,
+            addEditButton=False,
             key='',
             parent=None
         ):
@@ -316,6 +318,12 @@ class formWidget(QWidget):
                 )
             infoButton.clicked.connect(self.showInfo)
             self.items.append(infoButton)
+        
+        if addEditButton:
+            editButton = acdc_widgets.editPushButton(self)
+            editButton.setToolTip('Edit field')
+            self.sigEditClicked.connect(self.editButtonClicked)
+            self.items.append(editButton)
 
         if addBrowseButton:
             browseButton = acdc_widgets.showInFileManagerButton(self)
@@ -362,6 +370,9 @@ class formWidget(QWidget):
 
         self.widget.setText(file_path)
         self.sigBrowseButtonClicked.emit(self)
+    
+    def editButtonClicked(self):
+        self.sigEditClicked.emit(self)
 
     def autoButtonClicked(self):
         self.sigAutoButtonClicked.emit(self)
@@ -383,7 +394,7 @@ class formWidget(QWidget):
         txt = html_func.paragraph(docs.paramsInfoText().get(anchor, ''))
         if not txt:
             return
-        msg = myMessageBox(parent=self)
+        msg = acdc_widgets.myMessageBox(parent=self, showCentered=False)
         msg.setIcon(iconName='SP_MessageBoxInformation')
         msg.setWindowTitle(f'{self.labelLeft.text()} info')
         msg.addText(txt)
@@ -395,30 +406,6 @@ class formWidget(QWidget):
         msg.exec_()
         # Here show user manual already scrolled at anchor
         # see https://stackoverflow.com/questions/20678610/qtextedit-set-anchor-and-scroll-to-it
-
-class expandCollapseButton(QPushButton):
-    def __init__(self, parent=None):
-        QPushButton.__init__(self, parent)
-        self.setIcon(QIcon(":expand.svg"))
-        self.setFlat(True)
-        self.installEventFilter(self)
-        self.isExpand = True
-        self.clicked.connect(self.buttonClicked)
-
-    def buttonClicked(self, checked=False):
-        if self.isExpand:
-            self.setIcon(QIcon(":collapse.svg"))
-            self.isExpand = False
-        else:
-            self.setIcon(QIcon(":expand.svg"))
-            self.isExpand = True
-
-    def eventFilter(self, object, event):
-        if event.type() == QEvent.HoverEnter:
-            self.setFlat(False)
-        elif event.type() == QEvent.HoverLeave:
-            self.setFlat(True)
-        return False
 
 class myFormLayout(QGridLayout):
     def __init__(self):
@@ -853,38 +840,6 @@ class QLogConsole(QTextEdit):
         message = message.replace('\r ', '')
         if message:
             self.apppendText(message)
-
-class QProgressBarWithETA(QProgressBar):
-    def __init__(self, parent=None):
-        self.parent = parent
-        super().__init__(parent)
-
-        palette = QPalette()
-        palette.setColor(QPalette.Highlight, QColor(207, 235, 155))
-        palette.setColor(QPalette.Text, QColor(0, 0, 0))
-        palette.setColor(QPalette.HighlightedText, QColor(0, 0, 0))
-        self.setPalette(palette)
-        self.ETA_label = QLabel('NDh:NDm:NDs')
-        self.last_time_update = time.perf_counter()
-
-    def update(self, step):
-        t = time.perf_counter()
-        self.setValue(self.value()+step)
-        elpased_seconds = (t - self.last_time_update)/step
-        steps_left = self.maximum() - self.value()
-        seconds_left = elpased_seconds*steps_left
-        ETA = utils.seconds_to_ETA(seconds_left)
-        self.ETA_label.setText(ETA)
-        self.last_time_update = t
-        return ETA
-
-    def show(self):
-        QProgressBar.show(self)
-        self.ETA_label.show()
-
-    def hide(self):
-        QProgressBar.hide(self)
-        self.ETA_label.hide()
 
 class mathTeXLabel(QWidget):
     def __init__(self, mathTeXtext, parent=None, font_size=15):

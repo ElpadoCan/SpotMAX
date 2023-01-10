@@ -27,6 +27,7 @@ from PyQt5.QtWidgets import (
     QSlider, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
+from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 
 from . import html_func, io, widgets, core, utils, config
@@ -417,7 +418,7 @@ class analysisInputsQGBox(QGroupBox):
             formLayout = widgets.myFormLayout()
             self.params[section] = {}
             groupBox = QGroupBox(section)
-            if section == 'File paths' or section == 'METADATA':
+            if section == 'File paths and channels' or section == 'METADATA':
                 groupBox.setCheckable(False)
             else:
                 groupBox.setCheckable(True)
@@ -436,6 +437,7 @@ class analysisInputsQGBox(QGroupBox):
                     addApplyButton=paramValues.get('addApplyButton', False),
                     addBrowseButton=paramValues.get('addBrowseButton', False),
                     addAutoButton=paramValues.get('addAutoButton', False),
+                    addEditButton=paramValues.get('addEditButton', False),
                     parent=self
                 )
                 formWidget.section = section
@@ -1172,6 +1174,10 @@ class QDialogListbox(QBaseDialog):
         self.selectedItemsText = None
         self.close()
 
+class selectedPathsSummaryDialog(acdc_apps.TreeSelectorDialog):
+    def __init__(self) -> None:
+        super().__init__()
+
 class selectPathsSpotmax(QBaseDialog):
     def __init__(self, paths, homePath, parent=None, app=None):
         super().__init__(parent)
@@ -1185,7 +1191,7 @@ class selectPathsSpotmax(QBaseDialog):
         self.isCtrlDown = False
         self.isShiftDown = False
 
-        self.setWindowTitle('Select experiments to load')
+        self.setWindowTitle('Select experiments to load/analyse')
 
         infoLabel = QLabel()
         text = (
@@ -1446,7 +1452,7 @@ class selectPathsSpotmax(QBaseDialog):
                     if not addSpotCounted:
                         continue
                 else:
-                    posText = f'{posText} (never spotANALYSED)'
+                    posText = f'{posText} (NOT spotCOUNTED, NOT spotSIZED)'
                 posItem = QTreeWidgetItem()
                 posLabel = acdc_widgets.QClickableLabel()
                 posLabel.item = posItem
@@ -1598,12 +1604,12 @@ class QDialogWorkerProcess(QBaseDialog):
 
         self.progressLabel = QLabel(pbarDesc)
 
-        self.mainPbar = widgets.QProgressBarWithETA(self)
+        self.mainPbar = acdc_widgets.QProgressBarWithETA(self)
         self.mainPbar.setValue(0)
         pBarLayout.addWidget(self.mainPbar, 0, 0)
         pBarLayout.addWidget(self.mainPbar.ETA_label, 0, 1)
 
-        self.innerPbar = widgets.QProgressBarWithETA(self)
+        self.innerPbar = acdc_widgets.QProgressBarWithETA(self)
         self.innerPbar.setValue(0)
         pBarLayout.addWidget(self.innerPbar, 1, 0)
         pBarLayout.addWidget(self.innerPbar.ETA_label, 1, 1)

@@ -10,22 +10,43 @@ def get_href_tags():
             href_tags[anchor] = html_func.tag(desc, tag_info)
     return href_tags
 
+def dataStructInfoText():
+    return ("""
+<i>NOTE</i>: spotMAX requires the data arranged with a <b>specific data structure</b>.<br><br>
+Please, check out our user manual on how to create this structure.<br><br>
+Briefly, you need to place the files into a folder called <code>Images</code> 
+which is inside a Position folder, e.g. <code>Position_1/Images</code>.<br><br>
+In the Images folder you need to create one .tif or .h5 file for each channel. 
+This file can contain single 2D, 3D (2D over time or z-stack), or 4D 
+(3D z-stacks over time) data.<br><br>
+The names of the file must all start with the same common basename, and end with 
+a name that identifies the channel, e.g. <code>experiment_1_GFP.tif</code>, 
+<code>experiment_1_mNeon.tif</code>. 
+    """)
+
 def paramsInfoText():
     paramsInfoText = {
-    'spotsFilePath': (
-        '<b>OPTIONAL</b>: Path of the image file with the '
+        'filePathsToAnalyse': (f"""
+        Click on the browse button (folder icon) to start adding experiemnt folders 
+        that you want to analyse.<br><br>
+        Each folder path can be a specific Position folder, 
+        the Images folder inside a Position folder, or the experiment folder containing 
+        multiple Positions (in which case you will be asked to choose which 
+        Positions you want to analyse.)
+        <br><br>
+        {dataStructInfoText()}<br><br>
+    """),
+    'spotsEndName': (
+        '<b>OPTIONAL</b>: Last part of the name of the file containing the '
         '<b>spots channel signal</b>.<br><br>'
         'Leave empty if you only need to segment the reference channel '
         f'(see the {get_href_tags()["refChFilePath"]}).'
         '<br><br>'
-        'If you want to analyse multiple Positions/experiments load the '
-        'path of the spots channel signal of any of these Positions.'
-        '<br><br>'
-        'Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff, '
-        '.jpg, .jpeg, .mov, .avi, and .mp4'
+        f'{dataStructInfoText()}<br><br>'
     ),
-    'segmFilePath': (
-        '<b>OPTIONAL</b>: Path of the file with the <b>segmentation masks of '
+    'segmEndName': (
+        '<b>OPTIONAL</b>: Last part of the name of the file with the '
+        '<b>segmentation masks of '
         'the objects of interest</b>. Typically the objects are the <b>cells '
         'or the nuclei</b>, but it can be any object.<br><br>'
         'While this is optional, <b>it improves accuracy</b>, because spotMAX will '
@@ -37,14 +58,10 @@ def paramsInfoText():
         'Each pixel beloging to the object must have a <b>unique</b> integer '
         'or RGB(A) value, while background pixels must have 0 or black RGB(A) '
         'value.<br><br>'
-        'If you want to analyse multiple Positions/experiments load the '
-        'path of the segmentation file of any of these Positions.'
-        '<br><br>'
-        'Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff, '
-        '.jpg, .jpeg, .mov, .avi, and .mp4'
+        f'{dataStructInfoText()}<br><br>'
     ),
-    'refChFilePath': (f"""
-        <b>OPTIONAL</b>: Path of the file with the <b>reference channel
+    'refChEndName': (f"""
+        <b>OPTIONAL</b>: Last part of the name of the file with the <b>reference channel
         signal</b>.<br><br>
         Loading the reference channel allows you to choose one or more of
         the following options:
@@ -64,14 +81,10 @@ def paramsInfoText():
             f'(see the {get_href_tags()["filterPeaksInsideRef"]}'
             f'and {get_href_tags()["gopMethod"]} parameters)<br>'
         )}
-        If you want to analyse multiple Positions/experiments load the
-        path of the reference channel signal of any of these Positions.
-        <br><br>
-        Allowed <b>file formats</b>: .npy, .npz, .h5, .png, .tif, .tiff,
-        .jpg, .jpeg, .mov, .avi, and .mp4'
+        {dataStructInfoText()}<br><br>
     """),
-    'refChSegmFilePath': (f"""
-        <b>OPTIONAL</b>: Path of the file with the <b>reference channel
+    'refChSegmEndName': (f"""
+        <b>OPTIONAL</b>: Last part of the name of the file with the <b>reference channel
         segmentation mask</b>.<br><br>
         The segmentation mask <b>MUST have the same shape</b> as the reference
         channel signal.<br><br>
@@ -79,9 +92,7 @@ def paramsInfoText():
         spots</b> that are detected <b>outside of the reference channel mask</b>
         (see the {get_href_tags()["keepPeaksInsideRef"]} parameter).
         <br><br>
-        If you want to analyse multiple Positions/experiments load the
-        path of the reference channel segmentation mask of any of these Positions.
-        <br><br>
+        {dataStructInfoText()}<br><br>
     """),
     'pixelWidth': ("""
         <b>Physical size</b> of the pixel in the <b>X-direction</b> (width).

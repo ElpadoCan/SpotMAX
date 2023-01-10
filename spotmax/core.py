@@ -56,7 +56,7 @@ class Kernel:
     @utils.exception_handler_cli
     def segment_ref_ch(self, ref_ch_data=None):
         if ref_ch_data is None:
-            ref_ch_path = self._params['File paths']['refChFilePath']
+            ref_ch_path = self._params['File paths and channels']['refChEndName']
             self.check_file_exists(ref_ch_path, desc=' (reference channel)')
             image_data = io.load_image_data()
             image_data = self.preprocess(image_data)
