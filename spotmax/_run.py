@@ -1,10 +1,17 @@
 import sys
 import os
 
-from . import core, utils, gui
+try:
+    from . import gui
+    GUI_INSTALLED = True
+except ModuleNotFoundError:
+    GUI_INSTALLED = False
 
+from . import printl
 
 def run_gui(debug=False, app=None):
+    from . import utils
+
     EXEC = False
     if app is None:
         print('Loading application...')
@@ -52,13 +59,9 @@ def run_gui(debug=False, app=None):
     else:
         return win
 
-def run_cli(parsers_args, debug=False):
-    params_path = parsers_args['p']
-    metadata_csv_path = parsers_args['m']
-    if not os.path.exists(params_path):
-        raise FileNotFoundError(
-            f'The following parameters file provided does not exist: "{params_path}"'
-        )
-        return
+def run_cli(parser_args, debug=False):
+    from . import core
+    
     kernel = core.Kernel(debug=debug)
-    kernel.init_params(params_path, metadata_csv_path=metadata_csv_path)
+    kernel.run(parser_args)
+    

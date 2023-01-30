@@ -11,6 +11,7 @@ import numpy as np
 import tkinter as tk
 import pathlib
 import re
+from collections.abc import Iterable
 import configparser
 from functools import wraps, partial
 from urllib.parse import urlparse
@@ -20,17 +21,30 @@ from tifffile.tifffile import TiffWriter, TiffFile
 
 import skimage.color
 import colorsys
-import matplotlib.colors
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import (
-    FigureCanvasTkAgg, NavigationToolbar2Tk
-)
 
-from PyQt5.QtCore import QTimer
+try:
+    import matplotlib.colors
+    import matplotlib.pyplot as plt
 
-from cellacdc import widgets as acdc_widgets
+    from PyQt5.QtCore import QTimer
 
-from . import config, widgets, is_mac, is_linux, io
+    from cellacdc import apps as acdc_apps
+    from cellacdc import widgets as acdc_widgets
+
+    from . import widgets
+
+    GUI_INSTALLED = True
+except ModuleNotFoundError:
+    print('-'*50)
+    print('GUI not installed. Running spotMAX in the command line.')
+    print('-'*50)
+    GUI_INSTALLED = False
+
+from . import is_mac, is_linux, printl, logs_path, settings_path
+
+class _Dummy:
+    def __init__(*args, **kwargs):
+        pass
 
 def exception_handler_cli(func):
     @wraps(func)
@@ -44,47 +58,46 @@ def exception_handler_cli(func):
                 result = func(self, *args, **kwargs)
         except Exception as e:
             result = None
-            self.logger.exception(e)
-            self.quit(is_error=True)
+            if self.is_cli:
+                self.logger.exception(e)
+            self.quit(error=e)
         return result
     return inner_function
 
-def exception_handler(func):
-    @wraps(func)
-    def inner_function(self, *args, **kwargs):
-        try:
-            if func.__code__.co_argcount==1 and func.__defaults__ is None:
-                result = func(self)
-            elif func.__code__.co_argcount>1 and func.__defaults__ is None:
-                result = func(self, *args)
-            else:
-                result = func(self, *args, **kwargs)
-        except Exception as e:
-            result = None
-            self.logger.exception(e)
-            msg = acdc_widgets.myMessageBox()
-            err_msg = (f"""
-            <p style="font-size:13px">
-                Error in function <b>{func.__name__}</b> when trying to
-                {self.funcDescription}.<br><br>
-                More details below or in the terminal/console.<br><br>
-                Note that the <b>error details</b> from this session are
-                also <b>saved in the following file</b>:
-                <br><br>
-                <code>{self.log_path}</code>
-                <br><br>
-                Please <b>send the log file</b> when reporting a bug, thanks!
-            </p>
-            """)
-            msg = acdc_widgets.myMessageBox()
-            msg.setDetailedText(traceback.format_exc())
-            msg.addShowInFileManagerButton(self.logs_path, 'Show log file...')
-            msg.critical(
-                self, 'Critical error', err_msg
-            )
-            self.loadingDataAborted()
-        return result
-    return inner_function
+def _check_cli_params_extension(params_path):
+    _, ext = os.path.splitext(params_path)
+    if ext == '.csv' or ext == '.ini':
+        return
+    else:
+        raise FileNotFoundError(
+            'The extension of the parameters file must be either `.ini` or `.csv`.'
+            f'File path: "{params_path}"'
+        )
+
+def get_abspath(path):
+    if os.path.isabs(path):
+        return path
+    
+    cwd_path = os.getcwd()
+    path = path.replace('\\', '/').lstrip('.')
+    path_parts = path.split('/')
+    abs_path = os.path.join(cwd_path, *path_parts)
+    return abs_path
+
+def check_cli_params_path(params_path):
+    if os.path.isabs(params_path):
+        _check_cli_params_extension(params_path)
+        return params_path
+    
+    # Try to check if user provided a relative path for the params file
+    abs_params_path = get_abspath(params_path)
+    if os.path.exists(abs_params_path):
+        _check_cli_params_extension(abs_params_path)
+        return abs_params_path
+
+    raise FileNotFoundError(
+        f'The following parameters file provided does not exist: "{abs_params_path}"'
+    )
 
 def is_valid_url(x):
     try:
@@ -128,7 +141,7 @@ def rgba_str_to_values(rgbaString, errorRgb=(255,255,255,255)):
 
 def getMostRecentPath():
     recentPaths_path = os.path.join(
-        config.settings_path, 'recentPaths.csv'
+        settings_path, 'recentPaths.csv'
     )
     if os.path.exists(recentPaths_path):
         df = pd.read_csv(recentPaths_path, index_col='index')
@@ -180,11 +193,12 @@ def get_salute_string():
     time_end_morning = datetime.time(12,00,00)
     time_end_afternoon = datetime.time(15,00,00)
     time_end_evening = datetime.time(20,00,00)
-    if time_now < time_end_morning:
+    time_end_night = datetime.time(4,00,00)
+    if time_now >= time_end_night and time_now < time_end_morning:
         return 'Have a good day!'
-    elif time_now < time_end_morning:
+    elif time_now >= time_end_morning and time_now < time_end_afternoon:
         return 'Have a good afternoon!'
-    elif time_now < time_end_evening:
+    elif time_now >= time_end_afternoon and time_now < time_end_evening:
         return 'Have a good evening!'
     else:
         return 'Have a good night!'
@@ -193,7 +207,6 @@ def setupLogger(name='spotmax_gui'):
     logger = logging.getLogger(f'spotmax-logger-{name}')
     logger.setLevel(logging.INFO)
 
-    logs_path = config.logs_path
     if not os.path.exists(logs_path):
         os.mkdir(logs_path)
     else:
@@ -885,101 +898,6 @@ class widgetBlinker:
     def stopBlinker(self):
         self._blinkTimer.stop()
         self._widget.setStyleSheet(f'{self._off_style}')
-
-class imshow_tk:
-    def __init__(self, img, dots_coords=None, x_idx=1, axis=None,
-                       additional_imgs=[], titles=[], fixed_vrange=False,
-                       run=True):
-        if img.ndim == 3:
-            if img.shape[-1] > 4:
-                img = img.max(axis=0)
-                h, w = img.shape
-            else:
-                h, w, _ = img.shape
-        elif img.ndim == 2:
-            h, w = img.shape
-        elif img.ndim != 2 and img.ndim != 3:
-            raise TypeError(f'Invalid shape {img.shape} for image data. '
-            'Only 2D or 3D images.')
-        for i, im in enumerate(additional_imgs):
-            if im.ndim == 3 and im.shape[-1] > 4:
-                additional_imgs[i] = im.max(axis=0)
-            elif im.ndim != 2 and im.ndim != 3:
-                raise TypeError(f'Invalid shape {im.shape} for image data. '
-                'Only 2D or 3D images.')
-        n_imgs = len(additional_imgs)+1
-        if w/h > 1:
-            fig, ax = plt.subplots(n_imgs, 1, sharex=True, sharey=True)
-        else:
-            fig, ax = plt.subplots(1, n_imgs, sharex=True, sharey=True)
-        if n_imgs == 1:
-            ax = [ax]
-        self.ax0img = ax[0].imshow(img)
-        if dots_coords is not None:
-            ax[0].plot(dots_coords[:,x_idx], dots_coords[:,x_idx-1], 'r.')
-        if axis:
-            ax[0].axis('off')
-        if fixed_vrange:
-            vmin, vmax = img.min(), img.max()
-        else:
-            vmin, vmax = None, None
-        self.additional_aximgs = []
-        for i, img_i in enumerate(additional_imgs):
-            axi_img = ax[i+1].imshow(img_i, vmin=vmin, vmax=vmax)
-            self.additional_aximgs.append(axi_img)
-            if dots_coords is not None:
-                ax[i+1].plot(dots_coords[:,x_idx], dots_coords[:,x_idx-1], 'r.')
-            if axis:
-                ax[i+1].axis('off')
-        for title, a in zip(titles, ax):
-            a.set_title(title)
-        sub_win = embed_tk('Imshow embedded in tk', [800,600,400,150], fig)
-        sub_win.root.protocol("WM_DELETE_WINDOW", self._close)
-        self.sub_win = sub_win
-        self.fig = fig
-        self.ax = ax
-        sub_win.root.wm_attributes('-topmost',True)
-        sub_win.root.focus_force()
-        sub_win.root.after_idle(sub_win.root.attributes,'-topmost',False)
-        if run:
-            sub_win.root.mainloop()
-
-    def _close(self):
-        plt.close(self.fig)
-        self.sub_win.root.quit()
-        self.sub_win.root.destroy()
-
-class embed_tk:
-    """Example:
-    -----------
-    img = np.ones((600,600))
-    fig = plt.Figure(figsize=(5, 4), dpi=100)
-    ax = fig.add_subplot()
-    ax.imshow(img)
-
-    sub_win = embed_tk('Embeddding in tk', [1024,768,300,100], fig)
-
-    def on_key_event(event):
-        print('you pressed %s' % event.key)
-
-    sub_win.canvas.mpl_connect('key_press_event', on_key_event)
-
-    sub_win.root.mainloop()
-    """
-    def __init__(self, win_title, geom, fig):
-        root = tk.Tk()
-        root.wm_title(win_title)
-        root.geometry("{}x{}+{}+{}".format(*geom)) # WidthxHeight+Left+Top
-        # a tk.DrawingArea
-        canvas = FigureCanvasTkAgg(fig, master=root)
-        canvas.draw()
-        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        toolbar = NavigationToolbar2Tk(canvas, root)
-        toolbar.update()
-        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=1)
-        self.canvas = canvas
-        self.toolbar = toolbar
-        self.root = root
 
 if __name__ == '__main__':
     dset = np.random.randint(1,255, size=(16,50,50))

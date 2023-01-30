@@ -542,7 +542,11 @@ class analysisInputsQGBox(QGroupBox):
             groupBox.setFont(font)
             for row, (anchor, paramValues) in enumerate(section_params.items()):
                 self.params[section][anchor] = paramValues.copy()
-                widgetFunc = paramValues.get('formWidgetFunc', None)
+                widgetFuncName = paramValues.get('formWidgetFunc', None)
+                if widgetFuncName is not None:
+                    module_name, attr = widgetFuncName.split('.')
+                    widgets_module = globals()[module_name]
+                    widgetFunc = getattr(widgets_module, attr)
                 formWidget = widgets.formWidget(
                     widgetFunc(),
                     anchor=anchor,

@@ -5,28 +5,21 @@ import pathlib
 from pprint import pprint
 import pandas as pd
 import configparser
+import skimage.filters
 
-from PyQt5.QtGui import QFont
-from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
+try:
+    from PyQt5.QtGui import QFont
+    from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
 
-from cellacdc import widgets as acdc_widgets
+    from cellacdc import widgets as acdc_widgets
 
-from . import widgets, html_func, io
+    from . import widgets
+    GUI_INSTALLED = True
+except ModuleNotFoundError:
+    GUI_INSTALLED = False
+    from . import utils
 
-spotmax_path = os.path.dirname(os.path.abspath(__file__))
-home_path = pathlib.Path.home()
-spotmax_appdata_path = os.path.join(home_path, 'spotmax_appdata')
-
-logs_path = os.path.join(spotmax_appdata_path, 'logs')
-if not os.path.exists(logs_path):
-    os.makedirs(logs_path)
-
-settings_path = os.path.join(spotmax_appdata_path, 'settings')
-if not os.path.exists(settings_path):
-    os.makedirs(settings_path)
-
-default_ini_path = os.path.join(spotmax_appdata_path, 'config.ini')
-colorItems_path = os.path.join(settings_path, 'colorItems.json')
+from . import io, colorItems_path, default_ini_path
 
 class ConfigParser(configparser.ConfigParser):
     def __init__(self, *args, **kwargs):
@@ -71,6 +64,35 @@ def font(pixelSizeDelta=0):
     font.setPixelSize(normalPixelSize+pixelSizeDelta)
     return font
 
+def get_bool(text):
+    if isinstance(text, bool):
+        return text
+    if text.lower() == 'yes':
+        return True
+    if text.lower() == 'no':
+        return False
+    if text.lower() == 'true':
+        return True
+    if text.lower() == 'false':
+        return False
+    raise TypeError(f'The object "{text}" cannot be converted to a valid boolean object')
+
+def get_threshold_func(func_name):
+    return getattr(skimage.filters, func_name)
+
+def get_exp_paths(exp_paths):
+    exp_paths = exp_paths.lstrip()
+    exp_paths = exp_paths.lstrip('[')
+    exp_paths = exp_paths.lstrip('(')
+
+    exp_paths = exp_paths.rstrip()
+    exp_paths = exp_paths.rstrip(']')
+    exp_paths = exp_paths.rstrip(')')
+
+    exp_paths = exp_paths.split(',')
+    exp_paths = [path.strip() for path in exp_paths]
+    return exp_paths
+
 def analysisInputsParams(params_path=default_ini_path):
     # NOTE: if you change the anchors (i.e., the key of each second level
     # dictionary, e.g., 'spotsEndName') remember to change them also in
@@ -79,7 +101,7 @@ def analysisInputsParams(params_path=default_ini_path):
         # Section 0 (GroupBox)
         'File paths and channels': {
             'filePathsToAnalyse': {
-                'desc': 'Experiment folder paths to analyse',
+                'desc': 'Experiment folder path(s) to analyse',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
@@ -87,11 +109,12 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addApplyButton': False,
                 'addBrowseButton': False,
                 'addEditButton': True,
-                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+                'actions': None,
+                'dtype': get_exp_paths
             },
             'spotsEndName': {
-                'desc': 'Spots channel end name',
+                'desc': 'Spots channel end name or path',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
@@ -99,11 +122,12 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addApplyButton': False,
                 'addBrowseButton': False,
                 'addEditButton': True,
-                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+                'actions': None,
+                'dtype': str
             },
             'segmEndName': {
-                'desc': 'Cells segmentation end name',
+                'desc': 'Cells segmentation end name or path',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
@@ -111,11 +135,12 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addApplyButton': False,
                 'addBrowseButton': False,
                 'addEditButton': True,
-                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+                'actions': None,
+                'dtype': str
             },
             'refChEndName': {
-                'desc': 'Reference channel end name',
+                'desc': 'Reference channel end name or path',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
@@ -123,11 +148,12 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addApplyButton': False,
                 'addBrowseButton': False,
                 'addEditButton': True,
-                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+                'actions': None,
+                'dtype': str
             },
             'refChSegmEndName': {
-                'desc': 'Ref. channel segmentation end name',
+                'desc': 'Ref. channel segmentation end name or path',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
@@ -135,8 +161,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addApplyButton': False,
                 'addBrowseButton': False,
                 'addEditButton': True,
-                'formWidgetFunc': acdc_widgets.alphaNumericLineEdit,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+                'actions': None,
+                'dtype': str
             },
         },
         # Section 1 (GroupBox)
@@ -149,19 +176,21 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addComputeButton': False,
                 'addApplyButton': False,
                 'addAutoButton': True,
-                'formWidgetFunc': widgets.intLineEdit,
+                'formWidgetFunc': 'widgets.intLineEdit',
                 'actions': None,
+                'dtype': int
             },
             'SizeZ': {
-                'desc': 'Number of z-slices (SizeT)',
+                'desc': 'Number of z-slices (SizeZ)',
                 'initialVal': 1,
                 'stretchWidget': True,
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
                 'addAutoButton': True,
-                'formWidgetFunc': widgets.intLineEdit,
+                'formWidgetFunc': 'widgets.intLineEdit',
                 'actions': None,
+                'dtype': int
             },
             'pixelWidth': {
                 'desc': 'Pixel width (μm)',
@@ -170,10 +199,11 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
+                'formWidgetFunc': 'widgets.floatLineEdit',
                 'actions': (
                     ('valueChanged', 'updateMinSpotSize'),
                 ),
+                'dtype': float
             },
             'pixelHeight': {
                 'desc': 'Pixel height (μm)',
@@ -182,10 +212,11 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
+                'formWidgetFunc': 'widgets.floatLineEdit',
                 'actions': (
                     ('valueChanged', 'updateMinSpotSize'),
                 ),
+                'dtype': float
             },
             'voxelDepth': {
                 'desc': 'Voxel depth (μm)',
@@ -194,10 +225,11 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
+                'formWidgetFunc': 'widgets.floatLineEdit',
                 'actions': (
                     ('valueChanged', 'updateMinSpotSize'),
                 ),
+                'dtype': float
             },
             'numAperture': {
                 'desc': 'Numerical aperture',
@@ -206,10 +238,11 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
+                'formWidgetFunc': 'widgets.floatLineEdit',
                 'actions': (
                     ('valueChanged', 'updateMinSpotSize'),
                 ),
+                'dtype': float
             },
             'emWavelen': {
                 'desc': 'Spots reporter emission wavelength (nm)',
@@ -218,10 +251,11 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
+                'formWidgetFunc': 'widgets.floatLineEdit',
                 'actions': (
                     ('valueChanged', 'updateMinSpotSize'),
-                )
+                ),
+                'dtype': float
             },
             'zResolutionLimit': {
                 'desc': 'Spot minimum z-size (μm)',
@@ -230,10 +264,11 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
+                'formWidgetFunc': 'widgets.floatLineEdit',
                 'actions': (
                     ('valueChanged', 'updateMinSpotSize'),
-                )
+                ),
+                'dtype': float
             },
             'yxResolLimitMultiplier': {
                 'desc': 'Resolution multiplier in y- and x- direction',
@@ -242,17 +277,18 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
+                'formWidgetFunc': 'widgets.floatLineEdit',
                 'actions': (
                     ('valueChanged', 'updateMinSpotSize'),
-                )
+                ),
+                'dtype': float
             },
             'spotMinSizeLabels': {
                 'desc': 'Spot (z,y,x) minimum dimensions',
                 'initialVal': """""",
                 'stretchWidget': True,
                 'addInfoButton': True,
-                'formWidgetFunc': widgets._spotMinSizeLabels,
+                'formWidgetFunc': 'widgets._spotMinSizeLabels',
                 'actions': None,
                 'isParam': False
             }
@@ -267,8 +303,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': acdc_widgets.Toggle,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.Toggle',
+                'actions': None,
+                'dtype': get_bool
             },
             'gaussSigma': {
                 'desc': 'Initial gaussian filter sigma',
@@ -277,8 +314,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
-                'actions': None
+                'formWidgetFunc': 'widgets.floatLineEdit',
+                'actions': None,
+                'dtype': float
             },
             'sharpenSpots': {
                 'desc': 'Sharpen spots signal prior detection',
@@ -287,8 +325,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': acdc_widgets.Toggle,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.Toggle',
+                'actions': None,
+                'dtype': get_bool
             },
         },
 
@@ -301,8 +340,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': acdc_widgets.Toggle,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.Toggle',
+                'actions': None,
+                'dtype': get_bool
             },
             'keepPeaksInsideRef': {
                 'desc': 'Keep only spots that are inside ref. channel mask',
@@ -311,8 +351,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': True,
-                'formWidgetFunc': acdc_widgets.Toggle,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.Toggle',
+                'actions': None,
+                'dtype': get_bool
             },
             'filterPeaksInsideRef': {
                 'desc': 'Filter spots by comparing to reference channel',
@@ -321,8 +362,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': acdc_widgets.Toggle,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.Toggle',
+                'actions': None,
+                'dtype': get_bool
             },
             'refChSingleObj': {
                 'desc': 'Ref. channel is single object (e.g., nucleus)',
@@ -331,8 +373,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': True,
-                'formWidgetFunc': acdc_widgets.Toggle,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.Toggle',
+                'actions': None,
+                'dtype': get_bool
             },
             'refChThresholdFunc': {
                 'desc': 'Ref. channel threshold function',
@@ -341,8 +384,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets._refChThresholdFuncWidget,
-                'actions': None
+                'formWidgetFunc': 'widgets._refChThresholdFuncWidget',
+                'actions': None,
+                'dtype': get_threshold_func
             },
             'calcRefChNetLen': {
                 'desc': 'Calculate reference channel network length',
@@ -351,8 +395,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': acdc_widgets.Toggle,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.Toggle',
+                'actions': None,
+                'dtype': get_bool
             }
         },
 
@@ -365,7 +410,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets._spotDetectionMethod,
+                'formWidgetFunc': 'widgets._spotDetectionMethod',
                 'actions': None
             },
             'spotPredictionMethod': {
@@ -375,7 +420,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': True,
-                'formWidgetFunc': widgets._spotPredictionMethod,
+                'formWidgetFunc': 'widgets._spotPredictionMethod',
                 'actions': None
             },
             'spotThresholdFunc': {
@@ -385,8 +430,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets._spotThresholdFunc,
-                'actions': None
+                'formWidgetFunc': 'widgets._spotThresholdFunc',
+                'actions': None,
+                'dtype': get_threshold_func
             },
             'gopMethod': {
                 'desc': 'Method for filtering true spots',
@@ -395,7 +441,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets._gopMethod,
+                'formWidgetFunc': 'widgets._gopMethod',
                 'actions': None
             },
             'gopLimit': {
@@ -405,8 +451,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
-                'actions': None
+                'formWidgetFunc': 'widgets.floatLineEdit',
+                'actions': None,
+                'dtype': float
             },
             'doSpotFit': {
                 'desc': 'Compute spots size',
@@ -415,8 +462,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': True,
                 'addApplyButton': False,
-                'formWidgetFunc': acdc_widgets.Toggle,
-                'actions': None
+                'formWidgetFunc': 'acdc_widgets.Toggle',
+                'actions': None,
+                'dtype': get_bool
             },
             'minSpotSize': {
                 'desc': 'Discard spots with size less than',
@@ -425,8 +473,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
-                'actions': None
+                'formWidgetFunc': 'widgets.floatLineEdit',
+                'actions': None,
+                'dtype': float
             },
             'maxSpotSize': {
                 'desc': 'Discard spots with size greater than',
@@ -435,8 +484,9 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': widgets.floatLineEdit,
-                'actions': None
+                'formWidgetFunc': 'widgets.floatLineEdit',
+                'actions': None,
+                'dtype': float
             }
         }
     }
@@ -458,21 +508,22 @@ def skimageAutoThresholdMethods():
     ]
     return methodsName
 
-class QtWarningHandler(QObject):
-    sigGeometryWarning = pyqtSignal(str)
+if GUI_INSTALLED:
+    class QtWarningHandler(QObject):
+        sigGeometryWarning = pyqtSignal(str)
 
-    def _resizeWarningHandler(self, msg_type, msg_log_context, msg_string):
-        if msg_string.find('Unable to set geometry') != -1:
-            try:
-                self.sigGeometryWarning.emit(msg_type)
-            except Exception as e:
-                pass
-        elif msg_string:
-            print(msg_string)
+        def _resizeWarningHandler(self, msg_type, msg_log_context, msg_string):
+            if msg_string.find('Unable to set geometry') != -1:
+                try:
+                    self.sigGeometryWarning.emit(msg_type)
+                except Exception as e:
+                    pass
+            elif msg_string:
+                print(msg_string)
 
-# Install Qt Warnings handler
-warningHandler = QtWarningHandler()
-qInstallMessageHandler(warningHandler._resizeWarningHandler)
+    # Install Qt Warnings handler
+    warningHandler = QtWarningHandler()
+    qInstallMessageHandler(warningHandler._resizeWarningHandler)
 
-# Initialize color items
-initColorItems()
+    # Initialize color items
+    initColorItems()

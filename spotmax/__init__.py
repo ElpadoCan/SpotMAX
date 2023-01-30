@@ -3,6 +3,22 @@ import os
 import inspect
 from datetime import datetime
 from pprint import pprint
+import pathlib
+
+spotmax_path = os.path.dirname(os.path.abspath(__file__))
+home_path = pathlib.Path.home()
+spotmax_appdata_path = os.path.join(home_path, 'spotmax_appdata')
+
+logs_path = os.path.join(spotmax_appdata_path, 'logs')
+if not os.path.exists(logs_path):
+    os.makedirs(logs_path)
+
+settings_path = os.path.join(spotmax_appdata_path, 'settings')
+if not os.path.exists(settings_path):
+    os.makedirs(settings_path)
+
+default_ini_path = os.path.join(spotmax_appdata_path, 'config.ini')
+colorItems_path = os.path.join(settings_path, 'colorItems.json')
 
 def printl(*objects, pretty=False, is_decorator=False, **kwargs):
     # Copy current stdout, reset to default __stdout__ and then restore current

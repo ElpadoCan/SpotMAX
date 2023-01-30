@@ -13,78 +13,102 @@ import skimage.transform
 import skimage.filters
 
 from . import utils
-from . import config, issues_url, printl, io
+from . import issues_url, printl, io
 
-class Kernel:
-    def __init__(self, debug=False):
+class Kernel(io._ParamsParser):
+    def __init__(self, debug=False, is_cli=True):
+        super().__init__(debug=debug, is_cli=is_cli)
         self.logger, self.log_path, self.logs_path = utils.setupLogger('cli')
         self.debug = debug
-
-    @utils.exception_handler_cli
-    def init_params(self, params_path, metadata_csv_path=''):
-        self._params = config.analysisInputsParams(params_path)
-        if metadata_csv_path:
-            self._params = io.metadataCSVtoINI(metadata_csv_path, self._params)
-
-    @utils.exception_handler_cli
-    def set_metadata(self):
-        section = 'METADATA'
-        self.PhysicalSizeX = self._params[section]['pixelWidth']
-        self.PhysicalSizeY = self._params[section]['pixelHeight']
-        self.PhysicalSizeZ = self._params[section]['voxelDepth']
-        self.NA = self._params[section]['numAperture']
-        self.wavelen = self._params[section]['emWavelens']
-        self.z_res_limit = self._params[section]['zResolutionLimit']
-        self.yx_multiplier = self._params[section]['yxResolLimitMultiplier']
-        self.wavelen = self._params[section]['emWavelen']
-        self.SizeT = self._params[section]['SizeT']
-        self.SizeZ = self._params[section]['SizeZ']
-
-    @utils.exception_handler_cli
-    def preprocess(self, image_data):
-        section = 'Pre-processing'
-        anchor = 'gaussSigma'
-        options = self._params[section][anchor]
-        initialVal = options['initialVal']
-        sigma = options.get('loadedVal', initialVal)
-        self.logger.info(f'Applying a gaussian filter with sigma={sigma}...')
+        self.is_cli = is_cli
     
-    @utils.exception_handler_cli
-    def _preproces_ref(self, image_data):
-        pass
-
-    @utils.exception_handler_cli
-    def segment_ref_ch(self, ref_ch_data=None):
-        if ref_ch_data is None:
-            ref_ch_path = self._params['File paths and channels']['refChEndName']
-            self.check_file_exists(ref_ch_path, desc=' (reference channel)')
-            image_data = io.load_image_data()
-            image_data = self.preprocess(image_data)
-
-
     def check_file_exists(self, file_path, desc=''):
         if not os.path.exists(file_path):
             raise FileNotFoundError(
                 f'The following file does not exist{desc}: "{file_path}"'
             )
 
-    def quit(self, is_error=False):
-        print('='*50)
-        if is_error:
+    @utils.exception_handler_cli
+    def preprocess(self, image_data):
+        SECTION = 'Pre-processing'
+        anchor = 'gaussSigma'
+        options = self._params[SECTION][anchor]
+        initialVal = options['initialVal']
+        sigma = options.get('loadedVal', initialVal)
+        self.logger.info(f'Applying a gaussian filter with sigma={sigma}...')
+        filtered_data = skimage.filters.gaussian(image_data, sigma=sigma)
+    
+    @utils.exception_handler_cli
+    def _preproces_ref(self, image_data):
+        pass
+    
+    def _load_ref_ch(self):
+        ref_ch_path = self._params['File paths and channels']['refChEndName']
+        self.check_file_exists(ref_ch_path, desc=' (reference channel)')
+        image_data = io.load_image_data()
+    
+    @utils.exception_handler_cli
+    def segment_ref_ch(self, ref_ch_data):
+        pass
+
+    @utils.exception_handler_cli
+    def load_and_segment_ref_ch(self):
+        image_data = self.preprocess(image_data)
+
+    def _run_exp_paths(self, exp_paths):
+        for exp_path, exp_info in exp_paths.items():
+            exp_path = utils.get_abspath(exp_path)
+            run_number = exp_info['run_number']
+            pos_foldernames = exp_info['pos_foldernames']  
+            spots_ch_endname = exp_info['spotsEndName'] 
+            ref_ch_endname = exp_info['refChEndName']
+            segm_endname = exp_info['segmEndName']
+            ref_ch_segm_endname = exp_info['refChSegmEndName']
+            for pos in pos_foldernames:
+                pos_path = os.path.join(exp_path, pos)
+                images_path = os.path.join(pos_path, 'Images')
+                import pdb; pdb.set_trace()                
+
+    def _run_single_path(self, single_path_info):
+        pass
+
+    @utils.exception_handler_cli
+    def run(self, parser_args):
+        params_path = parser_args['params']
+        metadata_csv_path = parser_args['metadata']
+        self.init_params(params_path, metadata_csv_path=metadata_csv_path)
+        if self.exp_paths_list:
+            for exp_paths in self.exp_paths_list:
+                self._run_exp_paths(exp_paths)
+        else:
+            self._run_single_path(self.single_path_info)
+            
+    def quit(self, error=None):
+        if not self.is_cli and error is not None:
+            raise error
+
+        self.logger.info('='*50)
+        if error is not None:
+            self.logger.info(f'[ERROR]: {error}')
+            self.logger.info('^'*50)
             err_msg = (
                 'spotMAX aborted due to **error**. '
                 'More details above or in the folowing log file:\n\n'
                 f'{self.log_path}\n\n'
-                'You can report this error by opening an issue on our '
+                'If you cannot solve it, you can report this error by opening '
+                'an issue on our '
                 'GitHub page at the following link:\n\n'
                 f'{issues_url}\n\n'
                 'Please **send the log file** when reporting a bug, thanks!'
             )
-            print(err_msg)
+            self.logger.info(err_msg)
         else:
-            print(f'spotMAX command line-interface closed.')
-        print('='*50)
-        exit(utils.get_salute_string())
+            self.logger.info(
+                'spotMAX command line-interface closed. '
+                f'{utils.get_salute_string()}'
+            )
+            exit()
+        self.logger.info('='*50)
 
 def eucl_dist_point_2Dyx(points, all_others):
     """
@@ -136,7 +160,6 @@ def calcMinSpotSize(
     except ZeroDivisionError as e:
         # warnings.warn(str(e), RuntimeWarning)
         return (0.0, 0.0, 0.0), (0.0, 0.0, 0.0)
-
 
 def skeletonize(dataToSkel, is_zstack=False):
     skeleton = skimage.morphology.skeletonize(dataToSkel)

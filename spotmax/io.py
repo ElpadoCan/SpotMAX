@@ -11,6 +11,7 @@ import json
 import traceback
 import cv2
 
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 from pprint import pprint
@@ -26,15 +27,23 @@ import skimage
 import skimage.io
 import skimage.color
 
-import pyqtgraph as pg
-from PyQt5.QtGui import QFont
-from PyQt5.QtWidgets import QMessageBox
-from PyQt5.QtCore import QRect, QRectF
+try:
+    import pyqtgraph as pg
+    from PyQt5.QtGui import QFont
+    from PyQt5.QtWidgets import QMessageBox
+    from PyQt5.QtCore import QRect, QRectF
 
-from cellacdc import apps as acdc_apps
-from cellacdc import widgets as acdc_widgets
+    from cellacdc import apps as acdc_apps
+    from cellacdc import widgets as acdc_widgets
 
-from . import dialogs, utils, core, html_func, config, printl
+    from . import dialogs, html_func
+
+    GUI_INSTALLED = True
+except ModuleNotFoundError:
+    GUI_INSTALLED = False
+
+from . import utils, config
+from . import core, printl
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -164,6 +173,24 @@ def pd_bool_to_int(acdc_df, colsToCast=None, csv_path=None, inplace=True):
         acdc_df.to_csv(csv_path)
     return acdc_df
 
+def is_pos_path(path):
+    if not os.path.isdir(path):
+        return False
+    folder_name = os.path.basename(path)
+    if folder_name.find('Position_') != -1:
+        return True
+    else:
+        return False
+
+def is_images_path(path):
+    if not os.path.isdir(path):
+        return False
+    folder_name = os.path.basename(path)
+    if folder_name == 'Images':
+        return True
+    else:
+        return False
+
 def _load_video(path):
     video = cv2.VideoCapture(path)
     num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -178,7 +205,10 @@ def _load_video(path):
 
 def load_image_data(path: os.PathLike):
     filename, ext = os.path.splitext(path)
-    if ext == '.npz':
+    if ext == '.h5':
+        h5f = h5py.File(path, 'r')
+        image_data = h5f['data']
+    elif ext == '.npz':
         with np.load(path) as data:
             key = list(data.keys())[0]
             image_data = np.load(path)[key]
@@ -244,12 +274,27 @@ def readStoredParamsCSV(csv_path, params):
             try:
                 idxMask = df.index.str.contains(idx, regex=False)
                 if any(idxMask):
-                    value = df['Values'][idxMask]
+                    value = df['Values'][idxMask].iloc[0]
                 else:
                     raise e
             except Exception as e:
                 print(f'"{idx}" not found in CSV file. Using default value.')
                 value = None
+        
+        if idx == 'ZYX voxel size (um):':
+            # ZYX voxel size (um): in .csv is saved as `[x, y, z]`
+            value = value[1:-1].split(',')
+        if idx == 'Local or global threshold for spot detection?':
+            # Store global or local as boolean
+            value = True if value == 'Global' else False
+        if idx == 'Spotsize limits (pxl)':
+            value = value.split(',')
+        
+        if idx == 'Filter spots by reference channel?':
+            # Manually set this since old spotmax was also keeping only spots 
+            # on reference channel on top of comparing to reference channel
+            params[section]['keepPeaksInsideRef']['loadedVal'] = value
+        
         if isinstance(anchor, tuple):
             for val, sub_anchor in zip(value, anchor):
                 params[section][sub_anchor]['loadedVal'] = val
@@ -287,29 +332,29 @@ def readStoredParamsINI(ini_path, params):
             params[section][anchor]['loadedVal'] = config_value
     return params
 
-def metadataCSVtoINI(csv_path, ini_params):
+def add_metadata_from_csv(csv_path, ini_params):
     df = pd.read_csv(csv_path).set_index('Description')
     metadata = ini_params['METADATA']
 
     SizeT = df.at['SizeT', 'values']
     SizeZ = df.at['SizeZ', 'values']
-    metadata['SizeT']['loadedVal'] = SizeT
-    metadata['SizeZ']['loadedVal'] = SizeZ
+    metadata['SizeT']['loadedVal'] = int(SizeT)
+    metadata['SizeZ']['loadedVal'] = int(SizeZ)
 
     pixelWidth = df.at['PhysicalSizeX', 'values']
     pixelHeight = df.at['PhysicalSizeY', 'values']
     voxelDepth = df.at['PhysicalSizeZ', 'values']
     loadedPixelWidth = metadata['pixelWidth']['loadedVal']
     if loadedPixelWidth == 0:
-        metadata['pixelWidth']['loadedVal'] = pixelWidth
+        metadata['pixelWidth']['loadedVal'] = float(pixelWidth)
 
     loadedpixelHeight = metadata['pixelHeight']['loadedVal']
     if loadedpixelHeight == 0:
-        metadata['pixelHeight']['loadedVal'] = pixelHeight
+        metadata['pixelHeight']['loadedVal'] = float(pixelHeight)
 
     loadedVoxelDepth = metadata['voxelDepth']['loadedVal']
     if loadedVoxelDepth == 0:
-        metadata['voxelDepth']['loadedVal'] = voxelDepth
+        metadata['voxelDepth']['loadedVal'] = float(voxelDepth)
     return ini_params
 
 def writeConfigINI(params=None, ini_path=None):
@@ -320,22 +365,22 @@ def writeConfigINI(params=None, ini_path=None):
 
     # Create sections
     for section, anchors in params.items():
-        config[section] = {}
+        configPars[section] = {}
         for param in anchors.values():
             if not param.get('isParam', True):
                 continue
             key = param['desc']
-            val = param['loadedVal']
+            val = param.get('loadedVal')
             if val is None:
                 val = param['initialVal']
-            config[section][key] = str(val)
+            configPars[section][key] = str(val)
+
+    if ini_path is None:
+        return configPars
 
     # Write config to file
     with open(ini_path, 'w', encoding="utf-8") as file:
         configPars.write(file)
-
-    if ini_path is None:
-        return
 
     with open(ini_path, 'w', encoding="utf-8") as file:
         configPars.write(file)
@@ -699,9 +744,9 @@ class expFolderScanner:
         expPaths : type
             Description of parameter `expPaths`.
 
-        Returns
+        Sets
         -------
-        dict
+        self.paths: dict
             A nested dictionary with the following keys:
                 expInfo = paths[run_number][exp_path] --> dict
                 numPosSpotCounted = expInfo['numPosSpotCounted'] --> int
@@ -711,10 +756,8 @@ class expFolderScanner:
                 pos1_info = expInfo['Position_1'] --> dict
                     isPos1_spotCounted = pos1_info['isPosSpotCounted'] --> bool
                     isPos1_spotSized = pos1_info['isPosSpotSized'] --> bool
-
         """
         self.paths = defaultdict(lambda: defaultdict(dict))
-
 
         if signals is not None:
             print('')
@@ -1633,6 +1676,395 @@ def get_basename_and_ch_names(images_path):
     channel_names, _ = channelNameUtil.getChannels(ls, images_path)
     basename = channelNameUtil.basename
     return basename, channel_names
+
+def _get_user_input_cli(
+        question_text: str, options: Iterable[str]=None, 
+        default_option: str='', info_txt=None, logger=print
+    ):
+    if info_txt is not None:
+        logger(info_txt)
+        logger('')
+    
+    is_yes_no = False
+    if options is None:
+        options = ['yes', 'no']
+        is_yes_no = True
+    options_txt = []
+    options_nums = []
+    for i, option in enumerate(options):
+        if is_yes_no:
+            choice = option[0]
+        else:
+            choice = i+1
+        if option == default_option:
+            options_nums.append(f'[{choice}]')
+        else:
+            options_nums.append(f'{choice}')
+        if not is_yes_no:
+            options_txt.append(f'{i+1}) {option}.')   
+    options_nums = '/'.join(options_nums)
+    if options_txt:
+        options_txt = ' '.join(options_txt)
+        input_text = f'{question_text}: {options_txt} ({options_nums})?: '
+    else:
+        input_text = f'{question_text} ({options_nums})?: '
+    
+    while True:
+        try:
+            answer = input(input_text)
+            if not answer:
+                if default_option:
+                    # User selected default option (with "Enter")
+                    return default_option
+                else:
+                    # There is no default option. Force user to choose or exit
+                    raise ValueError
+            
+            if answer.lower() == 'q':
+                # User requested to exit
+                return
+            try:
+                if not is_yes_no:
+                    # Try to get the selected option
+                    idx = int(answer)-1
+                    selected_option = options[idx]
+                elif answer.lower() == 'y' or answer.lower() == 'n':
+                    is_yes = answer.lower() == 'y'
+                    selected_option = 'Yes' if is_yes else 'No'
+                else:
+                    raise Exception
+            except Exception as e:
+                # User entered a value that does not correspond to an index
+                logger(
+                    f'"{answer}" is not a valid answer. '
+                    'Try again or type "q" to exit.'
+                )
+                logger('')
+                continue
+        except ValueError:
+            # Entered value cannot be parsed. Try again
+            logger('Not a valid answer. Try again or type "q" to exit.')
+            logger('')
+        else:
+            break
+    return selected_option
+
+def get_user_input(
+        question_text: str, options: Iterable[str]=None, 
+        default_option: str='', info_txt: str=None, qparent=None, 
+        logger=print
+    ):
+    # Default choice in square brackets, choices in brackets after question
+    if qparent:
+        # Get user input through GUI messagebox
+        pass
+    else:
+        # Ger user input in the cli
+        logger('*'*50)
+        answer_txt = _get_user_input_cli(
+            question_text, options, default_option=default_option, 
+            info_txt=info_txt, logger=logger
+        )
+        if answer_txt is not None:
+            logger(f'Selected option: "{answer_txt}"')
+        else:
+            logger(f'Closing spotMAX...')
+        logger('*'*60)
+    return answer_txt
+
+class _ParamsParser:
+    def __init__(self, debug=False, is_cli=True):
+        self.debug = debug
+        self.is_cli = is_cli
+    
+    @utils.exception_handler_cli
+    def init_params(self, params_path, metadata_csv_path=''):
+        params_path = utils.check_cli_params_path(params_path)
+        
+        self._params = config.analysisInputsParams(params_path)
+        if metadata_csv_path:
+            self._params = add_metadata_from_csv(
+                metadata_csv_path, self._params)
+        
+        if params_path.endswith('.csv'):
+            params_folder_path = os.path.dirname(params_path)
+            params_file_name = os.path.splitext(os.path.basename(params_path))[0]
+            self.ini_params_filename = f'{params_file_name}.ini'
+            self.ini_params_file_path = os.path.join(
+                params_folder_path, self.ini_params_filename
+            )
+            if not os.path.exists(self.ini_params_file_path):       
+                writeConfigINI(
+                    params=self._params, ini_path=self.ini_params_file_path
+                )
+                self.logger.info(
+                    f'New parameters file created: "{self.ini_params_file_path}"'
+                )
+        
+        self.check_metadata()
+        self.check_missing_params()
+        self.set_abs_exp_paths()
+    
+    def _ask_user_multiple_run_nums(self, run_nums):
+        pass
+    
+    @utils.exception_handler_cli
+    def set_abs_exp_paths(self):
+        SECTION = 'File paths and channels'
+        ANCHOR = 'filePathsToAnalyse'
+        loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
+        get_exp_paths = self._params[SECTION][ANCHOR]['dtype']
+        loaded_exp_paths = get_exp_paths(loaded_exp_paths)
+        self.exp_paths_list = []
+        for exp_path in loaded_exp_paths:
+            is_single_pos = False
+            if is_pos_path(exp_path):
+                pos_path = exp_path
+                pos_foldername = os.path.basename(exp_path)
+                exp_path = os.path.dirname(pos_path)
+                exp_paths = (
+                    {exp_path: {'pos_foldernames': [pos_foldername]}}
+                )
+                is_single_pos = True
+            elif is_images_path(exp_path):
+                pos_path = os.path.dirname(exp_path)
+                pos_foldername = os.path.basename(pos_path)
+                exp_path = os.path.dirname(os.path.dirname(pos_path))
+                exp_paths = (
+                    {exp_path: {'pos_foldernames': [pos_foldername]}}
+                )
+                is_single_pos = True
+            
+            # Scan and determine run numbers
+            pathScanner = expFolderScanner(exp_path)
+            pathScanner.getExpPaths(exp_path)
+            pathScanner.infoExpPaths(pathScanner.expPaths)
+            run_nums = list(pathScanner.paths.keys())
+            is_multi_run = False
+            if len(run_nums) > 1:
+                run_number = self._ask_user_multiple_run_nums(run_nums)
+                if is_single_pos:
+                    exp_paths['run_number'] = run_number
+                else:
+                    exp_paths = {}
+                    for run_num, run_num_info in pathScanner.paths.items():
+                        for exp_path, exp_info in run_num_info.items():
+                            if exp_path in exp_paths:
+                                continue
+                            exp_paths[exp_path] = {
+                                'pos_foldernames': exp_info['posFoldernames'],
+                                'run_number': run_number
+                            }
+            else:
+                exp_paths = {}
+                for exp_path, exp_info in pathScanner.paths[run_nums[0]].items():
+                    if not exp_info['numPosSpotCounted'] > 0:
+                        run_number = 1
+                    else:
+                        run_number = self._ask_user_multiple_run_nums(run_nums)
+                    exp_paths[exp_path] = {
+                        'pos_foldernames': exp_info['posFoldernames'],
+                        'run_number': run_number
+                    }
+            self.exp_paths_list.append(exp_paths)
+        self.set_channel_names()
+    
+    def set_channel_names(self):
+        SECTION = 'File paths and channels'
+        section_params = self._params[SECTION]
+        spots_ch_endname = section_params['spotsEndName'].get('loadedVal')
+        ref_ch_endname = section_params['refChEndName'].get('loadedVal')
+        segm_endname = section_params['segmEndName'].get('loadedVal')
+        ref_ch_segm_endname = section_params['refChSegmEndName'].get('loadedVal')
+        if self.exp_paths_list:
+            for i in range(len(self.exp_paths_list)):
+                for exp_path in list(self.exp_paths_list[i].keys()):
+                    exp_info = self.exp_paths_list[i][exp_path]
+                    exp_info['spotsEndName'] = spots_ch_endname
+                    exp_info['refChEndName'] = ref_ch_endname
+                    exp_info['segmEndName'] = segm_endname
+                    exp_info['refChSegmEndName'] = ref_ch_segm_endname
+                    self.exp_paths_list[i][exp_path] = exp_info
+        else:
+            self.single_path_info = {
+                'spots_ch_filepath': spots_ch_endname,
+                'ref_ch_filepath': ref_ch_endname,
+                'segm_filepath': segm_endname,
+                'ref_ch_segm_filepath': ref_ch_segm_endname
+            }
+
+    @utils.exception_handler_cli
+    def _get_missing_metadata(self):
+        SECTION = 'METADATA'
+        missing_metadata = []
+        for param_name, options in self._params[SECTION].items():
+            dtype_converter = options.get('dtype')
+            if dtype_converter is None:
+                continue
+            metadata_value = options.get('loadedVal')
+            if metadata_value is None:
+                missing_metadata.append(options['desc'])
+                continue
+            try:
+                dtype_converter(metadata_value)
+            except Exception as e:
+                missing_metadata.append(options['desc'])
+        return missing_metadata
+
+    def check_metadata(self):
+        missing_metadata = self._get_missing_metadata()
+        if not missing_metadata:
+            return
+        missing_metadata_str = [f'    * {v}' for v in missing_metadata]
+        missing_metadata_format = '\n'.join(missing_metadata_str)
+        print('*'*40)
+        err_msg = (
+            f'The parameters file "{self.ini_params_filename}" is missing '
+            'the following REQUIRED metadata:\n\n'
+            f'{missing_metadata_format}\n\n'
+            'Add them to the file (see path below) '
+            'at the [METADATA] section.\n'
+            f'Parameters file path: "{self.ini_params_file_path}"\n'
+        )
+        self.logger.info(err_msg)
+        if self.is_cli:
+            print('*'*40)
+            self.logger.info(
+                'spotMAX execution aborted because some metadata are missing. '
+                'See details above.'
+            )
+            self.quit()
+        else:
+            raise FileNotFoundError('Metadata missing. See details above')
+    
+    def _get_missing_params(self):
+        missing_params = []
+        for section_name, anchors in self._params.items():
+            if section_name == 'METADATA':
+                continue
+            for anchor, options in anchors.items():
+                dtype_converter = options.get('dtype')
+                if dtype_converter is None:
+                    continue
+                value = options.get('loadedVal')
+                default_val = options.get('initialVal')
+                if value is None:
+                    missing_param = (
+                        section_name, options['desc'], default_val, anchor)
+                    missing_params.append(missing_param)
+                    continue
+                # Try to check that type casting works
+                try:
+                    dtype_converter(value)
+                except Exception as e:
+                    missing_param = (
+                        section_name, options['desc'], default_val, anchor
+                    )
+                    missing_params.append(missing_param)
+                    continue
+        return missing_params
+    
+    def _set_default_val_params(self, missing_params):
+        for param in missing_params:
+            section_name, _, default_val, anchor = param
+            self._params[section_name][anchor]['loadedVal'] = default_val
+    
+    def _ask_user_input_missing_params(self, missing_params):
+        question = (
+            'Do you want to continue with default value for the missing parameters?'
+        )
+        options = (
+            'Yes, use default values', 'No, stop process', 
+            'Display default values'
+        )
+        while True:
+            answer = get_user_input(
+                question, options=options, default_option='No'
+            )
+            if answer == 'No, stop process' or answer == None:
+                return False
+            elif answer == 'Yes, use default values':
+                self._set_default_val_params(missing_params)
+                return True
+            else:
+                print('')
+                missing_params_str = [
+                    f'    * {param[1]} (section: [{param[0]}]) = {param[2]}' 
+                    for param in missing_params
+                ]
+                missing_params_format = '\n'.join(missing_params_str)
+                self.logger.info(
+                    f'Default values:\n\n{missing_params_format}'
+                )
+                print('-'*50)
+
+    @utils.exception_handler_cli
+    def check_missing_params(self):
+        missing_params = self._get_missing_params()
+        if not missing_params:
+            return
+        
+        cannot_continue = False
+        missing_params_desc = {param[1]:param[2] for param in missing_params}
+        if 'Experiment folder path(s) to analyse' in missing_params_desc:
+            # Experiment folder path is missing --> continue only if 
+            # either spots or reference channel are proper file paths
+            spots_ch_path = missing_params_desc.get(
+                'Spots channel end name or path', ''
+            )
+            ref_ch_path = missing_params_desc.get(
+                'Reference channel end name or path', ''
+            )
+            cannot_continue = not (
+                os.path.exists(spots_ch_path) or os.path.exists(ref_ch_path)
+            )           
+        
+        missing_params_str = [
+            f'    * {param[1]} (section: [{param[0]}])' 
+            for param in missing_params
+        ]
+        missing_params_format = '\n'.join(missing_params_str)
+        print('*'*40)
+        err_msg = (
+            f'The parameters file "{self.ini_params_filename}" is missing '
+            'the following parameters:\n\n'
+            f'{missing_params_format}\n\n'
+        )
+        
+        if cannot_continue:
+            err_msg = (f'{err_msg}'
+                'Add them to the file (see path below) '
+                'at the right section (shown in parethensis above).\n'
+                'Note that you MUST provide at least one of the file/folder '
+                'paths.\n\n'
+                f'Parameters file path: "{self.ini_params_file_path}"\n'
+            )
+            self.logger.info(err_msg)
+            if self.is_cli:
+                print('*'*40)
+                self.logger.info(
+                    'spotMAX execution aborted because some parameters are missing. '
+                    'See details above.'
+                )
+                self.quit()
+            else:
+                raise FileNotFoundError('Metadata missing. See details above')
+        else:
+            err_msg = (f'{err_msg}'
+                'You can add them to the file (see path below) '
+                'at the right section (shown in parethensis above), or continue '
+                'with default values.\n'
+                f'Parameters file path: "{self.ini_params_file_path}"\n'
+            )
+            self.logger.info(err_msg)
+            proceed = self._ask_user_input_missing_params(missing_params)
+            if not proceed:
+                self.logger.info(
+                    'spotMAX execution stopped by the user. '
+                    'Some parameters are missing'
+                )
+                self.quit()
+                return
 
 if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication, QStyleFactory

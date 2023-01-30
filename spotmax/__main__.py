@@ -8,7 +8,13 @@ def cli_parser():
     ap = argparse.ArgumentParser(description='spotMAX parser')
 
     ap.add_argument(
-        '-p',
+        '-c', '--cli',
+        action='store_true',
+        help=('Flag to run spotMAX in the command line')
+    )
+
+    ap.add_argument(
+        '-p', '--params',
         default='',
         type=str,
         metavar='PATH_TO_PARAMS',
@@ -16,7 +22,7 @@ def cli_parser():
     )
 
     ap.add_argument(
-        '-m',
+        '-m', '--metadata',
         default='',
         type=str,
         metavar='PATH_TO_METADATA_CSV',
@@ -39,15 +45,20 @@ def cli_parser():
     return vars(ap.parse_args())
 
 def run():
-    parsers_args = cli_parser()
+    parser_args = cli_parser()
 
-    params_path = parsers_args['p']
-    debug = parsers_args['debug']
+    PARAMS_PATH = parser_args['params']
+    DEBUG = parser_args['debug']
+    RUN_CLI = parser_args['cli']
 
-    if params_path:
-        run_cli(parsers_args, debug=debug)
+    if RUN_CLI and not PARAMS_PATH:
+        raise FileNotFoundError(
+            '[ERROR]: To run spotMAX from the command line you need to provide a path to the "_analysis_inputs.ini" or "_analysis_inputs.csv" file')
+
+    if PARAMS_PATH or RUN_CLI:
+        run_cli(parser_args, debug=DEBUG)
     else:
-        run_gui(debug=debug)
+        run_gui(debug=DEBUG)
 
 if __name__ == "__main__":
     run()
