@@ -203,6 +203,12 @@ def _spotThresholdFunc():
     widget.addItems(items)
     return widget
 
+def _filterSpotsVsRefChMethodWidget():
+    widget = myQComboBox()
+    items = config.filterSpotsVsRefChMethods()
+    widget.addItems(items)
+    return widget
+
 def _spotDetectionMethod():
     widget = myQComboBox()
     items = ['Detect local peaks', 'Label prediction mask']

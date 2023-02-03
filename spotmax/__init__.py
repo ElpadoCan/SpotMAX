@@ -1,9 +1,22 @@
 import sys
+
+try:
+    import acdctools
+except ModuleNotFoundError:
+    import subprocess
+    subprocess.check_call(
+        [sys.executable, '-m', 'pip', 'install', '-U',
+        'git+https://github.com/SchmollerLab/acdc_tools']
+    )
+
 import os
 import inspect
 from datetime import datetime
 from pprint import pprint
 import pathlib
+import numpy as np
+
+rng = np.random.default_rng(seed=6490)
 
 spotmax_path = os.path.dirname(os.path.abspath(__file__))
 home_path = pathlib.Path.home()

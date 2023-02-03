@@ -82,16 +82,13 @@ import pyqtgraph as pg
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc import qutils as acdc_qutils
-from cellacdc import myutils as acdc_utils
+from cellacdc import exception_handler
 
 from . import io, dialogs, utils, widgets, qtworkers, html_func
+from . import spotmax_path, settings_path, colorItems_path
 
 # NOTE: Enable icons
 from . import qrc_resources, config
-
-spotmax_path = config.spotmax_path
-settings_path = config.settings_path
-colorItems_path = config.colorItems_path
 
 if os.name == 'nt':
     try:
@@ -403,7 +400,7 @@ class spotMAX_Win(QMainWindow):
         else:
             event.ignore()
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def keyPressEvent(self, ev):
         if ev.key() == Qt.Key_P:
             print(self.computeDockWidget.frameSize())
@@ -1784,7 +1781,7 @@ class spotMAX_Win(QMainWindow):
         w, h = LabelItemID.rect().right(), LabelItemID.rect().bottom()
         LabelItemID.setPos(x-w/2, y-h/2)
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def channelNameLUTmenuActionTriggered(self, action):
         if action in self.histItems['left']['actionGroup'].actions():
             side = 'left'
@@ -1803,7 +1800,7 @@ class spotMAX_Win(QMainWindow):
         filename = f'{posData.basename}{chName}'
         return filename
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def plotSkeletonClicked(self, button, event):
         self.funcDescription = 'plotting skeleton'
         viewToolbar = self.sideToolbar['left']['viewToolbar']
@@ -1857,7 +1854,7 @@ class spotMAX_Win(QMainWindow):
         worker.signals.critical.connect(self.workerCritical)
         self.threadPool.start(worker)
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def plotContoursClicked(self, button, event):
         self.funcDescription = 'plotting contour'
         viewToolbar = self.sideToolbar['left']['viewToolbar']
@@ -1911,7 +1908,7 @@ class spotMAX_Win(QMainWindow):
         worker.signals.critical.connect(self.workerCritical)
         self.threadPool.start(worker)
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def plotSpotsCoordsClicked(self, button, event):
         self.funcDescription = 'plotting spots coordinates'
         viewToolbar = self.sideToolbar['left']['viewToolbar']
@@ -1982,7 +1979,7 @@ class spotMAX_Win(QMainWindow):
         if disable:
             self.setEnabledOverlayWidgets(side, False)
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def changeFontSize(self, action):
         self.fontSize = f'{action.text()}pt'
         self.df_settings.at['fontSize', 'value'] = self.fontSize
@@ -2010,7 +2007,7 @@ class spotMAX_Win(QMainWindow):
                 w, h = ax2_LI.rect().right(), ax2_LI.rect().bottom()
                 ax2_LI.setPos(xc-w/2, yc-h/2)
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def plotSkeleton(self, side):
         posData = self.currentPosData(side)
         if posData.SizeT > 1:
@@ -2036,7 +2033,7 @@ class spotMAX_Win(QMainWindow):
 
         self.axes[side].skelScatterItem.setData(xx_skel, yy_skel)
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def plotContours(self, side):
         posData = self.currentPosData(side)
         if posData.SizeT > 1:
@@ -2069,7 +2066,7 @@ class spotMAX_Win(QMainWindow):
         side = self.sender().parent().side
         self.plotSpotsCoords(side)
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def plotSpotsCoords(self, side):
         posData = self.currentPosData(side)
         if posData.hdf_store is None:
@@ -2134,7 +2131,7 @@ class spotMAX_Win(QMainWindow):
             hoverBrush=brushes["Spots inside ref. channel"][1]
         )
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def spotsClicked(self, scatterItem, spotItems, event):
         side = self.side(self.axes['left'].spotsScatterItem, sender=scatterItem)
 
@@ -2167,7 +2164,7 @@ class spotMAX_Win(QMainWindow):
 
             menu.exec(event.screenPos())
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def skelClicked(self, scatterItem, spotItems, event):
         side = self.side(self.axes['left'].spotsScatterItem, sender=scatterItem)
 
@@ -2222,7 +2219,7 @@ class spotMAX_Win(QMainWindow):
         else:
             self.openFile('right')
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def openFile(self, side, file_path=''):
         self.funcDescription = 'load data'
 
@@ -2268,7 +2265,7 @@ class spotMAX_Win(QMainWindow):
         else:
             self.openFolder('left')
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def openFolder(self, side, selectedPath='', imageFilePath=''):
         """Main function used to load data into GUI. Multi-step function:
             1. openFolder
@@ -2454,7 +2451,7 @@ class spotMAX_Win(QMainWindow):
     def workerUpdateProgressbar(self, step):
         self.progressWin.mainPbar.update(step)
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def workerCritical(self, error):
         if self.progressWin is not None:
             self.progressWin.workerFinished = True
@@ -2793,7 +2790,7 @@ class spotMAX_Win(QMainWindow):
         worker.signals.critical.connect(self.workerCritical)
         self.threadPool.start(worker)
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def loadingDataFinished(self):
         # self.clearAxes(self.lastLoadedSide)
         self.gui_removeAllItems(self.lastLoadedSide)
@@ -3046,7 +3043,7 @@ class spotMAX_Win(QMainWindow):
         if self.axes[side].skelScatterItem.getData()[0] is not None:
             self.axes[side].skelScatterItem.setData([], [])
 
-    @acdc_utils.exception_handler
+    @exception_handler
     def updateImage(self, side):
         img = self.currentImage(side)
         self.imgItems[side].setImage(img)

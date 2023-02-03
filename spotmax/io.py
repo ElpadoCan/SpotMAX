@@ -42,6 +42,8 @@ try:
 except ModuleNotFoundError:
     GUI_INSTALLED = False
 
+import acdctools.utils
+
 from . import utils, config
 from . import core, printl
 
@@ -203,7 +205,7 @@ def _load_video(path):
         chData[i] = frame
     return chData
 
-def load_image_data(path: os.PathLike):
+def load_image_data(path: os.PathLike, to_float=False, return_dtype=False):
     filename, ext = os.path.splitext(path)
     if ext == '.h5':
         h5f = h5py.File(path, 'r')
@@ -219,7 +221,13 @@ def load_image_data(path: os.PathLike):
             image_data = skimage.io.imread(path)
         except Exception as e:
             image_data = _load_video(path)
-    return image_data
+    _dtype = image_data.dtype
+    if to_float:
+        image_data = acdctools.utils.img_to_float(image_data)
+    if return_dtype:
+        return image_data, _dtype
+    else:
+        return image_data
 
 def readStoredParamsCSV(csv_path, params):
     """Read old format of analysis_inputs.csv file from spotMAX v1"""
@@ -1771,300 +1779,6 @@ def get_user_input(
             logger(f'Closing spotMAX...')
         logger('*'*60)
     return answer_txt
-
-class _ParamsParser:
-    def __init__(self, debug=False, is_cli=True):
-        self.debug = debug
-        self.is_cli = is_cli
-    
-    @utils.exception_handler_cli
-    def init_params(self, params_path, metadata_csv_path=''):
-        params_path = utils.check_cli_params_path(params_path)
-        
-        self._params = config.analysisInputsParams(params_path)
-        if metadata_csv_path:
-            self._params = add_metadata_from_csv(
-                metadata_csv_path, self._params)
-        
-        if params_path.endswith('.csv'):
-            params_folder_path = os.path.dirname(params_path)
-            params_file_name = os.path.splitext(os.path.basename(params_path))[0]
-            self.ini_params_filename = f'{params_file_name}.ini'
-            self.ini_params_file_path = os.path.join(
-                params_folder_path, self.ini_params_filename
-            )
-            if not os.path.exists(self.ini_params_file_path):       
-                writeConfigINI(
-                    params=self._params, ini_path=self.ini_params_file_path
-                )
-                self.logger.info(
-                    f'New parameters file created: "{self.ini_params_file_path}"'
-                )
-        
-        self.check_metadata()
-        self.check_missing_params()
-        self.set_abs_exp_paths()
-    
-    def _ask_user_multiple_run_nums(self, run_nums):
-        pass
-    
-    @utils.exception_handler_cli
-    def set_abs_exp_paths(self):
-        SECTION = 'File paths and channels'
-        ANCHOR = 'filePathsToAnalyse'
-        loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
-        get_exp_paths = self._params[SECTION][ANCHOR]['dtype']
-        loaded_exp_paths = get_exp_paths(loaded_exp_paths)
-        self.exp_paths_list = []
-        for exp_path in loaded_exp_paths:
-            is_single_pos = False
-            if is_pos_path(exp_path):
-                pos_path = exp_path
-                pos_foldername = os.path.basename(exp_path)
-                exp_path = os.path.dirname(pos_path)
-                exp_paths = (
-                    {exp_path: {'pos_foldernames': [pos_foldername]}}
-                )
-                is_single_pos = True
-            elif is_images_path(exp_path):
-                pos_path = os.path.dirname(exp_path)
-                pos_foldername = os.path.basename(pos_path)
-                exp_path = os.path.dirname(os.path.dirname(pos_path))
-                exp_paths = (
-                    {exp_path: {'pos_foldernames': [pos_foldername]}}
-                )
-                is_single_pos = True
-            
-            # Scan and determine run numbers
-            pathScanner = expFolderScanner(exp_path)
-            pathScanner.getExpPaths(exp_path)
-            pathScanner.infoExpPaths(pathScanner.expPaths)
-            run_nums = list(pathScanner.paths.keys())
-            is_multi_run = False
-            if len(run_nums) > 1:
-                run_number = self._ask_user_multiple_run_nums(run_nums)
-                if is_single_pos:
-                    exp_paths['run_number'] = run_number
-                else:
-                    exp_paths = {}
-                    for run_num, run_num_info in pathScanner.paths.items():
-                        for exp_path, exp_info in run_num_info.items():
-                            if exp_path in exp_paths:
-                                continue
-                            exp_paths[exp_path] = {
-                                'pos_foldernames': exp_info['posFoldernames'],
-                                'run_number': run_number
-                            }
-            else:
-                exp_paths = {}
-                for exp_path, exp_info in pathScanner.paths[run_nums[0]].items():
-                    if not exp_info['numPosSpotCounted'] > 0:
-                        run_number = 1
-                    else:
-                        run_number = self._ask_user_multiple_run_nums(run_nums)
-                    exp_paths[exp_path] = {
-                        'pos_foldernames': exp_info['posFoldernames'],
-                        'run_number': run_number
-                    }
-            self.exp_paths_list.append(exp_paths)
-        self.set_channel_names()
-    
-    def set_channel_names(self):
-        SECTION = 'File paths and channels'
-        section_params = self._params[SECTION]
-        spots_ch_endname = section_params['spotsEndName'].get('loadedVal')
-        ref_ch_endname = section_params['refChEndName'].get('loadedVal')
-        segm_endname = section_params['segmEndName'].get('loadedVal')
-        ref_ch_segm_endname = section_params['refChSegmEndName'].get('loadedVal')
-        if self.exp_paths_list:
-            for i in range(len(self.exp_paths_list)):
-                for exp_path in list(self.exp_paths_list[i].keys()):
-                    exp_info = self.exp_paths_list[i][exp_path]
-                    exp_info['spotsEndName'] = spots_ch_endname
-                    exp_info['refChEndName'] = ref_ch_endname
-                    exp_info['segmEndName'] = segm_endname
-                    exp_info['refChSegmEndName'] = ref_ch_segm_endname
-                    self.exp_paths_list[i][exp_path] = exp_info
-        else:
-            self.single_path_info = {
-                'spots_ch_filepath': spots_ch_endname,
-                'ref_ch_filepath': ref_ch_endname,
-                'segm_filepath': segm_endname,
-                'ref_ch_segm_filepath': ref_ch_segm_endname
-            }
-
-    @utils.exception_handler_cli
-    def _get_missing_metadata(self):
-        SECTION = 'METADATA'
-        missing_metadata = []
-        for param_name, options in self._params[SECTION].items():
-            dtype_converter = options.get('dtype')
-            if dtype_converter is None:
-                continue
-            metadata_value = options.get('loadedVal')
-            if metadata_value is None:
-                missing_metadata.append(options['desc'])
-                continue
-            try:
-                dtype_converter(metadata_value)
-            except Exception as e:
-                missing_metadata.append(options['desc'])
-        return missing_metadata
-
-    def check_metadata(self):
-        missing_metadata = self._get_missing_metadata()
-        if not missing_metadata:
-            return
-        missing_metadata_str = [f'    * {v}' for v in missing_metadata]
-        missing_metadata_format = '\n'.join(missing_metadata_str)
-        print('*'*40)
-        err_msg = (
-            f'The parameters file "{self.ini_params_filename}" is missing '
-            'the following REQUIRED metadata:\n\n'
-            f'{missing_metadata_format}\n\n'
-            'Add them to the file (see path below) '
-            'at the [METADATA] section.\n'
-            f'Parameters file path: "{self.ini_params_file_path}"\n'
-        )
-        self.logger.info(err_msg)
-        if self.is_cli:
-            print('*'*40)
-            self.logger.info(
-                'spotMAX execution aborted because some metadata are missing. '
-                'See details above.'
-            )
-            self.quit()
-        else:
-            raise FileNotFoundError('Metadata missing. See details above')
-    
-    def _get_missing_params(self):
-        missing_params = []
-        for section_name, anchors in self._params.items():
-            if section_name == 'METADATA':
-                continue
-            for anchor, options in anchors.items():
-                dtype_converter = options.get('dtype')
-                if dtype_converter is None:
-                    continue
-                value = options.get('loadedVal')
-                default_val = options.get('initialVal')
-                if value is None:
-                    missing_param = (
-                        section_name, options['desc'], default_val, anchor)
-                    missing_params.append(missing_param)
-                    continue
-                # Try to check that type casting works
-                try:
-                    dtype_converter(value)
-                except Exception as e:
-                    missing_param = (
-                        section_name, options['desc'], default_val, anchor
-                    )
-                    missing_params.append(missing_param)
-                    continue
-        return missing_params
-    
-    def _set_default_val_params(self, missing_params):
-        for param in missing_params:
-            section_name, _, default_val, anchor = param
-            self._params[section_name][anchor]['loadedVal'] = default_val
-    
-    def _ask_user_input_missing_params(self, missing_params):
-        question = (
-            'Do you want to continue with default value for the missing parameters?'
-        )
-        options = (
-            'Yes, use default values', 'No, stop process', 
-            'Display default values'
-        )
-        while True:
-            answer = get_user_input(
-                question, options=options, default_option='No'
-            )
-            if answer == 'No, stop process' or answer == None:
-                return False
-            elif answer == 'Yes, use default values':
-                self._set_default_val_params(missing_params)
-                return True
-            else:
-                print('')
-                missing_params_str = [
-                    f'    * {param[1]} (section: [{param[0]}]) = {param[2]}' 
-                    for param in missing_params
-                ]
-                missing_params_format = '\n'.join(missing_params_str)
-                self.logger.info(
-                    f'Default values:\n\n{missing_params_format}'
-                )
-                print('-'*50)
-
-    @utils.exception_handler_cli
-    def check_missing_params(self):
-        missing_params = self._get_missing_params()
-        if not missing_params:
-            return
-        
-        cannot_continue = False
-        missing_params_desc = {param[1]:param[2] for param in missing_params}
-        if 'Experiment folder path(s) to analyse' in missing_params_desc:
-            # Experiment folder path is missing --> continue only if 
-            # either spots or reference channel are proper file paths
-            spots_ch_path = missing_params_desc.get(
-                'Spots channel end name or path', ''
-            )
-            ref_ch_path = missing_params_desc.get(
-                'Reference channel end name or path', ''
-            )
-            cannot_continue = not (
-                os.path.exists(spots_ch_path) or os.path.exists(ref_ch_path)
-            )           
-        
-        missing_params_str = [
-            f'    * {param[1]} (section: [{param[0]}])' 
-            for param in missing_params
-        ]
-        missing_params_format = '\n'.join(missing_params_str)
-        print('*'*40)
-        err_msg = (
-            f'The parameters file "{self.ini_params_filename}" is missing '
-            'the following parameters:\n\n'
-            f'{missing_params_format}\n\n'
-        )
-        
-        if cannot_continue:
-            err_msg = (f'{err_msg}'
-                'Add them to the file (see path below) '
-                'at the right section (shown in parethensis above).\n'
-                'Note that you MUST provide at least one of the file/folder '
-                'paths.\n\n'
-                f'Parameters file path: "{self.ini_params_file_path}"\n'
-            )
-            self.logger.info(err_msg)
-            if self.is_cli:
-                print('*'*40)
-                self.logger.info(
-                    'spotMAX execution aborted because some parameters are missing. '
-                    'See details above.'
-                )
-                self.quit()
-            else:
-                raise FileNotFoundError('Metadata missing. See details above')
-        else:
-            err_msg = (f'{err_msg}'
-                'You can add them to the file (see path below) '
-                'at the right section (shown in parethensis above), or continue '
-                'with default values.\n'
-                f'Parameters file path: "{self.ini_params_file_path}"\n'
-            )
-            self.logger.info(err_msg)
-            proceed = self._ask_user_input_missing_params(missing_params)
-            if not proceed:
-                self.logger.info(
-                    'spotMAX execution stopped by the user. '
-                    'Some parameters are missing'
-                )
-                self.quit()
-                return
 
 if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication, QStyleFactory

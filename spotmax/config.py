@@ -165,11 +165,36 @@ def analysisInputsParams(params_path=default_ini_path):
                 'actions': None,
                 'dtype': str
             },
+            'lineageTableEndName': {
+                'desc': 'Table with lineage info end name or path',
+                'initialVal': """""",
+                'stretchWidget': True,
+                'addInfoButton': True,
+                'addComputeButton': False,
+                'addApplyButton': False,
+                'addBrowseButton': False,
+                'addEditButton': True,
+                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+                'actions': None,
+                'dtype': str
+            },
         },
         # Section 1 (GroupBox)
         'METADATA': {
             'SizeT': {
                 'desc': 'Number of frames (SizeT)',
+                'initialVal': 1,
+                'stretchWidget': True,
+                'addInfoButton': True,
+                'addComputeButton': False,
+                'addApplyButton': False,
+                'addAutoButton': True,
+                'formWidgetFunc': 'widgets.intLineEdit',
+                'actions': None,
+                'dtype': int
+            },
+            'stopFrameNum': {
+                'desc': 'Analyse until frame number',
                 'initialVal': 1,
                 'stretchWidget': True,
                 'addInfoButton': True,
@@ -194,7 +219,7 @@ def analysisInputsParams(params_path=default_ini_path):
             },
             'pixelWidth': {
                 'desc': 'Pixel width (μm)',
-                'initialVal': 0.0,
+                'initialVal': 1.0,
                 'stretchWidget': True,
                 'addInfoButton': True,
                 'addComputeButton': False,
@@ -207,7 +232,7 @@ def analysisInputsParams(params_path=default_ini_path):
             },
             'pixelHeight': {
                 'desc': 'Pixel height (μm)',
-                'initialVal': 0.0,
+                'initialVal': 1.0,
                 'stretchWidget': True,
                 'addInfoButton': True,
                 'addComputeButton': False,
@@ -220,7 +245,7 @@ def analysisInputsParams(params_path=default_ini_path):
             },
             'voxelDepth': {
                 'desc': 'Voxel depth (μm)',
-                'initialVal': 0.0,
+                'initialVal': 1.0,
                 'stretchWidget': True,
                 'addInfoButton': True,
                 'addComputeButton': False,
@@ -366,6 +391,17 @@ def analysisInputsParams(params_path=default_ini_path):
                 'actions': None,
                 'dtype': get_bool
             },
+            'filterPeaksInsideRefMethod': {
+                'desc': 'Method to filter spots when comparing to ref. channel',
+                'initialVal': 'Keep only spots that are brighter than ref. channel',
+                'stretchWidget': True,
+                'addInfoButton': True,
+                'addComputeButton': True,
+                'addApplyButton': False,
+                'formWidgetFunc': 'widgets._filterSpotsVsRefChMethodWidget',
+                'actions': None,
+                'dtype': str
+            },
             'refChSingleObj': {
                 'desc': 'Ref. channel is single object (e.g., nucleus)',
                 'initialVal': False,
@@ -507,6 +543,15 @@ def skimageAutoThresholdMethods():
         'threshold_yen'
     ]
     return methodsName
+
+def filterSpotsVsRefChMethods():
+    methods = [
+        'Keep only spots that are brighter than ref. channel',
+        'Keep only spots that are as bright as ref. channel',
+        'Keep only spots that are brighter or as bright as ref. channel',
+        'Keep only spots that are darker than ref. channel'
+    ]
+    return methods
 
 if GUI_INSTALLED:
     class QtWarningHandler(QObject):

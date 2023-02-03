@@ -30,7 +30,8 @@ from PyQt5.QtWidgets import (
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 
-from . import html_func, io, widgets, core, utils, config
+from . import html_func, io, widgets, utils, config
+from . import core
 
 # NOTE: Enable icons
 from . import qrc_resources, printl
