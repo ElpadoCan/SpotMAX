@@ -13,10 +13,11 @@ import skimage.morphology
 import skimage.measure
 import skimage.transform
 import skimage.filters
+import skimage.feature
 
 import acdctools.io
 try:
-    from acdctools.widgets import imshow
+    from acdctools.plot import imshow
 except Exception as e:
     pass
 
@@ -589,7 +590,6 @@ class Kernel(_ParamsParser):
         sigmas = metadata['zyxResolutionLimitPxl']
         blurred = skimage.filters.gaussian(spots_img, sigma=sigmas)
         sharpened = spots_img - blurred
-        imshow(spots_img, blurred, sharpened)
         return sharpened
     
     def _get_obj_mask(self, lab, obj, lineage_table):
@@ -795,17 +795,194 @@ class Kernel(_ParamsParser):
             aggregated_img[:, :h, last_w:last_w+w] = img_data[obj.slice]
             last_w += w
         return aggregated_img
+    
+    def _get_local_spheroid_mask(self, zyx_radii_pxl):
+        zr, yr, xr = zyx_radii_pxl
+        wh, d = int(np.ceil(yr)), int(np.ceil(zr))
+
+        # Generate a sparse meshgrid to evaluate 3D spheroid mask
+        z, y, x = np.ogrid[-d:d+1, -wh:wh+1, -wh:wh+1]
+
+        # 3D spheroid equation
+        mask = (x**2 + y**2)/(yr**2) + z**2/(zr**2) <= 1
+
+        return mask
+    
+    def _normalise_img(self, img, norm_mask, method='median'):
+        values = img[norm_mask]
+        if method == 'median':
+            norm_value = np.median(values)
+        else:
+            norm_value = 1
+        norm_img = img/norm_value
+        return norm_img, norm_value
 
     @utils.exception_handler_cli
-    def spot_detection(
-            self, spots_img, ref_ch_img=None, ref_ch_mask_or_labels=None, 
-            frame_i=0, lab=None, rp=None, raw_spots_img=None
+    def spots_detection(
+            self, spots_img, zyx_resolution_limit_pxl, ref_ch_img=None, 
+            ref_ch_mask_or_labels=None, frame_i=0, lab=None, rp=None, 
+            raw_spots_img=None, do_filter_spots_vs_ref_ch=False, df_cells=None,
+            do_keep_spots_in_ref_ch=False, how_filter_spots_vs_ref_ch=None,
+            detection_method='peak_local_max', prediction_method='Thresholding',
+            threshold_method='threshold_otsu', do_aggregate_objs=False,
+            lineage_table=None, min_size_spheroid_mask=None, verbose=True,
+            spot_footprint=None, dfs_lists=None
         ):
+        if spots_img.ndim == 2:
+            spots_img = spots_img[np.newaxis]
+            lab = lab[np.newaxis]
+            rp = skimage.measure.regionprops(lab)
+            if ref_ch_img is not None:
+                ref_ch_img = ref_ch_img[np.newaxis]
+            if ref_ch_mask_or_labels is not None:
+                ref_ch_mask_or_labels = ref_ch_mask_or_labels[np.newaxis]
+            if raw_spots_img is not None:
+                raw_spots_img = raw_spots_img[np.newaxis]
+            if min_size_spheroid_mask is not None:
+                min_size_spheroid_mask = min_size_spheroid_mask[np.newaxis]
+            if spot_footprint is not None:
+                spot_footprint = spot_footprint[np.newaxis]
+
         if lab is None:
             lab = np.ones(spots_img.shape, dtype=np.uint8)
         
         if rp is None:
             rp = skimage.measure.regionprops(lab)
+        
+        if df_cells is None:
+            IDs = [obj.label for obj in rp]
+            df_data = {'frame_i': [frame_i]*len(IDs), 'Cell_ID': IDs}
+            df_cells = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
+
+        if isinstance(threshold_method, str):
+            threshold_func = getattr(skimage.filters, threshold_method)
+        else:
+            threshold_func = threshold_method
+        
+        if do_aggregate_objs:
+            aggr_spots_img = self.aggregate_objs(
+                spots_img, lab, lineage_table=lineage_table
+            )
+            threshold_val = threshold_func(aggr_spots_img.max(axis=0))
+        else:
+            threshold_val = None
+        
+        self._spots_detection(
+            spots_img, ref_ch_img, ref_ch_mask_or_labels, 
+            do_filter_spots_vs_ref_ch, lab, rp, frame_i, detection_method,
+            zyx_resolution_limit_pxl, spot_footprint=spot_footprint,
+            min_size_spheroid_mask=min_size_spheroid_mask,
+            threshold_val=threshold_val, verbose=verbose, 
+            threshold_func=threshold_func, dfs_lists=dfs_lists
+        )
+    
+    def _spots_detection(
+            self, spots_img, ref_ch_img, ref_ch_mask_or_labels, 
+            do_filter_spots_vs_ref_ch, lab, rp, frame_i, detection_method,
+            zyx_resolution_limit_pxl, dfs_lists=None,
+            threshold_val=None, verbose=False, threshold_func=None,
+            spot_footprint=None, min_size_spheroid_mask=None
+        ):
+        if verbose:
+            self.logger.info('Detecting and filtering valid spots...')
+        
+        if dfs_lists is None:
+            dfs_spots_det = []
+            dfs_spots_gop = []
+        else:
+            dfs_spots_det = dfs_lists['dfs_spots_detection']
+            dfs_spots_gop = dfs_lists['dfs_spots_gop_test']
+        
+        keys = []
+
+        for obj in tqdm(rp, ncols=100):
+            local_spots_img = spots_img[obj.slice]
+            if threshold_val is None:
+                threshold_val = threshold_func(local_spots_img)
+            
+            if detection_method == 'peak_local_max':
+                if spot_footprint is None:
+                    zyx_radii_pxl = [val/2 for val in zyx_resolution_limit_pxl]
+                    footprint = self._get_local_spheroid_mask(zyx_radii_pxl)
+                else:
+                    footprint = spot_footprint
+                labels = obj.image.astype(np.uint8)
+                local_peaks_coords = skimage.feature.peak_local_max(
+                    local_spots_img, threshold_abs=threshold_val, 
+                    footprint=footprint, labels=labels, 
+                    p_norm=2
+                )
+            else:
+                local_spots_mask = local_spots_img > threshold_val
+                local_spots_lab = skimage.measure.label(local_spots_mask)
+                local_spots_rp = skimage.measure.regionprops(local_spots_lab)
+                num_spots = len(local_spots_rp)
+                local_peaks_coords = np.zeros((len(num_spots, 3)))
+                for s, spot_obj in enumerate(local_spots_rp):
+                    local_peaks_coords[s] = spot_obj.centroid
+
+            # Store coordinates after detection
+            zyx_local_to_global = [s.start for s in obj.slice]
+            global_peaks_coords = local_peaks_coords + zyx_local_to_global
+            num_spots = len(global_peaks_coords)
+            df_obj_spots = pd.DataFrame({
+                'spot_id': np.arange(1, num_spots+1),
+                'z': global_peaks_coords[:,0],
+                'y': global_peaks_coords[:,1],
+                'x': global_peaks_coords[:,2],
+            }).set_index('spot_id')
+            dfs_spots_det.append(df_obj_spots)
+            keys.append((frame_i, obj.label))
+
+            df_obj_spots = self._compute_obj_spots_metrics(
+                df_obj_spots, local_peaks_coords, obj.image.shape,
+                min_size_spheroid_mask=min_size_spheroid_mask
+            )
+
+            # Filter according to goodness-of-peak test
+            # CONTINUE FROM HERE
+            if do_filter_spots_vs_ref_ch:
+                local_ref_ch_img = ref_ch_img[obj.slice]
+                local_ref_ch_mask = ref_ch_mask_or_labels[obj.slice]>0
+                norm_ref_ch_mask = np.logical_and(obj.image, local_ref_ch_mask)
+                norm_ref_ch_img = self._normalise_img(
+                    local_ref_ch_img, norm_ref_ch_mask
+                )
+        
+        if dfs_lists is None:
+            names = ['frame_i', 'Cell_ID', 'spot_id']
+            df_spots_det = pd.concat(dfs_spots_det, keys=keys, names=names)
+            df_spots_gop = pd.concat(dfs_spots_gop, keys=keys, names=names)
+            return df_spots_det, df_spots_gop
+
+    def _get_obj_spheroids_mask(
+            self, zyx_coords, mask_shape, min_size_spheroid_mask=None, 
+            zyx_radii_pxl=None
+        ):
+        mask = np.zeros(mask_shape, dtype=bool)
+        if min_size_spheroid_mask is None:
+            min_size_spheroid_mask = self._get_local_spheroid_mask(zyx_radii_pxl)
+
+        for zyx_center in zyx_coords:
+            slice_global_to_local, slice_crop_local = (
+                utils.get_slices_local_into_global_3D_arr(
+                    zyx_center, mask_shape, min_size_spheroid_mask.shape
+                )
+            )
+            local_mask = min_size_spheroid_mask[slice_crop_local]
+            mask[slice_global_to_local][local_mask] = True
+        return mask
+
+    def _compute_obj_spots_metrics(
+            self, df_obj_spots, local_peaks_coords, obj_image_shape, 
+            min_size_spheroid_mask=None
+        ):
+        spheroids_mask = self._get_obj_spheroids_mask(
+            local_peaks_coords, obj_image_shape, 
+            min_size_spheroid_mask=min_size_spheroid_mask
+        )
+        imshow(spheroids_mask)
+        import pdb; pdb.set_trace()
 
     @utils.exception_handler_cli
     def _run_from_images_path(
@@ -872,6 +1049,14 @@ class Kernel(_ParamsParser):
         
         spots_data = data.get('spots_ch')
         stopFrameNum = self.metadata['stopFrameNum']
+        zyx_resolution_limit_pxl = self.metadata['zyxResolutionLimitPxl']
+        min_size_spheroid_mask = self._get_local_spheroid_mask(
+            zyx_resolution_limit_pxl
+        )
+        spot_footprint = self._get_local_spheroid_mask(
+            [val/2 for val in zyx_resolution_limit_pxl]
+        )
+        
         do_sharpen_spots = (
             self._params['Pre-processing']['sharpenSpots']['loadedVal']
         )
@@ -885,6 +1070,9 @@ class Kernel(_ParamsParser):
         how_filter_spots_vs_ref_ch = (
             self._params[SECTION]['filterPeaksInsideRefMethod']['loadedVal']
         )
+        dfs_lists = {
+            'dfs_spots_detection': [], 'dfs_spots_gop_test': [], 'keys': []
+        }
 
         for frame_i in tqdm(range(stopFrameNum), ncols=100):
             raw_spots_img = spots_data[frame_i]
@@ -899,11 +1087,23 @@ class Kernel(_ParamsParser):
                 ref_ch_img = ref_ch_data[frame_i]
             else:
                 ref_ch_img = None
-            self.spot_detection(
-                filtered_spots_img, ref_ch_img=ref_ch_img, frame_i=frame_i, 
-                df_cells=df_cells, ref_ch_mask_or_labels=ref_ch_segm_data,
-                lab=lab, rp=rp, raw_spots_img=raw_spots_img
+            self.spots_detection(
+                filtered_spots_img, zyx_resolution_limit_pxl, 
+                ref_ch_img=ref_ch_img, frame_i=frame_i, df_cells=df_cells, 
+                ref_ch_mask_or_labels=ref_ch_segm_data, lab=lab, rp=rp, 
+                raw_spots_img=raw_spots_img, dfs_lists=dfs_lists,
+                min_size_spheroid_mask=min_size_spheroid_mask,
+                spot_footprint=spot_footprint
             )
+        
+        names = ['frame_i', 'Cell_ID', 'spot_id']
+        keys = dfs_lists['keys']
+        df_spots_det = pd.concat(
+            dfs_lists['dfs_spots_detection'], keys=keys, names=names
+        )
+        df_spots_gop = pd.concat(
+            dfs_lists['dfs_spots_gop_test'], keys=keys, names=names
+        )
 
     @utils.exception_handler_cli
     def _run_exp_paths(self, exp_paths):
