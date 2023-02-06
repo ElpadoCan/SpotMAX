@@ -238,10 +238,6 @@ def readStoredParamsCSV(csv_path, params):
             ('Spots channel', 'doSpotFit'),
         'emission wavelength (nm):':
             ('METADATA', 'emWavelen'),
-        'Effect size used:':
-            ('Spots channel', 'gopLimit'),
-        'Filter good peaks method:':
-            ('Spots channel', 'gopMethod'),
         'Filter spots by reference channel?':
             ('Reference channel', 'filterPeaksInsideRef'),
         'Fit 3D Gaussians?':
@@ -270,8 +266,6 @@ def readStoredParamsCSV(csv_path, params):
             ('METADATA', 'zResolutionLimit'),
         'ZYX voxel size (um):':
             ('METADATA', ('voxelDepth', 'pixelHeight', 'pixelWidth')),
-        'p-value limit:':
-            ('Spots channel', 'gopLimit'),
     }
     df = pd.read_csv(csv_path, index_col='Description')
     for idx, section_anchor in old_csv_options_to_anchors.items():
@@ -308,6 +302,24 @@ def readStoredParamsCSV(csv_path, params):
                 params[section][sub_anchor]['loadedVal'] = val
         else:
             params[section][anchor]['loadedVal'] = value
+    
+    # Read the filtering method and values and format into ini format
+    gop_method = df.at['Filter good peaks method:', 'Values']
+    SECTION = 'Spots channel'
+    ANCHOR = 'gopThresholds'
+    if gop_method == 't-test':
+        p_val = df.at['p-value limit:', 'Values']
+        value = (
+            f'spot_vs_ref_ch_ttest_pvalue,{p_val}'
+            '/spot_vs_ref_ch_ttest_tstat,0'
+        )
+        params[SECTION][ANCHOR]['loadedVal'] = value
+    elif gop_method == 'effect size':
+        eff_size_limit = df.at['Effect size limit:', 'Values']
+        which_eff_size = df.at['Effect size used:', 'Values']
+        eff_size_name = which_eff_size.split('_')[1]
+        value = f'spot_vs_backgr_effect_size_{eff_size_name}'
+        params[SECTION][ANCHOR]['loadedVal'] = value
     return params
 
 def readStoredParamsINI(ini_path, params):
@@ -381,6 +393,13 @@ def writeConfigINI(params=None, ini_path=None):
             val = param.get('loadedVal')
             if val is None:
                 val = param['initialVal']
+            parser_val = param.get('parser')
+            if parser_val is not None:
+                val = parser_val(val)
+            comment = param.get('comment')
+            if comment is not None:
+                # Add comment to config file
+                configPars.set(section, comment())
             configPars[section][key] = str(val)
 
     if ini_path is None:
@@ -389,10 +408,6 @@ def writeConfigINI(params=None, ini_path=None):
     # Write config to file
     with open(ini_path, 'w', encoding="utf-8") as file:
         configPars.write(file)
-
-    with open(ini_path, 'w', encoding="utf-8") as file:
-        configPars.write(file)
-
 
 class channelName:
     def __init__(self, which_channel=None, QtParent=None, load=True):

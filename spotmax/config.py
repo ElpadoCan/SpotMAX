@@ -23,7 +23,7 @@ from . import io, colorItems_path, default_ini_path
 
 class ConfigParser(configparser.ConfigParser):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, allow_no_value=True, **kwargs)
         self.optionxform = str
 
 def initColorItems():
@@ -89,9 +89,59 @@ def get_exp_paths(exp_paths):
     exp_paths = exp_paths.rstrip(']')
     exp_paths = exp_paths.rstrip(')')
 
+    exp_paths = exp_paths.replace('\n',',')
+    exp_paths = exp_paths.replace(',,',',')
+
     exp_paths = exp_paths.split(',')
-    exp_paths = [path.strip() for path in exp_paths]
+    exp_paths = [path.strip() for path in exp_paths if path]
     return exp_paths
+
+def parse_list_to_configpars(iterable: list):
+    if isinstance(iterable, str):
+        iterable = [iterable]
+    
+    li_str = [f'\n{p}' for p in iterable]
+    li_str = ''.join(li_str)
+    return li_str
+
+def gop_thresholds_comment():
+    s = (
+        '# Save the features to use for filtering truw spots as `feature_name,max,min`. '
+        'Write each feature on its own indented line'
+    )
+    return s
+
+def get_gop_thresholds(gop_thresholds_to_parse):
+    """_summary_
+
+    Parameters
+    ----------
+    gop_thresholds_to_parse : str
+        String formatted to contain feature names and min,max values to use 
+        when filtering spots in goodness-of-peak test.
+
+        Multiple features are separated by the "/" charachter. Feature name and 
+        thresholds values are separated by comma.
+
+        Examples:
+            `spot_vs_bkgr_glass_effect_size,0.08,None`: Filter all the spots 
+            that have the Glass' effect size greater than 0.08. There is no max 
+            set.
+    """    
+    features_thresholds = gop_thresholds_to_parse.split('\n')
+    gop_thresholds = {}
+    for feature_thresholds in features_thresholds:
+        if not feature_name:
+            continue
+        feature_name, *thresholds_str = feature_thresholds.split(',')
+        thresholds = [None, None]
+        for t, thresh in enumerate(thresholds_str):
+            try:
+                thresholds[t] = float(thresh)
+            except Exception as e:
+                pass
+        gop_thresholds[feature_name] = tuple(thresholds)
+    return gop_thresholds
 
 def analysisInputsParams(params_path=default_ini_path):
     # NOTE: if you change the anchors (i.e., the key of each second level
@@ -111,7 +161,8 @@ def analysisInputsParams(params_path=default_ini_path):
                 'addEditButton': True,
                 'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
                 'actions': None,
-                'dtype': get_exp_paths
+                'dtype': get_exp_paths,
+                'parser': parse_list_to_configpars
             },
             'spotsEndName': {
                 'desc': 'Spots channel end name or path',
@@ -391,17 +442,6 @@ def analysisInputsParams(params_path=default_ini_path):
                 'actions': None,
                 'dtype': get_bool
             },
-            'filterPeaksInsideRefMethod': {
-                'desc': 'Method to filter spots when comparing to ref. channel',
-                'initialVal': 'Keep only spots that are brighter than ref. channel',
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': True,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets._filterSpotsVsRefChMethodWidget',
-                'actions': None,
-                'dtype': str
-            },
             'refChSingleObj': {
                 'desc': 'Ref. channel is single object (e.g., nucleus)',
                 'initialVal': False,
@@ -470,26 +510,18 @@ def analysisInputsParams(params_path=default_ini_path):
                 'actions': None,
                 'dtype': get_threshold_func
             },
-            'gopMethod': {
-                'desc': 'Method for filtering true spots',
-                'initialVal': 'Effect size',
+            'gopThresholds': {
+                'desc': 'Features and thresholds for filtering true spots',
+                'initialVal': 'spot_vs_bkgr_glass_effect_size,0.08,None',
                 'stretchWidget': True,
                 'addInfoButton': True,
                 'addComputeButton': False,
                 'addApplyButton': False,
-                'formWidgetFunc': 'widgets._gopMethod',
-                'actions': None
-            },
-            'gopLimit': {
-                'desc': 'Threshold value for filtering valid spots',
-                'initialVal': 0.8,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': True,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
+                'formWidgetFunc': 'widgets.GopFeaturesAndThresholds',
                 'actions': None,
-                'dtype': float
+                'dtype': get_gop_thresholds,
+                'parser': parse_list_to_configpars,
+                'comment': gop_thresholds_comment
             },
             'doSpotFit': {
                 'desc': 'Compute spots size',
@@ -543,15 +575,6 @@ def skimageAutoThresholdMethods():
         'threshold_yen'
     ]
     return methodsName
-
-def filterSpotsVsRefChMethods():
-    methods = [
-        'Keep only spots that are brighter than ref. channel',
-        'Keep only spots that are as bright as ref. channel',
-        'Keep only spots that are brighter or as bright as ref. channel',
-        'Keep only spots that are darker than ref. channel'
-    ]
-    return methods
 
 if GUI_INSTALLED:
     class QtWarningHandler(QObject):

@@ -30,6 +30,14 @@ def cli_parser():
     )
 
     ap.add_argument(
+        '-n', '--num_threads',
+        default=-1,
+        type=int,
+        metavar='NUMBA_NUM_THREADS',
+        help=('Number of threads to use for parallel execution when using numba.')
+    )
+
+    ap.add_argument(
         '-d', '--debug',
         action='store_true',
         help=(

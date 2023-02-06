@@ -191,6 +191,10 @@ class tooltipLineEdit(QLineEdit):
     def setTextTooltip(self):
         self.setToolTip(self.text())
 
+class GopFeaturesAndThresholds(QWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+
 def _refChThresholdFuncWidget():
     widget = myQComboBox()
     items = config.skimageAutoThresholdMethods()
@@ -200,12 +204,6 @@ def _refChThresholdFuncWidget():
 def _spotThresholdFunc():
     widget = myQComboBox()
     items = config.skimageAutoThresholdMethods()
-    widget.addItems(items)
-    return widget
-
-def _filterSpotsVsRefChMethodWidget():
-    widget = myQComboBox()
-    items = config.filterSpotsVsRefChMethods()
     widget.addItems(items)
     return widget
 

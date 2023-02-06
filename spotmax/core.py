@@ -414,7 +414,7 @@ class _ParamsParser(_DataLoader):
             'Add them to the file (see path below) '
             'at the [METADATA] section. If you do not have timelapse data and\n'
             'the "Analyse until frame number" is missing you need to\n'
-            'to write "Analyse until frame number = 1".'
+            'to write "Analyse until frame number = 1".\n\n'
             f'Parameters file path: "{self.ini_params_file_path}"\n'
         )
         self.logger.info(err_msg)
@@ -543,7 +543,7 @@ class _ParamsParser(_DataLoader):
             err_msg = (f'{err_msg}'
                 'You can add them to the file (see path below) '
                 'at the right section (shown in parethensis above), or continue '
-                'with default values.\n'
+                'with default values.\n\n'
                 f'Parameters file path: "{self.ini_params_file_path}"\n'
             )
             self.logger.info(err_msg)
@@ -826,7 +826,7 @@ class Kernel(_ParamsParser):
             self, spots_img, zyx_resolution_limit_pxl, ref_ch_img=None, 
             ref_ch_mask_or_labels=None, frame_i=0, lab=None, rp=None, 
             raw_spots_img=None, do_filter_spots_vs_ref_ch=False, df_cells=None,
-            do_keep_spots_in_ref_ch=False, how_filter_spots_vs_ref_ch=None,
+            do_keep_spots_in_ref_ch=False, gop_filtering_thresholds=None,
             detection_method='peak_local_max', prediction_method='Thresholding',
             threshold_method='threshold_otsu', do_aggregate_objs=False,
             lineage_table=None, min_size_spheroid_mask=None, verbose=True,
@@ -878,7 +878,9 @@ class Kernel(_ParamsParser):
             min_size_spheroid_mask=min_size_spheroid_mask,
             threshold_val=threshold_val, verbose=verbose, 
             threshold_func=threshold_func, dfs_lists=dfs_lists,
-            raw_spots_img=raw_spots_img
+            raw_spots_img=raw_spots_img, prediction_method=prediction_method,
+            do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch, 
+            gop_filtering_thresholds=gop_filtering_thresholds
         )
     
     def _spots_detection(
@@ -887,7 +889,8 @@ class Kernel(_ParamsParser):
             zyx_resolution_limit_pxl, dfs_lists=None,
             threshold_val=None, verbose=False, threshold_func=None,
             spot_footprint=None, min_size_spheroid_mask=None,
-            raw_spots_img=None
+            raw_spots_img=None, gop_filtering_thresholds=None, 
+            do_keep_spots_in_ref_ch=False
         ):
         if verbose:
             self.logger.info('Detecting and filtering valid spots...')
@@ -961,16 +964,34 @@ class Kernel(_ParamsParser):
                 raw_spots_img_obj = raw_spots_img[obj.slice]
 
             df_obj_spots_gop = df_obj_spots_det.copy()
-            df_obj_spots_gop = self._compute_obj_spots_metrics(
-                local_spots_img, df_obj_spots_gop, obj.image, 
-                local_peaks_coords, raw_spots_img_obj=raw_spots_img_obj,
-                min_size_spheroid_mask=min_size_spheroid_mask, 
-                ref_ch_mask_obj=local_ref_ch_mask, 
-                ref_ch_img_obj=local_ref_ch_img,
-                normalised_ref_ch_img_obj=norm_local_ref_ch_img,
-                verbose=verbose, zyx_radii_pxl=zyx_resolution_limit_pxl
-            )
-            import pdb; pdb.set_trace()
+            if do_keep_spots_in_ref_ch:
+                df_obj_spots_gop = self._drop_spots_not_in_ref_ch(
+                    df_obj_spots_gop, local_ref_ch_mask, local_peaks_coords
+                )
+
+            if verbose:
+                print('')
+                self.logger.info('Iterating goodness-of-peak test...')
+            
+            num_spots_current = len()
+            num_spots_prev = -1
+            while num_spots_current != num_spots_prev:            
+                df_obj_spots_gop = self._compute_obj_spots_metrics(
+                    local_spots_img, df_obj_spots_gop, obj.image, 
+                    local_peaks_coords, raw_spots_img_obj=raw_spots_img_obj,
+                    min_size_spheroid_mask=min_size_spheroid_mask, 
+                    ref_ch_mask_obj=local_ref_ch_mask, 
+                    ref_ch_img_obj=local_ref_ch_img,
+                    normalised_ref_ch_img_obj=norm_local_ref_ch_img,
+                    verbose=verbose, zyx_radii_pxl=zyx_resolution_limit_pxl
+                )
+
+                df_obj_spots_gop = self.filter_spots(df_obj_spots_gop)
+                num_spots_prev = len(df_obj_spots_gop)
+                if num_spots_prev == 0:
+                    break
+
+            dfs_spots_gop.append(df_obj_spots_gop)
         
         if dfs_lists is None:
             names = ['frame_i', 'Cell_ID', 'spot_id']
@@ -1009,7 +1030,17 @@ class Kernel(_ParamsParser):
         spot_intensities = spots_img[slice_global_to_local][spot_mask]
         return spot_intensities
     
-    def _add_ttest_values(self, arr1, arr2, df, idx, name='spot_vs_bkgr'):
+    def _drop_spots_not_in_ref_ch(self, df, ref_ch_mask, local_peaks_coords):
+        if ref_ch_mask is None:
+            return df
+        
+        zz = local_peaks_coords[:,0]
+        yy = local_peaks_coords[:,1]
+        xx = local_peaks_coords[:,2]
+        in_ref_ch_spots_mask = ref_ch_mask[zz, yy, xx]
+        return df[in_ref_ch_spots_mask]
+
+    def _add_ttest_values(self, arr1, arr2, df, idx, name='spot_vs_backgr'):
         tstat, pvalue = scipy.stats.ttest_ind(arr1, arr2, equal_var=False)
         df.at[idx, f'{name}_ttest_tstat'] = tstat
         df.at[idx, f'{name}_ttest_pvalue'] = pvalue
@@ -1019,7 +1050,7 @@ class Kernel(_ParamsParser):
             _col_name = col_name.replace('*name', name)
             df.at[idx, _col_name] = func(arr)
         
-    def _add_effect_sizes(self, pos_arr, neg_arr, df, idx, name='spot_vs_bkgr'):
+    def _add_effect_sizes(self, pos_arr, neg_arr, df, idx, name='spot_vs_backgr'):
         for eff_size_name, func in effect_size_func.items():
             eff_size = features._try_metric_func(func, pos_arr, neg_arr)
             col_name = f'{name}_effect_size_{eff_size_name}'
@@ -1039,8 +1070,7 @@ class Kernel(_ParamsParser):
             raw_spots_img_obj=None, min_size_spheroid_mask=None, 
             ref_ch_mask_obj=None, ref_ch_img_obj=None,
             normalised_ref_ch_img_obj=None, zyx_resolution_limit_pxl=None, 
-            verbose=False,
-            
+            verbose=False
         ):
         """_summary_
 
@@ -1150,12 +1180,12 @@ class Kernel(_ParamsParser):
             
             self._add_ttest_values(
                 spot_intensities, backgr_vals, df_obj_spots, spot_id, 
-                name='spot_vs_bkgr'
+                name='spot_vs_backgr'
             )
 
             self._add_effect_sizes(
                 spot_intensities, backgr_vals, df_obj_spots, spot_id, 
-                name='spot_vs_bkgr'
+                name='spot_vs_backgr'
             )
 
             if normalised_ref_ch_img_obj is not None:
@@ -1190,6 +1220,12 @@ class Kernel(_ParamsParser):
             )
             pbar.update()
         pbar.close()
+    
+    @utils.exception_handler_cli
+    def filter_spots(self, df: pd.DataFrame, features_thresholds: dict):
+        for feature_name, thresholds in features_thresholds.items():
+            pass
+        return df
             
     @utils.exception_handler_cli
     def _run_from_images_path(
@@ -1276,9 +1312,21 @@ class Kernel(_ParamsParser):
         do_keep_spots_in_ref_ch = (
             self._params[SECTION]['keepPeaksInsideRef']['loadedVal']
         )
-        how_filter_spots_vs_ref_ch = (
-            self._params[SECTION]['filterPeaksInsideRefMethod']['loadedVal']
+
+        SECTION = 'Spots channel'
+        gop_filtering_thresholds = (
+            self._params[SECTION]['gopThresholds']['loadedVal']
         )
+        prediction_method = (
+            self._params[SECTION]['spotPredictionMethod']['loadedVal']
+        )
+        threshold_method = (
+            self._params[SECTION]['spotThresholdFunc']['loadedVal']
+        )
+        detection_method = (
+            self._params[SECTION]['spotDetectionMethod']['loadedVal']
+        )
+
         dfs_lists = {
             'dfs_spots_detection': [], 'dfs_spots_gop_test': [], 'keys': []
         }
@@ -1298,11 +1346,23 @@ class Kernel(_ParamsParser):
                 ref_ch_img = None
             self.spots_detection(
                 filtered_spots_img, zyx_resolution_limit_pxl, 
-                ref_ch_img=ref_ch_img, frame_i=frame_i, df_cells=df_cells, 
-                ref_ch_mask_or_labels=ref_ch_segm_data, lab=lab, rp=rp, 
-                raw_spots_img=raw_spots_img, dfs_lists=dfs_lists,
+                ref_ch_img=ref_ch_img, 
+                frame_i=frame_i, lab=lab, rp=rp,
+                ref_ch_mask_or_labels=ref_ch_segm_data, 
+                df_cells=df_cells,
+                raw_spots_img=raw_spots_img, 
+                dfs_lists=dfs_lists,
                 min_size_spheroid_mask=min_size_spheroid_mask,
-                spot_footprint=spot_footprint
+                spot_footprint=spot_footprint,
+                do_filter_spots_vs_ref_ch=do_filter_spots_vs_ref_ch,
+                do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch,
+                gop_filtering_thresholds=gop_filtering_thresholds,
+                prediction_method=prediction_method,
+                threshold_method=threshold_method,
+                detection_method=detection_method,
+                do_aggregate_objs=do_aggregate_objs,
+                lineage_table=lineage_table,
+                verbose=False
             )
         
         names = ['frame_i', 'Cell_ID', 'spot_id']
