@@ -921,6 +921,18 @@ class widgetBlinker:
         self._blinkTimer.stop()
         self._widget.setStyleSheet(f'{self._off_style}')
 
+def nearest_nonzero(self, arr, y, x):
+    value = a[y,x]
+    if value == 0:
+        r, c = np.nonzero(a)
+        dist = ((r - y)**2 + (c - x)**2)
+        min_idx = dist.argmin()
+        min_dist = dist[min_idx]
+        return a[r[min_idx], c[min_idx]], min_dist
+    else:
+        min_dist = 0
+        return value, min_dist
+
 if __name__ == '__main__':
     dset = np.random.randint(1,255, size=(16,50,50))
 
