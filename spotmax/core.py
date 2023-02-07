@@ -49,9 +49,9 @@ effect_size_func = features.get_effect_size_func()
 aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
 
 dfs_filenames = {
-    'spots_detection': 'run_num_*rn*_1_raw_spots_detection.h5',
-    'spots_gop': 'run_num_*rn*_2_fitlered_spots_detection.h5',
-    'spots_spotfit': 'run_num_*rn*_3_spots_spotfit.h5'
+    'spots_detection': '*rn*_0_Orig_data.h5',
+    'spots_gop': '*rn*_3_p-_ellip_test_data.h5',
+    'spots_spotfit': '*rn*_4_spotFIT_data.h5'
 }
 
 class _DataLoader:
@@ -3361,8 +3361,7 @@ class Kernel(_ParamsParser):
                     segm_endname=segm_endname,
                     ref_ch_segm_endname=ref_ch_segm_endname, 
                     lineage_table_endname=lineage_table_endname
-                )         
-                import pdb; pdb.set_trace()      
+                )           
                 self.save_dfs(pos_path, dfs, run_number=run_number)
 
     def save_dfs(self, folder_path, dfs, run_number=1):
@@ -3375,11 +3374,9 @@ class Kernel(_ParamsParser):
             df_spots = dfs[key]
             h5_filename = filename
             
-            agg_filename = h5_filename.replace('.h5', 'agg.csv')
+            agg_filename = h5_filename.replace('.h5', '_Summary.csv')
             agg_key = key.replace('spots', 'agg')
             df_agg = dfs[agg_key]
-
-            import pdb; pdb.set_trace()
 
             io.save_df_to_hdf(df_spots, spotmax_out_path, h5_filename)
             df_agg.to_csv(os.path.join(folder_path, agg_filename))
