@@ -48,6 +48,12 @@ distribution_metrics_func = features.get_distribution_metric_func()
 effect_size_func = features.get_effect_size_func()
 aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
 
+dfs_filenames = {
+    'spots_detection': 'run_num_*rn*_1_raw_spots_detection.h5',
+    'spots_gop': 'run_num_*rn*_2_fitlered_spots_detection.h5',
+    'spots_spotfit': 'run_num_*rn*_3_spots_spotfit.h5'
+}
+
 class _DataLoader:
     def __init__(self, debug=False, log=print):
         self.debug = debug
@@ -3311,6 +3317,16 @@ class Kernel(_ParamsParser):
         )
         df_agg_det, df_agg_gop, df_agg_spotfit = dfs_agg
 
+        dfs = {
+            'spots_detection': df_spots_det,
+            'spots_gop': df_spots_gop,
+            'spots_spotfit': df_spots_fit,
+            'agg_detection': df_agg_det,
+            'agg_gop': df_agg_gop,
+            'agg_spotfit': df_agg_spotfit
+        }
+        return dfs
+
     @utils.exception_handler_cli
     def _run_exp_paths(self, exp_paths):
         """Run spotMAX analysis from a dictionary of Cell-ACDC style experiment 
@@ -3338,7 +3354,7 @@ class Kernel(_ParamsParser):
             for pos in pos_foldernames:
                 pos_path = os.path.join(exp_path, pos)
                 images_path = os.path.join(pos_path, 'Images')
-                self._run_from_images_path(
+                dfs = self._run_from_images_path(
                     images_path, 
                     spots_ch_endname=spots_ch_endname, 
                     ref_ch_endname=ref_ch_endname, 
@@ -3346,6 +3362,26 @@ class Kernel(_ParamsParser):
                     ref_ch_segm_endname=ref_ch_segm_endname, 
                     lineage_table_endname=lineage_table_endname
                 )               
+                self.save_dfs(pos_path, dfs, run_number=run_number)
+
+    def save_dfs(self, folder_path, dfs, run_number=1):
+        spotmax_out_path = os.path.join(folder_path, 'spotMAX_output')
+        if not os.path.exists(spotmax_out_path):
+            os.mkdir(spotmax_out_path)
+        
+        for key, filename in dfs_filenames.items():
+            filename = filename.replace('*rn*', str(run_number))
+            df_spots = dfs[key]
+            h5_filename = filename
+            
+            agg_filename = h5_filename.replace('.h5', 'agg.csv')
+            agg_key = key.replace('spots', 'agg')
+            df_agg = dfs[agg_key]
+
+            import pdb; pdb.set_trace()
+
+            io.save_df_to_hdf(df_spots, spotmax_out_path, h5_filename)
+            df_agg.to_csv(os.path.join(folder_path, agg_filename))
 
     @utils.exception_handler_cli
     def _run_single_path(self, single_path_info):

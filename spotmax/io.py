@@ -10,6 +10,8 @@ import configparser
 import json
 import traceback
 import cv2
+import tempfile
+import shutil
 
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
@@ -1794,6 +1796,25 @@ def get_user_input(
             logger(f'Closing spotMAX...')
         logger('*'*60)
     return answer_txt
+
+def save_df_to_hdf(df: pd.DataFrame, folder_path: os.PathLike, filename: str):
+    if df is None:
+        return
+    
+    temp_dirpath = tempfile.mkdtemp()
+    temp_filepath = os.path.join(temp_dirpath, filename)
+    store_hdf = pd.HDFStore(temp_filepath, mode='w')
+    for frame_i, sub_df in df.groupby(level=0):
+        key = f'frame_{frame_i}'
+        store_hdf.append(key, sub_df)
+    store_hdf.close()
+    dst_filepath = os.path.join(folder_path, filename)
+    shutil.move(temp_filepath, dst_filepath)
+    shutil.rmtree(temp_dirpath)
+
+def save_df_agg_to_csv(df: pd.DataFrame, folder_path: os.PathLike, filename: str):
+    if df is None:
+        return
 
 if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication, QStyleFactory
