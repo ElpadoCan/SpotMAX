@@ -310,15 +310,15 @@ def readStoredParamsCSV(csv_path, params):
     if gop_method == 't-test':
         p_val = df.at['p-value limit:', 'Values']
         value = (
-            f'spot_vs_ref_ch_ttest_pvalue,{p_val}'
-            '/spot_vs_ref_ch_ttest_tstat,0'
+            f'spot_vs_ref_ch_ttest_pvalue,None,{p_val}'
+            '\nspot_vs_ref_ch_ttest_tstat,0'
         )
         params[SECTION][ANCHOR]['loadedVal'] = value
     elif gop_method == 'effect size':
         eff_size_limit = df.at['Effect size limit:', 'Values']
         which_eff_size = df.at['Effect size used:', 'Values']
         eff_size_name = which_eff_size.split('_')[1]
-        value = f'spot_vs_backgr_effect_size_{eff_size_name}'
+        value = f'spot_vs_backgr_effect_size_{eff_size_name},{eff_size_limit}'
         params[SECTION][ANCHOR]['loadedVal'] = value
     return params
 

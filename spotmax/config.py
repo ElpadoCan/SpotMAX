@@ -106,8 +106,10 @@ def parse_list_to_configpars(iterable: list):
 
 def gop_thresholds_comment():
     s = (
-        '# Save the features to use for filtering truw spots as `feature_name,max,min`. '
-        'Write each feature on its own indented line'
+        '# Save the features to use for filtering truw spots as `feature_name,max,min`.\n'
+        '# You can write as many features as you want. Write each feature on its own indented line.\n'
+        '# Example: `spot_vs_ref_ch_ttest_pvalue,None,0.025` means `keep only spots whose p-value\n'
+        '# is smaller than 0.025` where `None` indicates that there is no minimum.'
     )
     return s
 
@@ -131,9 +133,9 @@ def get_gop_thresholds(gop_thresholds_to_parse):
     features_thresholds = gop_thresholds_to_parse.split('\n')
     gop_thresholds = {}
     for feature_thresholds in features_thresholds:
+        feature_name, *thresholds_str = feature_thresholds.split(',')
         if not feature_name:
             continue
-        feature_name, *thresholds_str = feature_thresholds.split(',')
         thresholds = [None, None]
         for t, thresh in enumerate(thresholds_str):
             try:
@@ -535,7 +537,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'dtype': get_bool
             },
             'minSpotSize': {
-                'desc': 'Discard spots with size less than',
+                'desc': 'Discard spots with radius less than (pixels)',
                 'initialVal': 0.0,
                 'stretchWidget': True,
                 'addInfoButton': True,
@@ -546,7 +548,7 @@ def analysisInputsParams(params_path=default_ini_path):
                 'dtype': float
             },
             'maxSpotSize': {
-                'desc': 'Discard spots with size greater than',
+                'desc': 'Discard spots with radius greater than (pixels)',
                 'initialVal': 0.0,
                 'stretchWidget': True,
                 'addInfoButton': True,

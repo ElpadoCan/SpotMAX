@@ -1,11 +1,16 @@
 import os
 import sys
+import traceback
+
 from tqdm import tqdm
+import time
+from datetime import datetime, timedelta
 
 import pandas as pd
 import numpy as np
 
 import scipy.stats
+import scipy.ndimage
 
 import cv2
 
@@ -14,19 +19,34 @@ import skimage.measure
 import skimage.transform
 import skimage.filters
 import skimage.feature
+from scipy.special import erf
 
 import acdctools.io
 import acdctools.utils
+import acdctools.core
 try:
     from acdctools.plot import imshow
 except Exception as e:
     pass
 
-from . import utils, rng
+try:
+    import matplotlib.pyplot as plt
+    import matplotlib
+except Exception as e:
+    pass
+
+try:
+    from numba import njit, prange
+except Exception as e:
+    from .utils import njit_replacement as njit
+    prange = range
+
+from . import utils, rng, base_lineage_table_values
 from . import issues_url, printl, io, features
 
 distribution_metrics_func = features.get_distribution_metric_func()
 effect_size_func = features.get_effect_size_func()
+aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
 
 class _DataLoader:
     def __init__(self, debug=False, log=print):
@@ -44,7 +64,7 @@ class _DataLoader:
         )
         data = self._reshape_data(data, self.metadata)
         data = self._add_regionprops(data)
-        data = self._initialize_dataframes(data)
+        data = self._initialize_df_agg(data)
         return data
     
     def _load_data_from_images_path(
@@ -75,6 +95,7 @@ class _DataLoader:
 
         ch_key = 'spots_ch' if 'spots_ch' in data else 'ref_ch'
         data_shape = data[ch_key].shape
+        data['is_segm_3D'] = True
         if 'segm' not in data:
             # Use entire image as segm_data  
             segm_data = np.ones(data_shape, dtype=np.uint8)
@@ -85,10 +106,12 @@ class _DataLoader:
                 # Timelapse data, stack on second axis (T, Z, Y, X)
                 SizeZ = data_shape[1]
                 data['segm'] = np.stack([data['segm']]*SizeZ, axis=1)
+                data['is_segm_3D'] = False
             else:
                 # Snapshot data, stack on first axis (Z, Y, X)
                 SizeZ = data_shape[0]
                 data['segm'] = np.stack([data['segm']]*SizeZ, axis=0)
+                data['is_segm_3D'] = False
 
         if not lineage_table_endname:
             return
@@ -150,7 +173,7 @@ class _DataLoader:
         data['lineage_table'] = table
         return data
     
-    def _initialize_dataframes(self, data):
+    def _initialize_df_agg(self, data):
         segm_data = data['segm']
         frame_idxs = []
         IDs = []
@@ -160,7 +183,21 @@ class _DataLoader:
                 IDs.append(obj.label)
                 frame_idxs.append(frame_i)
         df_data = {'frame_i': frame_idxs, 'Cell_ID': IDs}
-        df_cells = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
+        df_agg = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
+        df_agg['analysis_datetime'] = pd.Timestamp.now()
+        data['df_agg'] = df_agg
+
+        if 'lineage_table' not in data:
+            return data
+        
+        idx_segm = data['df_agg'].index
+        idx_acdc_df = data['lineage_table'].index
+        idx_both = idx_segm.intersection(idx_acdc_df)
+        for col_name, value in base_lineage_table_values.items():
+            data['df_agg'][col_name] = value
+            data['df_agg'].loc[idx_both, col_name] = (
+                data['lineage_table'].loc[idx_both, col_name]
+            )
         return data
 
 class _ParamsParser(_DataLoader):
@@ -359,6 +396,9 @@ class _ParamsParser(_DataLoader):
         physical_size_x = metadata['pixelWidth']
         physical_size_y = metadata['pixelHeight']
         physical_size_z = metadata['voxelDepth']
+        metadata['zyxVoxelSize'] = (
+            physical_size_z, physical_size_y, physical_size_x
+        )
         z_resolution_limit_um = metadata['zResolutionLimit']
         yx_resolution_multiplier = metadata['yxResolLimitMultiplier']
         zyx_resolution_limit_pxl, zyx_resolution_limit_um = calcMinSpotSize(
@@ -368,6 +408,17 @@ class _ParamsParser(_DataLoader):
         )
         metadata['zyxResolutionLimitPxl'] = zyx_resolution_limit_pxl
         metadata['zyxResolutionLimitUm'] = zyx_resolution_limit_um
+
+    def _add_physical_units_conversion_factors(self, metadata):
+        PhysicalSizeX = metadata.get('pixelWidth', 1)
+        PhysicalSizeY = metadata.get('pixelHeight', 1)
+        PhysicalSizeZ = metadata.get('voxelDepth', 1)
+        pxl_to_um2 = PhysicalSizeY*PhysicalSizeX
+        vox_to_um3 = PhysicalSizeY*PhysicalSizeX*PhysicalSizeZ
+        vox_to_fl_rot = float(PhysicalSizeY)*(float(PhysicalSizeX)**2)
+        metadata['vox_to_um3_factor'] = vox_to_um3
+        metadata['pxl_to_um2_factor'] = pxl_to_um2
+        metadata['vox_to_fl_rot_factor'] = vox_to_fl_rot
 
     @utils.exception_handler_cli
     def set_metadata(self):
@@ -380,6 +431,7 @@ class _ParamsParser(_DataLoader):
             self.metadata[anchor] = dtype_conveter(options['loadedVal'])
         
         self._add_resolution_limit_metadata(self.metadata)
+        self._add_physical_units_conversion_factors(self.metadata)
 
     @utils.exception_handler_cli
     def _get_missing_metadata(self):
@@ -567,12 +619,1585 @@ class _ParamsParser(_DataLoader):
                 value = to_dtype(value)
                 self._params[section_name][anchor_name]['loadedVal'] = value
 
+class _GaussianModel:
+    def __init__(self, nfev=0):
+        pass
+
+    @staticmethod
+    @njit(parallel=True)
+    def jac_gauss3D(coeffs, data, z, y, x, num_spots, num_coeffs, const=0):
+        # Gradient ((m,n) Jacobian matrix):
+        # grad[i,j] = derivative of f[i] wrt coeffs[j]
+        # e.g. m data points with n coeffs --> grad with m rows and n col
+        grad = np.empty((len(z), num_coeffs*num_spots))
+        ns = np.arange(0,num_coeffs*num_spots,num_coeffs)
+        for i in prange(num_spots):
+            n = ns[i]
+            coeffs_i = coeffs[n:n+num_coeffs]
+            z0, y0, x0, sz, sy, sx, A, B = coeffs_i
+            # Center rotation around peak center
+            zc = z - z0
+            yc = y - y0
+            xc = x - x0
+            # Build 3D gaussian by multiplying each 1D gaussian function
+            gauss_x = np.exp(-(xc**2)/(2*(sx**2)))
+            gauss_y = np.exp(-(yc**2)/(2*(sy**2)))
+            gauss_z = np.exp(-(zc**2)/(2*(sz**2)))
+            f_x = 1/(sx*np.sqrt(2*np.pi))
+            f_y = 1/(sy*np.sqrt(2*np.pi))
+            f_z = 1/(sz*np.sqrt(2*np.pi))
+            g = gauss_x*gauss_y*gauss_z
+            f = f_x*f_y*f_z
+            fg = f*g
+
+            # Partial derivatives
+            d_g_sz = g * zc**2 / (sz**3)
+            d_f_sz = A/(np.sqrt(2*np.pi)*(sz**2))
+            d_fg_sz = g*d_f_sz + f*d_g_sz
+
+            d_g_sy = g * yc**2 / (sy**2)
+            d_f_sy = -A/(np.sqrt(2*np.pi)*(sy**2))
+            d_fg_sy = g*d_f_sz + f*d_g_sz
+
+            d_g_sx = g * xc**2 / (sx**2)
+            d_f_sx = A/(np.sqrt(2*np.pi)*(sx**2))
+            d_fg_sx = g*d_f_sz + f*d_g_sz
+
+            # Gradient array
+            grad[:,n] = A*fg * zc / (sz**2) # wrt zc
+            grad[:,n+1] = A*fg * yc / (sy**2) # wrt yc
+            grad[:,n+2] = A*fg * xc / (sx**2) # wrt xc
+            grad[:,n+3] = d_fg_sz # wrt sz
+            grad[:,n+4] = d_fg_sy # wrt sy
+            grad[:,n+5] = d_fg_sx # wrt sx
+            grad[:,n+6] = fg # wrt A
+        grad[:,-1] = np.ones(len(x)) # wrt B
+        return -grad
+
+    @staticmethod
+    @njit(parallel=False)
+    def _gauss3D(z, y, x, coeffs, num_spots, num_coeffs, const):
+        model = np.zeros(len(z))
+        n = 0
+        B = coeffs[-1]
+        for i in range(num_spots):
+            coeffs_i = coeffs[n:n+num_coeffs]
+            z0, y0, x0, sz, sy, sx, A = coeffs_i
+            # Center rotation around peak center
+            zc = z - z0
+            yc = y - y0
+            xc = x - x0
+            # Build 3D gaussian by multiplying each 1D gaussian function
+            gauss_x = np.exp(-(xc**2)/(2*(sx**2)))
+            gauss_y = np.exp(-(yc**2)/(2*(sy**2)))
+            gauss_z = np.exp(-(zc**2)/(2*(sz**2)))
+            model += A*gauss_x*gauss_y*gauss_z
+            n += num_coeffs
+        return model + const + B
+
+    def gaussian_3D(self, z, y, x, coeffs, B=0):
+        """Non-NUMBA version of the model"""
+        z0, y0, x0, sz, sy, sx, A = coeffs
+        # Center rotation around peak center
+        zc = z - z0
+        yc = y - y0
+        xc = x - x0
+        # Build 3D gaussian by multiplying each 1D gaussian function
+        gauss_x = np.exp(-(xc**2)/(2*(sx**2)))
+        gauss_y = np.exp(-(yc**2)/(2*(sy**2)))
+        gauss_z = np.exp(-(zc**2)/(2*(sz**2)))
+        return A*gauss_x*gauss_y*gauss_z
+
+    def compute_const(self, z, y, x, const_coeffs):
+        const = 0
+        for const_c in const_coeffs:
+            const += self.gaussian_3D(z, y, x, const_c)
+        return const
+
+    def residuals(self, coeffs, data, z, y, x, num_spots, num_coeffs, const=0):
+        self.pbar.update(1)
+        f = self._gauss3D
+        return data - f(z, y, x, coeffs, num_spots, num_coeffs, const)
+
+    def goodness_of_fit(self, y_obs, y_model, ddof, is_linear_regr=False):
+        # Degree of freedom
+        N = len(y_obs)
+        dof = N-ddof
+
+        # Reduced chi square
+        try:
+            # Normalize to sum 1
+            y_obs_chi = y_obs/y_obs.sum()
+            y_model_chi = y_model/y_model.sum()
+            chisq, p_chisq = scipy.stats.chisquare(
+                y_obs_chi, y_model_chi, ddof=ddof
+            )
+            reduced_chisq = chisq/dof
+        except:
+            chisq = 0
+            p_chisq = 1
+            reduced_chisq = 0
+            print('WARNING: error calculating chisquare')
+
+        # Sum of squared errors
+        SSE = np.sum(np.square(y_obs-y_model))
+        # Total sum of squares
+        y_mean = y_obs.mean()
+        SST = np.sum(np.square(y_obs-y_mean))
+        # NOTE: R-square is valid ONLY for linear regressions
+        R_sq = 1 - (SSE/SST)
+        # Adjusted R squared
+        adj_Rsq = 1 - (((1-R_sq)*(N-1))/(N-ddof-1))
+
+        # Root mean squared error (a.k.a "standard error of the regression")
+        RMSE = np.sqrt(SSE/dof)
+        # Normalized mean squared error
+        NRMSE = RMSE/y_mean
+        # Frank relative NRMSE (i.e. NRMSE normalized to 0,1
+        # with 1 being perfect fit)
+        F_NRMSE = 2/(1+np.exp(NRMSE))
+
+        # Kolmogorov–Smirnov test
+        ks, p_ks = scipy.stats.ks_2samp(y_obs, y_model)
+        if is_linear_regr:
+            return (reduced_chisq, p_chisq, R_sq, RMSE, ks, p_ks, adj_Rsq,
+                    NRMSE, F_NRMSE)
+        else:
+            return reduced_chisq, p_chisq, RMSE, ks, p_ks, NRMSE, F_NRMSE
+
+    def get_bounds_init_guess(self, num_spots_s, num_coeffs, fit_ids,
+                              fit_idx, spots_centers, spots_3D_lab_ID,
+                              spots_rp, spots_radii_pxl, spots_img,
+                              spots_Bs_guess, spots_B_mins):
+
+        low_limit = np.zeros(num_spots_s*num_coeffs+1)
+        high_limit = np.zeros(num_spots_s*num_coeffs+1)
+        init_guess_s = np.zeros(num_spots_s*num_coeffs+1)
+        n = 0
+        # center bounds limit
+        xy_cbl = 0.2
+        z_cbl = 0.1
+        # Sigma bound limit multiplier
+        s_f = 3
+        _pi_f = np.sqrt(2*np.pi)
+        max_s_z = spots_radii_pxl[:,0].max()
+        max_s_yx = spots_radii_pxl[:,1].max()
+        B_min = min([spots_B_mins[i] for i in fit_idx])
+        A_max = max([spots_img[spots_3D_lab_ID==obj.label].sum()
+                     for obj in spots_rp])+1
+        for i, id in zip(fit_idx, fit_ids):
+            z0, y0, x0 = spots_centers[i]
+            c, b, a = spots_radii_pxl[i]
+            B_guess = spots_Bs_guess[i]
+            spot_mask = spots_3D_lab_ID == id
+            raw_vals = spots_img[spot_mask]
+            # A_min = np.sum(raw_vals-raw_vals.min())
+            A_guess = np.sum(raw_vals)/num_spots_s
+            # z0, y0, x0, sz, sy, sx, A = coeffs
+            low_lim = np.array([z0-z_cbl, y0-xy_cbl, x0-xy_cbl,
+                                 0.5, 0.5, 0.5, 0])
+            high_lim = np.array([z0+z_cbl, y0+xy_cbl, x0+xy_cbl,
+                                 max_s_z, max_s_yx, max_s_yx, A_max])
+            guess = np.array([z0, y0, x0, c, b, a, A_guess])
+            low_limit[n:n+num_coeffs] = low_lim
+            high_limit[n:n+num_coeffs] = high_lim
+            init_guess_s[n:n+num_coeffs] = guess
+            n += num_coeffs
+        low_limit[-1] = B_min
+        high_limit[-1] = np.inf
+        init_guess_s[-1] = B_guess
+        bounds = (low_limit, high_limit)
+        return bounds, init_guess_s
+
+    def integrate(self, zyx_center, zyx_sigmas, A, B,
+                  sum_obs=0, lower_bounds=None, upper_bounds=None,
+                  verbose=0):
+        """Integrate Gaussian peaks with erf function.
+
+        Parameters
+        ----------
+        zyx_center : (3,) ndarray
+            [zc, yc, xc] ndarray centre coordinates of the peak
+        zyx_sigmas : (3,) ndarray
+            [zs, ys, xs] ndarray sigmas of the peak.
+        A : float
+            Amplitude of the peak
+        B : float
+            Background level of the peak
+        lower_bounds : ndarray
+            [z, y, x] lower bounds of the integration volume. If None the
+            lower bounds will be equal to -1.96*zyx_sigmas (95%)
+        upper_bounds : ndarray
+            [z, y, x] upper bounds of the integration volume. If None the
+            upper bounds will be equal to 1.96*zyx_sigmas (95%)
+        sum_obs: float
+            Printed alongside with the returned I_tot is verbose==3. Used for
+            debugging to check that sum_obs and I_tot are in the same order
+            of magnitude.
+
+
+        Returns
+        -------
+        I_tot: float
+            Result of the total integration.
+        I_foregr: float
+            Result of foregroung integration (i.e. background subtracted).
+
+        """
+        # Center gaussian to peak center coords
+        if lower_bounds is None:
+            # Use 95% of peak as integration volume
+            zyx_c1 = -1.96 * zyx_sigmas
+        else:
+            zyx_c1 = lower_bounds - zyx_center
+        if upper_bounds is None:
+            zyx_c2 = 1.96 * zyx_sigmas
+        else:
+            zyx_c2 = upper_bounds - zyx_center
+
+        # Substitute variable x --> t to apply erf
+        t_z1, t_y1, t_x1 = zyx_c1 / (np.sqrt(2)*zyx_sigmas)
+        t_z2, t_y2, t_x2 = zyx_c2 / (np.sqrt(2)*zyx_sigmas)
+        s_tz, s_ty, s_tx = (zyx_sigmas) * np.sqrt(np.pi/2)
+        D_erf_z = erf(t_z2)-erf(t_z1)
+        D_erf_y = erf(t_y2)-erf(t_y1)
+        D_erf_x = erf(t_x2)-erf(t_x1)
+        I_foregr = A * (s_tz*s_ty*s_tx) * (D_erf_z*D_erf_y*D_erf_x)
+        I_tot = I_foregr + (B*np.prod(zyx_c2-zyx_c1, axis=0))
+        if verbose==3:
+            print('--------------')
+            print(f'Total integral result, observed sum = {I_tot}, {sum_obs}')
+            print(f'Foregroung integral values: {I_foregr}')
+            print('--------------')
+        return I_tot, I_foregr
+
+class spheroid:
+    def __init__(self, V_ch):
+        self.V_ch = V_ch
+        self.V_shape = V_ch.shape
+        Z, Y, X = self.V_shape
+
+    def calc_semiax_len(self, i, zyx_vox_dim, zyx_resolution):
+        zvd, yvd, xvd = zyx_vox_dim
+        zr, yr, xr = zyx_resolution
+        xys = yr + (yvd*i)  # a radius in real units
+        zs = zr + (yvd*i)  # c radius in real units
+        self.xys = xys
+        self.zs = zs
+        a = xys/yvd  # a radius in pixels (xy direction)
+        c = zs/zvd  # c radius in pixels (z direction)
+        return a, c
+
+    def get_backgr_vals(self, zyx_c, semiax_len, V, spot_id):
+        spot_surf_mask, spot_filled_mask = self.get_sph_surf_mask(
+                                                    semiax_len,
+                                                    zyx_c,
+                                                    self.V_shape,
+                                                    return_filled_mask=True)
+        surf_pixels = V[spot_surf_mask]
+        surf_mean = np.mean(surf_pixels)
+        return surf_mean, spot_filled_mask
+
+    def get_sph_surf_mask(self, semiax_len, zyx_center, V_shape,
+                          return_filled_mask=False):
+        """
+        Generate a spheroid surface mask array that can be used to index a 3D array.
+        ogrid is given by
+        Z, Y, X = V.shape
+        z, y, x = np.ogrid[0:Z, 0:Y, 0:X]
+
+        The spheroid is generated by logical_xor between two spheroids that have
+        1 pixel difference between their axis lengths
+        """
+        a, c = semiax_len
+        # Outer full mask
+        s_outer = self.get_local_spot_mask(semiax_len)
+        a_inner = a-1
+        # Make sure than c_inner is never exactly 0
+        c_inner = c-1 if c-1 != 0 else c-1+1E-15
+        # Inner full mask with same shape as outer mask
+        s_inner = self.get_local_spot_mask((a_inner, c_inner),
+                                            ogrid_bounds=semiax_len)
+        # Surface mask (difference between outer and inner)
+        spot_surf_mask = np.logical_xor(s_outer, s_inner)
+        # Insert local mask into global
+        spot_mask = self.get_global_spot_mask(spot_surf_mask, zyx_center,
+                                                              semiax_len)
+        if return_filled_mask:
+            spot_mask_filled = self.get_global_spot_mask(
+                                         s_outer, zyx_center, semiax_len)
+            return spot_mask, spot_mask_filled
+        else:
+            return spot_mask
+
+    def calc_mean_int(self, i, semiax_len, zyx_centers, V):
+        V_shape = self.V_shape
+        intens = [np.mean(V[self.get_sph_surf_mask(semiax_len,
+                                                   zyx_c, V_shape)])
+                                                   for zyx_c in zyx_centers]
+        return intens
+
+    def filled_mask_from_um(self, zyx_vox_dim, sph_z_um, sph_xy_um, zyx_center):
+        zc, yc, xc = zyx_center
+        z_vd, y_vd, x_vd = zyx_vox_dim
+        a = sph_xy_um/y_vd
+        c = sph_z_um/z_vd
+        local_mask = self.get_local_spot_mask((a, c))
+        spot_mask = self.get_global_spot_mask(local_mask, zyx_center, (a, c))
+        return spot_mask
+
+    def intersect2D(self, a, b):
+        """
+        Return intersecting rows between two 2D arrays 'a' and 'b'
+        """
+        tmp=np.prod(np.swapaxes(a[:,:,None],1,2)==b,axis=2)
+        return a[np.sum(np.cumsum(tmp,axis=0)*tmp==1,axis=1).astype(bool)]
+
+    def get_local_spot_mask(self, semiax_len, ogrid_bounds=None,
+                            return_center=False):
+        a, c = semiax_len
+        if ogrid_bounds is None:
+            a_int = int(np.ceil(a))
+            c_int = int(np.ceil(c))
+        else:
+            o_yx, o_z = ogrid_bounds
+            a_int = int(np.ceil(o_yx))
+            c_int = int(np.ceil(o_z))
+        # Generate a sparse meshgrid to evaluate 3D spheroid mask
+        z, y, x = np.ogrid[-c_int:c_int+1, -a_int:a_int+1, -a_int:a_int+1]
+        # 3D spheroid equation
+        mask_s = (x**2 + y**2)/(a**2) + z**2/(c**2) <= 1
+        if return_center:
+            return mask_s, None
+        else:
+            return mask_s
+
+    def get_global_spot_mask(self, local_spot_mask, zyx_center, semiax_len,
+                             additional_local_arr=None):
+        spot_mask = np.zeros(self.V_shape, local_spot_mask.dtype)
+        if additional_local_arr is not None:
+            additional_global_arr = np.zeros(self.V_shape,
+                                              additional_local_arr.dtype)
+        else:
+            additional_global_arr = None
+        Z, Y, X = self.V_shape
+        spot_mask, spot_mask_2 = self.index_local_into_global_mask(
+                                 spot_mask, local_spot_mask,
+                                 zyx_center, semiax_len, Z, Y, X,
+                                 additional_global_arr=additional_global_arr,
+                                 additional_local_arr=additional_local_arr
+        )
+        if additional_local_arr is not None:
+            return spot_mask, spot_mask_2
+        else:
+            return spot_mask
+
+    def get_slice_G_to_L(self, semiax_len, zyx_c, Z, Y, X):
+        a, c = semiax_len
+        a_int = int(np.ceil(a))
+        c_int = int(np.ceil(c))
+        zc, yc, xc = zyx_c
+
+        z_min = zc-c_int
+        z_max = zc+c_int+1
+        z_min_crop, z_max_crop = None, None
+        y_min_crop, y_max_crop = None, None
+        x_min_crop, x_max_crop = None, None
+
+        # Check z size and crop if needed
+        if z_min < 0:
+            z_min_crop = abs(z_min)
+            z_min = 0
+        if z_max > Z:
+            z_max_crop = Z-z_max
+            z_max = Z
+
+        # Check y size and crop if needed
+        y_min = yc-a_int
+        y_max = yc+a_int+1
+        if y_min < 0:
+            y_min_crop = abs(y_min)
+            y_min = 0
+        if y_max > Y:
+            y_max_crop = Y-y_max
+            y_max = Y
+
+        # Check x size and crop if needed
+        x_min = xc-a_int
+        x_max = xc+a_int+1
+        if x_min < 0:
+            x_min_crop = abs(x_min)
+            x_min = 0
+        if x_max > X:
+            x_max_crop = X-x_max
+            x_max = X
+
+        slice_G_to_L = (slice(z_min,z_max),
+                        slice(y_min,y_max),
+                        slice(x_min,x_max))
+        slice_crop = (slice(z_min_crop,z_max_crop),
+                      slice(y_min_crop,y_max_crop),
+                      slice(x_min_crop,x_max_crop))
+        return slice_G_to_L, slice_crop
+
+
+    def index_local_into_global_mask(self, global_mask, local_mask, zyx_c,
+                                       semiax_len, Z, Y, X,
+                                       additional_global_arr=None,
+                                       additional_local_arr=None,
+                                       do_sum=False, return_slice=False):
+        """
+        Insert local spot mask (which has shape = size of the spot)
+        into global mask (which has shape = shape of V_spots).
+        If the size of the local spot exceeds the bounds of V_spots it is
+        cropped before being inserted.
+        """
+        slice_G_to_L, slice_crop = self.get_slice_G_to_L(
+                                                     semiax_len, zyx_c, Z, Y, X)
+
+        cropped_mask = local_mask[slice_crop].copy()
+
+        if additional_local_arr is not None:
+            cropped_mask_2 = additional_local_arr[slice_crop].copy()
+
+        try:
+            if do_sum:
+                global_mask[slice_G_to_L] += cropped_mask
+            else:
+                global_mask[slice_G_to_L][cropped_mask] = True
+            if additional_local_arr is not None:
+                additional_global_arr[slice_G_to_L] = cropped_mask_2
+        except:
+            traceback.print_exc()
+            print(Z, Y, X)
+            print(zyx_c)
+            print(slice_G_to_L)
+            print(slice_crop)
+            print(cropped_mask.shape)
+            import pdb; pdb.set_trace()
+        if additional_local_arr is not None:
+            if return_slice:
+                return (global_mask, additional_global_arr,
+                        slice_G_to_L, slice_crop)
+            else:
+                return global_mask, additional_global_arr
+        else:
+            if return_slice:
+                return global_mask, None, slice_G_to_L, slice_crop
+            else:
+                return global_mask, None
+
+    def insert_grown_spot_id(self, grow_step_i, id, zyx_vox_dim,
+                             zyx_resolution, zyx_c, spots_3D_lab):
+        a, c = self.calc_semiax_len(grow_step_i, zyx_vox_dim,
+                                    zyx_resolution)
+        semiax_len = (np.ceil(a), np.ceil(c))
+        local_spot_mask = self.get_local_spot_mask(semiax_len)
+        Z, Y, X = self.V_shape
+
+        slice_G_to_L, slice_crop = self.get_slice_G_to_L(
+                                    semiax_len, zyx_c, Z, Y, X)
+        cropped_mask = local_spot_mask[slice_crop]
+        # Avoid spot overwriting existing spot
+        cropped_mask[spots_3D_lab[slice_G_to_L] != 0] = False
+        spots_3D_lab[slice_G_to_L][cropped_mask] = id
+        return spots_3D_lab
+
+    def get_spots_mask(self, i, zyx_vox_dim, zyx_resolution, zyx_centers,
+                       method='min_spheroid', dtype=np.bool, ids=[]):
+        if method == 'min_spheroid':
+            Z, Y, X = self.V_shape
+            # Calc spheroid semiaxis lengths in pixels (c: z, a: x and y)
+            semiax_len = self.calc_semiax_len(i, zyx_vox_dim, zyx_resolution)
+            local_spot_mask = self.get_local_spot_mask(semiax_len)
+            # Pre-allocate arrays
+            spots_mask = np.zeros(self.V_shape, dtype)
+            temp_mask = np.zeros(self.V_shape, bool)
+            # Insert local spot masks into global mask
+            in_pbar = tqdm(
+                desc='Building spots mask', total=len(zyx_centers),
+                unit=' spot', leave=False, position=1, ncols=100
+            )
+            for i, zyx_c in enumerate(zyx_centers):
+                (temp_mask, _, slice_G_to_L,
+                slice_crop) = self.index_local_into_global_mask(
+                                                 temp_mask, local_spot_mask,
+                                                 zyx_c, semiax_len, Z, Y, X,
+                                                 return_slice=True
+                )
+                if dtype == np.bool:
+                    spots_mask = np.logical_or(spots_mask, temp_mask)
+                elif dtype == np.uint16:
+                    cropped_mask = local_spot_mask[slice_crop]
+                    spots_mask[slice_G_to_L][cropped_mask] = ids[i]
+                in_pbar.update(1)
+            in_pbar.close()
+        elif method == 'unsharp_mask':
+            # result = unsharp_mask(self.V_ch, radius=10, amount=5,
+            #                       preserve_range=True)
+            blurred = skimage.filter.gaussian(self.V_ch, sigma=3)
+            sharp = self.V_ch - blurred
+            th = skimage.filters.threshold_isodata(sharp.max(axis=0))
+            spots_mask = sharp > th
+        return spots_mask
+
+    def calc_foregr_sum(self, j, V_spots, min_int, spot_filled_mask):
+        return np.sum(V_spots[spot_filled_mask] - min_int)
+
+    def calc_mNeon_mKate_sum(self, V_spots, V_ref, mNeon_norm, mKate_norm,
+                                   spot_filled_mask):
+        V_mNeon_norm = V_spots[spot_filled_mask]/mNeon_norm
+        V_ref_norm = V_ref[spot_filled_mask]/mKate_norm
+        return np.sum(V_mNeon_norm-V_ref_norm)
+
+    def volume(self):
+        return np.pi*(self.xys**2)*self.zs*4/3
+
+    def eval_grow_cond(self, semiax_len, zyx_centers, num_spots, grow_prev, V,
+                       min_int, count_iter, verb=False):
+        V_shape = self.V_shape
+        grow = [False]*num_spots
+        # Iterate each peak
+        for b, (zyx_c, g1) in enumerate(zip(zyx_centers, grow_prev)):
+            # Check if growing should continue (g1=True in grow_prev)
+            if g1:
+                sph_surf_mask, spot_filled_mask = self.get_sph_surf_mask(
+                                                       semiax_len,
+                                                       zyx_c, V_shape,
+                                                       return_filled_mask=True)
+                surf_pixels = V[sph_surf_mask]
+                surf_mean = np.mean(surf_pixels)
+                # Check if the current spheroid hit another peak
+                zz, yy, xx = zyx_centers[:,0], zyx_centers[:,1], zyx_centers[:,2]
+                num_zyx_c = np.count_nonzero(spot_filled_mask[zz, yy, xx])
+                hit_neigh = num_zyx_c > 1
+                if not hit_neigh:
+                    cond = surf_mean > min_int or count_iter>20
+                    grow[b] = cond
+        return grow
+
+class _spotFIT(spheroid):
+    def __init__(self, debug=False):
+        self.debug = debug
+
+    def set_args(
+            self, obj, spots_img, df_spots, zyx_vox_size, zyx_spot_min_vol_um, 
+            verbose=0, inspect=0, ref_ch_mask_or_labels=None
+        ):
+        self.spots_img_local = spots_img[obj.slice]
+        super().__init__(self.spots_img_local)
+        ID = obj.label
+        self.ID = obj.label
+        self.df_spots_ID = df_spots.loc[ID].copy()
+        self.zyx_vox_size = zyx_vox_size
+        min_z, min_y, min_x, _, _, _ = obj.bbox
+        self.obj_bbox_lower = (min_z, min_y, min_x)
+        self.obj_image = obj.image
+        self.zyx_spot_min_vol_um = zyx_spot_min_vol_um
+        if ref_ch_mask_or_labels is not None:
+            self.ref_ch_mask_local = ref_ch_mask_or_labels[obj.slice] > 0
+        else:
+            self.ref_ch_mask_local = None
+        self.verbose = verbose
+        self.inspect = inspect
+        # z0, y0, x0, sz, sy, sx, A = coeffs; B added as one coeff
+        self.num_coeffs = 7
+        self._tol = 1e-10
+
+    def fit(self):
+        verbose = self.verbose
+        inspect = self.inspect
+        df_spots_ID = self.df_spots_ID
+
+        if verbose > 0:
+            print('')
+            print('Segmenting spots...')
+        self.spotSIZE()
+
+        if verbose > 0:
+            print('')
+            print('Computing intersections...')
+        self.compute_neigh_intersect()
+
+        if verbose > 0:
+            print('')
+            print('Fitting 3D gaussians...')
+        self._fit()
+
+        if verbose > 0:
+            print('')
+            print('Running quality control...')
+        self._quality_control()
+
+        if self.fit_again_idx:
+            if verbose > 0:
+                print('')
+                print('Attempting to fit again spots that '
+                      'did not pass quality control...')
+            self._fit_again()
+
+        if verbose > 0:
+            print('')
+            print('Fitting process done.')
+
+        _df_spotFIT = (self._df_spotFIT
+                        .reset_index()
+                        .drop(['intersecting_idx', 'neigh_idx',
+                               's', 'neigh_ids'], axis=1)
+                        .set_index('id')
+                       )
+        _df_spotFIT.index.names = ['spot_id']
+
+        df_spots_ID = self.df_spots_ID
+
+        self.df_spotFIT_ID = df_spots_ID.join(_df_spotFIT, how='outer')
+        self.df_spotFIT_ID.index.names = ['spot_id']
+
+        if verbose > 1:
+            print('Summary results:')
+            print(_df_spotFIT)
+            if 'vox mNeon (uint8)' in self.df_spotFIT_ID.columns:
+                cols = ['vox mNeon (uint8)', '|abs| mNeon (uint8)',
+                        'I_tot', 'I_foregr', 'sigma_y_fit']
+            else:
+                cols = ['vox_spot', '|abs|_spot',
+                        'I_tot', 'I_foregr', 'sigma_y_fit']
+            print(self.df_spotFIT_ID[cols])
+
+    def spotSIZE(self):
+        df_spots_ID = self.df_spots_ID
+        spots_img_denoise = skimage.filters.gaussian(self.spots_img_local, 0.8)
+        min_z, min_y, min_x = self.obj_bbox_lower
+        zyx_vox_dim = self.zyx_vox_size
+        zyx_spot_min_vol_um = self.zyx_spot_min_vol_um
+        obj_image = self.obj_image
+        ref_ch_img_local = self.ref_ch_mask_local
+
+        # Build spot mask and get background values
+        num_spots = len(df_spots_ID)
+        self.num_spots = num_spots
+        spots_centers = df_spots_ID[['z', 'y', 'x']].to_numpy()
+        spots_centers -= [min_z, min_y, min_x]
+        self.spots_centers = spots_centers
+        spots_mask = self.get_spots_mask(
+            0, zyx_vox_dim, zyx_spot_min_vol_um, spots_centers
+        )
+        if ref_ch_img_local is None:
+            backgr_mask = np.logical_and(obj_image, ~spots_mask)
+        else:
+            backgr_mask = np.logical_and(ref_ch_img_local, ~spots_mask)
+
+        backgr_vals = spots_img_denoise[backgr_mask]
+        backgr_mean = backgr_vals.mean()
+        backgr_std = backgr_vals.std()
+
+        self.backgr_mean = backgr_mean
+        self.backgr_std = backgr_std
+
+        limit = backgr_mean + 3*backgr_std
+
+        # Build seeds mask for the expansion process
+        self.spot_ids = df_spots_ID.index.to_list()
+        seed_size = np.array(zyx_spot_min_vol_um)/2
+        spots_seeds = self.get_spots_mask(0, zyx_vox_dim, seed_size,
+                                         spots_centers, dtype=np.uint16,
+                                         ids=self.spot_ids)
+        spots_3D_lab = np.zeros_like(spots_seeds)
+
+        # Start expanding the labels
+        zs, ys, xs = seed_size
+        zvd, yvd, _ = zyx_vox_dim
+        stop_grow_info = [] # list of (stop_id, stop_mask, stop_slice)
+        stop_grow_ids = []
+        max_i = 10
+        max_size = max_i*yvd
+        self.spots_yx_size_um = [ys+max_size]*num_spots
+        self.spots_z_size_um = [zs+max_size]*num_spots
+        self.spots_yx_size_pxl = [(ys+max_size)/yvd]*num_spots
+        self.spots_z_size_pxl = [(zs+max_size)/zvd]*num_spots
+        expanding_steps = [0]*num_spots
+        self.Bs_guess = [0]*num_spots
+        _spot_surf_5ps = [0]*num_spots
+        _spot_surf_means = [0]*num_spots
+        _spot_surf_stds = [0]*num_spots
+        _spot_B_mins = [0]*num_spots
+        for i in range(max_i+1):
+            # Note that expanded_labels has id from df_spots_ID
+            expanded_labels = expand_labels(
+                spots_seeds, distance=yvd*(i+1), zyx_vox_size=zyx_vox_dim
+            )
+
+            # Replace expanded labels with the stopped growing ones.
+            for stop_id, stop_mask, stop_slice in stop_grow_info:
+                expanded_labels[expanded_labels==stop_id] = 0
+                expanded_labels[stop_slice][stop_mask] = stop_id
+
+            # Iterate spots to determine which ones should stop growing
+            spots_rp = skimage.measure.regionprops(expanded_labels)
+            for o, s_obj in enumerate(spots_rp):
+                id = s_obj.label
+                # Skip spots where we stopped growing
+                if id in stop_grow_ids:
+                    continue
+                exanped_spot_mask = expanded_labels[s_obj.slice]==id
+                spot_mask = spots_seeds[s_obj.slice]==id
+                local_spot_surf_mask = np.logical_xor(
+                                             exanped_spot_mask, spot_mask
+                )
+                surf_vals = spots_img_denoise[s_obj.slice][local_spot_surf_mask]
+                surf_mean = surf_vals.mean()
+                # print('---------------')
+                # print(f'ID {id} surface mean, backgr = {surf_mean}, {limit}')
+
+
+                if surf_mean <= limit or i == max_i:
+                    # NOTE: we use i+1 in order to include the pixels that
+                    # are <= to the limit
+                    stop_grow_info.append((id, s_obj.image, s_obj.slice))
+                    stop_grow_ids.append(id)
+                    self.spots_yx_size_um[o] = ys+yvd*(i+1)
+                    self.spots_z_size_um[o] = zs+yvd*(i+1)
+                    self.spots_yx_size_pxl[o] = (ys+yvd*(i+1))/yvd
+                    self.spots_z_size_pxl[o] = (zs+yvd*(i+1))/zvd
+                    # Insert grown spot into spots lab used for fitting
+                    c_idx = self.spot_ids.index(id)
+                    zyx_c = spots_centers[c_idx]
+                    spots_3D_lab = self.insert_grown_spot_id(
+                                                     i+1, id, zyx_vox_dim,
+                                                     zyx_spot_min_vol_um,
+                                                     zyx_c, spots_3D_lab)
+                    raw_spot_surf_vals = (self.spots_img_local
+                                           [s_obj.slice]
+                                           [local_spot_surf_mask])
+                    self.Bs_guess[o] = np.median(raw_spot_surf_vals)
+                    _spot_surf_5ps[o] = np.quantile(raw_spot_surf_vals, 0.05)
+                    _mean = raw_spot_surf_vals.mean()
+                    _spot_surf_means[o] = _mean
+                    _std = raw_spot_surf_vals.std()
+                    _spot_surf_stds[o] = _std
+                    _spot_B_mins[o] = _mean-3*_std
+
+            # print(stop_grow_ids)
+            # print(f'Current step = {(i+1)}')
+            # print(len(stop_grow_ids), num_spots)
+
+            # Stop loop if all spots have stopped growing
+            if len(stop_grow_ids) == num_spots:
+                break
+
+        self.spots_radii_pxl = np.column_stack(
+                                        (self.spots_z_size_pxl,
+                                         self.spots_yx_size_pxl,
+                                         self.spots_yx_size_pxl)
+        )
+
+        self.df_spots_ID['spotsize_yx_radius_um'] = self.spots_yx_size_um
+        self.df_spots_ID['spotsize_z_radius_um'] = self.spots_z_size_um
+        self.df_spots_ID['spotsize_yx_radius_pxl'] = self.spots_yx_size_pxl
+        self.df_spots_ID['spotsize_z_radius_pxl'] = self.spots_z_size_pxl
+        self.df_spots_ID['spotsize_limit'] = [limit]*num_spots
+
+        self.df_spots_ID['spot_surf_50p'] = self.Bs_guess
+        self.df_spots_ID['spot_surf_5p'] = _spot_surf_5ps
+        self.df_spots_ID['spot_surf_mean'] = _spot_surf_means
+        self.df_spots_ID['spot_surf_std'] = _spot_surf_stds
+        self.df_spots_ID['spot_B_min'] = _spot_B_mins
+
+        # Used as a lower bound for B parameter in spotfit
+        self.B_mins = _spot_B_mins
+
+        self.spots_3D_lab_ID = spots_3D_lab
+
+    def _fit(self):
+        verbose = self.verbose
+        if verbose > 1:
+            print('')
+            print('===============')
+        t0_opt = time.perf_counter()
+        num_spots = self.num_spots
+        df_intersect = self.df_intersect
+        spots_centers = self.spots_centers
+        spots_radii_pxl = self.spots_radii_pxl
+        spots_Bs_guess = self.Bs_guess
+        spots_B_mins = self.B_mins
+        spots_3D_lab_ID = self.spots_3D_lab_ID
+        spots_img = self.spots_img_local
+        num_coeffs = self.num_coeffs
+        inspect = self.inspect
+        spots_rp = self.spots_rp
+
+        init_guess_li = [None]*num_spots
+        fitted_coeffs = [[] for _ in range(num_spots)]
+        Bs_fitted = [0]*num_spots
+        all_intersect_fitted_bool = [0]*num_spots
+        solution_found_li = [0]*num_spots
+        iter = zip(df_intersect.index,
+                   df_intersect['id'],
+                   df_intersect['intersecting_idx'],
+                   df_intersect['neigh_idx'])
+        for count, (s, s_id, intersect_idx, neigh_idx) in enumerate(iter):
+            # Get the fitted coeffs of the intersecting peaks
+            intersect_coeffs = [fitted_coeffs[i] for i in intersect_idx]
+            if verbose > 2:
+                print('-----------')
+                print(f'Current spot idx: {s}')
+                print(f'Neighbours indices of current spot: {intersect_idx}')
+            all_intersect_fitted = all(intersect_coeffs)
+            if all_intersect_fitted:
+                if verbose > 2:
+                    print(f'Fully fitted spot idx: {s}')
+                all_intersect_fitted_bool[s] = True
+                pbar = tqdm(
+                    desc=f'Spot done {count+1}/{num_spots}', total=1, 
+                    unit=' fev', position=2, leave=False, ncols=100
+                )
+                pbar.update(1)
+                pbar.close()
+                if verbose > 2:
+                    print('-----------')
+                continue
+            if verbose > 2:
+                print(f'Intersect. coeffs: {intersect_coeffs}')
+            # Set coeffs of already fitted neighbours as model constants
+            non_inters_neigh_idx = [s for s in neigh_idx
+                                    if s not in intersect_idx
+            ]
+            if verbose > 2:
+                print(f'Fitted bool: {all_intersect_fitted_bool}')
+                print(f'Non-intersecting neighbours idx: {non_inters_neigh_idx}')
+            neigh_fitted_coeffs = [
+                        fitted_coeffs[i] for i in non_inters_neigh_idx
+                        if all_intersect_fitted_bool[i]
+            ]
+            neigh_fitted_idx = [i for i in non_inters_neigh_idx
+                                        if all_intersect_fitted_bool[i]]
+            if verbose > 2:
+                print('All-neighbours-fitted coeffs (model constants): '
+                      f'{neigh_fitted_coeffs}')
+            # Use not completely fitted neigh coeffs as initial guess
+            not_all_intersect_fitted_coeffs = [
+                                           fitted_coeffs[i]
+                                           for i in intersect_idx
+                                           if not all_intersect_fitted_bool[i]]
+            if verbose > 2:
+                print('Not-all-neighbours-fitted coeffs (model initial guess): '
+                      f'{not_all_intersect_fitted_coeffs}')
+
+            # Fit n intersecting spots as sum of n gaussian + model constants
+            fit_idx = intersect_idx
+            if verbose > 2:
+                print(f'Fitting spot idx: {fit_idx}, '
+                      f'with centers {spots_centers}')
+
+            # Fit multipeaks
+            fit_spots_lab = np.zeros(spots_3D_lab_ID.shape, bool)
+            fit_ids = []
+            num_spots_s = len(fit_idx)
+            for i in fit_idx:
+                fit_id = self.df_intersect.at[i, 'id']
+                fit_ids.append(fit_id)
+                fit_spots_lab[spots_3D_lab_ID==fit_id] = True
+            z, y, x = np.nonzero(fit_spots_lab)
+            s_data = self.spots_img_local[z,y,x]
+            model = _GaussianModel(100*len(z))
+
+            # Get constants
+            if neigh_fitted_idx:
+                const = model.compute_const(z,y,x, neigh_fitted_coeffs)
+            else:
+                const = 0
+            # test this https://cars9.uchicago.edu/software/python/lmfit/examples/example_reduce_fcn.html#sphx-glr-examples-example-reduce-fcn-py
+            bounds, init_guess_s = model.get_bounds_init_guess(
+                                             num_spots_s, num_coeffs,
+                                             fit_ids, fit_idx, spots_centers,
+                                             spots_3D_lab_ID, spots_rp,
+                                             spots_radii_pxl, spots_img,
+                                             spots_Bs_guess, spots_B_mins
+            )
+            # bar_f = '{desc:<25}{percentage:3.0f}%|{bar:40}{r_bar}'
+            model.pbar = tqdm(desc=f'Fitting spot {s} ({count+1}/{num_spots})',
+                              total=100*len(z), unit=' fev',
+                              position=2, leave=False, ncols=100)
+            try:
+                leastsq_result = scipy.optimize.least_squares(
+                    model.residuals, init_guess_s,
+                    args=(s_data, z, y, x, num_spots_s, num_coeffs),
+                    # jac=model.jac_gauss3D,
+                    kwargs={'const': const},
+                    loss='linear', f_scale=0.1,
+                    bounds=bounds, ftol=self._tol,
+                    xtol=self._tol, gtol=self._tol
+                )
+            except:
+                traceback.print_exc()
+                _shape = (num_spots_s, num_coeffs)
+                B_fit = leastsq_result.x[-1]
+                B_guess = init_guess_s[-1]
+                B_min = bounds[0][-1]
+                B_max = bounds[1][-1]
+                lstsq_x = leastsq_result.x[:-1]
+                lstsq_x = lstsq_x.reshape(_shape)
+                init_guess_s_2D = init_guess_s[:-1].reshape(_shape)
+                low_bounds_2D = bounds[0][:-1].reshape(_shape)
+                high_bounds_2D = bounds[1][:-1].reshape(_shape)
+                print('')
+                print(self.ID)
+                print(fit_ids)
+                for _x, _init, _l, _h in zip(lstsq_x, init_guess_s_2D,
+                                             low_bounds_2D, high_bounds_2D):
+                    print('')
+                    print('Centers solution: ', _x[:3])
+                    print('Centers init guess: ', _init[:3])
+                    print('Centers low bound: ', _l[:3])
+                    print('Centers high bound: ', _h[:3])
+                    print('')
+                    print('Sigma solution: ', _x[3:6])
+                    print('Sigma init guess: ', _init[3:6])
+                    print('Sigma low bound: ', _l[3:6])
+                    print('Sigma high bound: ', _h[3:6])
+                    print('')
+                    print('A, B solution: ', _x[6], B_fit)
+                    print('A, B init guess: ', _init[6], B_guess)
+                    print('A, B low bound: ', _l[6], B_min)
+                    print('A, B high bound: ', _h[6], B_max)
+                    print('')
+                    print('')
+                import pdb; pdb.set_trace()
+
+            # model.pbar.update(100*len(z)-model.pbar.n)
+            model.pbar.close()
+
+            if inspect > 2:
+            # if 1 in fit_ids and self.ID == 1:
+                # sum(z0, y0, x0, sz, sy, sx, A), B = coeffs
+                _shape = (num_spots_s, num_coeffs)
+                B_fit = leastsq_result.x[-1]
+                B_guess = init_guess_s[-1]
+                B_min = bounds[0][-1]
+                B_max = bounds[1][-1]
+                lstsq_x = leastsq_result.x[:-1]
+                lstsq_x = lstsq_x.reshape(_shape)
+                init_guess_s_2D = init_guess_s[:-1].reshape(_shape)
+                low_bounds_2D = bounds[0][:-1].reshape(_shape)
+                high_bounds_2D = bounds[1][:-1].reshape(_shape)
+                print('')
+                print(self.ID)
+                print(fit_ids)
+                for _x, _init, _l, _h in zip(lstsq_x, init_guess_s_2D,
+                                             low_bounds_2D, high_bounds_2D):
+                    print('Centers solution: ', _x[:3])
+                    print('Centers init guess: ', _init[:3])
+                    print('Centers low bound: ', _l[:3])
+                    print('Centers high bound: ', _h[:3])
+                    print('')
+                    print('Sigma solution: ', _x[3:6])
+                    print('Sigma init guess: ', _init[3:6])
+                    print('Sigma low bound: ', _l[3:6])
+                    print('Sigma high bound: ', _h[3:6])
+                    print('')
+                    print('A, B solution: ', _x[6], B_fit)
+                    print('A, B init guess: ', _init[6], B_guess)
+                    print('A, B low bound: ', _l[6], B_min)
+                    print('A, B high bound: ', _h[6], B_max)
+                    print('')
+                    print('')
+                import pdb; pdb.set_trace()
+                matplotlib.use('TkAgg')
+                fig, ax = plt.subplots(1,3)
+                img = self.spots_img_local
+                # 3D gaussian evaluated on the entire image
+                V_fit = np.zeros_like(self.spots_img_local)
+                zz, yy, xx = np.nonzero(V_fit==0)
+                V_fit[zz, yy, xx] = model._gauss3D(
+                                       zz, yy, xx, leastsq_result.x,
+                                       num_spots_s, num_coeffs, 0)
+
+                fit_data = model._gauss3D(z, y, x, leastsq_result.x,
+                                          num_spots_s, num_coeffs, 0)
+
+                img_fit = np.zeros_like(img)
+                img_fit[z,y,x] = fit_data
+                img_s = np.zeros_like(img)
+                img_s[z,y,x] = s_data
+                y_intens = img_s.max(axis=(0, 1))
+                y_intens = y_intens[y_intens!=0]
+                y_gauss = img_fit.max(axis=(0, 1))
+                y_gauss = y_gauss[y_gauss!=0]
+                ax[0].imshow(img.max(axis=0))
+                _, yyc, xxc = np.array(spots_centers[fit_idx]).T
+                ax[0].plot(xxc, yyc, 'r.')
+                ax[1].imshow(V_fit.max(axis=0))
+                ax[1].plot(xxc, yyc, 'r.')
+                ax[2].scatter(range(len(y_intens)), y_intens)
+                ax[2].plot(range(len(y_gauss)), y_gauss, c='r')
+                plt.show()
+                matplotlib.use('Agg')
+
+            _shape = (num_spots_s, num_coeffs)
+            B_fit = leastsq_result.x[-1]
+            B_guess = init_guess_s[-1]
+            lstsq_x = leastsq_result.x[:-1]
+            lstsq_x = lstsq_x.reshape(_shape)
+            init_guess_s_2D = init_guess_s[:-1].reshape(_shape)
+            # print(f'Fitted coeffs: {lstsq_x}')
+            # Store already fitted peaks
+            for i, s_fit in enumerate(fit_idx):
+                fitted_coeffs[s_fit] = list(lstsq_x[i])
+                init_guess_li[s_fit] = list(init_guess_s_2D[i])
+                Bs_fitted[s_fit] = B_fit
+                solution_found_li[s_fit] = leastsq_result.success
+            # Check if now the fitted spots are fully fitted
+            all_intersect_fitted = all([True if fitted_coeffs[i] else False
+                                         for i in intersect_idx])
+            if all_intersect_fitted:
+                if verbose > 2:
+                    print(f'Fully fitted spot idx: {s}')
+                all_intersect_fitted_bool[s] = True
+            if verbose == 2:
+                print('-----------')
+
+        self.model = model
+        self.fitted_coeffs = fitted_coeffs
+        self.Bs_fitted = Bs_fitted
+        self.init_guess_li = init_guess_li
+        self.solution_found_li = solution_found_li
+
+        t1_opt = time.perf_counter()
+        exec_time = t1_opt-t0_opt
+        exec_time_delta = timedelta(seconds=exec_time)
+        if verbose > 1:
+            print('')
+            print(f'Fitting process done in {exec_time_delta} HH:mm:ss')
+
+    def compute_neigh_intersect(self):
+        inspect = self.inspect
+        verbose = self.verbose
+        zyx_vox_dim = self.zyx_vox_size
+        zvd, yvd, _ = zyx_vox_dim
+        spots_3D_lab_ID = self.spots_3D_lab_ID
+        spots_3D_lab_ID_connect = skimage.measure.label(spots_3D_lab_ID>0)
+        self.spots_3D_lab_ID_connect = spots_3D_lab_ID_connect
+        spots_rp = skimage.measure.regionprops(spots_3D_lab_ID)
+        self.spots_rp = spots_rp
+        # Get intersect ids by expanding each single object by 2 pixels
+        all_intersect_idx = []
+        all_neigh_idx = []
+        obj_ids = []
+        num_intersect = []
+        num_neigh = []
+        all_neigh_ids = []
+        for s, s_obj in enumerate(spots_rp):
+            spot_3D_lab = np.zeros_like(spots_3D_lab_ID)
+            spot_3D_lab[s_obj.slice][s_obj.image] = s_obj.label
+            spot_3D_mask = spot_3D_lab>0
+            expanded_spot_3D = expand_labels(
+                spot_3D_lab, distance=yvd*2, zyx_vox_size=zyx_vox_dim
+            )
+            spot_surf_mask = np.logical_xor(expanded_spot_3D>0, spot_3D_mask)
+            intersect_ids = np.unique(spots_3D_lab_ID[spot_surf_mask])
+            intersect_idx = [self.spot_ids.index(id)
+                             for id in intersect_ids if id!=0]
+            intersect_idx.append(s)
+            all_intersect_idx.append(intersect_idx)
+            num_intersect.append(len(intersect_idx))
+
+            # Get neigh idx by indexing the spots labels with the
+            # connected component mask
+            obj_id = np.unique(spots_3D_lab_ID_connect[spot_3D_mask])[-1]
+            obj_ids.append(obj_id)
+            obj_mask = np.zeros_like(spot_3D_mask)
+            obj_mask[spots_3D_lab_ID_connect == obj_id] = True
+            neigh_ids = np.unique(spots_3D_lab_ID[obj_mask])
+            neigh_ids = [id for id in neigh_ids if id!=0]
+            neigh_idx = [self.spot_ids.index(id) for id in neigh_ids]
+            all_neigh_idx.append(neigh_idx)
+            all_neigh_ids.append(neigh_ids)
+            num_neigh.append(len(neigh_idx))
+
+
+        self.df_intersect = (pd.DataFrame({
+                                      'id': self.spot_ids,
+                                      'obj_id': obj_ids,
+                                      'num_intersect': num_intersect,
+                                      'num_neigh': num_neigh,
+                                      'intersecting_idx': all_intersect_idx,
+                                      'neigh_idx': all_neigh_idx,
+                                      'neigh_ids': all_neigh_ids})
+                                      .sort_values('num_intersect')
+                        )
+        self.df_intersect.index.name = 's'
+
+
+
+
+        if verbose > 1:
+            print('Intersections info:')
+            print(self.df_intersect)
+            print('')
+
+        if inspect > 1:
+            imshow(self.spots_img_local, spots_3D_lab_ID, spots_3D_lab_ID_connect)
+
+    def _quality_control(self):
+        """
+        Calculate goodness_of_fit metrics for each spot
+        and determine which peaks should be fitted again
+        """
+        df_spotFIT = (self.df_intersect
+                                 .reset_index()
+                                 .set_index(['obj_id', 's']))
+        df_spotFIT['QC_passed'] = 0
+        df_spotFIT['null_ks_test'] = 0
+        df_spotFIT['null_chisq_test'] = 0
+        df_spotFIT['solution_found'] = 0
+
+        self._df_spotFIT = df_spotFIT
+        verbose = self.verbose
+        inspect = self.inspect
+        spots_3D_lab_ID = self.spots_3D_lab_ID
+        spots_3D_lab_ID_connect = self.spots_3D_lab_ID_connect
+        fitted_coeffs = self.fitted_coeffs
+        init_guess_li = self.init_guess_li
+        Bs_fitted = self.Bs_fitted
+        solution_found_li = self.solution_found_li
+        num_coeffs = self.num_coeffs
+        model = self.model
+        img = self.spots_img_local
+
+        all_gof_metrics = np.zeros((self.num_spots, 7))
+        self.fit_again_idx = []
+        for obj_id, df_obj in df_spotFIT.groupby(level=0):
+            obj_s_idxs = df_obj['neigh_idx'].iloc[0]
+            # Iterate single spots
+            for s in obj_s_idxs:
+                s_id = df_obj.at[(obj_id, s), 'id']
+                s_intersect_idx = df_obj.at[(obj_id, s), 'intersecting_idx']
+                z_s, y_s, x_s = np.nonzero(spots_3D_lab_ID==s_id)
+
+                # Compute fit data
+                B_fit = Bs_fitted[s]
+                s_coeffs = fitted_coeffs[s]
+                s_fit_data = model.gaussian_3D(z_s, y_s, x_s, s_coeffs, B=B_fit)
+                for n_s in obj_s_idxs:
+                    neigh_coeffs = fitted_coeffs[n_s]
+                    s_fit_data += model.gaussian_3D(z_s, y_s, x_s, neigh_coeffs)
+
+                # Goodness of fit
+                ddof = num_coeffs
+                s_data = img[z_s, y_s, x_s]
+                (reduced_chisq, p_chisq, RMSE, ks, p_ks, NRMSE,
+                F_NRMSE) = model.goodness_of_fit(s_data, s_fit_data, ddof)
+
+                all_gof_metrics[s] = [reduced_chisq, p_chisq, RMSE,
+                                      ks, p_ks, NRMSE, F_NRMSE]
+
+                if inspect > 2:
+                # if True:
+                # if s_id==3 and self.ID==5:
+                    print('')
+                    print('----------------------------')
+                    print(f'Spot data max = {s_data.max():.3f}, '
+                          f'spot fit max = {s_fit_data.max():.3f}')
+                    print(f'Intersecting idx = {s_intersect_idx}')
+                    print(f'Neighbours idx = {obj_s_idxs}')
+                    print('Spot idx =', s)
+                    print(f'Reduced chisquare = {reduced_chisq:.3f}, '
+                          f'p = {p_chisq:.4f}')
+                    print(f'KS stat = {ks:.3f}, p = {p_ks:.4f}')
+                    # print(f'R_sq = {R_sq:.3f}, Adj. R-sq = {adj_Rsq:.3f}')
+                    print(f'RMSE = {RMSE:.3f}')
+                    print(f'NRMSE = {NRMSE:.3f}')
+                    print(f'F_NRMSE = {F_NRMSE:.3f}')
+
+                    # Initial guess
+                    (z0_guess, y0_guess, x0_guess,
+                    sz_guess, sy_guess, sx_guess,
+                    A_guess) = init_guess_li[s]
+
+                    # Fitted coeffs
+                    (z0_fit, y0_fit, x0_fit,
+                    sz_fit, sy_fit, sx_fit,
+                    A_fit) = fitted_coeffs[s]
+
+                    print('----------------------------')
+                    print(f'Init guess center = ({z0_guess:.2f}, '
+                                               f'{y0_guess:.2f}, '
+                                               f'{x0_guess:.2f})')
+                    print(f'Fit center =        ({z0_fit:.2f}, '
+                                               f'{y0_fit:.2f}, '
+                                               f'{x0_fit:.2f})')
+                    print('')
+                    print(f'Init guess sigmas = ({sz_guess:.2f}, '
+                                               f'{sy_guess:.2f}, '
+                                               f'{sx_guess:.2f})')
+                    print(f'Sigmas fit        = ({sz_fit:.2f}, '
+                                               f'{sy_fit:.2f}, '
+                                               f'{sx_fit:.2f})')
+                    print('')
+                    print(f'A, B init guess   = ({A_guess:.3f}, '
+                                               f'{np.nan})')
+                    print(f'A, B fit          = ({A_fit:.3f}, '
+                                               f'{B_fit:.3f})')
+                    print('----------------------------')
+
+
+                    matplotlib.use('TkAgg')
+                    fig, ax = plt.subplots(1,3, figsize=[18,9])
+
+                    img_s = np.zeros_like(img)
+                    img_s[z_s, y_s, x_s] = s_data
+
+                    img_s_fit = np.zeros_like(img)
+                    img_s_fit[z_s, y_s, x_s] = s_fit_data
+
+                    y_intens = img[int(z0_guess), int(y0_guess)]
+                    # y_intens = y_intens[y_intens!=0]
+
+                    y_gauss = img_s_fit[int(z0_guess), int(y0_guess)]
+                    x_gauss = [i for i, yg in enumerate(y_gauss) if yg != 0]
+                    y_gauss = y_gauss[y_gauss!=0]
+
+
+                    ax[0].imshow(img.max(axis=0), vmax=img.max())
+                    ax[1].imshow(img_s_fit.max(axis=0), vmax=img.max())
+                    ax[2].scatter(range(len(y_intens)), y_intens)
+                    ax[2].plot(x_gauss, y_gauss, c='r')
+                    # ax[2].scatter(range(len(y_intens)), y_intens)
+                    # ax[2].plot(range(len(y_gauss)), y_gauss, c='r')
+
+                    # l = x_obj.min()
+                    # b = y_obj.min()
+                    #
+                    # r = x_obj.max()
+                    # t = y_obj.max()
+                    #
+                    # ax[0].set_xlim((l-2, r+2))
+                    # ax[0].set_ylim((t+2, b-2))
+                    #
+                    # ax[1].set_xlim((l-2, r+2))
+                    # ax[1].set_ylim((t+2, b-2))
+
+                    plt.show()
+                    matplotlib.use('Agg')
+
+        # Automatic outliers detection
+        NRMSEs = all_gof_metrics[:,5]
+        Q1, Q3 = np.quantile(NRMSEs, q=(0.25, 0.75))
+        IQR = Q3-Q1
+        self.QC_limit = Q3 + (1.5*IQR)
+
+        if False:
+            matplotlib.use('TkAgg')
+            fig, ax = plt.subplots(2,4)
+            ax = ax.flatten()
+
+            sns.histplot(x=all_gof_metrics[:,0], ax=ax[0])
+            sns.boxplot(x=all_gof_metrics[:,0], ax=ax[4])
+            ax[0].set_title('Reduced chisquare')
+
+            sns.histplot(x=all_gof_metrics[:,2], ax=ax[1])
+            sns.boxplot(x=all_gof_metrics[:,2], ax=ax[5])
+            ax[1].set_title('RMSE')
+
+            sns.histplot(x=all_gof_metrics[:,5], ax=ax[2])
+            sns.boxplot(x=all_gof_metrics[:,5], ax=ax[6])
+            ax[2].axvline(self.QC_limit, color='r', linestyle='--')
+            ax[6].axvline(self.QC_limit, color='r', linestyle='--')
+            ax[2].set_title('NMRSE')
+
+            sns.histplot(x=all_gof_metrics[:,6], ax=ax[3])
+            sns.boxplot(x=all_gof_metrics[:,6], ax=ax[7])
+            ax[3].set_title('F_NRMSE')
+
+            plt.show()
+            matplotlib.use('Agg')
+
+        # Given QC_limit determine which spots should be fitted again
+        for obj_id, df_obj in df_spotFIT.groupby(level=0):
+            obj_s_idxs = df_obj['neigh_idx'].iloc[0]
+            # Iterate single spots
+            for s in obj_s_idxs:
+                gof_metrics = all_gof_metrics[s]
+
+                (reduced_chisq, p_chisq, RMSE,
+                ks, p_ks, NRMSE, F_NRMSE) = gof_metrics
+
+                # Initial guess
+                (z0_guess, y0_guess, x0_guess,
+                sz_guess, sy_guess, sx_guess,
+                A_guess) = init_guess_li[s]
+
+                # Fitted coeffs
+                B_fit = Bs_fitted[s]
+                (z0_fit, y0_fit, x0_fit,
+                sz_fit, sy_fit, sx_fit,
+                A_fit) = fitted_coeffs[s]
+
+                # Solution found
+                solution_found = solution_found_li[s]
+
+                # Store s idx of badly fitted peaks
+                num_s_in_obj = len(obj_s_idxs)
+                s_intersect_idx = df_obj.at[(obj_id, s), 'intersecting_idx']
+                num_intersect_s = len(s_intersect_idx)
+                if NRMSE > self.QC_limit and num_intersect_s < num_s_in_obj:
+                    if verbose > 2:
+                        print('')
+                        print(f'Fit spot idx {s} again.')
+                        print('----------------------------')
+                    self.fit_again_idx.append(s)
+                    continue
+
+                # Store properties of good peaks
+                zyx_c = np.abs(np.array([z0_fit, y0_fit, x0_fit]))
+                zyx_sigmas = np.abs(np.array([sz_fit, sy_fit, sx_fit]))
+
+                I_tot, I_foregr = model.integrate(
+                    zyx_c, zyx_sigmas, A_fit, B_fit,
+                    lower_bounds=None, upper_bounds=None
+                )
+
+                gof_metrics = (reduced_chisq, p_chisq,
+                               ks, p_ks, RMSE, NRMSE, F_NRMSE)
+
+                self.store_metrics_good_spots(obj_id, s, fitted_coeffs[s],
+                                              I_tot, I_foregr, gof_metrics,
+                                              solution_found, B_fit)
+
+                if verbose > 1:
+                    print('')
+                    print(f'Sigmas fit = ({sz_fit:.3f}, {sy_fit:.3f}, {sx_fit:.3f})')
+                    print(f'A fit = {A_fit:.3f}, B fit = {B_fit:.3f}')
+                    print('Total integral result, fit sum, observed sum = '
+                          f'{I_tot:.3f}, {s_fit_data.sum():.3f}, {s_data.sum():.3f}')
+                    print(f'Foregroung integral value: {I_foregr:.3f}')
+                    print('----------------------------')
+
+    def _fit_again(self):
+        fit_again_idx = self.fit_again_idx
+        df_intersect_fit_again = (
+                               self.df_intersect
+                               .loc[fit_again_idx]
+                               .sort_values(by='num_intersect')
+                               .reset_index()
+                               .set_index(['obj_id', 's'])
+        )
+
+        bad_fit_idx = fit_again_idx.copy()
+        num_spots = len(df_intersect_fit_again)
+        num_coeffs = self.num_coeffs
+        model = self.model
+        spots_3D_lab_ID = self.spots_3D_lab_ID
+        spots_centers = self.spots_centers
+        spots_radii_pxl = self.spots_radii_pxl
+        spots_Bs_guess = self.Bs_guess
+        spots_B_mins = self.B_mins
+        fitted_coeffs = self.fitted_coeffs
+        init_guess_li = self.init_guess_li
+        img = self.spots_img_local
+        verbose = self.verbose
+        inspect = self.inspect
+        spots_rp = self.spots_rp
+
+        # Iterate each badly fitted spot and fit individually again
+        for count, (obj_id, s) in enumerate(df_intersect_fit_again.index):
+            neigh_idx = df_intersect_fit_again.loc[(obj_id, s)]['neigh_idx']
+            s_id = df_intersect_fit_again.loc[(obj_id, s)]['id']
+            s_intersect_idx = df_intersect_fit_again.at[(obj_id, s),
+                                                        'intersecting_idx']
+            good_neigh_idx = [s for s in neigh_idx if s not in bad_fit_idx]
+
+            z_s, y_s, x_s = np.nonzero(spots_3D_lab_ID==s_id)
+
+            # Constants from good neigh idx
+            const_coeffs = [fitted_coeffs[good_s] for good_s in good_neigh_idx]
+            const = model.compute_const(z_s, y_s, x_s, const_coeffs)
+
+            # Bounds and initial guess
+            num_spots_s = 1
+            bounds, init_guess_s = model.get_bounds_init_guess(
+                                         num_spots_s, num_coeffs,
+                                         [s_id], [s], spots_centers,
+                                         spots_3D_lab_ID, spots_rp,
+                                         spots_radii_pxl, img,
+                                         spots_Bs_guess, spots_B_mins
+            )
+
+            # Fit with constants
+            s_data = img[z_s, y_s, x_s]
+            model.pbar = tqdm(desc=f'Fitting spot {s} ({count+1}/{num_spots})',
+                                  total=100*len(z_s), unit=' fev',
+                                  position=1, leave=False, ncols=100)
+            leastsq_result = scipy.optimize.least_squares(
+                model.residuals, init_guess_s,
+                args=(s_data, z_s, y_s, x_s, num_spots_s, num_coeffs),
+                # jac=model.jac_gauss3D,
+                kwargs={'const': const},
+                loss='linear', f_scale=0.1,
+                bounds=bounds, ftol=self._tol,
+                xtol=self._tol, gtol=self._tol
+            )
+            model.pbar.close()
+
+            # Goodness of fit
+            ddof = num_coeffs
+            s_fit_data =  model._gauss3D(z_s, y_s, x_s,
+                                         leastsq_result.x,
+                                         1, num_coeffs, const)
+            (reduced_chisq, p_chisq, RMSE, ks, p_ks,
+            NRMSE, F_NRMSE) = model.goodness_of_fit(s_data, s_fit_data, ddof)
+
+            # Initial guess
+            (z0_guess, y0_guess, x0_guess,
+            sz_guess, sy_guess, sx_guess,
+            A_guess) = init_guess_li[s]
+
+            # Fitted coeffs
+            (z0_fit, y0_fit, x0_fit,
+            sz_fit, sy_fit, sx_fit,
+            A_fit, B_fit) = leastsq_result.x
+
+
+            zyx_c = np.abs(np.array([z0_fit, y0_fit, x0_fit]))
+            zyx_sigmas = np.abs(np.array([sz_fit, sy_fit, sx_fit]))
+
+            I_tot, I_foregr = model.integrate(
+                            zyx_c, zyx_sigmas, A_fit, B_fit,
+                            lower_bounds=None, upper_bounds=None
+            )
+
+            gof_metrics = (reduced_chisq, p_chisq,
+                           ks, p_ks, RMSE, NRMSE, F_NRMSE)
+
+            self.store_metrics_good_spots(
+                                     obj_id, s, leastsq_result.x[:-1],
+                                     I_tot, I_foregr, gof_metrics,
+                                     leastsq_result.success, B_fit=B_fit
+            )
+
+            if inspect > 2:
+            # if True:
+                print('')
+                print('----------------------------')
+                if NRMSE > self.QC_limit:
+                    print('Quality control NOT passed!')
+                else:
+                    print('Quality control passed!')
+                print(f'Spot data max = {s_data.max():.3f}, '
+                      f'spot fit max = {s_fit_data.max():.3f}')
+                print(f'Intersecting idx = {s_intersect_idx}')
+                print(f'Neighbours idx = {neigh_idx}')
+                print('Spot idx =', s)
+                print(f'Reduced chisquare = {reduced_chisq:.3f}, '
+                      f'p = {p_chisq:.4f}')
+                print(f'KS stat = {ks:.3f}, p = {p_ks:.4f}')
+                # print(f'R_sq = {R_sq:.3f}, Adj. R-sq = {adj_Rsq:.3f}')
+                print(f'RMSE = {RMSE:.3f}')
+                print(f'NRMSE = {NRMSE:.3f}')
+                print(f'F_NRMSE = {F_NRMSE:.3f}')
+                print('')
+                print(f'Sigmas fit = ({sz_fit:.3f}, {sy_fit:.3f}, {sx_fit:.3f})')
+                print(f'A fit = {A_fit:.3f}, B fit = {B_fit:.3f}')
+                print('Total integral result, fit sum, observed sum = '
+                      f'{I_tot:.3f}, {s_fit_data.sum():.3f}, {s_data.sum():.3f}')
+                print(f'Foregroung integral value: {I_foregr:.3f}')
+                print('----------------------------')
+
+
+                matplotlib.use('TkAgg')
+                fig, ax = plt.subplots(1,3, figsize=[18,9])
+
+                img_s = np.zeros_like(img)
+                img_s[z_s, y_s, x_s] = s_data
+
+                img_s_fit = np.zeros_like(img)
+                img_s_fit[z_s, y_s, x_s] = s_fit_data
+
+                y_intens = img_s.max(axis=0)[int(y0_guess)]
+                y_intens = y_intens[y_intens!=0]
+
+                y_gauss = img_s_fit.max(axis=0)[int(y0_guess)]
+                y_gauss = y_gauss[y_gauss!=0]
+
+                ax[0].imshow(img.max(axis=0), vmax=img.max())
+                ax[1].imshow(img_s_fit.max(axis=0), vmax=img.max())
+                ax[2].scatter(range(len(y_intens)), y_intens)
+                ax[2].plot(range(len(y_gauss)), y_gauss, c='r')
+
+                l = x_s.min()
+                b = y_s.min()
+
+                r = x_s.max()
+                t = y_s.max()
+
+                ax[0].set_xlim((l-2, r+2))
+                ax[0].set_ylim((t+2, b-2))
+
+                ax[1].set_xlim((l-2, r+2))
+                ax[1].set_ylim((t+2, b-2))
+
+                plt.show()
+                matplotlib.use('Agg')
+
+    def store_metrics_good_spots(self, obj_id, s, fitted_coeffs_s,
+                                 I_tot, I_foregr, gof_metrics,
+                                 solution_found, B_fit):
+
+        (z0_fit, y0_fit, x0_fit,
+        sz_fit, sy_fit, sx_fit,
+        A_fit) = fitted_coeffs_s
+
+        min_z, min_y, min_x = self.obj_bbox_lower
+
+        self._df_spotFIT.at[(obj_id, s), 'z_fit'] = z0_fit+min_z
+        self._df_spotFIT.at[(obj_id, s), 'y_fit'] = y0_fit+min_y
+        self._df_spotFIT.at[(obj_id, s), 'x_fit'] = x0_fit+min_x
+
+        # self._df_spotFIT.at[(obj_id, s), 'AoB_fit'] = A_fit/B_fit
+
+        self._df_spotFIT.at[(obj_id, s), 'sigma_z_fit'] = abs(sz_fit)
+        self._df_spotFIT.at[(obj_id, s), 'sigma_y_fit'] = abs(sy_fit)
+        self._df_spotFIT.at[(obj_id, s), 'sigma_x_fit'] = abs(sx_fit)
+        self._df_spotFIT.at[(obj_id, s),
+                            'sigma_yx_mean'] = (abs(sy_fit)+abs(sx_fit))/2
+
+        _vol = 4/3*np.pi*abs(sz_fit)*abs(sy_fit)*abs(sx_fit)
+        self._df_spotFIT.at[(obj_id, s), 'spotfit_vol_vox'] = _vol
+
+        self._df_spotFIT.at[(obj_id, s), 'A_fit'] = A_fit
+        self._df_spotFIT.at[(obj_id, s), 'B_fit'] = B_fit
+
+        self._df_spotFIT.at[(obj_id, s), 'I_tot'] = I_tot
+        self._df_spotFIT.at[(obj_id, s), 'I_foregr'] = I_foregr
+
+        (reduced_chisq, p_chisq,
+        ks, p_ks, RMSE, NRMSE, F_NRMSE) = gof_metrics
+
+        self._df_spotFIT.at[(obj_id, s), 'reduced_chisq'] = reduced_chisq
+        self._df_spotFIT.at[(obj_id, s), 'p_chisq'] = p_chisq
+
+        self._df_spotFIT.at[(obj_id, s), 'KS_stat'] = ks
+        self._df_spotFIT.at[(obj_id, s), 'p_KS'] = p_ks
+
+        self._df_spotFIT.at[(obj_id, s), 'RMSE'] = RMSE
+        self._df_spotFIT.at[(obj_id, s), 'NRMSE'] = NRMSE
+        self._df_spotFIT.at[(obj_id, s), 'F_NRMSE'] = F_NRMSE
+
+        QC_passed = int(NRMSE<self.QC_limit)
+        self._df_spotFIT.at[(obj_id, s), 'QC_passed'] = QC_passed
+
+        self._df_spotFIT.at[(obj_id, s), 'null_ks_test'] = int(p_ks > 0.05)
+        self._df_spotFIT.at[(obj_id, s), 'null_chisq_test'] = int(p_chisq > 0.05)
+
+        self._df_spotFIT.at[(obj_id, s), 'solution_found'] = int(solution_found)
+
 class Kernel(_ParamsParser):
     def __init__(self, debug=False, is_cli=True):
         self.logger, self.log_path, self.logs_path = utils.setupLogger('cli')
         super().__init__(debug=debug, is_cli=is_cli, log=self.logger.info)
         self.debug = debug
         self.is_cli = is_cli
+        self._SpotFit = _spotFIT()
 
     def _preprocess(self, image_data):
         SECTION = 'Pre-processing'
@@ -597,20 +2222,20 @@ class Kernel(_ParamsParser):
         return sharpened
     
     def _get_obj_mask(self, lab, obj, lineage_table):
-        lab_mask_ID = lab == obj.label
+        lab_obj_image = lab == obj.label
         
         if lineage_table is None:
-            return lab_mask_ID, -1
+            return lab_obj_image, -1
         
         cc_stage = lineage_table.at[obj.label, 'cell_cycle_stage']
         if cc_stage == 'G1':
-            return lab_mask_ID, -1
+            return lab_obj_image, -1
         
         # Merge mother and daughter when in S phase
         rel_ID = lineage_table.at[obj.label, 'relative_ID']
-        lab_mask_ID = np.logical_or(lab == obj.label, lab == rel_ID)
+        lab_obj_image = np.logical_or(lab == obj.label, lab == rel_ID)
         
-        return lab_mask_ID, rel_ID
+        return lab_obj_image, rel_ID
     
     def _filter_largest_obj(self, mask_or_labels):
         lab = skimage.measure.label(mask_or_labels)
@@ -626,47 +2251,53 @@ class Kernel(_ParamsParser):
         lab_mask, bud_ID = self._get_obj_mask(lab, obj, lineage_table)
         lab_mask_rp = skimage.measure.regionprops(lab_mask.astype(np.uint8))
         lab_mask_obj = lab_mask_rp[0]
-        ref_ch_img_local = image[lab_mask_obj.slice]
-        backgr_vals = ref_ch_img_local[~lab_mask_obj.image]
+        img_local = image[lab_mask_obj.slice]
+        backgr_vals = img_local[~lab_mask_obj.image]
         if backgr_vals.size == 0:
-            return ref_ch_img_local, lab_mask, bud_ID
+            return img_local, lab_mask, bud_ID
         
         backgr_mean = backgr_vals.mean()
+        backgr_mean = backgr_mean if backgr_mean>=0 else 0
         backgr_std = backgr_vals.std()
         gamma_shape = np.square(backgr_mean/backgr_std)
         gamma_scale = np.square(backgr_std)/backgr_mean
-        ref_ch_img_backgr = rng.gamma(
+        img_backgr = rng.gamma(
             gamma_shape, gamma_scale, size=lab_mask_obj.image.shape
         )
 
-        ref_ch_img_backgr[lab_mask_obj.image] = ref_ch_img_local[lab_mask_obj.image]
+        img_backgr[lab_mask_obj.image] = img_local[lab_mask_obj.image]
 
-        return ref_ch_img_backgr, lab_mask_obj.image, bud_ID
+        return img_backgr, lab_mask_obj.image, bud_ID
     
-    def add_ref_ch_num_features(
-            self, df_cells, frame_i, ID, ref_ch_mask_local
+    def _add_aggregated_ref_ch_features(
+            self, df_agg, frame_i, ID, ref_ch_mask_local, vox_to_um3=None
         ):
         vol_voxels = np.count_nonzero(ref_ch_mask_local)
-        df_cells.at[(frame_i, ID), 'ref_ch_vol_vox'] = vol_voxels
+        df_agg.at[(frame_i, ID), 'ref_ch_vol_vox'] = vol_voxels
+        if vox_to_um3 is not None:
+            df_agg.at[(frame_i, ID), 'ref_ch_vol_fl'] = vol_voxels*vox_to_um3
 
         rp = skimage.measure.regionprops(ref_ch_mask_local.astype(np.uint16))
         num_fragments = len(rp)
-        df_cells.at[(frame_i, ID), 'ref_ch_num_fragments'] = num_fragments
+        df_agg.at[(frame_i, ID), 'ref_ch_num_fragments'] = num_fragments
 
-        return df_cells
+        return df_agg
     
     def _segment_ref_ch(
-            self, ref_ch_img, lab, lab_rp, df_cells, lineage_table, 
+            self, ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
             threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
-            thresh_val=None, verbose=True
+            vox_to_um3=None, thresh_val=None, verbose=True
         ):
         if verbose:
             self.logger.info('Segmenting reference channel...')
         IDs = [obj.label for obj in lab_rp]
-        for obj in tqdm(lab_rp, ncols=100):
+        desc = 'Segmenting reference channel'
+        pbar = tqdm(total=len(lab_rp), ncols=100, desc=desc)
+        for obj in lab_rp:
             if lineage_table is not None:
                 if lineage_table.at[obj.label, 'relationship'] == 'bud':
                     # Skip buds since they are aggregated with mother
+                    pbar.update()
                     continue
             
             # Get the image for thresholding (either object or mother-bud)
@@ -681,10 +2312,10 @@ class Kernel(_ParamsParser):
             
             # Store threshold value
             df_idx = (frame_i, obj.label)
-            df_cells.at[df_idx, 'ref_ch_threshold_value'] = thresh_val
+            df_agg.at[df_idx, 'ref_ch_threshold_value'] = thresh_val
             if bud_ID > 0:
                 bud_idx = (frame_i, bud_ID)
-                df_cells.at[bud_idx, 'ref_ch_threshold_value'] = thresh_val
+                df_agg.at[bud_idx, 'ref_ch_threshold_value'] = thresh_val
 
             # Threshold
             ref_mask_local = ref_ch_img_local > thresh_val
@@ -696,6 +2327,7 @@ class Kernel(_ParamsParser):
             else:
                 objs = [obj]
 
+            # Iterate eventually merged (mother-bud) objects
             for obj in objs:
                 ref_ch_mask = np.zeros_like(obj.image)
                 local_slice = tuple([slice(0,d) for d in obj.image.shape])
@@ -705,29 +2337,29 @@ class Kernel(_ParamsParser):
                     ref_ch_mask = self._filter_largest_obj(ref_ch_mask)
 
                 # Add numerical features
-                df_cells = self.add_ref_ch_num_features(
-                    df_cells, frame_i, obj.label, ref_ch_mask
+                df_agg = self._add_aggregated_ref_ch_features(
+                    df_agg, frame_i, obj.label, ref_ch_mask, 
+                    vox_to_um3=vox_to_um3
                 )
 
                 ref_ch_segm[obj.slice][ref_ch_mask] = obj.label
+            
+            pbar.update()
+        pbar.close()
 
-        return ref_ch_segm, df_cells
+        return ref_ch_segm, df_agg
     
-    def ref_ch_to_physical_units(self, df_cells, metadata):
-        vox_to_um3_factor = (
-            self.metadata['pixelWidth']
-            *self.metadata['pixelHeight']
-            *self.metadata['voxelDepth']
-        )
-        df_cells['ref_ch_vol_um3'] = df_cells['ref_ch_vol_vox']*vox_to_um3_factor
-        return df_cells
+    def ref_ch_to_physical_units(self, df_agg, metadata):
+        vox_to_um3_factor = metadata['vox_to_um3_factor']
+        df_agg['ref_ch_vol_um3'] = df_agg['ref_ch_vol_vox']*vox_to_um3_factor
+        return df_agg
 
     @utils.exception_handler_cli
     def segment_ref_ch(
             self, ref_ch_img, threshold_method='threshold_otsu', lab_rp=None, 
             lab=None, lineage_table=None, keep_only_largest_obj=False, 
-            do_aggregate_objs=False, df_cells=None, frame_i=0, 
-            verbose=True
+            do_aggregate_objs=False, df_agg=None, frame_i=0, 
+            vox_to_um3=None, verbose=True
         ):
         if lab is None:
             lab = np.ones(ref_ch_img.shape, dtype=np.uint8)
@@ -736,12 +2368,12 @@ class Kernel(_ParamsParser):
         if lab_rp is None:
             lab_rp = skimage.measure.regionprops(lab)
         
-        if df_cells is None:
+        if df_agg is None:
             IDs = [obj.label for obj in lab_rp]
             df_data = {'frame_i': [frame_i]*len(IDs), 'Cell_ID': IDs}
-            df_cells = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
+            df_agg = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
         
-        df_cells['ref_ch_threshold_value'] = np.nan
+        df_agg['ref_ch_threshold_value'] = np.nan
 
         ref_ch_segm = np.zeros_like(lab)
 
@@ -758,13 +2390,13 @@ class Kernel(_ParamsParser):
         else:
             thresh_val = None
         
-        ref_ch_segm, df_cells = self._segment_ref_ch(
-            ref_ch_img, lab, lab_rp, df_cells, lineage_table, 
+        ref_ch_segm, df_agg = self._segment_ref_ch(
+            ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
             threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
-            thresh_val=thresh_val, verbose=verbose
+            thresh_val=thresh_val, vox_to_um3=vox_to_um3, verbose=verbose
         )
 
-        return ref_ch_segm, df_cells
+        return ref_ch_segm, df_agg
     
     def aggregate_objs(self, img_data, lab, lineage_table=None):
         if lineage_table is not None:
@@ -825,7 +2457,7 @@ class Kernel(_ParamsParser):
     def spots_detection(
             self, spots_img, zyx_resolution_limit_pxl, ref_ch_img=None, 
             ref_ch_mask_or_labels=None, frame_i=0, lab=None, rp=None, 
-            raw_spots_img=None, do_filter_spots_vs_ref_ch=False, df_cells=None,
+            raw_spots_img=None, do_filter_spots_vs_ref_ch=False, df_agg=None,
             do_keep_spots_in_ref_ch=False, gop_filtering_thresholds=None,
             detection_method='peak_local_max', prediction_method='Thresholding',
             threshold_method='threshold_otsu', do_aggregate_objs=False,
@@ -834,8 +2466,9 @@ class Kernel(_ParamsParser):
         ):
         if spots_img.ndim == 2:
             spots_img = spots_img[np.newaxis]
-            lab = lab[np.newaxis]
-            rp = skimage.measure.regionprops(lab)
+            if lab is not None:
+                lab = lab[np.newaxis]
+                rp = skimage.measure.regionprops(lab)
             if ref_ch_img is not None:
                 ref_ch_img = ref_ch_img[np.newaxis]
             if ref_ch_mask_or_labels is not None:
@@ -853,35 +2486,56 @@ class Kernel(_ParamsParser):
         if rp is None:
             rp = skimage.measure.regionprops(lab)
         
-        if df_cells is None:
+        if df_agg is None:
             IDs = [obj.label for obj in rp]
             df_data = {'frame_i': [frame_i]*len(IDs), 'Cell_ID': IDs}
-            df_cells = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
-
-        if isinstance(threshold_method, str):
-            threshold_func = getattr(skimage.filters, threshold_method)
-        else:
-            threshold_func = threshold_method
+            df_agg = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
         
-        if do_aggregate_objs:
-            aggr_spots_img = self.aggregate_objs(
-                spots_img, lab, lineage_table=lineage_table
-            )
-            threshold_val = threshold_func(aggr_spots_img.max(axis=0))
-        else:
-            threshold_val = None
+        prediction_args = self._get_spot_prediction_args(
+            spots_img, lab, prediction_method, threshold_method, 
+            do_aggregate_objs, lineage_table=lineage_table
+        )
+        threshold_val, threshold_func, prediction_mask = prediction_args
         
-        self._spots_detection(
+        df_spots_det, df_spots_gop = self._spots_detection(
             spots_img, ref_ch_img, ref_ch_mask_or_labels, 
             do_filter_spots_vs_ref_ch, lab, rp, frame_i, detection_method,
             zyx_resolution_limit_pxl, spot_footprint=spot_footprint,
             min_size_spheroid_mask=min_size_spheroid_mask,
             threshold_val=threshold_val, verbose=verbose, 
             threshold_func=threshold_func, dfs_lists=dfs_lists,
-            raw_spots_img=raw_spots_img, prediction_method=prediction_method,
+            raw_spots_img=raw_spots_img, prediction_mask=prediction_mask,
             do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch, 
-            gop_filtering_thresholds=gop_filtering_thresholds
+            gop_filtering_thresholds=gop_filtering_thresholds,
+            lineage_table=lineage_table
         )
+        if df_spots_det is not None:
+            dfs_segm_obj = self._add_aggregated_spots_features(
+                df_spots_det, df_spots_gop, df_agg
+            )
+            return df_spots_det, df_spots_gop, *dfs_segm_obj
+    
+    def _get_spot_prediction_args(
+            self, spots_img, lab, prediction_method, threshold_method, 
+            do_aggregate_objs, lineage_table=None
+        ):
+        threshold_val = None
+        threshold_func = None
+        prediction_mask = None
+        if prediction_method == 'Thresholding':
+            if isinstance(threshold_method, str):
+                threshold_func = getattr(skimage.filters, threshold_method)
+            else:
+                threshold_func = threshold_method
+            
+            if do_aggregate_objs:
+                aggr_spots_img = self.aggregate_objs(
+                    spots_img, lab, lineage_table=lineage_table
+                )
+                threshold_val = threshold_func(aggr_spots_img.max(axis=0))
+        elif prediction_method == 'Neural network':
+            pass
+        return threshold_val, threshold_func, prediction_mask
     
     def _spots_detection(
             self, spots_img, ref_ch_img, ref_ch_mask_or_labels, 
@@ -890,7 +2544,8 @@ class Kernel(_ParamsParser):
             threshold_val=None, verbose=False, threshold_func=None,
             spot_footprint=None, min_size_spheroid_mask=None,
             raw_spots_img=None, gop_filtering_thresholds=None, 
-            do_keep_spots_in_ref_ch=False
+            do_keep_spots_in_ref_ch=False, prediction_mask=None,
+            lineage_table=None
         ):
         if verbose:
             self.logger.info('Detecting and filtering valid spots...')
@@ -898,16 +2553,26 @@ class Kernel(_ParamsParser):
         if dfs_lists is None:
             dfs_spots_det = []
             dfs_spots_gop = []
+            keys = []
         else:
             dfs_spots_det = dfs_lists['dfs_spots_detection']
             dfs_spots_gop = dfs_lists['dfs_spots_gop_test']
-        
-        keys = []
+            keys = dfs_lists['keys']
 
-        for obj in tqdm(rp, ncols=100):
+        desc = 'Detecting spots'
+        pbar = tqdm(total=len(rp), ncols=100, desc=desc)
+        for obj in rp:
             local_spots_img = spots_img[obj.slice]
-            if threshold_val is None:
-                threshold_val = threshold_func(local_spots_img)
+            if threshold_val is None and prediction_mask is None:
+                lab_single_obj_mask, budID = self._get_obj_mask(
+                    lab, obj, lineage_table
+                )
+                lab_single_obj_mask_rp = skimage.measure.regionprops(
+                    lab_single_obj_mask.astype(np.uint8)
+                )
+                thresh_input_img = spots_img[lab_single_obj_mask_rp[0].slice]
+                threshold_val = threshold_func(thresh_input_img)
+                imshow(thresh_input_img, thresh_input_img>0)
             
             if detection_method == 'peak_local_max':
                 if spot_footprint is None:
@@ -915,14 +2580,25 @@ class Kernel(_ParamsParser):
                     footprint = self._get_local_spheroid_mask(zyx_radii_pxl)
                 else:
                     footprint = spot_footprint
-                labels = obj.image.astype(np.uint8)
+                
+                if prediction_mask is None:
+                    labels = obj.image.astype(np.uint8)
+                else:
+                    threshold_val=None
+                    local_spots_mask = prediction_mask[obj.slice]
+                    labels = np.logical_and(obj.image, local_spots_mask)
+                
                 local_peaks_coords = skimage.feature.peak_local_max(
                     local_spots_img, threshold_abs=threshold_val, 
                     footprint=footprint, labels=labels, 
                     p_norm=2
                 )
             else:
-                local_spots_mask = local_spots_img > threshold_val
+                if prediction_mask is None:
+                    local_spots_mask = local_spots_img > threshold_val
+                else:
+                    local_spots_mask = prediction_mask[obj.slice]
+
                 local_spots_lab = skimage.measure.label(local_spots_mask)
                 local_spots_rp = skimage.measure.regionprops(local_spots_lab)
                 num_spots = len(local_spots_rp)
@@ -973,9 +2649,8 @@ class Kernel(_ParamsParser):
                 print('')
                 self.logger.info('Iterating goodness-of-peak test...')
             
-            num_spots_current = len()
-            num_spots_prev = -1
-            while num_spots_current != num_spots_prev:            
+            while True:     
+                num_spots_prev = len(df_obj_spots_gop)       
                 df_obj_spots_gop = self._compute_obj_spots_metrics(
                     local_spots_img, df_obj_spots_gop, obj.image, 
                     local_peaks_coords, raw_spots_img_obj=raw_spots_img_obj,
@@ -983,22 +2658,102 @@ class Kernel(_ParamsParser):
                     ref_ch_mask_obj=local_ref_ch_mask, 
                     ref_ch_img_obj=local_ref_ch_img,
                     normalised_ref_ch_img_obj=norm_local_ref_ch_img,
-                    verbose=verbose, zyx_radii_pxl=zyx_resolution_limit_pxl
+                    zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
+                    verbose=verbose                    
                 )
-
-                df_obj_spots_gop = self.filter_spots(df_obj_spots_gop)
-                num_spots_prev = len(df_obj_spots_gop)
-                if num_spots_prev == 0:
+                df_obj_spots_gop = self.filter_spots(
+                    df_obj_spots_gop, gop_filtering_thresholds
+                )
+                num_spots_current = len(df_obj_spots_gop)
+                if num_spots_current == num_spots_prev or num_spots_current == 0:
+                    # Number of filtered spots stopped decreasing --> stop loop
                     break
 
             dfs_spots_gop.append(df_obj_spots_gop)
+            pbar.update()
+        pbar.close()
         
         if dfs_lists is None:
             names = ['frame_i', 'Cell_ID', 'spot_id']
             df_spots_det = pd.concat(dfs_spots_det, keys=keys, names=names)
             df_spots_gop = pd.concat(dfs_spots_gop, keys=keys, names=names)
             return df_spots_det, df_spots_gop
+        else:
+            return None, None
+    
+    def _add_aggregated_spots_features(
+            self, df_spots_det: pd.DataFrame, df_spots_gop: pd.DataFrame, 
+            df_agg: pd.DataFrame, df_spots_fit: pd.DataFrame=None
+        ):
+        func = {
+            name:(col, aggFunc) for name, (col, aggFunc) 
+            in aggregate_spots_feature_func.items() 
+            if col in df_spots_det.columns
+        }
+        df_agg_det = (
+            df_spots_det.reset_index().groupby(['frame_i', 'Cell_ID'])
+            .agg(**func)
+        )
+        df_agg_det = df_agg_det.join(df_agg, how='left')
+        df_agg_gop = (
+            df_spots_gop.reset_index().groupby(['frame_i', 'Cell_ID'])
+            .agg(**func)
+        )
+        df_agg_gop = df_agg_gop.join(df_agg, how='left')
+        if df_spots_fit is not None:
+            spotfit_func = {
+                name:(col, aggFunc) for name, (col, aggFunc) 
+                in aggregate_spots_feature_func.items() 
+                if col in df_spots_det.columns
+            }
+            df_agg_spotfit = (
+                df_spots_fit.reset_index().groupby(['frame_i', 'Cell_ID'])
+                .agg(**func)
+            )
+            df_agg_spotfit = df_agg_spotfit.join(df_agg, how='left')
+        else:
+            df_agg_spotfit = None
+        return df_agg_det, df_agg_gop, df_agg_spotfit
+    
+    @utils.exception_handler_cli
+    def measure_spots_spotfit(
+            self, spots_img, df_spots, zyx_voxel_size, zyx_spot_min_vol_um,
+            rp=None, dfs_lists=None, lab=None, frame_i=0, 
+            ref_ch_mask_or_labels=None
+        ):
+        if spots_img.ndim == 2:
+            spots_img = spots_img[np.newaxis]
+            if lab is not None:
+                lab = lab[np.newaxis]
+                rp = skimage.measure.regionprops(lab)
+        
+        if lab is None:
+            lab = np.ones(spots_img.shape, dtype=np.uint8)
 
+        if rp is None:
+            lab = np.ones(spots_img.shape, dtype=np.uint8)
+            rp = skimage.measure.regionprops(lab)
+        
+        if dfs_lists is None:
+            dfs_spots_spotfit = []
+            keys = []
+        else:
+            dfs_spots_spotfit = dfs_lists['dfs_spots_spotfit']
+            keys = dfs_lists['spotfit_keys']
+        
+        desc = 'Measuring spots'
+        pbar = tqdm(len(rp), ncols=100, desc=desc)
+        for obj in rp:
+            self._SpotFit.set_args(
+                obj, spots_img, df_spots, zyx_voxel_size, zyx_spot_min_vol_um, 
+                ref_ch_mask_or_labels=ref_ch_mask_or_labels
+            )
+            self._SpotFit.fit()
+            dfs_spots_spotfit.append(self._SpotFit.df_spotFIT_ID)
+            keys.append((frame_i, obj.label))
+            pbar.update()
+        pbar.close()
+        
     def _get_obj_spheroids_mask(
             self, zyx_coords, mask_shape, min_size_spheroid_mask=None, 
             zyx_radii_pxl=None
@@ -1057,7 +2812,7 @@ class Kernel(_ParamsParser):
             df.at[idx, col_name] = eff_size
 
     def _add_spot_vs_ref_location(self, ref_ch_mask, zyx_center, df, idx):
-        is_spot_in_ref_ch = ref_ch_mask[zyx_center] > 0
+        is_spot_in_ref_ch = int(ref_ch_mask[zyx_center] > 0)
         df.at[idx, 'is_spot_inside_ref_ch'] = is_spot_in_ref_ch
         _, dist_2D_from_ref_ch = utils.nearest_nonzero(
             ref_ch_mask[zyx_center[0]], zyx_center[1], zyx_center[2]
@@ -1148,7 +2903,7 @@ class Kernel(_ParamsParser):
             raw_spots_img_obj = spots_img_obj
 
         pbar_desc = 'Computing spots features'
-        pbar = tqdm(total=len(df_obj_spots), ncols=100, desc=pbar_desc)
+        pbar = tqdm(total=len(df_obj_spots), ncols=100, desc=pbar_desc, leave=False)
         for row in df_obj_spots.itertuples():
             spot_id = row.Index
             zyx_center = (row.z_local, row.y_local, row.x_local)
@@ -1220,13 +2975,116 @@ class Kernel(_ParamsParser):
             )
             pbar.update()
         pbar.close()
+        return df_obj_spots
     
     @utils.exception_handler_cli
     def filter_spots(self, df: pd.DataFrame, features_thresholds: dict):
+        """_summary_
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Pandas DataFrame with 'spot_id' as index and the features as columns.
+        features_thresholds : dict
+            A dictionary of features and thresholds to use for filtering. The 
+            keys are the feature names that mush coincide with one of the columns'
+            names. The values are a tuple of `(min, max)` thresholds.
+            For example, for filtering spots that have the t-statistic of the 
+            t-test spot vs reference channel > 0 and the p-value < 0.025 
+            (i.e. spots are significantly brighter than reference channel) 
+            we pass the following dictionary:
+            ```
+            features_thresholds = {
+                'spot_vs_ref_ch_ttest_pvalue': (None,0.025),
+	            'spot_vs_ref_ch_ttest_tstat': (0, None)
+            }
+            ```
+            where `None` indicates the absence of maximum or minimum.
+
+        Returns
+        -------
+        pd.DataFrame
+            The filtered DataFrame
+        """      
+        queries = []  
         for feature_name, thresholds in features_thresholds.items():
-            pass
-        return df
+            if feature_name not in df.columns:
+                self._critical_feature_is_missing(feature_name, df)
+            _min, _max = thresholds
+            if _min is not None:
+                queries.append(f'({feature_name} > {_min})')
+            if _max is not None:
+                queries.append(f'({feature_name} < {_max})')
+        query = ' & '.join(queries)
+        return df.query(query)
+    
+    def _critical_feature_is_missing(self, missing_feature, df):
+        format_colums = [f'    * {col}' for col in df.columns]
+        format_colums = '\n'.join(format_colums)
+        self.logger.info('='*50)
+        txt = (
+            f'[ERROR]: The feature name {missing_feature} is not present in the table.\n\n'
+            f'Available features are:\n\n{format_colums}'
+        )
+        self.logger.info('^'*50)
+        self.logger.info('spotMAX aborted due to ERROR. See above more details.')
+        self.logger.info(txt)
+        self.quit()
+    
+    def _add_segm_obj_features_from_labels(
+            self, df_agg, lab, rp, metadata, frame_i=0, is_segm_3D=False
+        ):
+        if np.all(lab):
+            # Segmentation was not present and it was initialized to whole image
+            # There are no features to add
+            return
+        pxl_to_um2 = metadata.get('pxl_to_um2_factor', 1)
+        vox_to_um3 = metadata.get('vox_to_um3_factor', 1)
+        vox_to_fl_rot = metadata.get('vox_to_fl_rot_factor', 1)
+        for obj in rp:
+            idx = (frame_i, obj.label)
+            cell_area_pxl = obj.area
+            cell_area_um2 = cell_area_pxl*pxl_to_um2
+            cell_vol_vox, cell_vol_fl = acdctools.core.calc_rotational_volume(
+                obj, vox_to_fl=vox_to_fl_rot
+            )
+            df_agg.at[idx, 'cell_area_pxl'] = cell_area_pxl
+            df_agg.at[idx, 'cell_area_um2'] = cell_area_um2
+            df_agg.at[idx, 'cell_vol_vox'] = cell_vol_vox
+            df_agg.at[idx, 'cell_vol_fl'] = cell_vol_fl
+            if is_segm_3D:
+                cell_vol_vox_3D = cell_area_pxl
+                cell_vol_fl_3D = cell_area_pxl*vox_to_um3
+                df_agg.at[idx, 'cell_vol_vox_3D'] = cell_vol_vox_3D
+                df_agg.at[idx, 'cell_vol_fl_3D'] = cell_vol_fl_3D
+        return df_agg
+
+    def _add_spotfit_feautres_to_df_spots_gop(df_spots_fit, df_spots_gop):
+        idx = df_spots_fit.index
+        for col in df_spots_gop.columns:
+            if col in df_spots_fit.columns:
+                continue
             
+            df_spots_fit[col] = np.nan
+            df_spots_fit.loc[idx, col] = df_spots_gop.loc[idx, col]
+    
+    def _filter_spots_by_size(
+            df_spots_fit: pd.DataFrame, spotfit_minsize, spotfit_maxsize
+        ):
+        queries = []
+        if spotfit_minsize > 0:
+            queries.append(f'(sigma_yx_mean >= {spotfit_minsize})')
+        
+        if spotfit_maxsize > 0:
+            queries.append(f'(sigma_yx_mean <= {spotfit_maxsize})')
+        
+        if not queries:
+            return df_spots_fit
+        
+        query = ' & '.join(queries)
+        df_spots_fit = df_spots_fit.query(query)
+        return df_spots_fit
+
     @utils.exception_handler_cli
     def _run_from_images_path(
             self, images_path, spots_ch_endname: str='', ref_ch_endname: str='', 
@@ -1246,9 +3104,28 @@ class Kernel(_ParamsParser):
         ref_ch_data = data.get('ref_ch')
         segm_rp = data.get('segm_rp')
         segm_data = data.get('segm')
-        df_cells = data.get('df_cells')
+        df_agg = data.get('df_agg')
         ref_ch_segm_data = data.get('ref_ch_segm')
         acdc_df = data.get('lineage_table')
+
+        stopFrameNum = self.metadata['stopFrameNum']
+
+        desc = 'Adding single-segmentation object features'
+        pbar = tqdm(total=stopFrameNum, ncols=100, desc=desc)
+        for frame_i in range(stopFrameNum):
+            lab = segm_data[frame_i]
+            rp = segm_rp[frame_i]
+            if acdc_df is not None:
+                lineage_table = acdc_df.loc[frame_i]
+            else:
+                lineage_table = None
+            df_agg = self._add_segm_obj_features_from_labels(
+                df_agg, lab, rp, is_segm_3D=data['is_segm_3D'], 
+                frame_i=frame_i, metadata=self.metadata
+            )
+            pbar.update()
+        pbar.close()
+        
         
         if ref_ch_data is not None and do_segment_ref_ch:
             self.logger.info('Segmenting reference channel...')
@@ -1259,9 +3136,11 @@ class Kernel(_ParamsParser):
             is_ref_ch_single_obj = (
                 self._params[SECTION]['refChSingleObj']['loadedVal']
             )
+            vox_to_um3 = self.metadata.get('vox_to_um3_factor', 1)
             ref_ch_segm_data = np.zeros(ref_ch_data.shape, dtype=np.uint16)
-            stopFrameNum = self.metadata['stopFrameNum']
-            for frame_i in tqdm(range(stopFrameNum), ncols=100):
+            desc = 'Frames completed (segm. ref. ch.)'
+            pbar = tqdm(total=stopFrameNum, ncols=100, desc=desc)
+            for frame_i in range(stopFrameNum):
                 if acdc_df is not None:
                     lineage_table = acdc_df.loc[frame_i]
                 else:
@@ -1270,20 +3149,22 @@ class Kernel(_ParamsParser):
                 ref_ch_img = ref_ch_data[frame_i]
                 ref_ch_img = self._preprocess(ref_ch_img)
                 lab = segm_data[frame_i]
-                ref_ch_lab, df_cells = self.segment_ref_ch(
+                ref_ch_lab, df_agg = self.segment_ref_ch(
                     ref_ch_img, lab_rp=lab_rp, lab=lab, 
                     threshold_method=ref_ch_threshold_method, 
                     keep_only_largest_obj=is_ref_ch_single_obj,
-                    df_cells=df_cells, frame_i=frame_i, 
+                    df_agg=df_agg, frame_i=frame_i, 
                     do_aggregate_objs=do_aggregate_objs,
-                    lineage_table=lineage_table,
+                    lineage_table=lineage_table, vox_to_um3=vox_to_um3,
                     verbose=False
                 )
                 ref_ch_segm_data[frame_i] = ref_ch_lab
+                pbar.update()
+            pbar.close()
 
-            df_cells = self.ref_ch_to_physical_units(df_cells, self.metadata)
+            df_agg = self.ref_ch_to_physical_units(df_agg, self.metadata)
 
-            data['df_cells'] = df_cells
+            data['df_agg'] = df_agg
             data['ref_ch_segm'] = ref_ch_segm_data
         
         if 'spots_ch' not in data:
@@ -1291,7 +3172,6 @@ class Kernel(_ParamsParser):
             return
         
         spots_data = data.get('spots_ch')
-        stopFrameNum = self.metadata['stopFrameNum']
         zyx_resolution_limit_pxl = self.metadata['zyxResolutionLimitPxl']
         min_size_spheroid_mask = self._get_local_spheroid_mask(
             zyx_resolution_limit_pxl
@@ -1326,12 +3206,19 @@ class Kernel(_ParamsParser):
         detection_method = (
             self._params[SECTION]['spotDetectionMethod']['loadedVal']
         )
-
+        do_spotfit = self._params[SECTION]['doSpotFit']['loadedVal']
+        spotfit_minsize = self._params[SECTION]['minSpotSize']['loadedVal']
+        spotfit_maxsize = self._params[SECTION]['maxSpotSize']['loadedVal']
         dfs_lists = {
             'dfs_spots_detection': [], 'dfs_spots_gop_test': [], 'keys': []
         }
+        if do_spotfit:
+            dfs_lists['dfs_spots_spotfit'] = []
+            dfs_lists['spotfit_keys'] = []
 
-        for frame_i in tqdm(range(stopFrameNum), ncols=100):
+        desc = 'Frames completed (spot detection)'
+        pbar = tqdm(total=stopFrameNum, ncols=100, desc=desc)
+        for frame_i in range(stopFrameNum):
             raw_spots_img = spots_data[frame_i]
             filtered_spots_img = self._preprocess(raw_spots_img)
             if do_sharpen_spots:
@@ -1344,12 +3231,20 @@ class Kernel(_ParamsParser):
                 ref_ch_img = ref_ch_data[frame_i]
             else:
                 ref_ch_img = None
+            if ref_ch_segm_data is not None:
+                ref_ch_mask_or_labels = ref_ch_segm_data[frame_i]
+            else:
+                ref_ch_mask_or_labels = None
+            if acdc_df is not None:
+                lineage_table = acdc_df.loc[frame_i]
+            else:
+                lineage_table = None
             self.spots_detection(
                 filtered_spots_img, zyx_resolution_limit_pxl, 
                 ref_ch_img=ref_ch_img, 
                 frame_i=frame_i, lab=lab, rp=rp,
-                ref_ch_mask_or_labels=ref_ch_segm_data, 
-                df_cells=df_cells,
+                ref_ch_mask_or_labels=ref_ch_mask_or_labels, 
+                df_agg=df_agg,
                 raw_spots_img=raw_spots_img, 
                 dfs_lists=dfs_lists,
                 min_size_spheroid_mask=min_size_spheroid_mask,
@@ -1364,7 +3259,9 @@ class Kernel(_ParamsParser):
                 lineage_table=lineage_table,
                 verbose=False
             )
-        
+            pbar.update()
+        pbar.close()
+
         names = ['frame_i', 'Cell_ID', 'spot_id']
         keys = dfs_lists['keys']
         df_spots_det = pd.concat(
@@ -1373,6 +3270,46 @@ class Kernel(_ParamsParser):
         df_spots_gop = pd.concat(
             dfs_lists['dfs_spots_gop_test'], keys=keys, names=names
         )
+
+        if do_spotfit:
+            zyx_spot_min_vol_um = self.metadata['zyxResolutionLimitUm']
+            zyx_voxel_size = self.metadata['zyxVoxelSize']
+            desc = 'Measuring spots (spotFIT)'
+            pbar = tqdm(total=stopFrameNum, ncols=100, desc=desc)
+            for frame_i in range(stopFrameNum):
+                raw_spots_img = spots_data[frame_i]
+                if ref_ch_segm_data is not None:
+                    ref_ch_mask_or_labels = ref_ch_segm_data[frame_i]
+                else:
+                    ref_ch_mask_or_labels = None
+
+                df_spots_frame = df_spots_gop.loc[frame_i]
+                self.measure_spots_spotfit(
+                    raw_spots_img, df_spots_frame, zyx_voxel_size, 
+                    zyx_spot_min_vol_um, rp=rp, dfs_lists=dfs_lists,
+                    ref_ch_mask_or_labels=ref_ch_mask_or_labels,
+                    frame_i=frame_i
+                )
+                pbar.update()
+            pbar.close()
+            
+            keys = dfs_lists['spotfit_keys']
+            df_spots_fit = pd.concat(
+                dfs_lists['dfs_spots_spotfit'], keys=keys, names=names
+            )
+            self._add_spotfit_feautres_to_df_spots_gop(
+                df_spots_fit, df_spots_gop
+            )
+            df_spots_fit = self._filter_spots_by_size(
+                df_spots_fit, spotfit_minsize, spotfit_maxsize
+            )
+        else:
+            df_spots_fit = None
+        
+        dfs_agg = self._add_aggregated_spots_features(
+            df_spots_det, df_spots_gop, df_agg, df_spots_fit=df_spots_fit
+        )
+        df_agg_det, df_agg_gop, df_agg_spotfit = dfs_agg
 
     @utils.exception_handler_cli
     def _run_exp_paths(self, exp_paths):
@@ -1525,6 +3462,87 @@ def objContours(obj):
         cont += [min_x, min_y]
         contours_li.append(cont)
     return contours_li
+
+def expand_labels(label_image, distance=1, zyx_vox_size=None):
+    """Expand labels in label image by ``distance`` pixels without overlapping.
+    Given a label image, ``expand_labels`` grows label regions (connected components)
+    outwards by up to ``distance`` pixels without overflowing into neighboring regions.
+    More specifically, each background pixel that is within Euclidean distance
+    of <= ``distance`` pixels of a connected component is assigned the label of that
+    connected component.
+    Where multiple connected components are within ``distance`` pixels of a background
+    pixel, the label value of the closest connected component will be assigned (see
+    Notes for the case of multiple labels at equal distance).
+    Parameters
+    ----------
+    label_image : ndarray of dtype int
+        label image
+    distance : float
+        Euclidean distance in pixels by which to grow the labels. Default is one.
+    Returns
+    -------
+    enlarged_labels : ndarray of dtype int
+        Labeled array, where all connected regions have been enlarged
+    Notes
+    -----
+    Where labels are spaced more than ``distance`` pixels are apart, this is
+    equivalent to a morphological dilation with a disc or hyperball of radius ``distance``.
+    However, in contrast to a morphological dilation, ``expand_labels`` will
+    not expand a label region into a neighboring region.
+    This implementation of ``expand_labels`` is derived from CellProfiler [1]_, where
+    it is known as module "IdentifySecondaryObjects (Distance-N)" [2]_.
+    There is an important edge case when a pixel has the same distance to
+    multiple regions, as it is not defined which region expands into that
+    space. Here, the exact behavior depends on the upstream implementation
+    of ``scipy.ndimage.distance_transform_edt``.
+    See Also
+    --------
+    :func:`skimage.measure.label`, :func:`skimage.segmentation.watershed`, :func:`skimage.morphology.dilation`
+    References
+    ----------
+    .. [1] https://cellprofiler.org
+    .. [2] https://github.com/CellProfiler/CellProfiler/blob/082930ea95add7b72243a4fa3d39ae5145995e9c/cellprofiler/modules/identifysecondaryobjects.py#L559
+    Examples
+    --------
+    >>> labels = np.array([0, 1, 0, 0, 0, 0, 2])
+    >>> expand_labels(labels, distance=1)
+    array([1, 1, 1, 0, 0, 2, 2])
+    Labels will not overwrite each other:
+    >>> expand_labels(labels, distance=3)
+    array([1, 1, 1, 1, 2, 2, 2])
+    In case of ties, behavior is undefined, but currently resolves to the
+    label closest to ``(0,) * ndim`` in lexicographical order.
+    >>> labels_tied = np.array([0, 1, 0, 2, 0])
+    >>> expand_labels(labels_tied, 1)
+    array([1, 1, 1, 2, 2])
+    >>> labels2d = np.array(
+    ...     [[0, 1, 0, 0],
+    ...      [2, 0, 0, 0],
+    ...      [0, 3, 0, 0]]
+    ... )
+    >>> expand_labels(labels2d, 1)
+    array([[2, 1, 1, 0],
+           [2, 2, 0, 0],
+           [2, 3, 3, 0]])
+    """
+    if zyx_vox_size is None:
+        zyx_vox_size = [1]*label_image.ndim
+
+    distances, nearest_label_coords = scipy.ndimage.distance_transform_edt(
+        label_image == 0, return_indices=True, sampling=zyx_vox_size,
+    )
+    labels_out = np.zeros_like(label_image)
+    dilate_mask = distances <= distance
+    # build the coordinates to find nearest labels,
+    # in contrast to [1] this implementation supports label arrays
+    # of any dimension
+    masked_nearest_label_coords = [
+        dimension_indices[dilate_mask]
+        for dimension_indices in nearest_label_coords
+    ]
+    nearest_labels = label_image[tuple(masked_nearest_label_coords)]
+    labels_out[dilate_mask] = nearest_labels
+    return labels_out
 
 def findContours(dataToCont, is_zstack=False):
     contCoords = {'proj': {}}

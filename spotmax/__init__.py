@@ -58,3 +58,13 @@ is_win = sys.platform.startswith("win")
 is_win64 = (is_win and (os.environ["PROCESSOR_ARCHITECTURE"] == "AMD64"))
 
 issues_url = 'https://github.com/SchmollerLab/spotMAX/issues'
+
+base_lineage_table_values = {
+    'cell_cycle_stage': 'G1',
+    'generation_num': 2,
+    'relative_ID': -1,
+    'relationship': 'mother',
+    'emerg_frame_i': -1,
+    'division_frame_i': -1
+}
+
