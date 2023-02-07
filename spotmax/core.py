@@ -3361,7 +3361,8 @@ class Kernel(_ParamsParser):
                     segm_endname=segm_endname,
                     ref_ch_segm_endname=ref_ch_segm_endname, 
                     lineage_table_endname=lineage_table_endname
-                )               
+                )         
+                import pdb; pdb.set_trace()      
                 self.save_dfs(pos_path, dfs, run_number=run_number)
 
     def save_dfs(self, folder_path, dfs, run_number=1):
