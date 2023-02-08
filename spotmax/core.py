@@ -36,8 +36,11 @@ except Exception as e:
     pass
 
 try:
+    import numba
     from numba import njit, prange
+    NUMBA_INSTALLED = True
 except Exception as e:
+    NUMBA_INSTALLED = False
     from .utils import njit_replacement as njit
     prange = range
 
@@ -3389,6 +3392,9 @@ class Kernel(_ParamsParser):
     def run(self, parser_args):
         params_path = parser_args['params']
         metadata_csv_path = parser_args['metadata']
+        NUMBA_NUM_THREADS = parser_args['num_threads']
+        if NUMBA_INSTALLED and NUMBA_NUM_THREADS > 0:
+            numba.set_num_threads(NUMBA_NUM_THREADS)
         self.init_params(params_path, metadata_csv_path=metadata_csv_path)
         if self.exp_paths_list:
             for exp_paths in self.exp_paths_list:

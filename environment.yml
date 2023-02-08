@@ -1,0 +1,16 @@
+name: spotmax_v2
+channels:
+  - conda-forge
+  - fastai
+dependencies:
+  - python=3.9
+  - pip
+  - numba
+  - opencv-python-headless
+  - natsort
+  - h5py
+  - pytables
+  - scikit-image
+  - tqdm
+  - pandas
+  - setuptools-scm
