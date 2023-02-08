@@ -24,16 +24,15 @@ from scipy.special import erf
 import acdctools.io
 import acdctools.utils
 import acdctools.core
-try:
-    from acdctools.plot import imshow
-except Exception as e:
-    pass
 
-try:
+from . import GUI_INSTALLED
+
+if GUI_INSTALLED:
+    from acdctools.plot import imshow
+
+if GUI_INSTALLED:
     import matplotlib.pyplot as plt
     import matplotlib
-except Exception as e:
-    pass
 
 try:
     import numba
@@ -1113,7 +1112,7 @@ class spheroid:
         return spots_3D_lab
 
     def get_spots_mask(self, i, zyx_vox_dim, zyx_resolution, zyx_centers,
-                       method='min_spheroid', dtype=np.bool, ids=[]):
+                       method='min_spheroid', dtype=bool, ids=[]):
         if method == 'min_spheroid':
             Z, Y, X = self.V_shape
             # Calc spheroid semiaxis lengths in pixels (c: z, a: x and y)
@@ -1134,7 +1133,7 @@ class spheroid:
                                                  zyx_c, semiax_len, Z, Y, X,
                                                  return_slice=True
                 )
-                if dtype == np.bool:
+                if dtype == bool:
                     spots_mask = np.logical_or(spots_mask, temp_mask)
                 elif dtype == np.uint16:
                     cropped_mask = local_spot_mask[slice_crop]

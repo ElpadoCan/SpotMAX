@@ -1,13 +1,10 @@
 import sys
 import os
 
-try:
-    from . import gui
-    GUI_INSTALLED = True
-except ModuleNotFoundError:
-    GUI_INSTALLED = False
+from . import printl, GUI_INSTALLED
 
-from . import printl
+if GUI_INSTALLED:
+    from . import gui
 
 def run_gui(debug=False, app=None):
     from . import utils

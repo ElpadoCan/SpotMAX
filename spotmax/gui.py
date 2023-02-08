@@ -19,7 +19,6 @@
 # - tif files should have number of frames to load disabled
 
 """spotMAX GUI"""
-print('Importing modules...')
 import sys
 import os
 import pathlib

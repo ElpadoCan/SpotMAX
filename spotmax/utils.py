@@ -74,16 +74,9 @@ def _check_cli_params_extension(params_path):
             f'File path: "{params_path}"'
         )
 
-def njit_replacement(func, parallel=False):
-    @wraps(func)
-    def inner_function(self, *args, **kwargs):
-        if func.__code__.co_argcount==1 and func.__defaults__ is None:
-            result = func(self)
-        elif func.__code__.co_argcount>1 and func.__defaults__ is None:
-            result = func(self, *args)
-        else:
-            result = func(self, *args, **kwargs)
-        return result
+def njit_replacement(parallel=False):
+    def inner_function(*args, **kwargs):
+        return
     return inner_function
 
 def get_abspath(path):

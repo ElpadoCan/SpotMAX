@@ -1,3 +1,4 @@
+print('Importing modules...')
 import sys
 
 try:
@@ -8,6 +9,12 @@ except ModuleNotFoundError:
         [sys.executable, '-m', 'pip', 'install', '-U',
         'git+https://github.com/SchmollerLab/acdc_tools']
     )
+
+try:
+    from . import gui
+    GUI_INSTALLED = True
+except ModuleNotFoundError:
+    GUI_INSTALLED = False
 
 import os
 import inspect
