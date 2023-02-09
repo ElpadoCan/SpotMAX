@@ -60,5 +60,9 @@ def run_cli(parser_args, debug=False):
     from . import core
     
     kernel = core.Kernel(debug=debug)
-    kernel.run(parser_args)
+    kernel.run(
+        parser_args['params'], 
+        metadata_csv_path=parser_args['metadata'],
+        num_numba_threads=parser_args['num_threads']
+    )
     

@@ -3,14 +3,13 @@ import os
 import argparse
 
 from spotmax._run import run_gui, run_cli
+from spotmax import help_text
+
 
 def cli_parser():
-    ap = argparse.ArgumentParser(description='spotMAX parser')
-
-    ap.add_argument(
-        '-c', '--cli',
-        action='store_true',
-        help=('Flag to run spotMAX in the command line')
+    ap = argparse.ArgumentParser(
+        prog='spotMAX', description=help_text, 
+        formatter_class=argparse.RawTextHelpFormatter
     )
 
     ap.add_argument(
@@ -37,6 +36,26 @@ def cli_parser():
         help=('Number of threads to use for parallel execution when using numba.')
     )
 
+    # Add dummy argument for stupid Jupyter
+    ap.add_argument(
+        '-f', '--force_default_values',
+        action='store_true',
+        help=('Flag to disable required inputs and use default values for missing params.')
+    )
+
+    # NOTE: the user doesn't need to pass `-c`` because passing the path to the 
+    # params is enough. However, passing `-c`` without path to params will 
+    # raise an error with the explanation that the parameters file is 
+    # mandatory in command line.
+    ap.add_argument(
+        '-c', '--cli',
+        action='store_true',
+        help=(
+            'Flag to run spotMAX in the command line.'
+            'Not required if you pass the `--params` argument.'
+        )
+    )
+
     ap.add_argument(
         '-d', '--debug',
         action='store_true',
@@ -46,10 +65,6 @@ def cli_parser():
         )
     )
 
-    # Add dummy argument for stupid Jupyter
-    ap.add_argument(
-        '-f', help=('Dummy argument required by notebooks. Do not use.')
-    )
     return vars(ap.parse_args())
 
 def run():
@@ -61,9 +76,13 @@ def run():
 
     if RUN_CLI and not PARAMS_PATH:
         raise FileNotFoundError(
-            '[ERROR]: To run spotMAX from the command line you need to provide a path to the "_analysis_inputs.ini" or "_analysis_inputs.csv" file')
+            '[ERROR]: To run spotMAX from the command line you need to '
+            'provide a path to the "_analysis_inputs.ini" or '
+            '"_analysis_inputs.csv" file. To run the GUI use the command '
+            '`spotmax -g`'
+        )
 
-    if PARAMS_PATH or RUN_CLI:
+    if PARAMS_PATH:
         run_cli(parser_args, debug=DEBUG)
     else:
         run_gui(debug=DEBUG)

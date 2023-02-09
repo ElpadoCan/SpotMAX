@@ -3388,13 +3388,14 @@ class Kernel(_ParamsParser):
         pass
 
     @utils.exception_handler_cli
-    def run(self, parser_args):
-        PARAMS_PATH = parser_args['params']
-        METADATA_CSV_PATH = parser_args['metadata']
-        NUMBA_NUM_THREADS = parser_args['num_threads']
-        if NUMBA_INSTALLED and NUMBA_NUM_THREADS > 0:
-            numba.set_num_threads(NUMBA_NUM_THREADS)
-        self.init_params(PARAMS_PATH, metadata_csv_path=METADATA_CSV_PATH)
+    def run(
+            self, params_path: os.PathLike, metadata_csv_path: os.PathLike='',
+            num_numba_threads: int=-1
+        ):
+        
+        if NUMBA_INSTALLED and num_numba_threads > 0:
+            numba.set_num_threads(num_numba_threads)
+        self.init_params(params_path, metadata_csv_path=metadata_csv_path)
         if self.exp_paths_list:
             for exp_paths in self.exp_paths_list:
                 self._run_exp_paths(exp_paths)
