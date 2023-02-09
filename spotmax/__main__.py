@@ -57,6 +57,15 @@ def cli_parser():
     )
 
     ap.add_argument(
+        '-r', '--raise_on_critical',
+        action='store_true',
+        help=(
+            'Flag to force spotMAX to close upon critical error when running '
+            'in batch mode.'
+        )
+    )
+
+    ap.add_argument(
         '-d', '--debug',
         action='store_true',
         help=(

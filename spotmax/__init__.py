@@ -11,7 +11,8 @@ except ModuleNotFoundError:
     )
 
 try:
-    from . import gui
+    import PyQt5
+    import pyqtgraph
     GUI_INSTALLED = True
 except ModuleNotFoundError:
     GUI_INSTALLED = False
@@ -86,3 +87,5 @@ base_lineage_table_values = {
     'division_frame_i': -1
 }
 
+error_up_str = '^'*50
+error_up_str = f'\n{error_up_str}'

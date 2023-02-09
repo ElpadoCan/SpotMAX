@@ -47,7 +47,7 @@ except ModuleNotFoundError:
 import acdctools.utils
 
 from . import utils, config
-from . import core, printl
+from . import core, printl, error_up_str
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -716,9 +716,8 @@ class expFolderScanner:
                     continue
                 run_nums = self.runNumbers(spotmaxOutPath)
 
-
                 for run in run_nums:
-                    if p==0:
+                    if run not in self.paths:
                         analysisInputs_df = self.loadAnalysisInputs(
                             spotmaxOutPath, run
                         )
@@ -1729,6 +1728,7 @@ def _get_user_input_cli(
             options_txt.append(f'{i+1}) {option}.')   
     options_nums = '/'.join(options_nums)
     if options_txt:
+        options_txt.append('q) Quit.')
         options_txt = ' '.join(options_txt)
         input_text = f'{question_text}: {options_txt} ({options_nums})?: '
     else:
@@ -1776,17 +1776,15 @@ def _get_user_input_cli(
 
 def _log_forced_default(default_option, logger):
     logger('-'*50)
-    logger(f'Automatically selected default option: "{default_option}"' )
-    logger('^'*50)
+    logger(f'Automatically selected default option: "{default_option}"{error_up_str}')
 
 def _raise_EOFerror(logger=print):
     logger('*'*50)
     logger(
         '[ERROR]: The terminal cannot get inputs. See Warning above. '
         'To force the default options, run spotMAX with the "-f" flag, i.e. '
-        '`spotmax -f`.'
+        f'`spotmax -f`.{error_up_str}'
     )
-    logger('^'*50)
     exit()
 
 def get_user_input(
@@ -1817,10 +1815,7 @@ def get_user_input(
             _raise_EOFerror(logger=logger)
     return answer_txt
 
-def save_df_to_hdf(df: pd.DataFrame, folder_path: os.PathLike, filename: str):
-    if df is None:
-        return
-    
+def save_df_to_hdf(df: pd.DataFrame, folder_path: os.PathLike, filename: str):    
     temp_dirpath = tempfile.mkdtemp()
     temp_filepath = os.path.join(temp_dirpath, filename)
     store_hdf = pd.HDFStore(temp_filepath, mode='w')

@@ -64,6 +64,7 @@ def run_cli(parser_args, debug=False):
         parser_args['params'], 
         metadata_csv_path=parser_args['metadata'],
         num_numba_threads=parser_args['num_threads'],
-        force_default_values=parser_args['force_default_values']
+        force_default_values=parser_args['force_default_values'],
+        force_close_on_critical=parser_args['raise_on_critical']
     )
     

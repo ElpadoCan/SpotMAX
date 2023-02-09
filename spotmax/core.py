@@ -2,6 +2,7 @@ import os
 import sys
 import traceback
 
+from typing import Union
 from tqdm import tqdm
 import time
 from datetime import datetime, timedelta
@@ -25,7 +26,7 @@ import acdctools.io
 import acdctools.utils
 import acdctools.core
 
-from . import GUI_INSTALLED
+from . import GUI_INSTALLED, error_up_str
 
 if GUI_INSTALLED:
     from acdctools.plot import imshow
@@ -45,6 +46,8 @@ except Exception as e:
 
 from . import utils, rng, base_lineage_table_values
 from . import issues_url, printl, io, features, config
+
+np.seterr(all='raise')
 
 distribution_metrics_func = features.get_distribution_metric_func()
 effect_size_func = features.get_effect_size_func()
@@ -577,6 +580,57 @@ class _ParamsParser(_DataLoader):
                 f'Default values:\n\n{missing_params_format}'
             )
             print('-'*50)
+    
+    def _check_correlated_missing_ref_ch_params(self, missing_params):
+        missing_ref_ch_msg = ''
+        missing_params_desc = {param[1]:param[2] for param in missing_params}
+        if 'Reference channel end name or path' not in missing_params_desc:
+            return missing_ref_ch_msg
+        
+        # Reference channel end name is missing, check that it is not required
+        for anchor, options in self._params['Reference channel'].items():
+            value = options['loadedVal']
+            if not isinstance(value, bool):
+                continue
+            if value:
+                # At least one option suggests tha ref. channel is required.
+                break
+        else:
+            return missing_ref_ch_msg
+
+        missing_ref_ch_msg = (
+            '[ERROR]: You requested to use the reference channel for the analysis '
+            'but the entry "Reference channel end name or path" is missing in the '
+            '.ini params file.\n\n'
+        )
+
+        return missing_ref_ch_msg
+    
+    def _check_missing_exp_folder(self, missing_params):
+        missing_exp_folder_msg = ''
+        missing_params_desc = {param[1]:param[2] for param in missing_params}
+        if 'Experiment folder path(s) to analyse' not in missing_params_desc:
+            return missing_exp_folder_msg
+        
+        # Experiment folder path is missing --> continue only if 
+        # either spots or reference channel are proper file paths
+        spots_ch_path = missing_params_desc.get(
+            'Spots channel end name or path', ''
+        )
+        ref_ch_path = missing_params_desc.get(
+            'Reference channel end name or path', ''
+        )
+        is_critical = not (
+            os.path.exists(spots_ch_path) or os.path.exists(ref_ch_path)
+        )   
+        if not is_critical:
+            return missing_exp_folder_msg
+        
+        missing_exp_folder_msg = (
+            '[ERROR]: Neither the "Spots channel end name" nor the '
+            '"Reference channel end name or path" are present in the .ini params file.\n\n'
+        )
+        return missing_exp_folder_msg    
 
     @utils.exception_handler_cli
     def check_missing_params(self):
@@ -584,21 +638,15 @@ class _ParamsParser(_DataLoader):
         if not missing_params:
             return
         
-        cannot_continue = False
-        missing_params_desc = {param[1]:param[2] for param in missing_params}
-        if 'Experiment folder path(s) to analyse' in missing_params_desc:
-            # Experiment folder path is missing --> continue only if 
-            # either spots or reference channel are proper file paths
-            spots_ch_path = missing_params_desc.get(
-                'Spots channel end name or path', ''
-            )
-            ref_ch_path = missing_params_desc.get(
-                'Reference channel end name or path', ''
-            )
-            cannot_continue = not (
-                os.path.exists(spots_ch_path) or os.path.exists(ref_ch_path)
-            )           
-        
+        missing_exp_folder_msg = self._check_missing_exp_folder(missing_params)
+        missing_ref_ch_msg = self._check_correlated_missing_ref_ch_params(
+            missing_params
+        )
+
+        is_missing_critical = (
+            missing_exp_folder_msg or missing_ref_ch_msg
+        )
+
         missing_params_str = [
             f'    * {param[1]} (section: [{param[0]}])' 
             for param in missing_params
@@ -606,17 +654,17 @@ class _ParamsParser(_DataLoader):
         missing_params_format = '\n'.join(missing_params_str)
         print('*'*50)
         err_msg = (
-            f'[WARNING]: The parameters file "{self.ini_params_filename}" is missing '
-            'the following parameters:\n\n'
+            f'[WARNING]: The configuration file "{self.ini_params_filename}" is missing '
+            ':\n\n'
             f'{missing_params_format}\n\n'
         )
         
-        if cannot_continue:
+        if is_missing_critical:
             err_msg = (f'{err_msg}'
                 'Add them to the file (see path below) '
-                'at the right section (shown in parethensis above).\n'
-                'Note that you MUST provide at least one of the file/folder '
-                'paths.\n\n'
+                'at the right section (shown in parethensis above).\n\n'
+                f'{missing_exp_folder_msg}'
+                f'{missing_ref_ch_msg}'
                 f'Parameters file path: "{self.ini_params_file_path}"\n'
             )
             self.logger.info(err_msg)
@@ -1155,7 +1203,7 @@ class spheroid:
             # Insert local spot masks into global mask
             in_pbar = tqdm(
                 desc='Building spots mask', total=len(zyx_centers),
-                unit=' spot', leave=False, position=1, ncols=100
+                unit=' spot', leave=False, position=4, ncols=100
             )
             for i, zyx_c in enumerate(zyx_centers):
                 (temp_mask, _, slice_G_to_L,
@@ -1487,7 +1535,7 @@ class _spotFIT(spheroid):
                     print(f'Fully fitted spot idx: {s}')
                 all_intersect_fitted_bool[s] = True
                 pbar = tqdm(
-                    desc=f'Spot done {count+1}/{num_spots}', total=1, 
+                    desc=f'Spot done {count+1}/{num_spots}', total=4, 
                     unit=' fev', position=2, leave=False, ncols=100
                 )
                 pbar.update(1)
@@ -1556,7 +1604,7 @@ class _spotFIT(spheroid):
             # bar_f = '{desc:<25}{percentage:3.0f}%|{bar:40}{r_bar}'
             model.pbar = tqdm(desc=f'Fitting spot {s} ({count+1}/{num_spots})',
                               total=100*len(z), unit=' fev',
-                              position=2, leave=False, ncols=100)
+                              position=5, leave=False, ncols=100)
             try:
                 leastsq_result = scipy.optimize.least_squares(
                     model.residuals, init_guess_s,
@@ -2066,7 +2114,7 @@ class _spotFIT(spheroid):
             s_data = img[z_s, y_s, x_s]
             model.pbar = tqdm(desc=f'Fitting spot {s} ({count+1}/{num_spots})',
                                   total=100*len(z_s), unit=' fev',
-                                  position=1, leave=False, ncols=100)
+                                  position=4, leave=False, ncols=100)
             leastsq_result = scipy.optimize.least_squares(
                 model.residuals, init_guess_s,
                 args=(s_data, z_s, y_s, x_s, num_spots_s, num_coeffs),
@@ -2235,7 +2283,9 @@ class Kernel(_ParamsParser):
         self.logger, self.log_path, self.logs_path = utils.setupLogger('cli')
         super().__init__(debug=debug, is_cli=is_cli, log=self.logger.info)
         self.debug = debug
+        self.is_batch_mode = False
         self.is_cli = is_cli
+        self._force_close_on_critical = False
         self._SpotFit = _spotFIT()
 
     def _preprocess(self, image_data):
@@ -2328,10 +2378,14 @@ class Kernel(_ParamsParser):
             vox_to_um3=None, thresh_val=None, verbose=True
         ):
         if verbose:
+            print('')
             self.logger.info('Segmenting reference channel...')
         IDs = [obj.label for obj in lab_rp]
         desc = 'Segmenting reference channel'
-        pbar = tqdm(total=len(lab_rp), ncols=100, desc=desc)
+        pbar = tqdm(
+            total=len(lab_rp), ncols=100, desc=desc, position=3, 
+            leave=False
+        )
         for obj in lab_rp:
             if lineage_table is not None:
                 if lineage_table.at[obj.label, 'relationship'] == 'bud':
@@ -2483,13 +2537,44 @@ class Kernel(_ParamsParser):
 
         return mask
     
-    def _normalise_img(self, img, norm_mask, method='median'):
+    def _raise_norm_value_zero(self):
+        print('')
+        self.logger.info(
+            '[ERROR]: Skipping Position, see error below. '
+            f'More details in the final report.{error_up_str}'
+        )
+        raise FloatingPointError(
+            'normalising value for the reference channel is zero.'
+        )
+    
+    def _warn_norm_value_zero(self):
+        warning_txt = (
+            'normalising value for the spots channel is zero.'
+        )
+        print('')
+        self.logger.info(f'[WARNING]: {warning_txt}{error_up_str}')
+        self.log_warning_report(warning_txt)
+
+    def _normalise_img(
+            self, img: np.ndarray, norm_mask: np.ndarray, 
+            method='median', raise_if_norm_zero=True
+        ):
         values = img[norm_mask]
         if method == 'median':
             norm_value = np.median(values)
         else:
             norm_value = 1
-        norm_img = img/norm_value
+        
+        norm_value = 0
+        if norm_value == 0:
+            if raise_if_norm_zero:
+                self._raise_norm_value_zero()
+            else:
+                _norm_value = 1E-15
+                self._warn_norm_value_zero()
+        else:
+            _norm_value = norm_value
+        norm_img = img/_norm_value
         return norm_img, norm_value
 
     @utils.exception_handler_cli
@@ -2587,6 +2672,7 @@ class Kernel(_ParamsParser):
             lineage_table=None
         ):
         if verbose:
+            print('')
             self.logger.info('Detecting and filtering valid spots...')
         
         if dfs_lists is None:
@@ -2599,7 +2685,9 @@ class Kernel(_ParamsParser):
             keys = dfs_lists['keys']
 
         desc = 'Detecting spots'
-        pbar = tqdm(total=len(rp), ncols=100, desc=desc)
+        pbar = tqdm(
+            total=len(rp), ncols=100, desc=desc, position=3, leave=False
+        )
         for obj in rp:
             local_spots_img = spots_img[obj.slice]
             if threshold_val is None and prediction_mask is None:
@@ -2611,7 +2699,6 @@ class Kernel(_ParamsParser):
                 )
                 thresh_input_img = spots_img[lab_single_obj_mask_rp[0].slice]
                 threshold_val = threshold_func(thresh_input_img)
-                imshow(thresh_input_img, thresh_input_img>0)
             
             if detection_method == 'peak_local_max':
                 if spot_footprint is None:
@@ -2661,18 +2748,17 @@ class Kernel(_ParamsParser):
             dfs_spots_det.append(df_obj_spots_det)
             keys.append((frame_i, obj.label))
 
-            # Filter according to goodness-of-peak test
-            # CONTINUE FROM HERE
-            if do_filter_spots_vs_ref_ch:
-                local_ref_ch_img = ref_ch_img[obj.slice]
+            if ref_ch_mask_or_labels is not None:
                 local_ref_ch_mask = ref_ch_mask_or_labels[obj.slice]>0
-                norm_ref_ch_mask = np.logical_and(obj.image, local_ref_ch_mask)
-                norm_local_ref_ch_img = self._normalise_img(
-                    local_ref_ch_img, norm_ref_ch_mask
-                )
+                local_ref_ch_mask = np.logical_and(local_ref_ch_mask, obj.label)
             else:
                 local_ref_ch_mask = None
-                norm_local_ref_ch_img = None
+
+            # Filter according to goodness-of-peak test
+            # CONTINUE FROM HERE
+            if ref_ch_img is not None:
+                local_ref_ch_img = ref_ch_img[obj.slice]
+            else:
                 local_ref_ch_img = None
             
             if raw_spots_img is not None:
@@ -2696,7 +2782,7 @@ class Kernel(_ParamsParser):
                     min_size_spheroid_mask=min_size_spheroid_mask, 
                     ref_ch_mask_obj=local_ref_ch_mask, 
                     ref_ch_img_obj=local_ref_ch_img,
-                    normalised_ref_ch_img_obj=norm_local_ref_ch_img,
+                    do_filter_spots_vs_ref_ch=do_filter_spots_vs_ref_ch,
                     zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
                     verbose=verbose                    
                 )
@@ -2743,11 +2829,11 @@ class Kernel(_ParamsParser):
             spotfit_func = {
                 name:(col, aggFunc) for name, (col, aggFunc) 
                 in aggregate_spots_feature_func.items() 
-                if col in df_spots_det.columns
+                if col in df_spots_fit.columns
             }
             df_agg_spotfit = (
                 df_spots_fit.reset_index().groupby(['frame_i', 'Cell_ID'])
-                .agg(**func)
+                .agg(**spotfit_func)
             )
             df_agg_spotfit = df_agg_spotfit.join(df_agg, how='left')
         else:
@@ -2781,7 +2867,7 @@ class Kernel(_ParamsParser):
             keys = dfs_lists['spotfit_keys']
         
         desc = 'Measuring spots'
-        pbar = tqdm(len(rp), ncols=100, desc=desc)
+        pbar = tqdm(len(rp), ncols=100, desc=desc, position=3, leave=False)
         for obj in rp:
             self._SpotFit.set_args(
                 obj, spots_img, df_spots, zyx_voxel_size, zyx_spot_min_vol_um, 
@@ -2834,7 +2920,10 @@ class Kernel(_ParamsParser):
         in_ref_ch_spots_mask = ref_ch_mask[zz, yy, xx]
         return df[in_ref_ch_spots_mask]
 
-    def _add_ttest_values(self, arr1, arr2, df, idx, name='spot_vs_backgr'):
+    def _add_ttest_values(
+            self, arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, 
+            idx: Union[int, pd.Index], name: str='spot_vs_backgr'
+        ):
         tstat, pvalue = scipy.stats.ttest_ind(arr1, arr2, equal_var=False)
         df.at[idx, f'{name}_ttest_tstat'] = tstat
         df.at[idx, f'{name}_ttest_pvalue'] = pvalue
@@ -2863,7 +2952,7 @@ class Kernel(_ParamsParser):
             self, spots_img_obj, df_obj_spots, obj_mask, local_peaks_coords, 
             raw_spots_img_obj=None, min_size_spheroid_mask=None, 
             ref_ch_mask_obj=None, ref_ch_img_obj=None,
-            normalised_ref_ch_img_obj=None, zyx_resolution_limit_pxl=None, 
+            zyx_resolution_limit_pxl=None, do_filter_spots_vs_ref_ch=False,
             verbose=False
         ):
         """_summary_
@@ -2906,8 +2995,8 @@ class Kernel(_ParamsParser):
             The first dimension must be the number of z-slices.
             If None, the features from the reference channel signal will not 
             be computed.
-        normalised_ref_ch_img_obj : (Z, Y, X) ndarray or None, optional
-            _description_, by default None
+        do_filter_spots_vs_ref_ch : bool, optional by default False
+            Filter spots by comparing to the reference channel
         zyx_resolution_limit_pxl : (z, y, x) tuple or None, optional
             Resolution limit in (z, y, x) direction in pixels, by default None. 
             If `min_size_spheroid_mask` is None, this will be used to computed 
@@ -2916,6 +3005,7 @@ class Kernel(_ParamsParser):
             Log additional information of the current step, by default False
         """        
         if verbose:
+            print('')
             self.logger.info('Computing spots features...')
         
         spheroids_mask, min_size_spheroid_mask = self._get_obj_spheroids_mask(
@@ -2925,11 +3015,16 @@ class Kernel(_ParamsParser):
         )
 
         # Check if spots_img needs to be normalised
-        if normalised_ref_ch_img_obj is not None:
-            normalised_spots_img_obj = self._normalise_img(
-                spots_img_obj, spheroids_mask
-            )
+        if do_filter_spots_vs_ref_ch:
             backgr_mask = np.logical_and(ref_ch_mask_obj, ~spheroids_mask)
+            normalised_ref_ch_img_obj, ref_ch_norm_value = self._normalise_img(
+                ref_ch_img_obj, backgr_mask, raise_if_norm_zero=False
+            )
+            df_obj_spots['ref_ch_normalising_value'] = ref_ch_norm_value
+            normalised_spots_img_obj, spots_norm_value = self._normalise_img(
+                spots_img_obj, backgr_mask, raise_if_norm_zero=True
+            )
+            df_obj_spots['spots_normalising_value'] = spots_norm_value
         else:
             backgr_mask = np.logical_and(obj_mask, ~spheroids_mask)
 
@@ -2942,15 +3037,25 @@ class Kernel(_ParamsParser):
             raw_spots_img_obj = spots_img_obj
 
         pbar_desc = 'Computing spots features'
-        pbar = tqdm(total=len(df_obj_spots), ncols=100, desc=pbar_desc, leave=False)
+        pbar = tqdm(
+            total=len(df_obj_spots), ncols=100, desc=pbar_desc, position=3, 
+            leave=False
+        )
         for row in df_obj_spots.itertuples():
             spot_id = row.Index
             zyx_center = (row.z_local, row.y_local, row.x_local)
 
-            # Add metrics from spot_img (which could be filtered or not)
-            spot_intensities = self._get_spot_intensities(
-                spots_img_obj, zyx_center, min_size_spheroid_mask
+            slices = utils.get_slices_local_into_global_3D_arr(
+                zyx_center, spots_img_obj.shape, min_size_spheroid_mask.shape
             )
+            slice_global_to_local, slice_crop_local = slices
+            spheroid_mask = min_size_spheroid_mask[slice_crop_local]
+
+            # Add metrics from spot_img (which could be filtered or not)
+            spot_intensities = (
+                spots_img_obj[slice_global_to_local][spheroid_mask]
+            )
+
             value = spots_img_obj[zyx_center]
             df_obj_spots.at[spot_id, 'spot_preproc_intensity_at_center'] = value
             self._add_distribution_metrics(
@@ -2961,8 +3066,8 @@ class Kernel(_ParamsParser):
             if raw_spots_img_obj is None:
                 raw_spot_intensities = spot_intensities
             else:
-                raw_spot_intensities = self._get_spot_intensities(
-                    raw_spots_img_obj, zyx_center, min_size_spheroid_mask
+                raw_spot_intensities = (
+                    raw_spots_img_obj[slice_global_to_local][spheroid_mask]
                 )
                 value = raw_spots_img_obj[zyx_center]
                 df_obj_spots.at[spot_id, 'spot_raw_intensity_at_center'] = value
@@ -2971,7 +3076,7 @@ class Kernel(_ParamsParser):
                     raw_spot_intensities, df_obj_spots, spot_id, 
                     col_name='spot_raw_*name_in_spot_minimumsize_vol'
                 )
-            
+
             self._add_ttest_values(
                 spot_intensities, backgr_vals, df_obj_spots, spot_id, 
                 name='spot_vs_backgr'
@@ -2982,14 +3087,20 @@ class Kernel(_ParamsParser):
                 name='spot_vs_backgr'
             )
 
-            if normalised_ref_ch_img_obj is not None:
+            if do_filter_spots_vs_ref_ch:
+                normalised_spot_intensities = (
+                    normalised_spots_img_obj[slice_global_to_local][spheroid_mask]
+                )
+                normalised_ref_ch_intensities = (
+                    normalised_ref_ch_img_obj[slice_global_to_local][spheroid_mask]
+                )
                 self._add_ttest_values(
-                    normalised_spots_img_obj, normalised_ref_ch_img_obj, 
+                    normalised_spot_intensities, normalised_ref_ch_intensities, 
                     df_obj_spots, spot_id, name='spot_vs_ref_ch'
                 )
                 self._add_effect_sizes(
-                    spot_intensities, backgr_vals, df_obj_spots, spot_id, 
-                    name='spot_vs_ref_ch'
+                    normalised_spot_intensities, normalised_ref_ch_intensities, 
+                    df_obj_spots, spot_id, name='spot_vs_ref_ch'
                 )
 
             if ref_ch_mask_obj is not None:
@@ -3005,8 +3116,8 @@ class Kernel(_ParamsParser):
             value = ref_ch_img_obj[zyx_center]
             df_obj_spots.at[spot_id, 'ref_ch_raw_intensity_at_center'] = value
 
-            ref_ch_intensities = self._get_spot_intensities(
-                ref_ch_img_obj, zyx_center, min_size_spheroid_mask
+            ref_ch_intensities = (
+                ref_ch_img_obj[slice_global_to_local][spheroid_mask]
             )
             self._add_distribution_metrics(
                 ref_ch_intensities, df_obj_spots, spot_id, 
@@ -3063,9 +3174,8 @@ class Kernel(_ParamsParser):
         self.logger.info('='*50)
         txt = (
             f'[ERROR]: The feature name {missing_feature} is not present in the table.\n\n'
-            f'Available features are:\n\n{format_colums}'
+            f'Available features are:\n\n{format_colums}{error_up_str}'
         )
-        self.logger.info('^'*50)
         self.logger.info('spotMAX aborted due to ERROR. See above more details.')
         self.logger.info(txt)
         self.quit()
@@ -3123,8 +3233,90 @@ class Kernel(_ParamsParser):
         query = ' & '.join(queries)
         df_spots_fit = df_spots_fit.query(query)
         return df_spots_fit
+    
+    def init_report(self, params_path):
+        self._report = {
+            'datetime_started': datetime.now(), 'params_path': params_path,
+            'pos_info': {}
+        }
+    
+    def save_report(self):
+        datetime_stopped = datetime.now()
+        title = 'spotMAX analysis report'
+        _line_title = '*'*len(title)
+        title = f'{_line_title}\n{title}\n{_line_title}'
+        report_formatted = (
+            f'{title}\n\n'
+            f'Analysis started on: {self._report["datetime_started"]}\n'
+            f'Analysis ended on: {datetime_stopped}\n'
+            f'Log file: "{self.log_path}"\n\n'
+        )
+        pos_txt = None
+        for pos_path, info in self._report['pos_info'].items():
+            subtitle = (
+                f'The Position "{pos_path}" raised the following '
+                'ERRORS and WARNINGS:'
+            )
+            underline_subtitle = '#'*len(subtitle)
+            subtitle = f'{subtitle}\n{underline_subtitle}'
+            errors = [f'* [ERROR]: {e}' for e in info['errors']]
+            errors = '\n'.join(errors)
+        
+            _warnings = [f'* [WARNING]: {w}' for w in info['warnings']]
+            _warnings = '\n'.join(_warnings)
 
-    @utils.exception_handler_cli
+            pos_txt = f'{subtitle}\n\n{errors}\n{_warnings}'
+            end_of_pos = '-'*80
+            report_formatted = f'{report_formatted}{pos_txt}\n{end_of_pos}\n\n'
+        if pos_txt is None:
+            report_formatted = (
+                f'{report_formatted}\n\nNo errors or warnings to report.'
+            )
+        else:
+            report_formatted = (
+                f'{report_formatted}\n'
+                'If you need help understanding the errors, feel free to '
+                'open an issue on our GitHub page at the follwing link: '
+                f'"{issues_url}"\n\n'
+                'Please **send the log file** when opening an issue, thanks!\n\n'
+                f'Log file path: "{self.log_path}"'
+            )
+        
+        folder_path = os.path.dirname(self._report['params_path'])
+        params_filename = os.path.basename(self._report['params_path'])
+        report_filename = params_filename.replace('.ini', '_spotMAX_report.rst')
+        save_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        report_filename = f'{save_datetime}_{report_filename}'
+        with open(os.path.join(folder_path, report_filename), 'w') as rst:
+            rst.write(report_formatted) 
+        self.logger.info('#'*50)
+        self.logger.info(
+            f'Final report saved to "{os.path.join(folder_path, report_filename)}"'
+        )
+        self.logger.info('#'*50)
+
+    def log_warning_report(self, warning_txt):
+        if self._current_pos_path not in self._report['pos_info']:
+            self._report['pos_info'][self._current_pos_path] = {
+                'errors': [], 'warnings': []
+            }
+        self._report['pos_info'][self._current_pos_path]['warnings'].append(
+            warning_txt
+        )
+
+    def log_exception_report(self, error, traceback_str=''):
+        if self._force_close_on_critical:
+            self.quit(error)
+        else:
+            if self._current_pos_path not in self._report['pos_info']:
+                self._report['pos_info'][self._current_pos_path] = {
+                    'errors': [], 'warnings': []
+                }
+            self._report['pos_info'][self._current_pos_path]['errors'].append(
+                error
+            )
+
+    @utils.handle_log_exception_cli
     def _run_from_images_path(
             self, images_path, spots_ch_endname: str='', ref_ch_endname: str='', 
             segm_endname: str='', ref_ch_segm_endname: str='', 
@@ -3150,7 +3342,9 @@ class Kernel(_ParamsParser):
         stopFrameNum = self.metadata['stopFrameNum']
 
         desc = 'Adding single-segmentation object features'
-        pbar = tqdm(total=stopFrameNum, ncols=100, desc=desc)
+        pbar = tqdm(
+            total=stopFrameNum, ncols=100, desc=desc, position=2, leave=False
+        )
         for frame_i in range(stopFrameNum):
             lab = segm_data[frame_i]
             rp = segm_rp[frame_i]
@@ -3165,8 +3359,8 @@ class Kernel(_ParamsParser):
             pbar.update()
         pbar.close()
         
-        
         if ref_ch_data is not None and do_segment_ref_ch:
+            print('')
             self.logger.info('Segmenting reference channel...')
             SECTION = 'Reference channel'
             ref_ch_threshold_method = (
@@ -3178,7 +3372,10 @@ class Kernel(_ParamsParser):
             vox_to_um3 = self.metadata.get('vox_to_um3_factor', 1)
             ref_ch_segm_data = np.zeros(ref_ch_data.shape, dtype=np.uint16)
             desc = 'Frames completed (segm. ref. ch.)'
-            pbar = tqdm(total=stopFrameNum, ncols=100, desc=desc)
+            pbar = tqdm(
+                total=stopFrameNum, ncols=100, desc=desc, position=2, 
+                leave=False
+            )
             for frame_i in range(stopFrameNum):
                 if acdc_df is not None:
                     lineage_table = acdc_df.loc[frame_i]
@@ -3207,8 +3404,8 @@ class Kernel(_ParamsParser):
             data['ref_ch_segm'] = ref_ch_segm_data
         
         if 'spots_ch' not in data:
-            # Spot detection not required
-            return
+            dfs = {'agg_detection': data['df_agg']}
+            return dfs
         
         spots_data = data.get('spots_ch')
         zyx_resolution_limit_pxl = self.metadata['zyxResolutionLimitPxl']
@@ -3256,7 +3453,9 @@ class Kernel(_ParamsParser):
             dfs_lists['spotfit_keys'] = []
 
         desc = 'Frames completed (spot detection)'
-        pbar = tqdm(total=stopFrameNum, ncols=100, desc=desc)
+        pbar = tqdm(
+            total=stopFrameNum, ncols=100, desc=desc, position=2, leave=False
+        )
         for frame_i in range(stopFrameNum):
             raw_spots_img = spots_data[frame_i]
             filtered_spots_img = self._preprocess(raw_spots_img)
@@ -3314,7 +3513,10 @@ class Kernel(_ParamsParser):
             zyx_spot_min_vol_um = self.metadata['zyxResolutionLimitUm']
             zyx_voxel_size = self.metadata['zyxVoxelSize']
             desc = 'Measuring spots (spotFIT)'
-            pbar = tqdm(total=stopFrameNum, ncols=100, desc=desc)
+            pbar = tqdm(
+                total=stopFrameNum, ncols=100, desc=desc, position=2, 
+                leave=False
+            )
             for frame_i in range(stopFrameNum):
                 raw_spots_img = spots_data[frame_i]
                 if ref_ch_segm_data is not None:
@@ -3374,9 +3576,13 @@ class Kernel(_ParamsParser):
             and `lineageTableEndName`.
 
             NOTE: This dictionary is computed in the `set_abs_exp_paths` method.
-        """        
+        """      
+        desc = 'Experiments completed'
+        pbar_exp = tqdm(total=len(exp_paths), ncols=100, desc=desc, position=0)  
         for exp_path, exp_info in exp_paths.items():
             exp_path = utils.get_abspath(exp_path)
+            exp_foldername = os.path.basename(exp_path)
+            exp_parent_foldername = os.path.basename(os.path.dirname(exp_path))
             run_number = exp_info['run_number']
             pos_foldernames = exp_info['pos_foldernames']  
             spots_ch_endname = exp_info['spotsEndName'] 
@@ -3384,9 +3590,17 @@ class Kernel(_ParamsParser):
             segm_endname = exp_info['segmEndName']
             ref_ch_segm_endname = exp_info['refChSegmEndName']
             lineage_table_endname = exp_info['lineageTableEndName']
+            desc = 'Experiments completed'
+            pbar_pos = tqdm(total=len(exp_paths), ncols=100, desc=desc, position=1) 
             for pos in pos_foldernames:
+                print('')
                 pos_path = os.path.join(exp_path, pos)
+                rel_path = os.path.join(
+                    exp_parent_foldername, exp_foldername, pos
+                )
+                self.logger.info(f'Analysing "...{os.sep}{rel_path}"...')
                 images_path = os.path.join(pos_path, 'Images')
+                self._current_pos_path = pos_path
                 dfs = self._run_from_images_path(
                     images_path, 
                     spots_ch_endname=spots_ch_endname, 
@@ -3394,8 +3608,15 @@ class Kernel(_ParamsParser):
                     segm_endname=segm_endname,
                     ref_ch_segm_endname=ref_ch_segm_endname, 
                     lineage_table_endname=lineage_table_endname
-                )           
+                )      
+                if dfs is None:
+                    # Error raised, logged and dfs is None
+                    continue
                 self.save_dfs(pos_path, dfs, run_number=run_number)
+                pbar_pos.update()
+            pbar_pos.close()
+            pbar_exp.update()
+        pbar_exp.close()
 
     def save_dfs(self, folder_path, dfs, run_number=1):
         spotmax_out_path = os.path.join(folder_path, 'spotMAX_output')
@@ -3404,15 +3625,18 @@ class Kernel(_ParamsParser):
         
         for key, filename in dfs_filenames.items():
             filename = filename.replace('*rn*', str(run_number))
-            df_spots = dfs[key]
+            df_spots = dfs.get(key, None)
             h5_filename = filename
+
+            if df_spots is not None:
+                io.save_df_to_hdf(df_spots, spotmax_out_path, h5_filename)
             
             agg_filename = h5_filename.replace('.h5', '_Summary.csv')
             agg_key = key.replace('spots', 'agg')
-            df_agg = dfs[agg_key]
+            df_agg = dfs.get(agg_key, None)
 
-            io.save_df_to_hdf(df_spots, spotmax_out_path, h5_filename)
-            df_agg.to_csv(os.path.join(folder_path, agg_filename))
+            if df_agg is not None:
+                df_agg.to_csv(os.path.join(spotmax_out_path, agg_filename))
 
     @utils.exception_handler_cli
     def _run_single_path(self, single_path_info):
@@ -3421,19 +3645,25 @@ class Kernel(_ParamsParser):
     @utils.exception_handler_cli
     def run(
             self, params_path: os.PathLike, metadata_csv_path: os.PathLike='',
-            num_numba_threads: int=-1, force_default_values: bool=False
+            num_numba_threads: int=-1, force_default_values: bool=False,
+            force_close_on_critical: bool=False
         ):
         self._force_default = force_default_values
+        self._force_close_on_critical = force_close_on_critical
         if NUMBA_INSTALLED and num_numba_threads > 0:
             numba.set_num_threads(num_numba_threads)
         self.init_params(
             params_path, metadata_csv_path=metadata_csv_path
         )
+        self.init_report(self.ini_params_file_path)
         if self.exp_paths_list:
+            self.is_batch_mode = True
             for exp_paths in self.exp_paths_list:
                 self._run_exp_paths(exp_paths)
+            self.save_report()
         else:
             self._run_single_path(self.single_path_info)
+        self.quit()
             
     def quit(self, error=None):
         if not self.is_cli and error is not None:
@@ -3441,11 +3671,10 @@ class Kernel(_ParamsParser):
 
         self.logger.info('='*50)
         if error is not None:
-            self.logger.info(f'[ERROR]: {error}')
-            self.logger.info('^'*50)
+            self.logger.info(f'[ERROR]: {error}{error_up_str}')
             err_msg = (
                 'spotMAX aborted due to **error**. '
-                'More details above or in the folowing log file:\n\n'
+                'More details above or in the following log file:\n\n'
                 f'{self.log_path}\n\n'
                 'If you cannot solve it, you can report this error by opening '
                 'an issue on our '

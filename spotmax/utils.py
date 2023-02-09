@@ -60,7 +60,26 @@ def exception_handler_cli(func):
             result = None
             if self.is_cli:
                 self.logger.exception(e)
-            self.quit(error=e)
+            if not self.is_batch_mode:
+                self.quit(error=e)
+            else:
+                raise e
+        return result
+    return inner_function
+
+def handle_log_exception_cli(func):
+    @wraps(func)
+    def inner_function(self, *args, **kwargs):
+        try:
+            if func.__code__.co_argcount==1 and func.__defaults__ is None:
+                result = func(self)
+            elif func.__code__.co_argcount>1 and func.__defaults__ is None:
+                result = func(self, *args)
+            else:
+                result = func(self, *args, **kwargs)
+        except Exception as error:
+            result = None
+            self.log_exception_report(error, traceback.format_exc())
         return result
     return inner_function
 
@@ -926,14 +945,14 @@ class widgetBlinker:
         self._blinkTimer.stop()
         self._widget.setStyleSheet(f'{self._off_style}')
 
-def nearest_nonzero(self, arr, y, x):
-    value = a[y,x]
+def nearest_nonzero(arr: np.ndarray, y: int, x: int):
+    value = arr[y,x]
     if value == 0:
-        r, c = np.nonzero(a)
+        r, c = np.nonzero(arr)
         dist = ((r - y)**2 + (c - x)**2)
         min_idx = dist.argmin()
         min_dist = dist[min_idx]
-        return a[r[min_idx], c[min_idx]], min_dist
+        return arr[r[min_idx], c[min_idx]], min_dist
     else:
         min_dist = 0
         return value, min_dist
