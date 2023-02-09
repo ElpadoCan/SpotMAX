@@ -44,7 +44,7 @@ except Exception as e:
     prange = range
 
 from . import utils, rng, base_lineage_table_values
-from . import issues_url, printl, io, features
+from . import issues_url, printl, io, features, config
 
 distribution_metrics_func = features.get_distribution_metric_func()
 effect_size_func = features.get_effect_size_func()
@@ -218,7 +218,7 @@ class _ParamsParser(_DataLoader):
     def init_params(self, params_path, metadata_csv_path=''):
         params_path = utils.check_cli_params_path(params_path)
         
-        self._params = io.config.analysisInputsParams(params_path)
+        self._params = config.analysisInputsParams(params_path)
         if metadata_csv_path:
             self._params = io.add_metadata_from_csv(
                 metadata_csv_path, self._params)
@@ -232,7 +232,8 @@ class _ParamsParser(_DataLoader):
         if params_path.endswith('.csv'):
             if os.path.exists(self.ini_params_file_path):       
                 proceed = self._ask_user_save_ini_from_csv(
-                    self.ini_params_file_path)
+                    self.ini_params_file_path
+                )
                 if not proceed:
                     self.logger.info(
                         'spotMAX execution stopped by the user. '
@@ -258,8 +259,10 @@ class _ParamsParser(_DataLoader):
         filename = os.path.basename(ini_filepath)
         ini_folderpath = os.path.dirname(ini_filepath)
         options = (
-            'Overwrite existing file', 'Save with a new name..'
+            'Overwrite existing file', 'Append number to the end', 
+            'Save with a new name..'
         )
+        default_option = 'Append number to the end'
         question = 'What do you want to do'
         txt = (
             f'[WARNING]: spotMAX would like to save the parameters in the file '
@@ -267,10 +270,22 @@ class _ParamsParser(_DataLoader):
             'However, this file already exists.\n\n'
             f'File path: "{ini_filepath}"'
         )
-        answer = io.get_user_input(question, options=options, info_txt=txt)
+        if self._force_default:
+            self.logger.info('*'*50)
+            self.logger.info(txt)
+            io._log_forced_default(default_option, self.logger.info)
+            answer = default_option
+        else:
+            answer = io.get_user_input(
+                question, options=options, info_txt=txt, 
+                logger=self.logger.info, default_option=default_option
+            )
         if not answer:
             return False
         if answer == 'Overwrite existing file':
+            return True
+        elif answer == 'Append number to the end':
+
             return True
         elif answer == 'Save with a new name..':
             new_filename = acdctools.io.get_filename_cli(
@@ -288,16 +303,24 @@ class _ParamsParser(_DataLoader):
 
     def _ask_user_multiple_run_nums(self, run_nums):
         new_run_num = max(run_nums)+1
-        options = (
-            'Choose run number to overwrite', f'Save as new run number {new_run_num}'
-        )
+        default_option = f'Save as new run number {new_run_num}'
+        options = ('Choose run number to overwrite', default_option )
         question = 'What do you want to do'
         txt = (
             '[WARNING]: All or some of the experiments present in the loaded '
             'folder have already been analysed before '
             f'(run numbers presents are {run_nums})'
         )
-        answer = io.get_user_input(question, options=options, info_txt=txt)
+        if self._force_default:
+            self.logger.info('*'*50)
+            self.logger.info(txt)
+            io._log_forced_default(default_option, self.logger.info)
+            answer = default_option
+        else:
+            answer = io.get_user_input(
+                question, options=options, info_txt=txt, 
+                logger=self.logger.info
+            )
         if answer == options[1]:
             return new_run_num
         elif answer == options[0]:
@@ -466,7 +489,7 @@ class _ParamsParser(_DataLoader):
 
         missing_metadata_str = [f'    * {v}' for v in missing_metadata]
         missing_metadata_format = '\n'.join(missing_metadata_str)
-        print('*'*40)
+        print('*'*50)
         err_msg = (
             f'The parameters file "{self.ini_params_filename}" is missing '
             'the following REQUIRED metadata:\n\n'
@@ -479,7 +502,7 @@ class _ParamsParser(_DataLoader):
         )
         self.logger.info(err_msg)
         if self.is_cli:
-            print('*'*40)
+            print('*'*50)
             self.logger.info(
                 'spotMAX execution aborted because some metadata are missing. '
                 'See details above.'
@@ -520,7 +543,7 @@ class _ParamsParser(_DataLoader):
             section_name, _, default_val, anchor = param
             self._params[section_name][anchor]['loadedVal'] = default_val
     
-    def _ask_user_input_missing_params(self, missing_params):
+    def _ask_user_input_missing_params(self, missing_params, info_txt):
         question = (
             'Do you want to continue with default value for the missing parameters?'
         )
@@ -528,9 +551,16 @@ class _ParamsParser(_DataLoader):
             'Yes, use default values', 'No, stop process', 
             'Display default values'
         )
-        answer = io.get_user_input(
-            question, options=options, default_option='No'
-        )
+        if self._force_default:
+            self.logger.info('*'*50)
+            self.logger.info(info_txt)
+            io._log_forced_default(options[0], self.logger.info)
+            answer = options[0]
+        else:
+            answer = io.get_user_input(
+                question, options=options, info_txt=info_txt, 
+                default_option='No', logger=self.logger.info
+            )
         if answer == 'No, stop process' or answer == None:
             return False
         elif answer == 'Yes, use default values':
@@ -574,9 +604,9 @@ class _ParamsParser(_DataLoader):
             for param in missing_params
         ]
         missing_params_format = '\n'.join(missing_params_str)
-        print('*'*40)
+        print('*'*50)
         err_msg = (
-            f'The parameters file "{self.ini_params_filename}" is missing '
+            f'[WARNING]: The parameters file "{self.ini_params_filename}" is missing '
             'the following parameters:\n\n'
             f'{missing_params_format}\n\n'
         )
@@ -591,7 +621,7 @@ class _ParamsParser(_DataLoader):
             )
             self.logger.info(err_msg)
             if self.is_cli:
-                print('*'*40)
+                print('*'*50)
                 self.logger.info(
                     'spotMAX execution aborted because some parameters are missing. '
                     'See details above.'
@@ -606,8 +636,9 @@ class _ParamsParser(_DataLoader):
                 'with default values.\n\n'
                 f'Parameters file path: "{self.ini_params_file_path}"\n'
             )
-            self.logger.info(err_msg)
-            proceed = self._ask_user_input_missing_params(missing_params)
+            proceed = self._ask_user_input_missing_params(
+                missing_params, info_txt=err_msg
+            )
             if not proceed:
                 self.logger.info(
                     'spotMAX execution stopped by the user. '
@@ -3390,12 +3421,14 @@ class Kernel(_ParamsParser):
     @utils.exception_handler_cli
     def run(
             self, params_path: os.PathLike, metadata_csv_path: os.PathLike='',
-            num_numba_threads: int=-1
+            num_numba_threads: int=-1, force_default_values: bool=False
         ):
-        
+        self._force_default = force_default_values
         if NUMBA_INSTALLED and num_numba_threads > 0:
             numba.set_num_threads(num_numba_threads)
-        self.init_params(params_path, metadata_csv_path=metadata_csv_path)
+        self.init_params(
+            params_path, metadata_csv_path=metadata_csv_path
+        )
         if self.exp_paths_list:
             for exp_paths in self.exp_paths_list:
                 self._run_exp_paths(exp_paths)

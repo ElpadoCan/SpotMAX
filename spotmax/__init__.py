@@ -69,8 +69,8 @@ issues_url = 'https://github.com/SchmollerLab/spotMAX/issues'
 
 help_text = (
     'Welcome to spotMAX!\n\n'
-    'You can run spotmax both as a GUI or in the command line. To run the GUI type `spotmax`\n'
-    'To run the command line type `spotmax -p <path_to_params_file>`.\n'
+    'You can run spotmax both as a GUI or in the command line.\n'
+    'To run the GUI type `spotmax`. To run the command line type `spotmax -p <path_to_params_file>`.\n'
     'The `<path_to_params_file>` can either be a CSV or INI file.\n'
     'If you do not have one, use the GUI to set up the parameters.\n\n'
     'See below other arguments you can pass to the command line. Enjoy!'

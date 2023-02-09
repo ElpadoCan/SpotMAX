@@ -63,6 +63,7 @@ def run_cli(parser_args, debug=False):
     kernel.run(
         parser_args['params'], 
         metadata_csv_path=parser_args['metadata'],
-        num_numba_threads=parser_args['num_threads']
+        num_numba_threads=parser_args['num_threads'],
+        force_default_values=parser_args['force_default_values']
     )
     

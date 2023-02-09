@@ -17,7 +17,7 @@ def cli_parser():
         default='',
         type=str,
         metavar='PATH_TO_PARAMS',
-        help=('Path of the "_analysis_inputs.ini" or "_analysis_inputs.csv" file')
+        help=('Path of the ".ini" or "_analysis_inputs.csv" file')
     )
 
     ap.add_argument(

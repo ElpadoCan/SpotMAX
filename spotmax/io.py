@@ -1774,6 +1774,21 @@ def _get_user_input_cli(
             break
     return selected_option
 
+def _log_forced_default(default_option, logger):
+    logger('-'*50)
+    logger(f'Automatically selected default option: "{default_option}"' )
+    logger('^'*50)
+
+def _raise_EOFerror(logger=print):
+    logger('*'*50)
+    logger(
+        '[ERROR]: The terminal cannot get inputs. See Warning above. '
+        'To force the default options, run spotMAX with the "-f" flag, i.e. '
+        '`spotmax -f`.'
+    )
+    logger('^'*50)
+    exit()
+
 def get_user_input(
         question_text: str, options: Iterable[str]=None, 
         default_option: str='', info_txt: str=None, qparent=None, 
@@ -1785,16 +1800,21 @@ def get_user_input(
         pass
     else:
         # Ger user input in the cli
-        logger('*'*50)
-        answer_txt = _get_user_input_cli(
-            question_text, options, default_option=default_option, 
-            info_txt=info_txt, logger=logger
-        )
-        if answer_txt is not None:
-            logger(f'Selected option: "{answer_txt}"')
-        else:
-            logger(f'Closing spotMAX...')
-        logger('*'*60)
+        try:
+            logger('*'*50)
+            answer_txt = _get_user_input_cli(
+                question_text, options, default_option=default_option, 
+                info_txt=info_txt, logger=logger
+            )
+            if answer_txt is not None:
+                logger(f'Selected option: "{answer_txt}"')
+            else:
+                logger(f'Closing spotMAX...')
+            logger('*'*50)
+        except EOFError:
+            answer_txt = None
+            logger(info_txt)
+            _raise_EOFerror(logger=logger)
     return answer_txt
 
 def save_df_to_hdf(df: pd.DataFrame, folder_path: os.PathLike, filename: str):
