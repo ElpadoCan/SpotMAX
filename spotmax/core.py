@@ -562,7 +562,7 @@ class _ParamsParser(_DataLoader):
         else:
             answer = io.get_user_input(
                 question, options=options, info_txt=info_txt, 
-                default_option='No', logger=self.logger.info
+                logger=self.logger.info
             )
         if answer == 'No, stop process' or answer == None:
             return False
@@ -2566,6 +2566,7 @@ class Kernel(_ParamsParser):
             norm_value = 1
         
         norm_value = 0
+        
         if norm_value == 0:
             if raise_if_norm_zero:
                 self._raise_norm_value_zero()
