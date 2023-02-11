@@ -30,8 +30,6 @@ from . import GUI_INSTALLED, error_up_str
 
 if GUI_INSTALLED:
     from acdctools.plot import imshow
-
-if GUI_INSTALLED:
     import matplotlib.pyplot as plt
     import matplotlib
 

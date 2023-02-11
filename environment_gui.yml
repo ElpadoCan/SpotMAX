@@ -5,8 +5,9 @@ channels:
 dependencies:
   - python=3.9
   - pip
+  - pip:
+    - opencv-python-headless
   - numba
-  - opencv-python-headless
   - natsort
   - h5py
   - pytables
