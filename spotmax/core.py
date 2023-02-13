@@ -3502,6 +3502,7 @@ class Kernel(_ParamsParser):
             f'Analysis started on: {self._report["datetime_started"]}\n'
             f'Analysis ended on: {datetime_stopped}\n'
             f'Log file: "{self.log_path}"\n\n'
+            f'Parameters file: "{self._report["params_path"]}"'
         )
         pos_txt = None
         for pos_path, info in self._report['pos_info'].items():
