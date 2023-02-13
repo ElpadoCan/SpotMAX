@@ -574,7 +574,7 @@ class _ParamsParser(_DataLoader):
             pathScanner = io.expFolderScanner(exp_path)
             pathScanner.getExpPaths(exp_path)
             pathScanner.infoExpPaths(pathScanner.expPaths)
-            run_nums = list(pathScanner.paths.keys())
+            run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
             is_multi_run = False
             if len(run_nums) > 1:
                 run_number = self._ask_user_multiple_run_nums(run_nums)
@@ -2991,9 +2991,9 @@ class Kernel(_ParamsParser):
                     df_obj_spots_gop, local_ref_ch_mask, local_peaks_coords
                 )
 
-            if verbose:
-                print('')
-                self.logger.info('Iterating goodness-of-peak test...')
+            print('')
+            self.logger.info(f'Number of spots detected = {num_spots}')
+            self.logger.info('Iterating goodness-of-peak test...')
             
             while True:     
                 num_spots_prev = len(df_obj_spots_gop)      
@@ -3008,7 +3008,6 @@ class Kernel(_ParamsParser):
                     zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
                     verbose=verbose                    
                 )
-                import pdb; pdb.set_trace()
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds
                 )
@@ -3017,6 +3016,9 @@ class Kernel(_ParamsParser):
                 if num_spots_current == num_spots_prev or num_spots_current == 0:
                     # Number of filtered spots stopped decreasing --> stop loop
                     break
+            
+            print('')
+            self.logger.info(f'Number of valid spots = {num_spots_current}')
 
             dfs_spots_gop.append(df_obj_spots_gop)
             pbar.update()
@@ -3035,7 +3037,7 @@ class Kernel(_ParamsParser):
             df_agg: pd.DataFrame, df_spots_fit: pd.DataFrame=None
         ):
         func = {
-            name:(col, aggFunc) for name, (col, aggFunc) 
+            name:(col, aggFunc) for name, (col, aggFunc, _) 
             in aggregate_spots_feature_func.items() 
             if col in df_spots_det.columns
         }
@@ -3051,7 +3053,7 @@ class Kernel(_ParamsParser):
         df_agg_gop = df_agg_gop.join(df_agg, how='left')
         if df_spots_fit is not None:
             spotfit_func = {
-                name:(col, aggFunc) for name, (col, aggFunc) 
+                name:(col, aggFunc) for name, (col, aggFunc, _) 
                 in aggregate_spots_feature_func.items() 
                 if col in df_spots_fit.columns
             }
@@ -3062,6 +3064,12 @@ class Kernel(_ParamsParser):
             df_agg_spotfit = df_agg_spotfit.join(df_agg, how='left')
         else:
             df_agg_spotfit = None
+
+        df_agg_det = self._add_missing_cells_df_agg(df_agg, df_agg_det)
+        df_agg_gop = self._add_missing_cells_df_agg(df_agg, df_agg_gop)
+        if df_agg_spotfit is not None:
+            df_agg_spotfit = self._add_missing_cells_df_agg(df_agg, df_agg_spotfit)
+
         return df_agg_det, df_agg_gop, df_agg_spotfit
     
     @utils.exception_handler_cli
@@ -3337,7 +3345,6 @@ class Kernel(_ParamsParser):
                     normalised_spot_intensities, normalised_ref_ch_intensities, 
                     df_obj_spots, spot_id, name='spot_vs_ref_ch'
                 )
-                import pdb; pdb.set_trace()
 
             if ref_ch_mask_obj is not None:
                 self._add_spot_vs_ref_location(
@@ -3868,6 +3875,26 @@ class Kernel(_ParamsParser):
             pbar_pos.close()
             pbar_exp.update()
         pbar_exp.close()
+    
+    def _add_missing_cells_df_agg(self, df_agg_src, df_agg_dst):
+        missing_idx_df_agg_dst = df_agg_src.index.difference(df_agg_dst.index)
+        default_src_values = {
+            col:df_agg_src.at[idx, col] for col in df_agg_src.columns 
+            for idx in missing_idx_df_agg_dst
+        }
+        df_agg_dst = df_agg_dst.reindex(df_agg_src.index, fill_value=0)
+        default_dst_values = {}
+        for col in df_agg_dst.columns:
+            if col not in aggregate_spots_feature_func:
+                continue
+            default_dst_values[col] = aggregate_spots_feature_func[col][2]
+        
+        default_values = {**default_src_values, **default_dst_values}
+        cols = default_values.keys()
+        vals = default_values.values()
+
+        df_agg_dst.loc[missing_idx_df_agg_dst, cols] = vals
+        return df_agg_dst
 
     def save_dfs(self, folder_path, dfs, run_number=1):
         spotmax_out_path = os.path.join(folder_path, 'spotMAX_output')
@@ -3930,6 +3957,8 @@ class Kernel(_ParamsParser):
 
         self.logger.info('='*50)
         if error is not None:
+            self.logger.exception(traceback.format_exc())
+            print('-'*60)
             self.logger.info(f'[ERROR]: {error}{error_up_str}')
             err_msg = (
                 'spotMAX aborted due to **error**. '
