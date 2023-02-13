@@ -1694,6 +1694,23 @@ class loadData:
             msg.critical(self.parent, err_title, err_msg, msg.Ok)
             return None
 
+def get_relpath(path, depth=4):
+    path_li = os.path.normpath(path).split(os.sep)
+    if len(path_li) <= depth:
+        return path
+    relpath = os.path.join('', *path_li[-depth:])
+    return relpath
+
+def get_abspath(path):
+    if os.path.isabs(path):
+        return path
+    
+    cwd_path = os.getcwd()
+    path = path.replace('\\', '/').lstrip('.')
+    path_parts = path.split('/')
+    abs_path = os.path.join(cwd_path, *path_parts)
+    return abs_path
+
 def get_basename_and_ch_names(images_path):
     ls = utils.listdir(images_path)
     channelNameUtil = channelName(load=False)

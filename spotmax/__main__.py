@@ -5,7 +5,6 @@ import argparse
 from spotmax._run import run_gui, run_cli
 from spotmax import help_text
 
-
 def cli_parser():
     ap = argparse.ArgumentParser(
         prog='spotMAX', description=help_text, 
@@ -29,6 +28,20 @@ def cli_parser():
     )
 
     ap.add_argument(
+        '-t', '--path_to_report',
+        default='',
+        type=str,
+        metavar='PATH_TO_FINAL_REPORT',
+        help=('Path of the report file created at the end of the analysis')
+    )
+
+    ap.add_argument(
+        '-e', '--disable_final_report',
+        action='store_true',
+        help=('Flag to disable the saving of a report at the end of the analysis.')
+    )
+
+    ap.add_argument(
         '-n', '--num_threads',
         default=-1,
         type=int,
@@ -36,11 +49,10 @@ def cli_parser():
         help=('Number of threads to use for parallel execution when using numba.')
     )
 
-    # Add dummy argument for stupid Jupyter
     ap.add_argument(
         '-f', '--force_default_values',
         action='store_true',
-        help=('Flag to disable required inputs and use default values for missing params.')
+        help=('Flag to disable user inputs and use default values for missing parameters.')
     )
 
     # NOTE: the user doesn't need to pass `-c`` because passing the path to the 

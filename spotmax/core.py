@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 import traceback
 
 from typing import Union
@@ -95,7 +96,7 @@ class _DataLoader:
                 images_path, os.path.basename(channel)
             )
             self.log(f'Loading "{channel}" channel from "{ch_path}"...')
-            to_float = key == 'spots_ch' or channel == 'ref_ch'
+            to_float = key == 'spots_ch' or key == 'ref_ch'
             ch_data, ch_dtype = io.load_image_data(
                 ch_path, to_float=to_float, return_dtype=True
             )
@@ -215,10 +216,224 @@ class _ParamsParser(_DataLoader):
         self.debug = debug
         self.is_cli = is_cli
     
-    @utils.exception_handler_cli
-    def init_params(self, params_path, metadata_csv_path=''):
-        params_path = utils.check_cli_params_path(params_path)
+    def _check_path_to_report(
+            self, path_to_report, params_path, force_default=False
+        ):
+        if path_to_report and not os.path.isdir(path_to_report):
+            raise FileNotFoundError(
+                'The provided path to the final report does not exist or '
+                f'is not a folder path. Path: "{path_to_report}"'
+            )        
+        if path_to_report:
+            force_default = True
         
+        path_to_report = self.get_default_report_filepath(params_path)
+        if force_default:
+            return path_to_report
+        
+        rel_path_to_report = io.get_relpath(path_to_report)
+        if path_to_report == rel_path_to_report:
+            path_to_report_option = rel_path_to_report
+        else:
+            path_to_report_option = f'...{os.sep}{rel_path_to_report}'
+        default_option = 'Save report to default path'
+        options = (
+            default_option, 'Save report to..', 'Do not save report'
+        )
+        info_txt = (
+            'spotMAX can save a final report with a summary of warnings '
+            'and errors raised during the analysis.\n\n'
+            f'Default report path: "{path_to_report_option}"'
+        )
+        question = 'Where do you want to save the report'
+        answer = io.get_user_input(
+            question, options=options, info_txt=info_txt, 
+            logger=self.logger.info, default_option=default_option
+        )
+        if answer is None:
+            return
+        if answer == default_option:
+            return path_to_report
+        if answer == 'Do not save report':
+            return 'do_not_save'
+        
+        report_folder_path = acdctools.io.get_filename_cli(
+            question='Insert the folder path where to save the report',
+            check_exists=True, is_path=True
+        )
+        if report_folder_path is None:
+            return
+        report_filename = os.path.dirname(path_to_report)
+        path_to_report = os.path.join(report_folder_path, report_filename)
+        
+        return path_to_report
+
+    def _check_numba_num_threads(self, num_threads, force_default=False):
+        max_num_threads = numba.config.NUMBA_NUM_THREADS
+        default_option = str(int(max_num_threads/2))
+        if force_default:
+            return default_option
+        options = [str(n) for n in range(1,max_num_threads+1)]
+        info_txt = (
+            'spotMAX can perform some of the analysis steps considerably faster '
+            'through parallelisation across the available CPU threads.\n'
+            'However, you might want to limit the amount of resources used.'
+        )
+        question = 'How many threads should spotMAX use'
+        if num_threads<0 or num_threads>max_num_threads:
+            num_threads = io.get_user_input(
+                question, options=options, info_txt=info_txt, 
+                logger=self.logger.info, default_option=default_option
+            )
+            if num_threads is None:
+                return
+            else:
+                num_threads = int(num_threads)
+        return num_threads
+
+    def _check_raise_on_critical(self, force_default=False):
+        info_txt = (
+            'spotMAX default behaviour is to NOT stop the analysis process '
+            'if a critical error is raised, but to continue with the analysis '
+            'of the next folder.'
+        )
+        question = 'Do you want to stop the analysis process on critical error'
+        default_option = 'no'
+        if force_default:
+            return False
+        
+        answer = io.get_user_input(
+            question, options=None, info_txt=info_txt, 
+            logger=self.logger.info, default_option=default_option
+        )
+        if answer is None:
+            return
+        elif answer == default_option:
+            return False
+        else:
+            return True
+    
+    def _add_parser_args_to_params_ini_file(self, parser_args, params_path):
+        if not params_path.endswith('.ini'):
+            return parser_args
+        
+        configPars = config.ConfigParser()
+        configPars.read(params_path, encoding="utf-8")
+        SECTION = 'Configuration'
+        if SECTION not in configPars.sections():
+            configPars[SECTION] = {}
+        
+        config_default_params = config._configuration_params()
+        for anchor, options in config_default_params.items():
+            arg_name = options['parser_arg']
+            value = parser_args[arg_name]
+            if anchor == 'pathToReport':
+                report_folderpath = os.path.dirname(value)
+                report_filename = os.path.basename(value)
+                configPars[SECTION][options['desc']] = report_folderpath
+                configPars[SECTION]['Filename of final report'] = report_filename
+            else:
+                configPars[SECTION][options['desc']] = str(value)
+        
+        with open(params_path, 'w', encoding="utf-8") as file:
+            configPars.write(file)
+
+    def _add_missing_args_from_params_ini_file(self, parser_args, params_path):
+        if not params_path.endswith('.ini'):
+            return parser_args
+
+        configPars = config.ConfigParser()
+        configPars.read(params_path, encoding="utf-8")
+        SECTION = 'Configuration'
+        if SECTION not in configPars.sections():
+            return parser_args
+        
+        config_default_params = config._configuration_params()
+        for anchor, options in config_default_params.items():
+            option = configPars.get(SECTION, options['desc'], fallback=None)
+            if option is None or not option:
+                continue
+            dtype_converter = options['dtype']
+            value = dtype_converter(option)
+            parser_args[options['parser_arg']] = value
+            if anchor == 'raiseOnCritical':
+                parser_args['raise_on_critical_present'] = True
+        return parser_args
+    
+    @utils.exception_handler_cli
+    def check_parsed_arguments(self, parser_args):
+        params_path = parser_args['params']
+        params_path = utils.check_cli_file_path(params_path)
+
+        parser_args = self._add_missing_args_from_params_ini_file(
+            parser_args, params_path
+        )
+
+        force_default = parser_args['force_default_values']
+
+        metadata_path = parser_args['metadata']
+        if metadata_path:
+            metadata_path = utils.check_cli_file_path(
+                metadata_path, desc='metadata'
+            )
+            parser_args['metadata'] = metadata_path
+        
+        disable_final_report = parser_args['disable_final_report']
+        path_to_report = parser_args['path_to_report']
+        if not disable_final_report:
+            path_to_report = self._check_path_to_report(
+                path_to_report, params_path, force_default=force_default
+            )
+            if path_to_report is None:
+                self.logger.info(
+                    'spotMAX execution stopped by the user. '
+                    'Path to final report was not provided.'
+                )
+                self.quit()
+                return
+
+            if path_to_report == 'do_not_save':
+                parser_args['disable_final_report'] = True
+            parser_args['path_to_report'] = path_to_report
+        
+        if NUMBA_INSTALLED:
+            num_threads = int(parser_args['num_threads'])
+            num_threads = self._check_numba_num_threads(
+                num_threads, force_default=force_default
+            )
+            if num_threads is None:
+                self.logger.info(
+                    'spotMAX execution stopped by the user. '
+                    'Number of threads was not provided.'
+                )
+                self.quit()
+                return
+            parser_args['num_threads'] = num_threads
+        
+        raise_on_critical = parser_args['raise_on_critical']
+        raise_on_critical_present = parser_args.get(
+            'raise_on_critical_present', False
+        )
+        if not raise_on_critical and not raise_on_critical_present:
+            raise_on_critical = self._check_raise_on_critical(
+                force_default=force_default
+            )
+            if raise_on_critical is None:
+                self.logger.info(
+                    'spotMAX execution stopped by the user. '
+                    '"Raise of critical" parameter was not provided.'
+                )
+                self.quit()
+                return
+            parser_args['raise_on_critical'] = raise_on_critical
+
+        self._add_parser_args_to_params_ini_file(parser_args, params_path)
+
+        return parser_args
+
+    
+    @utils.exception_handler_cli
+    def init_params(self, params_path, metadata_csv_path=''):        
         self._params = config.analysisInputsParams(params_path)
         if metadata_csv_path:
             self._params = io.add_metadata_from_csv(
@@ -286,7 +501,6 @@ class _ParamsParser(_DataLoader):
         if answer == 'Overwrite existing file':
             return True
         elif answer == 'Append number to the end':
-
             return True
         elif answer == 'Save with a new name..':
             new_filename = acdctools.io.get_filename_cli(
@@ -2306,7 +2520,11 @@ class Kernel(_ParamsParser):
         sigmas = metadata['zyxResolutionLimitPxl']
         blurred = skimage.filters.gaussian(spots_img, sigma=sigmas)
         sharpened = spots_img - blurred
-        return sharpened
+        out_range = (spots_img.min(), spots_img.max())
+        rescaled = skimage.exposure.rescale_intensity(
+            sharpened, out_range=out_range
+        )
+        return rescaled
     
     def _get_obj_mask(self, lab, obj, lineage_table):
         lab_obj_image = lab == obj.label
@@ -2563,8 +2781,6 @@ class Kernel(_ParamsParser):
         else:
             norm_value = 1
         
-        norm_value = 0
-        
         if norm_value == 0:
             if raise_if_norm_zero:
                 self._raise_norm_value_zero()
@@ -2774,7 +2990,7 @@ class Kernel(_ParamsParser):
                 self.logger.info('Iterating goodness-of-peak test...')
             
             while True:     
-                num_spots_prev = len(df_obj_spots_gop)       
+                num_spots_prev = len(df_obj_spots_gop)      
                 df_obj_spots_gop = self._compute_obj_spots_metrics(
                     local_spots_img, df_obj_spots_gop, obj.image, 
                     local_peaks_coords, raw_spots_img_obj=raw_spots_img_obj,
@@ -3233,13 +3449,29 @@ class Kernel(_ParamsParser):
         df_spots_fit = df_spots_fit.query(query)
         return df_spots_fit
     
-    def init_report(self, params_path):
+    def init_report(self, params_path, path_to_report):
+        path_to_report = io.get_abspath(path_to_report)
+        self.logger.info(
+            f'Initializing report (it will be saved to "{path_to_report}")...'
+        )
         self._report = {
             'datetime_started': datetime.now(), 'params_path': params_path,
-            'pos_info': {}
+            'pos_info': {}, 'path_to_report': path_to_report
         }
     
+    def get_default_report_filepath(self, params_path):
+        folder_path = os.path.dirname(params_path)
+        params_filename = os.path.basename(params_path)
+        report_filename = params_filename.replace('.ini', '_spotMAX_report.rst')
+        save_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        report_filename = f'{save_datetime}_{report_filename}'
+        report_filepath = os.path.join(folder_path, report_filename)
+        return report_filepath
+    
     def save_report(self):
+        if not hasattr(self, '_report'):
+            return
+        
         datetime_stopped = datetime.now()
         title = 'spotMAX analysis report'
         _line_title = '*'*len(title)
@@ -3281,16 +3513,12 @@ class Kernel(_ParamsParser):
                 f'Log file path: "{self.log_path}"'
             )
         
-        folder_path = os.path.dirname(self._report['params_path'])
-        params_filename = os.path.basename(self._report['params_path'])
-        report_filename = params_filename.replace('.ini', '_spotMAX_report.rst')
-        save_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-        report_filename = f'{save_datetime}_{report_filename}'
-        with open(os.path.join(folder_path, report_filename), 'w') as rst:
+        report_filepath = self._report['path_to_report']
+        with open(report_filepath, 'w') as rst:
             rst.write(report_formatted) 
         self.logger.info('#'*50)
         self.logger.info(
-            f'Final report saved to "{os.path.join(folder_path, report_filename)}"'
+            f'Final report saved to "{report_filepath}"'
         )
         self.logger.info('#'*50)
 
@@ -3579,7 +3807,7 @@ class Kernel(_ParamsParser):
         desc = 'Experiments completed'
         pbar_exp = tqdm(total=len(exp_paths), ncols=100, desc=desc, position=0)  
         for exp_path, exp_info in exp_paths.items():
-            exp_path = utils.get_abspath(exp_path)
+            exp_path = utils.io.get_abspath(exp_path)
             exp_foldername = os.path.basename(exp_path)
             exp_parent_foldername = os.path.basename(os.path.dirname(exp_path))
             run_number = exp_info['run_number']
@@ -3622,6 +3850,11 @@ class Kernel(_ParamsParser):
         if not os.path.exists(spotmax_out_path):
             os.mkdir(spotmax_out_path)
         
+        analysis_inputs_filepath = os.path.join(
+            spotmax_out_path, f'{run_number}_analysis_parameters.ini'
+        )
+        shutil.copy2(self.ini_params_file_path, analysis_inputs_filepath)
+
         for key, filename in dfs_filenames.items():
             filename = filename.replace('*rn*', str(run_number))
             df_spots = dfs.get(key, None)
@@ -3645,7 +3878,8 @@ class Kernel(_ParamsParser):
     def run(
             self, params_path: os.PathLike, metadata_csv_path: os.PathLike='',
             num_numba_threads: int=-1, force_default_values: bool=False,
-            force_close_on_critical: bool=False
+            force_close_on_critical: bool=False, disable_final_report=False,
+            path_to_report=''
         ):
         self._force_default = force_default_values
         self._force_close_on_critical = force_close_on_critical
@@ -3654,7 +3888,9 @@ class Kernel(_ParamsParser):
         self.init_params(
             params_path, metadata_csv_path=metadata_csv_path
         )
-        self.init_report(self.ini_params_file_path)
+        if not disable_final_report or not path_to_report:
+            self.init_report(self.ini_params_file_path, path_to_report)
+        
         if self.exp_paths_list:
             self.is_batch_mode = True
             for exp_paths in self.exp_paths_list:

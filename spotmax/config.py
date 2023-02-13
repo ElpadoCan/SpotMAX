@@ -145,420 +145,510 @@ def get_gop_thresholds(gop_thresholds_to_parse):
         gop_thresholds[feature_name] = tuple(thresholds)
     return gop_thresholds
 
+def _filepaths_params():
+    filepaths_params = {
+        'filePathsToAnalyse': {
+            'desc': 'Experiment folder path(s) to analyse',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': get_exp_paths,
+            'parser': parse_list_to_configpars
+        },
+        'spotsEndName': {
+            'desc': 'Spots channel end name or path',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': str
+        },
+        'segmEndName': {
+            'desc': 'Cells segmentation end name or path',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': str
+        },
+        'refChEndName': {
+            'desc': 'Reference channel end name or path',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': str
+        },
+        'refChSegmEndName': {
+            'desc': 'Ref. channel segmentation end name or path',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': str
+        },
+        'lineageTableEndName': {
+            'desc': 'Table with lineage info end name or path',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': str
+        },
+    }
+    return filepaths_params
+
+def _configuration_params():
+    config_params = {
+        'pathToReport': {
+            'desc': 'Folder path of the final report',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': str, 
+            'parser_arg': 'path_to_report'
+        },
+        'disableFinalReport': {
+            'desc': 'Disable saving of the final report',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addEditButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool, 
+            'parser_arg': 'disable_final_report'
+        },
+        'forceDefaultValues': {
+            'desc': 'Use default values for missing parameters',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool, 
+            'parser_arg': 'force_default_values'
+        },
+        'raiseOnCritical': {
+            'desc': 'Stop analysis on critical error',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool, 
+            'parser_arg': 'raise_on_critical'
+        },
+        'numbaNumThreads': {
+            'desc': 'Number of threads used by numba',
+            'initialVal': -1,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': True,
+            'formWidgetFunc': 'QtWidgets.QSpinBox',
+            'actions': None,
+            'dtype': int, 
+            'parser_arg': 'num_threads'
+        },
+    }
+    return config_params
+
+def _metadata_params():
+    metadata_params = {
+        'SizeT': {
+            'desc': 'Number of frames (SizeT)',
+            'initialVal': 1,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addAutoButton': True,
+            'formWidgetFunc': 'widgets.intLineEdit',
+            'actions': None,
+            'dtype': int
+        },
+        'stopFrameNum': {
+            'desc': 'Analyse until frame number',
+            'initialVal': 1,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addAutoButton': True,
+            'formWidgetFunc': 'widgets.intLineEdit',
+            'actions': None,
+            'dtype': int
+        },
+        'SizeZ': {
+            'desc': 'Number of z-slices (SizeZ)',
+            'initialVal': 1,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addAutoButton': True,
+            'formWidgetFunc': 'widgets.intLineEdit',
+            'actions': None,
+            'dtype': int
+        },
+        'pixelWidth': {
+            'desc': 'Pixel width (μm)',
+            'initialVal': 1.0,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': (
+                ('valueChanged', 'updateMinSpotSize'),
+            ),
+            'dtype': float
+        },
+        'pixelHeight': {
+            'desc': 'Pixel height (μm)',
+            'initialVal': 1.0,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': (
+                ('valueChanged', 'updateMinSpotSize'),
+            ),
+            'dtype': float
+        },
+        'voxelDepth': {
+            'desc': 'Voxel depth (μm)',
+            'initialVal': 1.0,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': (
+                ('valueChanged', 'updateMinSpotSize'),
+            ),
+            'dtype': float
+        },
+        'numAperture': {
+            'desc': 'Numerical aperture',
+            'initialVal': 1.4,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': (
+                ('valueChanged', 'updateMinSpotSize'),
+            ),
+            'dtype': float
+        },
+        'emWavelen': {
+            'desc': 'Spots reporter emission wavelength (nm)',
+            'initialVal': 500.0,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': (
+                ('valueChanged', 'updateMinSpotSize'),
+            ),
+            'dtype': float
+        },
+        'zResolutionLimit': {
+            'desc': 'Spot minimum z-size (μm)',
+            'initialVal': 1.0,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': (
+                ('valueChanged', 'updateMinSpotSize'),
+            ),
+            'dtype': float
+        },
+        'yxResolLimitMultiplier': {
+            'desc': 'Resolution multiplier in y- and x- direction',
+            'initialVal': 1.0,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': (
+                ('valueChanged', 'updateMinSpotSize'),
+            ),
+            'dtype': float
+        },
+        'spotMinSizeLabels': {
+            'desc': 'Spot (z,y,x) minimum dimensions',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'formWidgetFunc': 'widgets._spotMinSizeLabels',
+            'actions': None,
+            'isParam': False
+        }
+    }
+    return metadata_params
+
+def _pre_processing_params():
+    pre_processing_params = {
+        'aggregate': {
+            'desc': 'Aggregate cells prior analysis',
+            'initialVal': True,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+        'gaussSigma': {
+            'desc': 'Initial gaussian filter sigma',
+            'initialVal': 0.75,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': None,
+            'dtype': float
+        },
+        'sharpenSpots': {
+            'desc': 'Sharpen spots signal prior detection',
+            'initialVal': True,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+    }
+    return pre_processing_params
+
+def _ref_ch_params():
+    ref_ch_params = {
+        'segmRefCh': {
+            'desc': 'Segment reference channel',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+        'keepPeaksInsideRef': {
+            'desc': 'Keep only spots that are inside ref. channel mask',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': True,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+        'filterPeaksInsideRef': {
+            'desc': 'Filter spots by comparing to reference channel',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+        'refChSingleObj': {
+            'desc': 'Ref. channel is single object (e.g., nucleus)',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': True,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+        'refChThresholdFunc': {
+            'desc': 'Ref. channel threshold function',
+            'initialVal': 'threshold_li',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets._refChThresholdFuncWidget',
+            'actions': None,
+            'dtype': get_threshold_func
+        },
+        'calcRefChNetLen': {
+            'desc': 'Calculate reference channel network length',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        }
+    }
+    return ref_ch_params
+
+def _spots_ch_params():
+    spots_ch_params = {
+        'spotDetectionMethod': {
+            'desc': 'Spots detection method',
+            'initialVal': 'peak_local_max',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets._spotDetectionMethod',
+            'actions': None
+        },
+        'spotPredictionMethod': {
+            'desc': 'Spots segmentation method',
+            'initialVal': 'Thresholding',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': True,
+            'formWidgetFunc': 'widgets._spotPredictionMethod',
+            'actions': None
+        },
+        'spotThresholdFunc': {
+            'desc': 'Spot detection threshold function',
+            'initialVal': 'threshold_li',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets._spotThresholdFunc',
+            'actions': None,
+            'dtype': get_threshold_func
+        },
+        'gopThresholds': {
+            'desc': 'Features and thresholds for filtering true spots',
+            'initialVal': 'spot_vs_bkgr_glass_effect_size,0.08,None',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.GopFeaturesAndThresholds',
+            'actions': None,
+            'dtype': get_gop_thresholds,
+            'parser': parse_list_to_configpars,
+            'comment': gop_thresholds_comment
+        },
+        'doSpotFit': {
+            'desc': 'Compute spots size',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+        'minSpotSize': {
+            'desc': 'Discard spots with radius less than (pixels)',
+            'initialVal': 0.0,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': None,
+            'dtype': float
+        },
+        'maxSpotSize': {
+            'desc': 'Discard spots with radius greater than (pixels)',
+            'initialVal': 0.0,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.floatLineEdit',
+            'actions': None,
+            'dtype': float
+        }
+    }
+    return spots_ch_params
+
+
 def analysisInputsParams(params_path=default_ini_path):
     # NOTE: if you change the anchors (i.e., the key of each second level
     # dictionary, e.g., 'spotsEndName') remember to change them also in
     # docs.paramsInfoText dictionary keys
     params = {
-        # Section 0 (GroupBox)
-        'File paths and channels': {
-            'filePathsToAnalyse': {
-                'desc': 'Experiment folder path(s) to analyse',
-                'initialVal': """""",
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'addBrowseButton': False,
-                'addEditButton': True,
-                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
-                'actions': None,
-                'dtype': get_exp_paths,
-                'parser': parse_list_to_configpars
-            },
-            'spotsEndName': {
-                'desc': 'Spots channel end name or path',
-                'initialVal': """""",
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'addBrowseButton': False,
-                'addEditButton': True,
-                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
-                'actions': None,
-                'dtype': str
-            },
-            'segmEndName': {
-                'desc': 'Cells segmentation end name or path',
-                'initialVal': """""",
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'addBrowseButton': False,
-                'addEditButton': True,
-                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
-                'actions': None,
-                'dtype': str
-            },
-            'refChEndName': {
-                'desc': 'Reference channel end name or path',
-                'initialVal': """""",
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'addBrowseButton': False,
-                'addEditButton': True,
-                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
-                'actions': None,
-                'dtype': str
-            },
-            'refChSegmEndName': {
-                'desc': 'Ref. channel segmentation end name or path',
-                'initialVal': """""",
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'addBrowseButton': False,
-                'addEditButton': True,
-                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
-                'actions': None,
-                'dtype': str
-            },
-            'lineageTableEndName': {
-                'desc': 'Table with lineage info end name or path',
-                'initialVal': """""",
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'addBrowseButton': False,
-                'addEditButton': True,
-                'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
-                'actions': None,
-                'dtype': str
-            },
-        },
-        # Section 1 (GroupBox)
-        'METADATA': {
-            'SizeT': {
-                'desc': 'Number of frames (SizeT)',
-                'initialVal': 1,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'addAutoButton': True,
-                'formWidgetFunc': 'widgets.intLineEdit',
-                'actions': None,
-                'dtype': int
-            },
-            'stopFrameNum': {
-                'desc': 'Analyse until frame number',
-                'initialVal': 1,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'addAutoButton': True,
-                'formWidgetFunc': 'widgets.intLineEdit',
-                'actions': None,
-                'dtype': int
-            },
-            'SizeZ': {
-                'desc': 'Number of z-slices (SizeZ)',
-                'initialVal': 1,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'addAutoButton': True,
-                'formWidgetFunc': 'widgets.intLineEdit',
-                'actions': None,
-                'dtype': int
-            },
-            'pixelWidth': {
-                'desc': 'Pixel width (μm)',
-                'initialVal': 1.0,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': (
-                    ('valueChanged', 'updateMinSpotSize'),
-                ),
-                'dtype': float
-            },
-            'pixelHeight': {
-                'desc': 'Pixel height (μm)',
-                'initialVal': 1.0,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': (
-                    ('valueChanged', 'updateMinSpotSize'),
-                ),
-                'dtype': float
-            },
-            'voxelDepth': {
-                'desc': 'Voxel depth (μm)',
-                'initialVal': 1.0,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': (
-                    ('valueChanged', 'updateMinSpotSize'),
-                ),
-                'dtype': float
-            },
-            'numAperture': {
-                'desc': 'Numerical aperture',
-                'initialVal': 1.4,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': (
-                    ('valueChanged', 'updateMinSpotSize'),
-                ),
-                'dtype': float
-            },
-            'emWavelen': {
-                'desc': 'Spots reporter emission wavelength (nm)',
-                'initialVal': 500.0,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': (
-                    ('valueChanged', 'updateMinSpotSize'),
-                ),
-                'dtype': float
-            },
-            'zResolutionLimit': {
-                'desc': 'Spot minimum z-size (μm)',
-                'initialVal': 1.0,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': (
-                    ('valueChanged', 'updateMinSpotSize'),
-                ),
-                'dtype': float
-            },
-            'yxResolLimitMultiplier': {
-                'desc': 'Resolution multiplier in y- and x- direction',
-                'initialVal': 1.0,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': (
-                    ('valueChanged', 'updateMinSpotSize'),
-                ),
-                'dtype': float
-            },
-            'spotMinSizeLabels': {
-                'desc': 'Spot (z,y,x) minimum dimensions',
-                'initialVal': """""",
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'formWidgetFunc': 'widgets._spotMinSizeLabels',
-                'actions': None,
-                'isParam': False
-            }
-        },
-
-        # Section 2 (GroupBox)
-        'Pre-processing': {
-            'aggregate': {
-                'desc': 'Aggregate cells prior analysis',
-                'initialVal': True,
-                'stretchWidget': False,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'acdc_widgets.Toggle',
-                'actions': None,
-                'dtype': get_bool
-            },
-            'gaussSigma': {
-                'desc': 'Initial gaussian filter sigma',
-                'initialVal': 0.75,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': True,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': None,
-                'dtype': float
-            },
-            'sharpenSpots': {
-                'desc': 'Sharpen spots signal prior detection',
-                'initialVal': True,
-                'stretchWidget': False,
-                'addInfoButton': True,
-                'addComputeButton': True,
-                'addApplyButton': False,
-                'formWidgetFunc': 'acdc_widgets.Toggle',
-                'actions': None,
-                'dtype': get_bool
-            },
-        },
-
-        # Section 3 (GroupBox)
-        'Reference channel': {
-            'segmRefCh': {
-                'desc': 'Segment reference channel',
-                'initialVal': False,
-                'stretchWidget': False,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'acdc_widgets.Toggle',
-                'actions': None,
-                'dtype': get_bool
-            },
-            'keepPeaksInsideRef': {
-                'desc': 'Keep only spots that are inside ref. channel mask',
-                'initialVal': False,
-                'stretchWidget': False,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': True,
-                'formWidgetFunc': 'acdc_widgets.Toggle',
-                'actions': None,
-                'dtype': get_bool
-            },
-            'filterPeaksInsideRef': {
-                'desc': 'Filter spots by comparing to reference channel',
-                'initialVal': False,
-                'stretchWidget': False,
-                'addInfoButton': True,
-                'addComputeButton': True,
-                'addApplyButton': False,
-                'formWidgetFunc': 'acdc_widgets.Toggle',
-                'actions': None,
-                'dtype': get_bool
-            },
-            'refChSingleObj': {
-                'desc': 'Ref. channel is single object (e.g., nucleus)',
-                'initialVal': False,
-                'stretchWidget': False,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': True,
-                'formWidgetFunc': 'acdc_widgets.Toggle',
-                'actions': None,
-                'dtype': get_bool
-            },
-            'refChThresholdFunc': {
-                'desc': 'Ref. channel threshold function',
-                'initialVal': 'threshold_li',
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': True,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets._refChThresholdFuncWidget',
-                'actions': None,
-                'dtype': get_threshold_func
-            },
-            'calcRefChNetLen': {
-                'desc': 'Calculate reference channel network length',
-                'initialVal': False,
-                'stretchWidget': False,
-                'addInfoButton': True,
-                'addComputeButton': True,
-                'addApplyButton': False,
-                'formWidgetFunc': 'acdc_widgets.Toggle',
-                'actions': None,
-                'dtype': get_bool
-            }
-        },
-
-        # Section 4 (GroupBox)
-        'Spots channel': {
-            'spotDetectionMethod': {
-                'desc': 'Spots detection method',
-                'initialVal': 'peak_local_max',
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': True,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets._spotDetectionMethod',
-                'actions': None
-            },
-            'spotPredictionMethod': {
-                'desc': 'Spots segmentation method',
-                'initialVal': 'Thresholding',
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': True,
-                'formWidgetFunc': 'widgets._spotPredictionMethod',
-                'actions': None
-            },
-            'spotThresholdFunc': {
-                'desc': 'Spot detection threshold function',
-                'initialVal': 'threshold_li',
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets._spotThresholdFunc',
-                'actions': None,
-                'dtype': get_threshold_func
-            },
-            'gopThresholds': {
-                'desc': 'Features and thresholds for filtering true spots',
-                'initialVal': 'spot_vs_bkgr_glass_effect_size,0.08,None',
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.GopFeaturesAndThresholds',
-                'actions': None,
-                'dtype': get_gop_thresholds,
-                'parser': parse_list_to_configpars,
-                'comment': gop_thresholds_comment
-            },
-            'doSpotFit': {
-                'desc': 'Compute spots size',
-                'initialVal': False,
-                'stretchWidget': False,
-                'addInfoButton': True,
-                'addComputeButton': True,
-                'addApplyButton': False,
-                'formWidgetFunc': 'acdc_widgets.Toggle',
-                'actions': None,
-                'dtype': get_bool
-            },
-            'minSpotSize': {
-                'desc': 'Discard spots with radius less than (pixels)',
-                'initialVal': 0.0,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': None,
-                'dtype': float
-            },
-            'maxSpotSize': {
-                'desc': 'Discard spots with radius greater than (pixels)',
-                'initialVal': 0.0,
-                'stretchWidget': True,
-                'addInfoButton': True,
-                'addComputeButton': False,
-                'addApplyButton': False,
-                'formWidgetFunc': 'widgets.floatLineEdit',
-                'actions': None,
-                'dtype': float
-            }
-        }
+        'File paths and channels': _filepaths_params(),
+        'METADATA': _metadata_params(),
+        'Pre-processing': _pre_processing_params(),
+        'Reference channel': _ref_ch_params(),
+        'Spots channel': _spots_ch_params(),
+        'Configuration': _configuration_params()
+    
     }
     if params_path.endswith('.ini'):
         params = io.readStoredParamsINI(params_path, params)

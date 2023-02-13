@@ -40,7 +40,7 @@ except ModuleNotFoundError:
     print('-'*50)
     GUI_INSTALLED = False
 
-from . import is_mac, is_linux, printl, logs_path, settings_path
+from . import is_mac, is_linux, printl, logs_path, settings_path, io
 
 class _Dummy:
     def __init__(*args, **kwargs):
@@ -98,29 +98,19 @@ def njit_replacement(parallel=False):
         return
     return inner_function
 
-def get_abspath(path):
-    if os.path.isabs(path):
-        return path
-    
-    cwd_path = os.getcwd()
-    path = path.replace('\\', '/').lstrip('.')
-    path_parts = path.split('/')
-    abs_path = os.path.join(cwd_path, *path_parts)
-    return abs_path
-
-def check_cli_params_path(params_path):
-    if os.path.isabs(params_path):
-        _check_cli_params_extension(params_path)
-        return params_path
+def check_cli_file_path(file_path, desc='parameters'):
+    if os.path.isabs(file_path):
+        _check_cli_params_extension(file_path)
+        return file_path
     
     # Try to check if user provided a relative path for the params file
-    abs_params_path = get_abspath(params_path)
-    if os.path.exists(abs_params_path):
-        _check_cli_params_extension(abs_params_path)
-        return abs_params_path
+    abs_file_path = io.get_abspath(file_path)
+    if os.path.exists(abs_file_path):
+        _check_cli_params_extension(abs_file_path)
+        return abs_file_path
 
     raise FileNotFoundError(
-        f'The following parameters file provided does not exist: "{abs_params_path}"'
+        f'The following {desc} file provided does not exist: "{abs_file_path}"'
     )
 
 def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
