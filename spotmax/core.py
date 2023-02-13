@@ -2780,7 +2780,7 @@ class Kernel(_ParamsParser):
             norm_value = np.median(values)
         else:
             norm_value = 1
-        
+
         if norm_value == 0:
             if raise_if_norm_zero:
                 self._raise_norm_value_zero()
@@ -2794,10 +2794,11 @@ class Kernel(_ParamsParser):
 
     @utils.exception_handler_cli
     def spots_detection(
-            self, spots_img, zyx_resolution_limit_pxl, ref_ch_img=None, 
-            ref_ch_mask_or_labels=None, frame_i=0, lab=None, rp=None, 
-            raw_spots_img=None, do_filter_spots_vs_ref_ch=False, df_agg=None,
-            do_keep_spots_in_ref_ch=False, gop_filtering_thresholds=None,
+            self, spots_img, zyx_resolution_limit_pxl, spots_img_detect=None,
+            raw_spots_img=None, ref_ch_img=None, ref_ch_mask_or_labels=None, 
+            frame_i=0, lab=None, rp=None, do_filter_spots_vs_ref_ch=False, 
+            df_agg=None, do_keep_spots_in_ref_ch=False, 
+            gop_filtering_thresholds=None,
             detection_method='peak_local_max', prediction_method='Thresholding',
             threshold_method='threshold_otsu', do_aggregate_objs=False,
             lineage_table=None, min_size_spheroid_mask=None, verbose=True,
@@ -2819,6 +2820,9 @@ class Kernel(_ParamsParser):
             if spot_footprint is not None:
                 spot_footprint = spot_footprint[np.newaxis]
 
+        if spots_img_detect is None:
+            spots_img_detect = spots_img
+
         if lab is None:
             lab = np.ones(spots_img.shape, dtype=np.uint8)
         
@@ -2831,13 +2835,13 @@ class Kernel(_ParamsParser):
             df_agg = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
         
         prediction_args = self._get_spot_prediction_args(
-            spots_img, lab, prediction_method, threshold_method, 
+            spots_img_detect, lab, prediction_method, threshold_method, 
             do_aggregate_objs, lineage_table=lineage_table
         )
         threshold_val, threshold_func, prediction_mask = prediction_args
         
         df_spots_det, df_spots_gop = self._spots_detection(
-            spots_img, ref_ch_img, ref_ch_mask_or_labels, 
+            spots_img, spots_img_detect, ref_ch_img, ref_ch_mask_or_labels, 
             do_filter_spots_vs_ref_ch, lab, rp, frame_i, detection_method,
             zyx_resolution_limit_pxl, spot_footprint=spot_footprint,
             min_size_spheroid_mask=min_size_spheroid_mask,
@@ -2874,10 +2878,11 @@ class Kernel(_ParamsParser):
                 threshold_val = threshold_func(aggr_spots_img.max(axis=0))
         elif prediction_method == 'Neural network':
             pass
+        
         return threshold_val, threshold_func, prediction_mask
     
     def _spots_detection(
-            self, spots_img, ref_ch_img, ref_ch_mask_or_labels, 
+            self, spots_img, spots_img_detect, ref_ch_img, ref_ch_mask_or_labels, 
             do_filter_spots_vs_ref_ch, lab, rp, frame_i, detection_method,
             zyx_resolution_limit_pxl, dfs_lists=None,
             threshold_val=None, verbose=False, threshold_func=None,
@@ -2905,6 +2910,7 @@ class Kernel(_ParamsParser):
         )
         for obj in rp:
             local_spots_img = spots_img[obj.slice]
+            local_spots_img_detect = spots_img_detect[obj.slice]
             if threshold_val is None and prediction_mask is None:
                 lab_single_obj_mask, budID = self._get_obj_mask(
                     lab, obj, lineage_table
@@ -2912,7 +2918,7 @@ class Kernel(_ParamsParser):
                 lab_single_obj_mask_rp = skimage.measure.regionprops(
                     lab_single_obj_mask.astype(np.uint8)
                 )
-                thresh_input_img = spots_img[lab_single_obj_mask_rp[0].slice]
+                thresh_input_img = spots_img_detect[lab_single_obj_mask_rp[0].slice]
                 threshold_val = threshold_func(thresh_input_img)
             
             if detection_method == 'peak_local_max':
@@ -2930,13 +2936,13 @@ class Kernel(_ParamsParser):
                     labels = np.logical_and(obj.image, local_spots_mask)
                 
                 local_peaks_coords = skimage.feature.peak_local_max(
-                    local_spots_img, threshold_abs=threshold_val, 
+                    local_spots_img_detect, threshold_abs=threshold_val, 
                     footprint=footprint, labels=labels, 
                     p_norm=2
                 )
             else:
                 if prediction_mask is None:
-                    local_spots_mask = local_spots_img > threshold_val
+                    local_spots_mask = local_spots_img_detect > threshold_val
                 else:
                     local_spots_mask = prediction_mask[obj.slice]
 
@@ -2965,7 +2971,7 @@ class Kernel(_ParamsParser):
 
             if ref_ch_mask_or_labels is not None:
                 local_ref_ch_mask = ref_ch_mask_or_labels[obj.slice]>0
-                local_ref_ch_mask = np.logical_and(local_ref_ch_mask, obj.label)
+                local_ref_ch_mask = np.logical_and(local_ref_ch_mask, obj.image)
             else:
                 local_ref_ch_mask = None
 
@@ -2993,7 +2999,8 @@ class Kernel(_ParamsParser):
                 num_spots_prev = len(df_obj_spots_gop)      
                 df_obj_spots_gop = self._compute_obj_spots_metrics(
                     local_spots_img, df_obj_spots_gop, obj.image, 
-                    local_peaks_coords, raw_spots_img_obj=raw_spots_img_obj,
+                    local_peaks_coords, local_spots_img_detect, 
+                    raw_spots_img_obj=raw_spots_img_obj,
                     min_size_spheroid_mask=min_size_spheroid_mask, 
                     ref_ch_mask_obj=local_ref_ch_mask, 
                     ref_ch_img_obj=local_ref_ch_img,
@@ -3001,10 +3008,12 @@ class Kernel(_ParamsParser):
                     zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
                     verbose=verbose                    
                 )
+                import pdb; pdb.set_trace()
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds
                 )
                 num_spots_current = len(df_obj_spots_gop)
+                
                 if num_spots_current == num_spots_prev or num_spots_current == 0:
                     # Number of filtered spots stopped decreasing --> stop loop
                     break
@@ -3165,9 +3174,10 @@ class Kernel(_ParamsParser):
     # @acdctools.utils.exec_time
     def _compute_obj_spots_metrics(
             self, spots_img_obj, df_obj_spots, obj_mask, local_peaks_coords, 
-            raw_spots_img_obj=None, min_size_spheroid_mask=None, 
-            ref_ch_mask_obj=None, ref_ch_img_obj=None,
-            zyx_resolution_limit_pxl=None, do_filter_spots_vs_ref_ch=False,
+            spots_img_detect_obj, raw_spots_img_obj=None, 
+            min_size_spheroid_mask=None, ref_ch_mask_obj=None, 
+            ref_ch_img_obj=None, zyx_resolution_limit_pxl=None, 
+            do_filter_spots_vs_ref_ch=False,
             verbose=False
         ):
         """_summary_
@@ -3177,7 +3187,8 @@ class Kernel(_ParamsParser):
         spots_img_obj : (Z, Y, X) ndarray
             Spots' signal 3D z-stack image sliced at the segmentation object
             level. Note that this is the preprocessed image, i.e., after 
-            gaussian filtering, sharpening etc. The first dimension must be 
+            gaussian filtering, but NOT after sharpening. Sharpening is used 
+            only to improve detection. The first dimension must be 
             the number of z-slices.
         df_obj_spots : pandas.DataFrame
             Pandas DataFrame with `spot_id` as index.
@@ -3188,6 +3199,12 @@ class Kernel(_ParamsParser):
         local_peaks_coords : (n, 3) ndarray
             (n, 3) array of (z,y,x) coordinates of the peaks in the segmentation
             object's frame of reference (i.e., "local").
+        spots_img_detect_obj : (Z, Y, X) ndarray
+            Spots' signal 3D z-stack image sliced at the segmentation object
+            level. Note that this is the preprocessed image, i.e., after 
+            gaussian filtering, sharpening etc. It is used to determine the 
+            threshold for peak detection and for filtering against background. 
+            The first dimension must be the number of z-slices.
         raw_spots_img_obj : (Z, Y, X) ndarray or None, optional
             Raw spots' signal 3D z-stack image sliced at the segmentation
             object level. Note that this is the raw, unprocessed signal. 
@@ -3270,6 +3287,9 @@ class Kernel(_ParamsParser):
             spot_intensities = (
                 spots_img_obj[slice_global_to_local][spheroid_mask]
             )
+            spot_intensities_detect = (
+                spots_img_detect_obj[slice_global_to_local][spheroid_mask]
+            )
 
             value = spots_img_obj[zyx_center]
             df_obj_spots.at[spot_id, 'spot_preproc_intensity_at_center'] = value
@@ -3293,12 +3313,12 @@ class Kernel(_ParamsParser):
                 )
 
             self._add_ttest_values(
-                spot_intensities, backgr_vals, df_obj_spots, spot_id, 
+                spot_intensities_detect, backgr_vals, df_obj_spots, spot_id, 
                 name='spot_vs_backgr'
             )
 
             self._add_effect_sizes(
-                spot_intensities, backgr_vals, df_obj_spots, spot_id, 
+                spot_intensities_detect, backgr_vals, df_obj_spots, spot_id, 
                 name='spot_vs_backgr'
             )
 
@@ -3317,6 +3337,7 @@ class Kernel(_ParamsParser):
                     normalised_spot_intensities, normalised_ref_ch_intensities, 
                     df_obj_spots, spot_id, name='spot_vs_ref_ch'
                 )
+                import pdb; pdb.set_trace()
 
             if ref_ch_mask_obj is not None:
                 self._add_spot_vs_ref_location(
@@ -3687,13 +3708,14 @@ class Kernel(_ParamsParser):
             raw_spots_img = spots_data[frame_i]
             filtered_spots_img = self._preprocess(raw_spots_img)
             if do_sharpen_spots:
-                filtered_spots_img = self._sharpen_spots(
+                sharp_spots_img = self._sharpen_spots(
                     filtered_spots_img, self.metadata
                 )
             lab = segm_data[frame_i]
             rp = segm_rp[frame_i]
             if ref_ch_data is not None:
                 ref_ch_img = ref_ch_data[frame_i]
+                filtered_ref_ch_img = self._preprocess(ref_ch_img)
             else:
                 ref_ch_img = None
             if ref_ch_segm_data is not None:
@@ -3706,7 +3728,8 @@ class Kernel(_ParamsParser):
                 lineage_table = None
             self.spots_detection(
                 filtered_spots_img, zyx_resolution_limit_pxl, 
-                ref_ch_img=ref_ch_img, 
+                spots_img_detect=sharp_spots_img,
+                ref_ch_img=filtered_ref_ch_img, 
                 frame_i=frame_i, lab=lab, rp=rp,
                 ref_ch_mask_or_labels=ref_ch_mask_or_labels, 
                 df_agg=df_agg,
