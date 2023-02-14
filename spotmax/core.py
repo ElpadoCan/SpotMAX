@@ -373,8 +373,6 @@ class _ParamsParser(_DataLoader):
         for anchor, options in config_default_params.items():
             arg_name = options['parser_arg']
             value = parser_args[arg_name]
-            if anchor == 'pathToReport':
-                value = os.path.dirname(value)
             configPars[SECTION][options['desc']] = str(value)
         
         with open(params_path, 'w', encoding="utf-8") as file:

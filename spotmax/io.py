@@ -717,7 +717,7 @@ class expFolderScanner:
                 run_nums = self.runNumbers(spotmaxOutPath)
 
                 for run in run_nums:
-                    if run not in self.paths:
+                    if run not in self.paths or exp_path not in self.paths[run]:
                         analysisInputs_df = self.loadAnalysisInputs(
                             spotmaxOutPath, run
                         )
