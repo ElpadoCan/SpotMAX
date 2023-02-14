@@ -61,10 +61,13 @@ def run_cli(parser_args, debug=False):
     
     kernel = core.Kernel(debug=debug)
     parser_args = kernel.check_parsed_arguments(parser_args)
+    report_filepath = os.path.join(
+        parser_args['report_folderpath'], parser_args['report_filename']
+    )
     kernel.run(
         parser_args['params'], 
         metadata_csv_path=parser_args['metadata'],
-        path_to_report=parser_args['path_to_report'],
+        report_filepath=report_filepath,
         disable_final_report=parser_args['disable_final_report'],
         num_numba_threads=parser_args['num_threads'],
         force_default_values=parser_args['force_default_values'],

@@ -216,7 +216,7 @@ class _ParamsParser(_DataLoader):
         self.debug = debug
         self.is_cli = is_cli
     
-    def _check_path_to_report(
+    def _check_report_filepath(
             self, report_folderpath, params_path, report_filename='', 
             force_default=False
         ):
@@ -424,7 +424,7 @@ class _ParamsParser(_DataLoader):
         report_folderpath = parser_args['report_folderpath']
 
         if not disable_final_report:
-            report_filepath = self._check_path_to_report(
+            report_filepath = self._check_report_filepath(
                 report_folderpath, params_path, force_default=force_default,
                 report_filename=parser_args['report_filename']
             )
@@ -437,10 +437,10 @@ class _ParamsParser(_DataLoader):
                 self.quit()
                 return
 
-            if path_to_report == 'do_not_save':
+            if report_filepath == 'do_not_save':
                 parser_args['disable_final_report'] = True
-            parser_args['path_to_report'] = path_to_report
-            parser_args['report_filename'] = os.path.basename(path_to_report)
+            parser_args['report_folderpath'] = os.path.dirname(report_filepath)
+            parser_args['report_filename'] = os.path.basename(report_filepath)
         
         if NUMBA_INSTALLED:
             num_threads = int(parser_args['num_threads'])
@@ -3562,14 +3562,14 @@ class Kernel(_ParamsParser):
         df_spots_fit = df_spots_fit.query(query)
         return df_spots_fit
     
-    def init_report(self, params_path, path_to_report):
-        path_to_report = io.get_abspath(path_to_report)
+    def init_report(self, params_path, report_filepath):
+        report_filepath = io.get_abspath(report_filepath)
         self.logger.info(
-            f'Initializing report (it will be saved to "{path_to_report}")...'
+            f'Initializing report (it will be saved to "{report_filepath}")...'
         )
         self._report = {
             'datetime_started': datetime.now(), 'params_path': params_path,
-            'pos_info': {}, 'path_to_report': path_to_report
+            'pos_info': {}, 'report_filepath': report_filepath
         }
     
     def get_default_report_filepath(self, params_path):
@@ -3627,7 +3627,7 @@ class Kernel(_ParamsParser):
                 f'Log file path: "{self.log_path}"'
             )
         
-        report_filepath = self._report['path_to_report']
+        report_filepath = self._report['report_filepath']
         with open(report_filepath, 'w') as rst:
             rst.write(report_formatted) 
         self.logger.info('#'*50)
@@ -4018,7 +4018,7 @@ class Kernel(_ParamsParser):
             self, params_path: os.PathLike, metadata_csv_path: os.PathLike='',
             num_numba_threads: int=-1, force_default_values: bool=False,
             force_close_on_critical: bool=False, disable_final_report=False,
-            path_to_report=''
+            report_filepath=''
         ):
         self._force_default = force_default_values
         self._force_close_on_critical = force_close_on_critical
@@ -4027,8 +4027,8 @@ class Kernel(_ParamsParser):
         self.init_params(
             params_path, metadata_csv_path=metadata_csv_path
         )
-        if not disable_final_report or not path_to_report:
-            self.init_report(self.ini_params_file_path, path_to_report)
+        if not disable_final_report or not report_filepath:
+            self.init_report(self.ini_params_file_path, report_filepath)
         
         if self.exp_paths_list:
             self.is_batch_mode = True
