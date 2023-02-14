@@ -2753,6 +2753,11 @@ class Kernel(_ParamsParser):
 
         return mask
     
+    def _distance_transform_edt(self, mask):
+        edt = scipy.ndimage.distance_transform_edt(mask)
+        edt = edt/edt.max()
+        return edt
+    
     def _raise_norm_value_zero(self):
         print('')
         self.logger.info(
@@ -2798,7 +2803,7 @@ class Kernel(_ParamsParser):
             raw_spots_img=None, ref_ch_img=None, ref_ch_mask_or_labels=None, 
             frame_i=0, lab=None, rp=None, do_filter_spots_vs_ref_ch=False, 
             df_agg=None, do_keep_spots_in_ref_ch=False, 
-            gop_filtering_thresholds=None,
+            gop_filtering_thresholds=None, dist_transform_spheroid=None,
             detection_method='peak_local_max', prediction_method='Thresholding',
             threshold_method='threshold_otsu', do_aggregate_objs=False,
             lineage_table=None, min_size_spheroid_mask=None, verbose=True,
@@ -2850,7 +2855,8 @@ class Kernel(_ParamsParser):
             raw_spots_img=raw_spots_img, prediction_mask=prediction_mask,
             do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch, 
             gop_filtering_thresholds=gop_filtering_thresholds,
-            lineage_table=lineage_table
+            lineage_table=lineage_table, 
+            dist_transform_spheroid=dist_transform_spheroid
         )
         if df_spots_det is not None:
             dfs_segm_obj = self._add_aggregated_spots_features(
@@ -2889,7 +2895,7 @@ class Kernel(_ParamsParser):
             spot_footprint=None, min_size_spheroid_mask=None,
             raw_spots_img=None, gop_filtering_thresholds=None, 
             do_keep_spots_in_ref_ch=False, prediction_mask=None,
-            lineage_table=None
+            lineage_table=None, dist_transform_spheroid=None
         ):
         if verbose:
             print('')
@@ -2995,6 +3001,7 @@ class Kernel(_ParamsParser):
             self.logger.info(f'Number of spots detected = {num_spots}')
             self.logger.info('Iterating goodness-of-peak test...')
             
+            i = 0
             while True:     
                 num_spots_prev = len(df_obj_spots_gop)      
                 df_obj_spots_gop = self._compute_obj_spots_metrics(
@@ -3002,12 +3009,17 @@ class Kernel(_ParamsParser):
                     local_peaks_coords, local_spots_img_detect, 
                     raw_spots_img_obj=raw_spots_img_obj,
                     min_size_spheroid_mask=min_size_spheroid_mask, 
+                    dist_transform_spheroid=dist_transform_spheroid,
                     ref_ch_mask_obj=local_ref_ch_mask, 
                     ref_ch_img_obj=local_ref_ch_img,
                     do_filter_spots_vs_ref_ch=do_filter_spots_vs_ref_ch,
                     zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
                     verbose=verbose                    
                 )
+                if i == 0:
+                    # Store metrics at first iteration
+                    df_obj_spots_det = df_obj_spots_gop.copy()
+                
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds
                 )
@@ -3016,9 +3028,13 @@ class Kernel(_ParamsParser):
                 if num_spots_current == num_spots_prev or num_spots_current == 0:
                     # Number of filtered spots stopped decreasing --> stop loop
                     break
-            
+
+                i += 1
+
             print('')
-            self.logger.info(f'Number of valid spots = {num_spots_current}')
+            self.logger.info(
+                f'Number of valid spots after {i+1} iterations = {num_spots_current}'
+            )
 
             dfs_spots_gop.append(df_obj_spots_gop)
             pbar.update()
@@ -3179,12 +3195,28 @@ class Kernel(_ParamsParser):
         )
         df.at[idx, 'spot_dist_2D_from_ref_ch'] = dist_2D_from_ref_ch
 
+    def _get_normalised_spot_ref_ch_intensities(
+            self, normalised_spots_img_obj, normalised_ref_ch_img_obj,
+            spheroid_mask, slice_global_to_local, dist_transf
+        ):
+        norm_spot_slice = (normalised_spots_img_obj[slice_global_to_local])
+        norm_spot_slice_dt = norm_spot_slice*dist_transf
+        norm_spot_intensities = norm_spot_slice_dt[spheroid_mask]
+
+        norm_ref_ch_slice = (normalised_ref_ch_img_obj[slice_global_to_local])
+        norm_ref_ch_slice_dt = norm_ref_ch_slice*dist_transf
+        norm_ref_ch_intensities = norm_ref_ch_slice_dt[spheroid_mask]
+
+        return norm_spot_intensities, norm_ref_ch_intensities
+
+
     # @acdctools.utils.exec_time
     def _compute_obj_spots_metrics(
             self, spots_img_obj, df_obj_spots, obj_mask, local_peaks_coords, 
             spots_img_detect_obj, raw_spots_img_obj=None, 
-            min_size_spheroid_mask=None, ref_ch_mask_obj=None, 
-            ref_ch_img_obj=None, zyx_resolution_limit_pxl=None, 
+            min_size_spheroid_mask=None, dist_transform_spheroid=None,
+            ref_ch_mask_obj=None, ref_ch_img_obj=None, 
+            zyx_resolution_limit_pxl=None, 
             do_filter_spots_vs_ref_ch=False,
             verbose=False
         ):
@@ -3222,7 +3254,12 @@ class Kernel(_ParamsParser):
             The boolean mask of the smallest spot expected, by default None. 
             This is pre-computed using the resolution limit equations and the 
             pixel size. If None, this will be computed from 
-            `zyx_resolution_limit_pxl`
+            `zyx_resolution_limit_pxl`.
+        dist_transform_spheroid : (Z, Y, X) ndarray, optional
+            A distance transform of the `min_size_spheroid_mask`. This will be 
+            multiplied by the spots intensities to reduce the skewing effect of 
+            neighbouring peaks. 
+            It must have the same shape of `min_size_spheroid_mask`
         ref_ch_mask_obj : (Z, Y, X) ndarray of dtype bool or None, optional
             Boolean mask of the reference channel, e.g., obtained by 
             thresholding. The first dimension must be  the number of z-slices.
@@ -3253,6 +3290,9 @@ class Kernel(_ParamsParser):
             min_size_spheroid_mask=min_size_spheroid_mask, 
             zyx_radii_pxl=zyx_resolution_limit_pxl
         )
+
+        if dist_transform_spheroid is None:
+            dist_transform_spheroid = min_size_spheroid_mask
 
         # Check if spots_img needs to be normalised
         if do_filter_spots_vs_ref_ch:
@@ -3290,14 +3330,13 @@ class Kernel(_ParamsParser):
             )
             slice_global_to_local, slice_crop_local = slices
             spheroid_mask = min_size_spheroid_mask[slice_crop_local]
+            dist_transf = dist_transform_spheroid[slice_crop_local]
+            spot_slice = spots_img_obj[slice_global_to_local]
+            spot_slice_detect = spot_slice*dist_transf
 
             # Add metrics from spot_img (which could be filtered or not)
-            spot_intensities = (
-                spots_img_obj[slice_global_to_local][spheroid_mask]
-            )
-            spot_intensities_detect = (
-                spots_img_detect_obj[slice_global_to_local][spheroid_mask]
-            )
+            spot_intensities = spot_slice[spheroid_mask]
+            spot_intensities_detect = spot_slice_detect[spheroid_mask]
 
             value = spots_img_obj[zyx_center]
             df_obj_spots.at[spot_id, 'spot_preproc_intensity_at_center'] = value
@@ -3331,11 +3370,11 @@ class Kernel(_ParamsParser):
             )
 
             if do_filter_spots_vs_ref_ch:
-                normalised_spot_intensities = (
-                    normalised_spots_img_obj[slice_global_to_local][spheroid_mask]
-                )
-                normalised_ref_ch_intensities = (
-                    normalised_ref_ch_img_obj[slice_global_to_local][spheroid_mask]
+                normalised_spot_intensities, normalised_ref_ch_intensities = (
+                    self._get_normalised_spot_ref_ch_intensities(
+                        normalised_spots_img_obj, normalised_ref_ch_img_obj,
+                        spheroid_mask, slice_global_to_local, dist_transf
+                    )
                 )
                 self._add_ttest_values(
                     normalised_spot_intensities, normalised_ref_ch_intensities, 
@@ -3668,6 +3707,8 @@ class Kernel(_ParamsParser):
         min_size_spheroid_mask = self._get_local_spheroid_mask(
             zyx_resolution_limit_pxl
         )
+        edt_spheroid = self._distance_transform_edt(min_size_spheroid_mask)
+
         # Get footprint passed to peak_local_max --> use half the radius
         # since spots can overlap by the radius according to resol limit
         spot_footprint = self._get_local_spheroid_mask(
@@ -3744,6 +3785,7 @@ class Kernel(_ParamsParser):
                 raw_spots_img=raw_spots_img, 
                 dfs_lists=dfs_lists,
                 min_size_spheroid_mask=min_size_spheroid_mask,
+                dist_transform_spheroid=edt_spheroid,
                 spot_footprint=spot_footprint,
                 do_filter_spots_vs_ref_ch=do_filter_spots_vs_ref_ch,
                 do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch,
