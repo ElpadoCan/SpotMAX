@@ -217,25 +217,30 @@ class _ParamsParser(_DataLoader):
         self.is_cli = is_cli
     
     def _check_path_to_report(
-            self, path_to_report, params_path, force_default=False
+            self, report_folderpath, params_path, report_filename='', 
+            force_default=False
         ):
-        if path_to_report and not os.path.isdir(path_to_report):
+        if report_folderpath and not os.path.isdir(report_folderpath):
             raise FileNotFoundError(
                 'The provided path to the final report does not exist or '
-                f'is not a folder path. Path: "{path_to_report}"'
-            )        
-        if path_to_report:
-            force_default = True
+                f'is not a folder path. Path: "{report_folderpath}"'
+            )   
+
+        if report_folderpath and report_filename:
+            # User provided both folder path and filename for the report file
+            report_filepath = os.path.join(report_folderpath, report_filename)
+            return report_filepath
         
-        path_to_report = self.get_default_report_filepath(params_path)
-        if force_default:
-            return path_to_report
+        report_filepath = self.get_default_report_filepath(params_path)
+        if report_folderpath or force_default:
+            # User provided folder path in .ini or as argument but not the filename
+            return report_filepath
         
-        rel_path_to_report = io.get_relpath(path_to_report)
-        if path_to_report == rel_path_to_report:
-            path_to_report_option = rel_path_to_report
+        report_rel_filepath = io.get_relpath(report_filepath)
+        if report_filepath == report_rel_filepath:
+            report_filepath_option = report_rel_filepath
         else:
-            path_to_report_option = f'...{os.sep}{rel_path_to_report}'
+            report_filepath_option = f'...{os.sep}{report_rel_filepath}'
         default_option = 'Save report to default path'
         options = (
             default_option, 'Save report to..', 'Do not save report'
@@ -243,7 +248,7 @@ class _ParamsParser(_DataLoader):
         info_txt = (
             'spotMAX can save a final report with a summary of warnings '
             'and errors raised during the analysis.\n\n'
-            f'Default report path: "{path_to_report_option}"'
+            f'Default report path: "{report_filepath_option}"'
         )
         question = 'Where do you want to save the report'
         answer = io.get_user_input(
@@ -253,20 +258,61 @@ class _ParamsParser(_DataLoader):
         if answer is None:
             return
         if answer == default_option:
-            return path_to_report
+            return report_filepath
         if answer == 'Do not save report':
             return 'do_not_save'
         
-        report_folder_path = acdctools.io.get_filename_cli(
+        report_folderpath = acdctools.io.get_filename_cli(
             question='Insert the folder path where to save the report',
             check_exists=True, is_path=True
         )
-        if report_folder_path is None:
+        if report_folderpath is None:
             return
-        report_filename = os.path.dirname(path_to_report)
-        path_to_report = os.path.join(report_folder_path, report_filename)
+        report_filename = os.path.basename(report_filepath)
+        report_filepath = os.path.join(report_folderpath, report_filename)
         
-        return path_to_report
+        return report_filepath
+
+    def _check_exists_report_file(self, report_filepath):
+        if not os.path.exists(report_filepath):
+            return report_filepath
+        
+        new_report_filepath = acdctools.path.newfilepath(report_filepath)
+        new_report_filename = os.path.basename(new_report_filepath)
+        
+        default_option = f'Save as "{new_report_filename}"'
+        options = (
+            default_option, 'Save as..', 'Do not save report'
+        )
+        info_txt = (
+            'The provided report file already exists.\n\n'
+            f'Report file path: "{report_filepath}"'
+        )
+        question = 'How do you want to proceed'
+        answer = io.get_user_input(
+            question, options=options, info_txt=info_txt, 
+            logger=self.logger.info, default_option=default_option
+        )
+        if answer is None:
+            return
+        if answer == default_option:
+            return new_report_filepath
+        if answer == 'Do not save report':
+            return 'do_not_save'
+        
+        new_report_filename = acdctools.io.get_filename_cli(
+            question='Write a filename for the report file',
+            check_exists=False, is_path=False
+        )
+        if new_report_filename is None:
+            return
+        if not new_report_filepath.endswith('.rst'):
+            new_report_filepath = f'{new_report_filepath}.rst'
+        
+        folder_path = os.path.dirname(report_filepath)
+        new_report_filepath = os.path.join(folder_path, new_report_filename)
+        return new_report_filepath
+
 
     def _check_numba_num_threads(self, num_threads, force_default=False):
         max_num_threads = numba.config.NUMBA_NUM_THREADS
@@ -328,12 +374,8 @@ class _ParamsParser(_DataLoader):
             arg_name = options['parser_arg']
             value = parser_args[arg_name]
             if anchor == 'pathToReport':
-                report_folderpath = os.path.dirname(value)
-                report_filename = os.path.basename(value)
-                configPars[SECTION][options['desc']] = report_folderpath
-                configPars[SECTION]['Filename of final report'] = report_filename
-            else:
-                configPars[SECTION][options['desc']] = str(value)
+                value = os.path.dirname(value)
+            configPars[SECTION][options['desc']] = str(value)
         
         with open(params_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
@@ -379,15 +421,18 @@ class _ParamsParser(_DataLoader):
             parser_args['metadata'] = metadata_path
         
         disable_final_report = parser_args['disable_final_report']
-        path_to_report = parser_args['path_to_report']
+        report_folderpath = parser_args['report_folderpath']
+
         if not disable_final_report:
-            path_to_report = self._check_path_to_report(
-                path_to_report, params_path, force_default=force_default
+            report_filepath = self._check_path_to_report(
+                report_folderpath, params_path, force_default=force_default,
+                report_filename=parser_args['report_filename']
             )
-            if path_to_report is None:
+            report_filepath = self._check_exists_report_file(report_filepath)
+            if report_filepath is None:
                 self.logger.info(
                     'spotMAX execution stopped by the user. '
-                    'Path to final report was not provided.'
+                    'Report filepath was not provided.'
                 )
                 self.quit()
                 return
@@ -395,6 +440,7 @@ class _ParamsParser(_DataLoader):
             if path_to_report == 'do_not_save':
                 parser_args['disable_final_report'] = True
             parser_args['path_to_report'] = path_to_report
+            parser_args['report_filename'] = os.path.basename(path_to_report)
         
         if NUMBA_INSTALLED:
             num_threads = int(parser_args['num_threads'])
@@ -867,7 +913,7 @@ class _ParamsParser(_DataLoader):
         print('*'*50)
         err_msg = (
             f'[WARNING]: The configuration file "{self.ini_params_filename}" is missing '
-            ':\n\n'
+            'the following parameters:\n\n'
             f'{missing_params_format}\n\n'
         )
         

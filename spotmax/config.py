@@ -243,7 +243,21 @@ def _configuration_params():
             'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
             'actions': None,
             'dtype': str, 
-            'parser_arg': 'path_to_report'
+            'parser_arg': 'report_folderpath'
+        },
+        'reportFilename': {
+            'desc': 'Filename of final report',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': str, 
+            'parser_arg': 'report_filename'
         },
         'disableFinalReport': {
             'desc': 'Disable saving of the final report',

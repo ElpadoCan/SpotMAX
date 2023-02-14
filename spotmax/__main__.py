@@ -28,11 +28,19 @@ def cli_parser():
     )
 
     ap.add_argument(
-        '-t', '--path_to_report',
+        '-t', '--report_folderpath',
         default='',
         type=str,
-        metavar='PATH_TO_FINAL_REPORT',
-        help=('Path of the report file created at the end of the analysis')
+        metavar='REPORT_FOLDERPATH',
+        help=('Folder path where to save the report created at the end of the analysis')
+    )
+
+    ap.add_argument(
+        '-l', '--report_filename',
+        default='',
+        type=str,
+        metavar='REPORT_FILENAME',
+        help=('Filename of the report created at the end of the analysis')
     )
 
     ap.add_argument(
