@@ -273,8 +273,8 @@ class _ParamsParser(_DataLoader):
         
         return report_filepath
 
-    def _check_exists_report_file(self, report_filepath):
-        if not os.path.exists(report_filepath):
+    def _check_exists_report_file(self, report_filepath, force_default=False):
+        if not os.path.exists(report_filepath) or force_default:
             return report_filepath
         
         new_report_filepath = acdctools.path.newfilepath(report_filepath)
@@ -318,7 +318,7 @@ class _ParamsParser(_DataLoader):
         max_num_threads = numba.config.NUMBA_NUM_THREADS
         default_option = str(int(max_num_threads/2))
         if force_default:
-            return default_option
+            return int(default_option)
         options = [str(n) for n in range(1,max_num_threads+1)]
         info_txt = (
             'spotMAX can perform some of the analysis steps considerably faster '
@@ -426,7 +426,9 @@ class _ParamsParser(_DataLoader):
                 report_folderpath, params_path, force_default=force_default,
                 report_filename=parser_args['report_filename']
             )
-            report_filepath = self._check_exists_report_file(report_filepath)
+            report_filepath = self._check_exists_report_file(
+                report_filepath, force_default=force_default
+            )
             if report_filepath is None:
                 self.logger.info(
                     'spotMAX execution stopped by the user. '
@@ -439,7 +441,7 @@ class _ParamsParser(_DataLoader):
                 parser_args['disable_final_report'] = True
             parser_args['report_folderpath'] = os.path.dirname(report_filepath)
             parser_args['report_filename'] = os.path.basename(report_filepath)
-        
+
         if NUMBA_INSTALLED:
             num_threads = int(parser_args['num_threads'])
             num_threads = self._check_numba_num_threads(
@@ -453,6 +455,12 @@ class _ParamsParser(_DataLoader):
                 self.quit()
                 return
             parser_args['num_threads'] = num_threads
+        else:
+            self.logger.info(
+                '[WARNING]: numba not installed. '
+                'Consider installing it with `pip install numba`. '
+                'It will speed up analysis if you need to compute the spots size.'
+            )
         
         raise_on_critical = parser_args['raise_on_critical']
         raise_on_critical_present = parser_args.get(
