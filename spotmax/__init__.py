@@ -11,11 +11,7 @@ except ModuleNotFoundError:
     )
 
 try:
-    import PyQt5
-    import pyqtgraph
-    import psutil
-    import matplotlib
-    import seaborn
+    import cellacdc
     GUI_INSTALLED = True
 except ModuleNotFoundError:
     GUI_INSTALLED = False

@@ -342,13 +342,25 @@ def readStoredParamsINI(ini_path, params):
                 continue
 
             if isinstance(defaultVal, bool):
-                config_value = configPars.getboolean(section, option, fallback=None)
+                try:
+                    config_value = configPars.getboolean(section, option)
+                except Exception as e:
+                    config_value = None
             elif isinstance(defaultVal, float):
-                config_value = configPars.getfloat(section, option, fallback=None)
+                try:
+                    config_value = configPars.getfloat(section, option)
+                except Exception as e:
+                    config_value = None
             elif isinstance(defaultVal, int):
-                config_value = configPars.getint(section, option, fallback=None)
+                try:
+                    config_value = configPars.getint(section, option)
+                except Exception as e:
+                    config_value = None
             elif isinstance(defaultVal, str):
-                config_value = configPars.get(section, option, fallback=None)
+                try:
+                    config_value = configPars.get(section, option)
+                except Exception as e:
+                    config_value = None
 
             params[section][anchor]['isSectionInConfig'] = True
             params[section][anchor]['loadedVal'] = config_value
@@ -830,6 +842,9 @@ class expFolderScanner:
         p_ellip_test_csv_filename = f'{run}_3_p-_ellip_test_data_Summary'
         p_ellip_test_h5_filename = f'{run}_3_p-_ellip_test_data'
 
+        valid_spots_filename = f'{run}_1_valid_spots'
+        spotfit_filename = f'{run}_2_spotfit'
+
         spotSize_csv_filename = f'{run}_4_spotfit_data_Summary'
         spotSize_h5_filename = f'{run}_4_spotFIT_data'
         for file in utils.listdir(spotmaxOutPath):
@@ -837,31 +852,48 @@ class expFolderScanner:
                 file.find(p_ellip_test_csv_filename)!=-1
                 and file.endswith('.csv')
             )
-            if isSpotCountCsvPresent:
+            isValidSpotsCsvPresent = (
+                file.find(valid_spots_filename)!=-1
+                and file.endswith('.csv')
+            )
+            if isSpotCountCsvPresent or isValidSpotsCsvPresent:
                 numSpotCountFilesPresent += 1
 
             isSpotCount_h5_present = (
                 file.find(p_ellip_test_h5_filename)!=-1
                 and file.endswith('.h5')
             )
-            if isSpotCount_h5_present:
+            isValidSpots_h5_present = (
+                file.find(valid_spots_filename)!=-1
+                and file.endswith('.h5')
+            )
+            if isSpotCount_h5_present or isValidSpots_h5_present:
                 numSpotCountFilesPresent += 1
 
             isSpotSizeCsvPresent = (
                 file.find(spotSize_csv_filename)!=-1
                 and file.endswith('.csv')
             )
-            if isSpotSizeCsvPresent:
+            isSpotFitCsvPresent = (
+                file.find(spotfit_filename)!=-1
+                and file.endswith('.csv')
+            )
+            if isSpotSizeCsvPresent or isSpotFitCsvPresent:
                 numSpotSizeFilesPresent += 1
+            
             isSpotSize_h5_present = (
                 file.find(spotSize_h5_filename)!=-1
                 and file.endswith('.h5')
             )
-            if isSpotSize_h5_present:
+            isSpotFit_h5_present = (
+                file.find(spotfit_filename)!=-1
+                and file.endswith('.h5')
+            )
+            if isSpotSize_h5_present or isSpotFit_h5_present:
                 numSpotSizeFilesPresent += 1
 
-        isPosSpotCounted = numSpotCountFilesPresent == 2
-        isPosSpotSized = numSpotSizeFilesPresent == 2
+        isPosSpotCounted = numSpotCountFilesPresent >= 2
+        isPosSpotSized = numSpotSizeFilesPresent >= 2
 
         return isPosSpotCounted, isPosSpotSized
 
@@ -1720,11 +1752,30 @@ def get_basename_and_ch_names(images_path):
 
 def _get_user_input_cli(
         question_text: str, options: Iterable[str]=None, 
-        default_option: str='', info_txt=None, logger=print
+        default_option: str='', info_txt=None, logger=print, dtype=None,
+        format_vertical=False
     ):
     if info_txt is not None:
         logger(info_txt)
         logger('')
+    
+    if dtype == int or dtype == 'int' or dtype == 'uint':
+        input_text = f'{question_text}: '
+        while True:
+            try:
+                answer = input(input_text)
+                if answer.lower() == 'q':
+                    # User requested to exit
+                    return
+                integer = int(answer)
+                if dtype == 'uint' and integer<1:
+                    raise TypeError 
+            except Exception as e:
+                logger('Not a valid answer. Insert an integer or type "q" to exit.')
+                logger('')
+                continue
+            
+            return integer
     
     is_yes_no = False
     if options is None:
@@ -1746,8 +1797,16 @@ def _get_user_input_cli(
     options_nums = '/'.join(options_nums)
     if options_txt:
         options_txt.append('q) Quit.')
-        options_txt = ' '.join(options_txt)
-        input_text = f'{question_text}: {options_txt} ({options_nums})?: '
+        if format_vertical:
+            options_txt = [f'    {option}' for option in options_txt]
+            options_txt = '\n'.join(options_txt)
+            options_txt = f'\n\n{options_txt}'
+            options_nums = f'\n\n({options_nums})'
+        else:
+            options_txt = ' '.join(options_txt)
+            options_txt = f' {options_txt}'
+            options_nums = f' ({options_nums})'
+        input_text = f'{question_text}:{options_txt}{options_nums}?: '
     else:
         input_text = f'{question_text} ({options_nums})?: '
     
@@ -1807,7 +1866,7 @@ def _raise_EOFerror(logger=print):
 def get_user_input(
         question_text: str, options: Iterable[str]=None, 
         default_option: str='', info_txt: str=None, qparent=None, 
-        logger=print
+        logger=print, dtype=None, format_vertical=False
     ):
     # Default choice in square brackets, choices in brackets after question
     if qparent:
@@ -1819,7 +1878,8 @@ def get_user_input(
             logger('*'*50)
             answer_txt = _get_user_input_cli(
                 question_text, options, default_option=default_option, 
-                info_txt=info_txt, logger=logger
+                info_txt=info_txt, logger=logger, dtype=dtype,
+                format_vertical=format_vertical
             )
             if answer_txt is not None:
                 logger(f'Selected option: "{answer_txt}"')

@@ -53,9 +53,9 @@ effect_size_func = features.get_effect_size_func()
 aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
 
 dfs_filenames = {
-    'spots_detection': '*rn*_0_Orig_data.h5',
-    'spots_gop': '*rn*_3_p-_ellip_test_data.h5',
-    'spots_spotfit': '*rn*_4_spotFIT_data.h5'
+    'spots_detection': '*rn*_0_detected_spots*desc*.h5',
+    'spots_gop': '*rn*_1_valid_spots*desc*.h5',
+    'spots_spotfit': '*rn*_2_spotfit*desc*.h5'
 }
 
 class _DataLoader:
@@ -273,16 +273,24 @@ class _ParamsParser(_DataLoader):
         
         return report_filepath
 
-    def _check_exists_report_file(self, report_filepath, force_default=False):
+    def _check_exists_report_file(
+            self, report_filepath, params_path, force_default=False
+        ):
+        report_default_filepath = self.get_default_report_filepath(params_path)
+        report_default_filename = os.path.basename(report_default_filepath)
+
         if not os.path.exists(report_filepath) or force_default:
-            return report_filepath
+            return report_default_filepath
         
-        new_report_filepath = acdctools.path.newfilepath(report_filepath)
+        new_report_filepath, txt = acdctools.path.newfilepath(report_filepath)
         new_report_filename = os.path.basename(new_report_filepath)
+
         
-        default_option = f'Save as "{new_report_filename}"'
+        
+        default_option = f'Save with default filename "{report_default_filename}"'
         options = (
-            default_option, 'Save as..', 'Do not save report'
+            default_option, f'Append "{txt}" to filename', 'Save as..', 
+            'Do not save report'
         )
         info_txt = (
             'The provided report file already exists.\n\n'
@@ -291,11 +299,14 @@ class _ParamsParser(_DataLoader):
         question = 'How do you want to proceed'
         answer = io.get_user_input(
             question, options=options, info_txt=info_txt, 
-            logger=self.logger.info, default_option=default_option
+            logger=self.logger.info, default_option=default_option,
+            format_vertical=True
         )
         if answer is None:
             return
         if answer == default_option:
+            return report_default_filepath
+        if answer == options[1]:
             return new_report_filepath
         if answer == 'Do not save report':
             return 'do_not_save'
@@ -359,10 +370,7 @@ class _ParamsParser(_DataLoader):
         else:
             return True
     
-    def _add_parser_args_to_params_ini_file(self, parser_args, params_path):
-        if not params_path.endswith('.ini'):
-            return parser_args
-        
+    def add_parser_args_to_params_ini_file(self, parser_args, params_path):        
         configPars = config.ConfigParser()
         configPars.read(params_path, encoding="utf-8")
         SECTION = 'Configuration'
@@ -427,7 +435,7 @@ class _ParamsParser(_DataLoader):
                 report_filename=parser_args['report_filename']
             )
             report_filepath = self._check_exists_report_file(
-                report_filepath, force_default=force_default
+                report_filepath, params_path, force_default=force_default
             )
             if report_filepath is None:
                 self.logger.info(
@@ -479,11 +487,8 @@ class _ParamsParser(_DataLoader):
                 return
             parser_args['raise_on_critical'] = raise_on_critical
 
-        self._add_parser_args_to_params_ini_file(parser_args, params_path)
-
         return parser_args
 
-    
     @utils.exception_handler_cli
     def init_params(self, params_path, metadata_csv_path=''):        
         self._params = config.analysisInputsParams(params_path)
@@ -520,8 +525,12 @@ class _ParamsParser(_DataLoader):
         self.check_metadata()
         self.check_missing_params()
         self.cast_loaded_values_dtypes()
+        proceed = self.check_paths_exist()
+        if not proceed:
+            return False
         self.set_abs_exp_paths()
         self.set_metadata()
+        return True
     
     def _ask_user_save_ini_from_csv(self, ini_filepath):
         filename = os.path.basename(ini_filepath)
@@ -568,6 +577,31 @@ class _ParamsParser(_DataLoader):
             )      
             return True
 
+    def _ask_user_run_num_exists(self, user_run_num, run_nums):
+        default_option = f'Overwrite existing run number {user_run_num}'
+        options = ('Choose a different run number', default_option )
+        question = 'What do you want to do'
+        txt = (
+            f'[WARNING]: The requested run number {user_run_num} already exists! '
+            f'(run numbers presents are {run_nums})'
+        )
+        if self._force_default:
+            self.logger.info('*'*50)
+            self.logger.info(txt)
+            io._log_forced_default(default_option, self.logger.info)
+            return user_run_num
+        answer = io.get_user_input(
+            question, options=options, info_txt=txt, logger=self.logger.info
+        )
+        if answer is None:
+            return
+        if answer == default_option:
+            return user_run_num
+        
+        question = 'Insert an integer greater than 0 for the run number'
+        user_run_num = io.get_user_input(question, dtype='uint')
+        return user_run_num
+
     def _ask_user_multiple_run_nums(self, run_nums):
         new_run_num = max(run_nums)+1
         default_option = f'Save as new run number {new_run_num}'
@@ -582,12 +616,11 @@ class _ParamsParser(_DataLoader):
             self.logger.info('*'*50)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
-            answer = default_option
-        else:
-            answer = io.get_user_input(
-                question, options=options, info_txt=txt, 
-                logger=self.logger.info
-            )
+            return new_run_num
+
+        answer = io.get_user_input(
+            question, options=options, info_txt=txt, logger=self.logger.info
+        )
         if answer == options[1]:
             return new_run_num
         elif answer == options[0]:
@@ -597,14 +630,42 @@ class _ParamsParser(_DataLoader):
             new_run_num = int(new_run_num_txt[11:])
             return new_run_num
     
+    def _store_run_number(self, run_number, pathScannerPaths, exp_paths):
+        if exp_paths:
+            for exp_path in list(exp_paths.keys()):
+                exp_paths[exp_path]['run_number'] = run_number
+        else:
+            exp_paths = {}
+            for run_num, run_num_info in pathScannerPaths.items():
+                for exp_path, exp_info in run_num_info.items():
+                    if exp_path in exp_paths:
+                        continue
+                    exp_paths[exp_path] = {
+                        'pos_foldernames': exp_info['posFoldernames'],
+                        'run_number': run_number
+                    }
+        # Store in .ini file
+        configPars = config.ConfigParser()
+        configPars.read(self.ini_params_file_path, encoding="utf-8")
+        SECTION = 'File paths and channels'
+        if SECTION not in configPars.sections():
+            configPars[SECTION] = {}
+        ANCHOR = 'runNumber'
+        option = self._params[SECTION][ANCHOR]['desc']
+        configPars[SECTION][option] = str(run_number)
+
+        with open(self.ini_params_file_path, 'w', encoding="utf-8") as file:
+            configPars.write(file)
+
+
     @utils.exception_handler_cli
     def set_abs_exp_paths(self):
         SECTION = 'File paths and channels'
         ANCHOR = 'filePathsToAnalyse'
         loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
+        user_run_number = self._params[SECTION]['runNumber'].get('loadedVal')
         self.exp_paths_list = []
         for exp_path in loaded_exp_paths:
-            is_single_pos = False
             if io.is_pos_path(exp_path):
                 pos_path = exp_path
                 pos_foldername = os.path.basename(exp_path)
@@ -612,7 +673,6 @@ class _ParamsParser(_DataLoader):
                 exp_paths = (
                     {exp_path: {'pos_foldernames': [pos_foldername]}}
                 )
-                is_single_pos = True
             elif io.is_images_path(exp_path):
                 pos_path = os.path.dirname(exp_path)
                 pos_foldername = os.path.basename(pos_path)
@@ -620,44 +680,64 @@ class _ParamsParser(_DataLoader):
                 exp_paths = (
                     {exp_path: {'pos_foldernames': [pos_foldername]}}
                 )
-                is_single_pos = True
+            else:
+                exp_paths = {}
             
             # Scan and determine run numbers
             pathScanner = io.expFolderScanner(exp_path)
             pathScanner.getExpPaths(exp_path)
             pathScanner.infoExpPaths(pathScanner.expPaths)
             run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
-            is_multi_run = False
-            if len(run_nums) > 1:
+
+            if len(run_nums) > 1 and user_run_number is None:
+                # Multiple run numbers detected
                 run_number = self._ask_user_multiple_run_nums(run_nums)
                 if run_number is None:
                     self.logger.info(
                         'spotMAX stopped by the user. Run number was not provided.'
                     )
                     self.quit()
-                if is_single_pos:
-                    exp_paths['run_number'] = run_number
-                else:
-                    exp_paths = {}
-                    for run_num, run_num_info in pathScanner.paths.items():
-                        for exp_path, exp_info in run_num_info.items():
-                            if exp_path in exp_paths:
-                                continue
-                            exp_paths[exp_path] = {
-                                'pos_foldernames': exp_info['posFoldernames'],
-                                'run_number': run_number
-                            }
-            else:
-                exp_paths = {}
+            elif user_run_number is None:
+                # Single run number --> we still need to check if already exists
+                ask_run_number = False
                 for exp_path, exp_info in pathScanner.paths[run_nums[0]].items():
-                    if not exp_info['numPosSpotCounted'] > 0:
-                        run_number = 1
-                    else:
-                        run_number = self._ask_user_multiple_run_nums(run_nums)
-                    exp_paths[exp_path] = {
-                        'pos_foldernames': exp_info['posFoldernames'],
-                        'run_number': run_number
-                    }
+                    if exp_info['numPosSpotCounted'] > 0:
+                        ask_run_number = True
+                        break
+                else:
+                    run_number = 1
+                
+                if ask_run_number:
+                    run_number = self._ask_user_multiple_run_nums(run_nums)
+                    if run_number is None:
+                        self.logger.info(
+                            'spotMAX stopped by the user.'
+                            'Run number was not provided.'
+                        )
+                        self.quit()
+            elif user_run_number is not None:
+                # Check that user run number is not already existing
+                if user_run_number in run_nums:
+                    run_num_info = pathScanner.paths[user_run_number]
+                    ask_run_number = False
+                    for exp_path, exp_info in run_num_info.items():
+                        if exp_info['numPosSpotCounted'] > 0:
+                            ask_run_number = True
+                            break
+                    
+                    if ask_run_number:
+                        user_run_number = self._ask_user_run_num_exists(
+                            user_run_number, run_nums
+                        )
+                        if user_run_number is None:
+                            self.logger.info(
+                                'spotMAX stopped by the user.'
+                                'Run number was not provided.'
+                            )
+                            self.quit()
+                    
+                run_number = user_run_number
+            self._store_run_number(run_number, pathScanner.paths, exp_paths)
             self.exp_paths_list.append(exp_paths)
         self.set_channel_names()
     
@@ -668,7 +748,12 @@ class _ParamsParser(_DataLoader):
         ref_ch_endname = section_params['refChEndName'].get('loadedVal')
         segm_endname = section_params['segmEndName'].get('loadedVal')
         ref_ch_segm_endname = section_params['refChSegmEndName'].get('loadedVal')
-        lineage_table_endname = section_params['lineageTableEndName'].get('loadedVal')
+        lineage_table_endname = section_params['lineageTableEndName'].get(
+            'loadedVal'
+        )
+        text_to_append = section_params['textToAppend'].get(
+            'loadedVal', ''
+        )
         if self.exp_paths_list:
             for i in range(len(self.exp_paths_list)):
                 for exp_path in list(self.exp_paths_list[i].keys()):
@@ -678,6 +763,7 @@ class _ParamsParser(_DataLoader):
                     exp_info['segmEndName'] = segm_endname
                     exp_info['refChSegmEndName'] = ref_ch_segm_endname
                     exp_info['lineageTableEndName'] = lineage_table_endname
+                    exp_info['textToAppend'] = text_to_append
                     self.exp_paths_list[i][exp_path] = exp_info
         else:
             self.single_path_info = {
@@ -808,8 +894,27 @@ class _ParamsParser(_DataLoader):
     def _set_default_val_params(self, missing_params):
         for param in missing_params:
             section_name, _, default_val, anchor = param
+            if anchor == 'runNumber':
+                # We do not force any run number, this will be determined later.
+                continue
             self._params[section_name][anchor]['loadedVal'] = default_val
     
+    def _get_default_values_params(self, missing_params):
+        default_values_format = []
+        for param in missing_params:
+            section_name, desc, default_val, anchor = param
+            if anchor == 'runNumber':
+                default_val = (
+                    '1 for never analysed data. '
+                    'Determined later for previously analysed data.'
+                )
+            if not default_val:
+                default_val = 'Empty text --> Ignored.'
+            s = f'    * {desc} (section: [{section_name}]) = {default_val}' 
+            default_values_format.append(s)
+        default_values_format = '\n'.join(default_values_format)
+        return default_values_format
+
     def _ask_user_input_missing_params(self, missing_params, info_txt):
         question = (
             'Do you want to continue with default value for the missing parameters?'
@@ -822,28 +927,28 @@ class _ParamsParser(_DataLoader):
             self.logger.info('*'*50)
             self.logger.info(info_txt)
             io._log_forced_default(options[0], self.logger.info)
-            answer = options[0]
-        else:
+            return True
+        
+        while True:
             answer = io.get_user_input(
                 question, options=options, info_txt=info_txt, 
                 logger=self.logger.info
             )
-        if answer == 'No, stop process' or answer == None:
-            return False
-        elif answer == 'Yes, use default values':
-            self._set_default_val_params(missing_params)
-            return True
-        else:
-            print('')
-            missing_params_str = [
-                f'    * {param[1]} (section: [{param[0]}]) = {param[2]}' 
-                for param in missing_params
-            ]
-            missing_params_format = '\n'.join(missing_params_str)
-            self.logger.info(
-                f'Default values:\n\n{missing_params_format}'
-            )
-            print('-'*50)
+            if answer == 'No, stop process' or answer == None:
+                return False
+            elif answer == 'Yes, use default values':
+                self._set_default_val_params(missing_params)
+                return True
+            else:
+                print('')
+                default_values_format = self._get_default_values_params(
+                    missing_params
+                )
+                self.logger.info(
+                    f'Default values:\n\n{default_values_format}'
+                )
+                print('-'*50)
+                info_txt = ''
     
     def _check_correlated_missing_ref_ch_params(self, missing_params):
         missing_ref_ch_msg = ''
@@ -967,8 +1072,36 @@ class _ParamsParser(_DataLoader):
                 if to_dtype is None:
                     continue
                 value = self._params[section_name][anchor_name]['loadedVal']
-                value = to_dtype(value)
+                try:
+                    value = to_dtype(value)
+                except Exception as e:
+                    value = None
                 self._params[section_name][anchor_name]['loadedVal'] = value
+    
+    def check_paths_exist(self):
+        SECTION = 'File paths and channels'
+        ANCHOR = 'filePathsToAnalyse'
+        loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
+        for exp_path in loaded_exp_paths:
+            if not os.path.exists(exp_path):
+                self.logger.info('='*50)
+                txt = (
+                    '[ERROR]: The provided experiment path does not exist: '
+                    f'{exp_path}{error_up_str}'
+                )
+                self.logger.info(txt)
+                self.logger.info('spotMAX aborted due to ERROR. See above more details.')
+                return False
+            if not os.path.isdir(exp_path):
+                self.logger.info('='*50)
+                txt = (
+                    '[ERROR]: The provided experiment path is not a folder: '
+                    f'{exp_path}{error_up_str}'
+                )
+                self.logger.info(txt)
+                self.logger.info('spotMAX aborted due to ERROR. See above more details.')
+                return False
+        return True
 
 class _GaussianModel:
     def __init__(self, nfev=0):
@@ -3510,8 +3643,8 @@ class Kernel(_ParamsParser):
             f'[ERROR]: The feature name {missing_feature} is not present in the table.\n\n'
             f'Available features are:\n\n{format_colums}{error_up_str}'
         )
-        self.logger.info('spotMAX aborted due to ERROR. See above more details.')
         self.logger.info(txt)
+        self.logger.info('spotMAX aborted due to ERROR. See above more details.')
         self.quit()
     
     def _add_segm_obj_features_from_labels(
@@ -3942,6 +4075,7 @@ class Kernel(_ParamsParser):
             segm_endname = exp_info['segmEndName']
             ref_ch_segm_endname = exp_info['refChSegmEndName']
             lineage_table_endname = exp_info['lineageTableEndName']
+            text_to_append = exp_info['textToAppend']
             desc = 'Experiments completed'
             pbar_pos = tqdm(total=len(exp_paths), ncols=100, desc=desc, position=1) 
             for pos in pos_foldernames:
@@ -3964,7 +4098,10 @@ class Kernel(_ParamsParser):
                 if dfs is None:
                     # Error raised, logged and dfs is None
                     continue
-                self.save_dfs(pos_path, dfs, run_number=run_number)
+                self.save_dfs(
+                    pos_path, dfs, run_number=run_number, 
+                    text_to_append=text_to_append
+                )
                 pbar_pos.update()
             pbar_pos.close()
             pbar_exp.update()
@@ -3990,7 +4127,7 @@ class Kernel(_ParamsParser):
         df_agg_dst.loc[missing_idx_df_agg_dst, cols] = vals
         return df_agg_dst
 
-    def save_dfs(self, folder_path, dfs, run_number=1):
+    def save_dfs(self, folder_path, dfs, run_number=1, text_to_append=''):
         spotmax_out_path = os.path.join(folder_path, 'spotMAX_output')
         if not os.path.exists(spotmax_out_path):
             os.mkdir(spotmax_out_path)
@@ -4000,15 +4137,19 @@ class Kernel(_ParamsParser):
         )
         shutil.copy2(self.ini_params_file_path, analysis_inputs_filepath)
 
+        if text_to_append and not text_to_append.startswith('_'):
+            text_to_append = f'_{text_to_append}'
+
         for key, filename in dfs_filenames.items():
             filename = filename.replace('*rn*', str(run_number))
+            filename = filename.replace('*desc*', text_to_append)
             df_spots = dfs.get(key, None)
             h5_filename = filename
 
             if df_spots is not None:
                 io.save_df_to_hdf(df_spots, spotmax_out_path, h5_filename)
             
-            agg_filename = h5_filename.replace('.h5', '_Summary.csv')
+            agg_filename = h5_filename.replace('.h5', '_aggregated.csv')
             agg_key = key.replace('spots', 'agg')
             df_agg = dfs.get(agg_key, None)
 
@@ -4021,19 +4162,32 @@ class Kernel(_ParamsParser):
 
     @utils.exception_handler_cli
     def run(
-            self, params_path: os.PathLike, metadata_csv_path: os.PathLike='',
-            num_numba_threads: int=-1, force_default_values: bool=False,
-            force_close_on_critical: bool=False, disable_final_report=False,
-            report_filepath=''
+            self, params_path: os.PathLike, 
+            metadata_csv_path: os.PathLike='',
+            num_numba_threads: int=-1, 
+            force_default_values: bool=False, 
+            force_close_on_critical: bool=False, 
+            disable_final_report=False,
+            report_filepath='',
+            parser_args=None
         ):
         self._force_default = force_default_values
         self._force_close_on_critical = force_close_on_critical
         if NUMBA_INSTALLED and num_numba_threads > 0:
             numba.set_num_threads(num_numba_threads)
-        self.init_params(
+        proceed = self.init_params(
             params_path, metadata_csv_path=metadata_csv_path
         )
-        if not disable_final_report or not report_filepath:
+        if not proceed:
+            self.quit()
+            return
+
+        if parser_args is not None:
+            params_path = self.ini_params_file_path
+            self.add_parser_args_to_params_ini_file(parser_args, params_path)
+        
+        is_report_enabled = not disable_final_report
+        if is_report_enabled and report_filepath:
             self.init_report(self.ini_params_file_path, report_filepath)
         
         if self.exp_paths_list:

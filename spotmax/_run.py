@@ -71,6 +71,7 @@ def run_cli(parser_args, debug=False):
         disable_final_report=parser_args['disable_final_report'],
         num_numba_threads=parser_args['num_threads'],
         force_default_values=parser_args['force_default_values'],
-        force_close_on_critical=parser_args['raise_on_critical']
+        force_close_on_critical=parser_args['raise_on_critical'],
+        parser_args=parser_args
     )
     

@@ -81,19 +81,33 @@ def get_threshold_func(func_name):
     return getattr(skimage.filters, func_name)
 
 def get_exp_paths(exp_paths):
+    # Remove white spaces at the start
     exp_paths = exp_paths.lstrip()
+
+    # Remove brackets at the start if user provided a list
     exp_paths = exp_paths.lstrip('[')
     exp_paths = exp_paths.lstrip('(')
 
+    # Remove white spaces at the ena
     exp_paths = exp_paths.rstrip()
+
+    # Remove brackets at the end if user provided a list
     exp_paths = exp_paths.rstrip(']')
     exp_paths = exp_paths.rstrip(')')
 
+    # Replace commas with end of line
     exp_paths = exp_paths.replace('\n',',')
+
+    # Replace eventual double commas with comma
     exp_paths = exp_paths.replace(',,',',')
 
+    # Split paths and remove possible end charachters 
     exp_paths = exp_paths.split(',')
     exp_paths = [path.strip() for path in exp_paths if path]
+    exp_paths = [path.strip('\\') for path in exp_paths if path]
+    exp_paths = [path.strip('/') for path in exp_paths if path]
+
+    exp_paths = [io.get_abspath(path) for path in exp_paths]
     return exp_paths
 
 def parse_list_to_configpars(iterable: list):
@@ -226,6 +240,32 @@ def _filepaths_params():
             'actions': None,
             'dtype': str
         },
+        'runNumber': {
+            'desc': 'Run number',
+            'initialVal': 1,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addEditButton': False,
+            'formWidgetFunc': 'QtWidgets.QSpinBox',
+            'actions': None,
+            'dtype': int
+        },
+        'textToAppend': {
+            'desc': 'Text to append at the end of the output files',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': str
+        },
     }
     return filepaths_params
 
@@ -310,7 +350,7 @@ def _configuration_params():
             'addApplyButton': False,
             'addBrowseButton': False,
             'addAutoButton': True,
-            'formWidgetFunc': 'QtWidgets.QSpinBox',
+            'formWidgetFunc': 'acdc_widgets.SpinBox',
             'actions': None,
             'dtype': int, 
             'parser_arg': 'num_threads'
