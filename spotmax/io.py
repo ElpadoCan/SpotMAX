@@ -1727,19 +1727,24 @@ class loadData:
             return None
 
 def get_relpath(path, depth=4):
-    path_li = os.path.normpath(path).split(os.sep)
-    if len(path_li) <= depth:
+    path_parts = os.path.normpath(path).split(os.sep)
+    if len(path_parts) <= depth:
         return path
-    relpath = os.path.join('', *path_li[-depth:])
+    relpath = os.path.join('', *path_parts[-depth:])
     return relpath
 
 def get_abspath(path):
     if os.path.isabs(path):
         return path
     
+    # UNIX full paths starts with '/'. Check if user forgot that
+    unix_path = f'{os.sep}{path}'
+    if os.path.isabs(unix_path):
+        return unix_path
+    
     cwd_path = os.getcwd()
-    path = path.replace('\\', '/').lstrip('.')
-    path_parts = path.split('/')
+    path = path.lstrip('.')
+    path_parts = os.path.normpath(path).split(os.sep)
     abs_path = os.path.join(cwd_path, *path_parts)
     return abs_path
 

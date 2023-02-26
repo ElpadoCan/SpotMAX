@@ -4,6 +4,26 @@ import sys
 try:
     import acdctools
 except ModuleNotFoundError:
+    try:
+        while True:
+            answer = input(
+                '>>> spotMAX detected the missing library `acdctools`.'
+                'Do you want to proceed with its installation ([y]/n)? ',
+            )
+            if answer == 'n':
+                exit('Installation of `acdctools` cancelled by the user.')
+            elif answer == 'y':
+                break
+            else:
+                print(
+                    f'"{answer}" is not a valid answer. '
+                    'Type "y" for yes, or "n" for no.'
+                )
+    except EOFError as e:
+        print(
+            '[ERROR]: The library `acdctools` is missing. '
+            'Please install it with `pip install acdctools`'
+        )
     import subprocess
     subprocess.check_call(
         [sys.executable, '-m', 'pip', 'install', '-U',

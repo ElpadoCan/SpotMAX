@@ -25,7 +25,7 @@ from scipy.special import erf
 
 import acdctools.io
 import acdctools.utils
-import acdctools.core
+import acdctools.measure
 
 from . import GUI_INSTALLED, error_up_str
 
@@ -3661,7 +3661,7 @@ class Kernel(_ParamsParser):
             idx = (frame_i, obj.label)
             cell_area_pxl = obj.area
             cell_area_um2 = cell_area_pxl*pxl_to_um2
-            cell_vol_vox, cell_vol_fl = acdctools.core.calc_rotational_volume(
+            cell_vol_vox, cell_vol_fl = acdctools.measure.rotational_volume(
                 obj, vox_to_fl=vox_to_fl_rot
             )
             df_agg.at[idx, 'cell_area_pxl'] = cell_area_pxl
