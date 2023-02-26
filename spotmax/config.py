@@ -104,8 +104,8 @@ def get_exp_paths(exp_paths):
     # Split paths and remove possible end charachters 
     exp_paths = exp_paths.split(',')
     exp_paths = [path.strip() for path in exp_paths if path]
-    exp_paths = [path.strip('\\') for path in exp_paths if path]
-    exp_paths = [path.strip('/') for path in exp_paths if path]
+    exp_paths = [path.rstrip('\\') for path in exp_paths if path]
+    exp_paths = [path.rstrip('/') for path in exp_paths if path]
 
     exp_paths = [io.get_abspath(path) for path in exp_paths]
     return exp_paths

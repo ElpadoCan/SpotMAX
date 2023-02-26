@@ -1739,7 +1739,7 @@ def get_abspath(path):
     
     # UNIX full paths starts with '/'. Check if user forgot that
     unix_path = f'{os.sep}{path}'
-    if os.path.isabs(unix_path):
+    if os.path.isabs(unix_path) and os.path.exists(unix_path):
         return unix_path
     
     cwd_path = os.getcwd()
