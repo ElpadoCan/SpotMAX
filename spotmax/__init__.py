@@ -108,3 +108,5 @@ base_lineage_table_values = {
 
 error_up_str = '^'*50
 error_up_str = f'\n{error_up_str}'
+error_down_str = '^'*50
+error_down_str = f'\n{error_down_str}'

@@ -1734,6 +1734,8 @@ def get_relpath(path, depth=4):
     return relpath
 
 def get_abspath(path):
+    path = os.path.normpath(path)
+    
     if os.path.isabs(path):
         return path
     

@@ -27,7 +27,7 @@ import acdctools.io
 import acdctools.utils
 import acdctools.measure
 
-from . import GUI_INSTALLED, error_up_str
+from . import GUI_INSTALLED, error_up_str, error_down_str
 
 if GUI_INSTALLED:
     from acdctools.plot import imshow
@@ -77,6 +77,25 @@ class _DataLoader:
         data = self._initialize_df_agg(data)
         return data
     
+    def _critical_channel_not_found(self, channel, channel_path):
+        self.logger.info(
+            f'{error_down_str}'
+            f'The channel {channel} was not found. If you are trying to load '
+            'a channel without an extension make sure that one of the following '
+            'channels exists:\n\n'
+            f'   * {channel}.tif\n'
+            f'   * {channel}.h5\n'
+            f'   * {channel}_aligned.h5\n'
+            f'   * {channel}_aligned.npz\n'
+            f'   * {channel}.npy\n'
+            f'   * {channel}.npz\n\n'
+            'Alternatively, provide the extension to the channel name in the '
+            '.ini configuration file.\n'
+        )
+        error = FileNotFoundError(f'The channel "{channel}" does not exist')
+        self.logger.info(f'[ERROR]: {error}{error_up_str}')       
+        self.quit()
+    
     def _load_data_from_images_path(
             self, images_path: os.PathLike, spots_ch_endname: str, 
             ref_ch_endname: str, segm_endname: str, ref_ch_segm_endname: str,
@@ -95,7 +114,12 @@ class _DataLoader:
             ch_path = acdctools.io.get_filepath_from_channel_name(
                 images_path, os.path.basename(channel)
             )
+            if not os.path.exists(ch_path):
+                self._critical_channel_not_found(channel, ch_path)
+                return
+
             self.log(f'Loading "{channel}" channel from "{ch_path}"...')
+            import pdb; pdb.set_trace()
             to_float = key == 'spots_ch' or key == 'ref_ch'
             ch_data, ch_dtype = io.load_image_data(
                 ch_path, to_float=to_float, return_dtype=True
