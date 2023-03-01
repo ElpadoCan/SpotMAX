@@ -119,7 +119,6 @@ class _DataLoader:
                 return
 
             self.log(f'Loading "{channel}" channel from "{ch_path}"...')
-            import pdb; pdb.set_trace()
             to_float = key == 'spots_ch' or key == 'ref_ch'
             ch_data, ch_dtype = io.load_image_data(
                 ch_path, to_float=to_float, return_dtype=True
@@ -148,7 +147,7 @@ class _DataLoader:
                 data['is_segm_3D'] = False
 
         if not lineage_table_endname:
-            return
+            return data
 
         # Load lineage table
         table_path = acdctools.io.get_filepath_from_endname(
@@ -309,9 +308,7 @@ class _ParamsParser(_DataLoader):
         new_report_filepath, txt = acdctools.path.newfilepath(report_filepath)
         new_report_filename = os.path.basename(new_report_filepath)
 
-        
-        
-        default_option = f'Save with default filename "{report_default_filename}"'
+        default_option = f'Save with new, default filename "{report_default_filename}"'
         options = (
             default_option, f'Append "{txt}" to filename', 'Save as..', 
             'Do not save report'
@@ -2721,7 +2718,7 @@ class Kernel(_ParamsParser):
             return image_data
 
         print('')
-        self.logger.info(f'Applying a gaussian filter with sigma = {sigma}...')
+        self.logger.info(f'Applying gaussian filter with sigma = {sigma}...')
         filtered_data = skimage.filters.gaussian(image_data, sigma=sigma)
         return filtered_data
     
@@ -2933,20 +2930,38 @@ class Kernel(_ParamsParser):
         rp = skimage.measure.regionprops(lab)
         tot_width = 0
         max_height = 0
+        max_depth = 0
         for obj in rp:
-            h, w = obj.image.shape[-2:]
+            d, h, w = obj.image.shape
             if h > max_height:
                 max_height = h
+            if d > max_depth:
+                max_depth = d
             tot_width += w
 
-        # Aggregate data horizontally
-        aggr_shape = (img_data.shape[0], max_height, tot_width)
+        # Aggregate data horizontally by slicing object centered at 
+        # centroid and using largest object as slicing box
+        aggr_shape = (max_depth, max_height, tot_width)
+        max_h_top = int(max_height/2)
+        max_h_bottom = max_height-max_h_top
+        max_d_fwd = int(max_depth/2)
+        max_d_back = max_depth-max_d_fwd
         aggregated_img = np.zeros(aggr_shape, dtype=img_data.dtype)
         aggregated_img[:] = img_data.min()
         last_w = 0
         for obj in rp:
-            h, w = obj.image.shape[-2:]
-            aggregated_img[:, :h, last_w:last_w+w] = img_data[obj.slice]
+            w = obj.image.shape[-1]
+            slice_w = obj.slice[2]
+            zc, yc, xc = obj.centroid
+            z, y = int(zc), int(yc)
+            h_top = y - max_h_top
+            h_bottom = y + max_h_bottom
+            d_fwd = z - max_d_fwd
+            d_top = z + max_d_back
+            obj_slice = (
+                slice(d_fwd, d_top), slice(h_top, h_bottom), slice_w
+            )
+            aggregated_img[:, :, last_w:last_w+w] = img_data[obj_slice]
             last_w += w
         return aggregated_img
     
@@ -3152,8 +3167,7 @@ class Kernel(_ParamsParser):
                 
                 local_peaks_coords = skimage.feature.peak_local_max(
                     local_spots_img_detect, threshold_abs=threshold_val, 
-                    footprint=footprint, labels=labels, 
-                    p_norm=2
+                    footprint=footprint, labels=labels, p_norm=2
                 )
             else:
                 if prediction_mask is None:
@@ -3812,6 +3826,7 @@ class Kernel(_ParamsParser):
         if self._force_close_on_critical:
             self.quit(error)
         else:
+            self.logger.exception(traceback_str)
             if self._current_pos_path not in self._report['pos_info']:
                 self._report['pos_info'][self._current_pos_path] = {
                     'errors': [], 'warnings': []
@@ -3845,7 +3860,7 @@ class Kernel(_ParamsParser):
 
         stopFrameNum = self.metadata['stopFrameNum']
 
-        desc = 'Adding single-segmentation object features'
+        desc = 'Adding segmentation objects features'
         pbar = tqdm(
             total=stopFrameNum, ncols=100, desc=desc, position=2, leave=False
         )
@@ -3976,6 +3991,7 @@ class Kernel(_ParamsParser):
                 filtered_ref_ch_img = self._preprocess(ref_ch_img)
             else:
                 ref_ch_img = None
+                filtered_ref_ch_img = None
             if ref_ch_segm_data is not None:
                 ref_ch_mask_or_labels = ref_ch_segm_data[frame_i]
             else:
