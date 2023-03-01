@@ -1,4 +1,5 @@
 # Custom ignores
+.vscode
 data/*
 spotmax/qtest.py
 spotmax/test.py
