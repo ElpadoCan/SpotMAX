@@ -46,7 +46,7 @@ except Exception as e:
 from . import utils, rng, base_lineage_table_values
 from . import issues_url, printl, io, features, config
 
-np.seterr(all='raise')
+np.seterr(divide='raise', invalid='raise')
 
 distribution_metrics_func = features.get_distribution_metric_func()
 effect_size_func = features.get_effect_size_func()
@@ -4172,13 +4172,14 @@ class Kernel(_ParamsParser):
         if not os.path.exists(spotmax_out_path):
             os.mkdir(spotmax_out_path)
         
-        analysis_inputs_filepath = os.path.join(
-            spotmax_out_path, f'{run_number}_analysis_parameters.ini'
-        )
-        shutil.copy2(self.ini_params_file_path, analysis_inputs_filepath)
-
         if text_to_append and not text_to_append.startswith('_'):
             text_to_append = f'_{text_to_append}'
+        
+        analysis_inputs_filepath = os.path.join(
+            spotmax_out_path, 
+            f'{run_number}_analysis_parameters{text_to_append}.ini'
+        )
+        shutil.copy2(self.ini_params_file_path, analysis_inputs_filepath)
 
         for key, filename in dfs_filenames.items():
             filename = filename.replace('*rn*', str(run_number))
