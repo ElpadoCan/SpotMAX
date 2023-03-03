@@ -255,7 +255,7 @@ def _filepaths_params():
         },
         'textToAppend': {
             'desc': 'Text to append at the end of the output files',
-            'initialVal': """""",
+            'initialVal': '',
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,

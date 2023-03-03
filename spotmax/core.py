@@ -772,9 +772,9 @@ class _ParamsParser(_DataLoader):
         lineage_table_endname = section_params['lineageTableEndName'].get(
             'loadedVal'
         )
-        text_to_append = section_params['textToAppend'].get(
-            'loadedVal', ''
-        )
+        text_to_append = section_params['textToAppend'].get('loadedVal', '')
+        if text_to_append is None:
+            text_to_append = ''
         if self.exp_paths_list:
             for i in range(len(self.exp_paths_list)):
                 for exp_path in list(self.exp_paths_list[i].keys()):
@@ -1092,11 +1092,15 @@ class _ParamsParser(_DataLoader):
                 to_dtype = self._params[section_name][anchor_name].get('dtype')
                 if to_dtype is None:
                     continue
-                value = self._params[section_name][anchor_name]['loadedVal']
-                try:
-                    value = to_dtype(value)
-                except Exception as e:
-                    value = None
+                option = self._params[section_name][anchor_name]
+                value = option['loadedVal']
+                if value is None:
+                    value = option['initialVal']
+                else:
+                    try:
+                        value = to_dtype(value)
+                    except Exception as e:
+                        value = None
                 self._params[section_name][anchor_name]['loadedVal'] = value
     
     def check_paths_exist(self):
