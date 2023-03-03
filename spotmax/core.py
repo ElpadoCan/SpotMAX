@@ -3670,6 +3670,9 @@ class Kernel(_ParamsParser):
                 queries.append(f'({feature_name} > {_min})')
             if _max is not None:
                 queries.append(f'({feature_name} < {_max})')
+        if not queries:
+            return df
+        
         query = ' & '.join(queries)
         return df.query(query)
     
