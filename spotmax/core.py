@@ -73,6 +73,7 @@ class _DataLoader:
             ref_ch_segm_endname, lineage_table_endname
         )
         data = self._reshape_data(data, self.metadata)
+        data = self._crop_based_on_segm_data(data)
         data = self._add_regionprops(data)
         data = self._initialize_df_agg(data)
         return data
@@ -204,6 +205,18 @@ class _DataLoader:
         
         table = table.set_index(['frame_i', 'Cell_ID'])
         data['lineage_table'] = table
+        return data
+
+    def _crop_based_on_segm_data(data):
+        segm_data = data['segm']
+        segm_time_proj = np.any(segm_data, axis=0)
+        segm_time_proj_obj = skimage.measure.regionprops(segm_time_proj)[0]
+        arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm')
+        for key in arr_keys:
+            import pdb; pdb.set_trace()
+            data[key] = data[key][..., segm_time_proj_obj.slice]
+            import pdb; pdb.set_trace()
+
         return data
     
     def _initialize_df_agg(self, data):
@@ -429,7 +442,7 @@ class _ParamsParser(_DataLoader):
         configPars['Configuration']['Folder path of the log file'] = (
             self.logs_path
         )
-        
+
         with open(params_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
 
