@@ -73,15 +73,7 @@ class _DataLoader:
             ref_ch_segm_endname, lineage_table_endname
         )
         data = self._reshape_data(data, self.metadata)
-
-        arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm')
-        for key in arr_keys:
-            if key not in data:
-                continue
         data = self._crop_based_on_segm_data(data)
-        for key in arr_keys:
-            if key not in data:
-                continue
         data = self._add_regionprops(data)
         data = self._initialize_df_agg(data)
         return data
@@ -225,7 +217,7 @@ class _DataLoader:
             s.start for s in segm_time_proj_obj.slice
         ])
         segm_slice = (slice(None), *segm_time_proj_obj.slice)
-        arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm')
+        arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm', 'segm')
         for key in arr_keys:
             if key not in data:
                 continue
@@ -2790,7 +2782,6 @@ class Kernel(_ParamsParser):
         max_d_fwd = int(max_depth/2)
         max_d_back = max_depth-max_d_fwd
         aggregated_img = np.zeros(aggr_shape, dtype=img_data.dtype)
-        aggregated_img[:] = img_data.min()
         last_w = 0
         for obj in rp:
             w = obj.image.shape[-1]
@@ -2798,9 +2789,17 @@ class Kernel(_ParamsParser):
             zc, yc, xc = obj.centroid
             z, y = int(zc), int(yc)
             h_top = y - max_h_top
-            h_bottom = y + max_h_bottom
+            if h_top < 0:
+                h_top = 0
+                h_bottom = max_height
+            else:
+                h_bottom = y + max_h_bottom
             d_fwd = z - max_d_fwd
-            d_top = z + max_d_back
+            if d_fwd < 0:
+                d_fwd = 0
+                d_top = max_depth
+            else:
+                d_top = z + max_d_back
             obj_slice = (
                 slice(d_fwd, d_top), slice(h_top, h_bottom), slice_w
             )
