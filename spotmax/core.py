@@ -2076,72 +2076,6 @@ class _spotFIT(spheroid):
             # model.pbar.update(100*len(z)-model.pbar.n)
             model.pbar.close()
 
-            if inspect > 2:
-            # if 1 in fit_ids and self.ID == 1:
-                # sum(z0, y0, x0, sz, sy, sx, A), B = coeffs
-                _shape = (num_spots_s, num_coeffs)
-                B_fit = leastsq_result.x[-1]
-                B_guess = init_guess_s[-1]
-                B_min = bounds[0][-1]
-                B_max = bounds[1][-1]
-                lstsq_x = leastsq_result.x[:-1]
-                lstsq_x = lstsq_x.reshape(_shape)
-                init_guess_s_2D = init_guess_s[:-1].reshape(_shape)
-                low_bounds_2D = bounds[0][:-1].reshape(_shape)
-                high_bounds_2D = bounds[1][:-1].reshape(_shape)
-                print('')
-                print(self.ID)
-                print(fit_ids)
-                for _x, _init, _l, _h in zip(lstsq_x, init_guess_s_2D,
-                                             low_bounds_2D, high_bounds_2D):
-                    print('Centers solution: ', _x[:3])
-                    print('Centers init guess: ', _init[:3])
-                    print('Centers low bound: ', _l[:3])
-                    print('Centers high bound: ', _h[:3])
-                    print('')
-                    print('Sigma solution: ', _x[3:6])
-                    print('Sigma init guess: ', _init[3:6])
-                    print('Sigma low bound: ', _l[3:6])
-                    print('Sigma high bound: ', _h[3:6])
-                    print('')
-                    print('A, B solution: ', _x[6], B_fit)
-                    print('A, B init guess: ', _init[6], B_guess)
-                    print('A, B low bound: ', _l[6], B_min)
-                    print('A, B high bound: ', _h[6], B_max)
-                    print('')
-                    print('')
-                import pdb; pdb.set_trace()
-                matplotlib.use('TkAgg')
-                fig, ax = plt.subplots(1,3)
-                img = self.spots_img_local
-                # 3D gaussian evaluated on the entire image
-                V_fit = np.zeros_like(self.spots_img_local)
-                zz, yy, xx = np.nonzero(V_fit==0)
-                V_fit[zz, yy, xx] = model._gauss3D(
-                                       zz, yy, xx, leastsq_result.x,
-                                       num_spots_s, num_coeffs, 0)
-
-                fit_data = model._gauss3D(z, y, x, leastsq_result.x,
-                                          num_spots_s, num_coeffs, 0)
-
-                img_fit = np.zeros_like(img)
-                img_fit[z,y,x] = fit_data
-                img_s = np.zeros_like(img)
-                img_s[z,y,x] = s_data
-                y_intens = img_s.max(axis=(0, 1))
-                y_intens = y_intens[y_intens!=0]
-                y_gauss = img_fit.max(axis=(0, 1))
-                y_gauss = y_gauss[y_gauss!=0]
-                ax[0].imshow(img.max(axis=0))
-                _, yyc, xxc = np.array(spots_centers[fit_idx]).T
-                ax[0].plot(xxc, yyc, 'r.')
-                ax[1].imshow(V_fit.max(axis=0))
-                ax[1].plot(xxc, yyc, 'r.')
-                ax[2].scatter(range(len(y_intens)), y_intens)
-                ax[2].plot(range(len(y_gauss)), y_gauss, c='r')
-                plt.show()
-                matplotlib.use('Agg')
-
             _shape = (num_spots_s, num_coeffs)
             B_fit = leastsq_result.x[-1]
             B_guess = init_guess_s[-1]
@@ -2236,17 +2170,6 @@ class _spotFIT(spheroid):
                         )
         self.df_intersect.index.name = 's'
 
-
-
-
-        if verbose > 1:
-            print('Intersections info:')
-            print(self.df_intersect)
-            print('')
-
-        if inspect > 1:
-            imshow(self.spots_img_local, spots_3D_lab_ID, spots_3D_lab_ID_connect)
-
     def _quality_control(self):
         """
         Calculate goodness_of_fit metrics for each spot
@@ -2299,95 +2222,6 @@ class _spotFIT(spheroid):
 
                 all_gof_metrics[s] = [reduced_chisq, p_chisq, RMSE,
                                       ks, p_ks, NRMSE, F_NRMSE]
-
-                if inspect > 2:
-                # if True:
-                # if s_id==3 and self.ID==5:
-                    print('')
-                    print('----------------------------')
-                    print(f'Spot data max = {s_data.max():.3f}, '
-                          f'spot fit max = {s_fit_data.max():.3f}')
-                    print(f'Intersecting idx = {s_intersect_idx}')
-                    print(f'Neighbours idx = {obj_s_idxs}')
-                    print('Spot idx =', s)
-                    print(f'Reduced chisquare = {reduced_chisq:.3f}, '
-                          f'p = {p_chisq:.4f}')
-                    print(f'KS stat = {ks:.3f}, p = {p_ks:.4f}')
-                    # print(f'R_sq = {R_sq:.3f}, Adj. R-sq = {adj_Rsq:.3f}')
-                    print(f'RMSE = {RMSE:.3f}')
-                    print(f'NRMSE = {NRMSE:.3f}')
-                    print(f'F_NRMSE = {F_NRMSE:.3f}')
-
-                    # Initial guess
-                    (z0_guess, y0_guess, x0_guess,
-                    sz_guess, sy_guess, sx_guess,
-                    A_guess) = init_guess_li[s]
-
-                    # Fitted coeffs
-                    (z0_fit, y0_fit, x0_fit,
-                    sz_fit, sy_fit, sx_fit,
-                    A_fit) = fitted_coeffs[s]
-
-                    print('----------------------------')
-                    print(f'Init guess center = ({z0_guess:.2f}, '
-                                               f'{y0_guess:.2f}, '
-                                               f'{x0_guess:.2f})')
-                    print(f'Fit center =        ({z0_fit:.2f}, '
-                                               f'{y0_fit:.2f}, '
-                                               f'{x0_fit:.2f})')
-                    print('')
-                    print(f'Init guess sigmas = ({sz_guess:.2f}, '
-                                               f'{sy_guess:.2f}, '
-                                               f'{sx_guess:.2f})')
-                    print(f'Sigmas fit        = ({sz_fit:.2f}, '
-                                               f'{sy_fit:.2f}, '
-                                               f'{sx_fit:.2f})')
-                    print('')
-                    print(f'A, B init guess   = ({A_guess:.3f}, '
-                                               f'{np.nan})')
-                    print(f'A, B fit          = ({A_fit:.3f}, '
-                                               f'{B_fit:.3f})')
-                    print('----------------------------')
-
-
-                    matplotlib.use('TkAgg')
-                    fig, ax = plt.subplots(1,3, figsize=[18,9])
-
-                    img_s = np.zeros_like(img)
-                    img_s[z_s, y_s, x_s] = s_data
-
-                    img_s_fit = np.zeros_like(img)
-                    img_s_fit[z_s, y_s, x_s] = s_fit_data
-
-                    y_intens = img[int(z0_guess), int(y0_guess)]
-                    # y_intens = y_intens[y_intens!=0]
-
-                    y_gauss = img_s_fit[int(z0_guess), int(y0_guess)]
-                    x_gauss = [i for i, yg in enumerate(y_gauss) if yg != 0]
-                    y_gauss = y_gauss[y_gauss!=0]
-
-
-                    ax[0].imshow(img.max(axis=0), vmax=img.max())
-                    ax[1].imshow(img_s_fit.max(axis=0), vmax=img.max())
-                    ax[2].scatter(range(len(y_intens)), y_intens)
-                    ax[2].plot(x_gauss, y_gauss, c='r')
-                    # ax[2].scatter(range(len(y_intens)), y_intens)
-                    # ax[2].plot(range(len(y_gauss)), y_gauss, c='r')
-
-                    # l = x_obj.min()
-                    # b = y_obj.min()
-                    #
-                    # r = x_obj.max()
-                    # t = y_obj.max()
-                    #
-                    # ax[0].set_xlim((l-2, r+2))
-                    # ax[0].set_ylim((t+2, b-2))
-                    #
-                    # ax[1].set_xlim((l-2, r+2))
-                    # ax[1].set_ylim((t+2, b-2))
-
-                    plt.show()
-                    matplotlib.use('Agg')
 
         # Automatic outliers detection
         NRMSEs = all_gof_metrics[:,5]
@@ -2583,70 +2417,6 @@ class _spotFIT(spheroid):
                                      I_tot, I_foregr, gof_metrics,
                                      leastsq_result.success, B_fit=B_fit
             )
-
-            if inspect > 2:
-            # if True:
-                print('')
-                print('----------------------------')
-                if NRMSE > self.QC_limit:
-                    print('Quality control NOT passed!')
-                else:
-                    print('Quality control passed!')
-                print(f'Spot data max = {s_data.max():.3f}, '
-                      f'spot fit max = {s_fit_data.max():.3f}')
-                print(f'Intersecting idx = {s_intersect_idx}')
-                print(f'Neighbours idx = {neigh_idx}')
-                print('Spot idx =', s)
-                print(f'Reduced chisquare = {reduced_chisq:.3f}, '
-                      f'p = {p_chisq:.4f}')
-                print(f'KS stat = {ks:.3f}, p = {p_ks:.4f}')
-                # print(f'R_sq = {R_sq:.3f}, Adj. R-sq = {adj_Rsq:.3f}')
-                print(f'RMSE = {RMSE:.3f}')
-                print(f'NRMSE = {NRMSE:.3f}')
-                print(f'F_NRMSE = {F_NRMSE:.3f}')
-                print('')
-                print(f'Sigmas fit = ({sz_fit:.3f}, {sy_fit:.3f}, {sx_fit:.3f})')
-                print(f'A fit = {A_fit:.3f}, B fit = {B_fit:.3f}')
-                print('Total integral result, fit sum, observed sum = '
-                      f'{I_tot:.3f}, {s_fit_data.sum():.3f}, {s_data.sum():.3f}')
-                print(f'Foregroung integral value: {I_foregr:.3f}')
-                print('----------------------------')
-
-
-                matplotlib.use('TkAgg')
-                fig, ax = plt.subplots(1,3, figsize=[18,9])
-
-                img_s = np.zeros_like(img)
-                img_s[z_s, y_s, x_s] = s_data
-
-                img_s_fit = np.zeros_like(img)
-                img_s_fit[z_s, y_s, x_s] = s_fit_data
-
-                y_intens = img_s.max(axis=0)[int(y0_guess)]
-                y_intens = y_intens[y_intens!=0]
-
-                y_gauss = img_s_fit.max(axis=0)[int(y0_guess)]
-                y_gauss = y_gauss[y_gauss!=0]
-
-                ax[0].imshow(img.max(axis=0), vmax=img.max())
-                ax[1].imshow(img_s_fit.max(axis=0), vmax=img.max())
-                ax[2].scatter(range(len(y_intens)), y_intens)
-                ax[2].plot(range(len(y_gauss)), y_gauss, c='r')
-
-                l = x_s.min()
-                b = y_s.min()
-
-                r = x_s.max()
-                t = y_s.max()
-
-                ax[0].set_xlim((l-2, r+2))
-                ax[0].set_ylim((t+2, b-2))
-
-                ax[1].set_xlim((l-2, r+2))
-                ax[1].set_ylim((t+2, b-2))
-
-                plt.show()
-                matplotlib.use('Agg')
 
     def store_metrics_good_spots(self, obj_id, s, fitted_coeffs_s,
                                  I_tot, I_foregr, gof_metrics,
