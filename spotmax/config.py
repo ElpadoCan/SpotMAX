@@ -271,6 +271,20 @@ def _filepaths_params():
 
 def _configuration_params():
     config_params = {
+        'pathToLog': {
+            'desc': 'Folder path of the log file',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'actions': None,
+            'dtype': str, 
+            'parser_arg': 'log_folderpath'
+        },
         'pathToReport': {
             'desc': 'Folder path of the final report',
             'initialVal': """""",

@@ -239,6 +239,28 @@ class _ParamsParser(_DataLoader):
         self.debug = debug
         self.is_cli = is_cli
     
+    def _check_log_folder_path(self, log_folder_path):
+        if not os.path.isdir(log_folder_path):
+            raise FileNotFoundError(
+                'The provided path to the log does not exist or '
+                f'is not a folder path. Path: "{log_folder_path}"'
+            ) 
+
+        # Copy log file and add new handler
+        self.logger.removeHandler(self.logger._file_handler)
+
+        self.logs_path = log_folder_path
+        log_filename = os.path.basename(self.log_path)
+        new_log_path = os.path.join(log_folder_path, log_filename)
+        self.log_path = new_log_path
+        shutil.copy(self.log_path, new_log_path)
+
+        file_handler = utils.logger_file_handler(new_log_path, mode='a')
+        self.logger._file_handler = file_handler
+        self.logger.addHandler(file_handler)
+
+        self.logger.info(f'Log file moved to "{self.log_path}"')
+    
     def _check_report_filepath(
             self, report_folderpath, params_path, report_filename='', 
             force_default=False
@@ -358,7 +380,7 @@ class _ParamsParser(_DataLoader):
             'However, you might want to limit the amount of resources used.'
         )
         question = 'How many threads should spotMAX use'
-        if num_threads<0 or num_threads>max_num_threads:
+        if num_threads<=0 or num_threads>max_num_threads:
             num_threads = io.get_user_input(
                 question, options=options, info_txt=info_txt, 
                 logger=self.logger.info, default_option=default_option
@@ -397,12 +419,16 @@ class _ParamsParser(_DataLoader):
         SECTION = 'Configuration'
         if SECTION not in configPars.sections():
             configPars[SECTION] = {}
-        
+
         config_default_params = config._configuration_params()
         for anchor, options in config_default_params.items():
             arg_name = options['parser_arg']
             value = parser_args[arg_name]
             configPars[SECTION][options['desc']] = str(value)
+        
+        configPars['Configuration']['Folder path of the log file'] = (
+            self.logs_path
+        )
         
         with open(params_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
@@ -419,12 +445,18 @@ class _ParamsParser(_DataLoader):
         
         config_default_params = config._configuration_params()
         for anchor, options in config_default_params.items():
+            parser_value = parser_args[options['parser_arg']]
             option = configPars.get(SECTION, options['desc'], fallback=None)
+            if parser_value:
+                # User explicitly passed a value --> use it regardless of ini
+                continue
+            
             if option is None or not option:
                 continue
             dtype_converter = options['dtype']
             value = dtype_converter(option)
             parser_args[options['parser_arg']] = value
+            
             if anchor == 'raiseOnCritical':
                 parser_args['raise_on_critical_present'] = True
         return parser_args
@@ -446,6 +478,12 @@ class _ParamsParser(_DataLoader):
                 metadata_path, desc='metadata'
             )
             parser_args['metadata'] = metadata_path
+        
+        log_folder_path = parser_args['log_folderpath']
+        if log_folder_path and not force_default:
+            self.log_path, self.logs_path = self._check_log_folder_path(
+                log_folder_path
+            )
         
         disable_final_report = parser_args['disable_final_report']
         report_folderpath = parser_args['report_folderpath']
@@ -513,6 +551,7 @@ class _ParamsParser(_DataLoader):
     @utils.exception_handler_cli
     def init_params(self, params_path, metadata_csv_path=''):        
         self._params = config.analysisInputsParams(params_path)
+        
         if metadata_csv_path:
             self._params = io.add_metadata_from_csv(
                 metadata_csv_path, self._params)
@@ -2472,7 +2511,9 @@ class _spotFIT(spheroid):
 
 class Kernel(_ParamsParser):
     def __init__(self, debug=False, is_cli=True):
-        self.logger, self.log_path, self.logs_path = utils.setupLogger('cli')
+        self.logger, self.log_path, self.logs_path = utils.setupLogger(
+            'spotmax_cli'
+        )
         super().__init__(debug=debug, is_cli=is_cli, log=self.logger.info)
         self.debug = debug
         self.is_batch_mode = False

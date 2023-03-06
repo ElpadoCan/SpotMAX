@@ -28,6 +28,14 @@ def cli_parser():
     )
 
     ap.add_argument(
+        '-g', '--log_folderpath',
+        default='',
+        type=str,
+        metavar='LOG_FILE_FOLDERPATH',
+        help=('Folder path where to save the log file (recommended when reporting an issue)')
+    )
+
+    ap.add_argument(
         '-t', '--report_folderpath',
         default='',
         type=str,
@@ -51,7 +59,7 @@ def cli_parser():
 
     ap.add_argument(
         '-n', '--num_threads',
-        default=-1,
+        default=0,
         type=int,
         metavar='NUMBA_NUM_THREADS',
         help=('Number of threads to use for parallel execution when using numba.')

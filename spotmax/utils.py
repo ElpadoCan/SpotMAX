@@ -239,6 +239,20 @@ def get_salute_string():
     else:
         return 'Have a good night!'
 
+def logger_file_handler(log_filepath, mode='w'):
+    output_file_handler = logging.FileHandler(log_filepath, mode=mode)
+    # Format your logs (optional)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s:\n'
+        '------------------------\n'
+        '%(message)s\n'
+        '------------------------\n',
+        datefmt='%d-%m-%Y, %H:%M:%S'
+    )
+    output_file_handler.setFormatter(formatter)
+    return output_file_handler
+
+
 def setupLogger(name='spotmax_gui'):
     logger = logging.getLogger(f'spotmax-logger-{name}')
     logger.setLevel(logging.INFO)
@@ -258,19 +272,11 @@ def setupLogger(name='spotmax_gui'):
     log_filename = f'{date_time}_{name}_stdout.log'
     log_path = os.path.join(logs_path, log_filename)
 
-    output_file_handler = logging.FileHandler(log_path, mode='w')
-    stdout_handler = logging.StreamHandler(sys.stdout)
-
-    # Format your logs (optional)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s:\n'
-        '------------------------\n'
-        '%(message)s\n'
-        '------------------------\n',
-        datefmt='%d-%m-%Y, %H:%M:%S')
-    output_file_handler.setFormatter(formatter)
-
+    output_file_handler = logger_file_handler(log_path)
+    logger._file_handler = output_file_handler
     logger.addHandler(output_file_handler)
+    
+    stdout_handler = logging.StreamHandler(sys.stdout)    
     logger.addHandler(stdout_handler)
 
     return logger, log_path, logs_path
