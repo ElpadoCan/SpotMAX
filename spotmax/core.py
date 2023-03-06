@@ -73,7 +73,15 @@ class _DataLoader:
             ref_ch_segm_endname, lineage_table_endname
         )
         data = self._reshape_data(data, self.metadata)
+
+        arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm')
+        for key in arr_keys:
+            if key not in data:
+                continue
         data = self._crop_based_on_segm_data(data)
+        for key in arr_keys:
+            if key not in data:
+                continue
         data = self._add_regionprops(data)
         data = self._initialize_df_agg(data)
         return data
@@ -207,15 +215,21 @@ class _DataLoader:
         data['lineage_table'] = table
         return data
 
-    def _crop_based_on_segm_data(data):
+    def _crop_based_on_segm_data(self, data):
         segm_data = data['segm']
-        segm_time_proj = np.any(segm_data, axis=0)
+        segm_time_proj = np.any(segm_data, axis=0).astype(np.uint8)
         segm_time_proj_obj = skimage.measure.regionprops(segm_time_proj)[0]
+
+        # Store cropping coordinates to save correct spots coordinates
+        data['crop_to_global_coords'] = np.array([
+            s.start for s in segm_time_proj_obj.slice
+        ])
+        segm_slice = (slice(None), *segm_time_proj_obj.slice)
         arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm')
         for key in arr_keys:
-            import pdb; pdb.set_trace()
-            data[key] = data[key][..., segm_time_proj_obj.slice]
-            import pdb; pdb.set_trace()
+            if key not in data:
+                continue
+            data[key] = data[key][segm_slice].copy()
 
         return data
     
@@ -252,21 +266,24 @@ class _ParamsParser(_DataLoader):
         self.debug = debug
         self.is_cli = is_cli
     
-    def _check_log_folder_path(self, log_folder_path):
+    def _setup_logger_file_handler(self, log_folder_path):
         if not os.path.isdir(log_folder_path):
             raise FileNotFoundError(
                 'The provided path to the log does not exist or '
                 f'is not a folder path. Path: "{log_folder_path}"'
             ) 
 
-        # Copy log file and add new handler
-        self.logger.removeHandler(self.logger._file_handler)
+        if self.logs_path == os.path.normpath(log_folder_path):
+            return
 
-        self.logs_path = log_folder_path
+        self.logs_path = os.path.normpath(log_folder_path)
         log_filename = os.path.basename(self.log_path)
         new_log_path = os.path.join(log_folder_path, log_filename)
         self.log_path = new_log_path
         shutil.copy(self.log_path, new_log_path)
+
+        # Copy log file and add new handler
+        self.logger.removeHandler(self.logger._file_handler)
 
         file_handler = utils.logger_file_handler(new_log_path, mode='a')
         self.logger._file_handler = file_handler
@@ -494,9 +511,7 @@ class _ParamsParser(_DataLoader):
         
         log_folder_path = parser_args['log_folderpath']
         if log_folder_path and not force_default:
-            self.log_path, self.logs_path = self._check_log_folder_path(
-                log_folder_path
-            )
+            self._setup_logger_file_handler(log_folder_path)
         
         disable_final_report = parser_args['disable_final_report']
         report_folderpath = parser_args['report_folderpath']
@@ -2969,6 +2984,7 @@ class Kernel(_ParamsParser):
         for obj in rp:
             local_spots_img = spots_img[obj.slice]
             local_sharp_spots_img = sharp_spots_img[obj.slice]
+            printl(obj.label, obj.centroid)
             imshow(spots_img, sharp_spots_img, local_spots_img, local_sharp_spots_img)
             import pdb; pdb.set_trace()
             if threshold_val is None and prediction_mask is None:
@@ -3100,6 +3116,22 @@ class Kernel(_ParamsParser):
             return df_spots_det, df_spots_gop
         else:
             return None, None
+    
+    def _translate_coords_segm_crop(*dfs, crop_to_global_coords):
+        global_det_names = ['z', 'y', 'x']
+        local_det_names = ['z_local', 'y_local', 'x_local']
+        spotfit_names = ['z_fit', 'y_fit', 'x_fit']
+        for df in dfs:
+            if df is None:
+                continue
+
+            df[global_det_names] += crop_to_global_coords
+            df[local_det_names] += crop_to_global_coords
+            try:
+                df[spotfit_names] += crop_to_global_coords
+            except Exception as e:
+                # Spotfit coordinates are not always present
+                pass
     
     def _add_aggregated_spots_features(
             self, df_spots_det: pd.DataFrame, df_spots_gop: pd.DataFrame, 
@@ -3911,6 +3943,11 @@ class Kernel(_ParamsParser):
         else:
             df_spots_fit = None
         
+        self._translate_coords_segm_crop(
+            df_spots_det, df_spots_gop, df_spots_fit, 
+            data['crop_to_global_coords']
+        )
+        
         dfs_agg = self._add_aggregated_spots_features(
             df_spots_det, df_spots_gop, df_agg, df_spots_fit=df_spots_fit
         )
@@ -3924,6 +3961,7 @@ class Kernel(_ParamsParser):
             'agg_gop': df_agg_gop,
             'agg_spotfit': df_agg_spotfit
         }
+
         return dfs
 
     @utils.exception_handler_cli
