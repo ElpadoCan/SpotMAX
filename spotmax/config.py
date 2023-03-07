@@ -80,6 +80,12 @@ def get_bool(text):
 def get_threshold_func(func_name):
     return getattr(skimage.filters, func_name)
 
+def parse_threshold_func(threshold_func):
+    if isinstance(threshold_func, str):
+        return threshold_func
+    else:
+        return threshold_func.__name__
+
 def get_exp_paths(exp_paths):
     # Remove white spaces at the start
     exp_paths = exp_paths.lstrip()
@@ -369,6 +375,20 @@ def _configuration_params():
             'dtype': int, 
             'parser_arg': 'num_threads'
         },
+        'dfSpotsFileExtension': {
+            'desc': 'File extension of the output tables',
+            'initialVal': '.h5',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'widgets._dfSpotsFileExtensionsWidget',
+            'actions': None,
+            'dtype': str, 
+            'parser_arg': 'output_tables_file_ext'
+        },
     }
     return config_params
 
@@ -606,7 +626,8 @@ def _ref_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'widgets._refChThresholdFuncWidget',
             'actions': None,
-            'dtype': get_threshold_func
+            'dtype': get_threshold_func,
+            'parser': parse_threshold_func
         },
         'calcRefChNetLen': {
             'desc': 'Calculate reference channel network length',
@@ -653,7 +674,8 @@ def _spots_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'widgets._spotThresholdFunc',
             'actions': None,
-            'dtype': get_threshold_func
+            'dtype': get_threshold_func,
+            'parser': parse_threshold_func
         },
         'gopThresholds': {
             'desc': 'Features and thresholds for filtering true spots',
@@ -668,6 +690,17 @@ def _spots_ch_params():
             'parser': parse_list_to_configpars,
             'comment': gop_thresholds_comment
         },
+        'optimiseWithEdt': {
+            'desc': 'Optimise detection for high spot density',
+            'initialVal': True,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
         'doSpotFit': {
             'desc': 'Compute spots size',
             'initialVal': False,
@@ -679,6 +712,17 @@ def _spots_ch_params():
             'actions': None,
             'dtype': get_bool
         },
+        # 'highSpotDensityFit': {
+        #     'desc': 'Optimise spots size estimation for high spot density',
+        #     'initialVal': True,
+        #     'stretchWidget': False,
+        #     'addInfoButton': True,
+        #     'addComputeButton': True,
+        #     'addApplyButton': False,
+        #     'formWidgetFunc': 'acdc_widgets.Toggle',
+        #     'actions': None,
+        #     'dtype': get_bool
+        # },
         'minSpotSize': {
             'desc': 'Discard spots with radius less than (pixels)',
             'initialVal': 0.0,

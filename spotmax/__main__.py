@@ -71,6 +71,14 @@ def cli_parser():
         help=('Flag to disable user inputs and use default values for missing parameters.')
     )
 
+    ap.add_argument(
+        '-o', '--output_tables_file_ext',
+        default='',
+        type=str,
+        metavar='OUTPUT_TABLES_FILE_EXT',
+        help=('File extension of the output tables')
+    )
+
     # NOTE: the user doesn't need to pass `-c`` because passing the path to the 
     # params is enough. However, passing `-c`` without path to params will 
     # raise an error with the explanation that the parameters file is 

@@ -201,6 +201,12 @@ def _refChThresholdFuncWidget():
     widget.addItems(items)
     return widget
 
+def _dfSpotsFileExtensionsWidget():
+    widget = myQComboBox()
+    items = ['.h5', '.csv']
+    widget.addItems(items)
+    return widget
+
 def _spotThresholdFunc():
     widget = myQComboBox()
     items = config.skimageAutoThresholdMethods()

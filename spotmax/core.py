@@ -605,6 +605,9 @@ class _ParamsParser(_DataLoader):
         self.check_metadata()
         self.check_missing_params()
         self.cast_loaded_values_dtypes()
+        io.writeConfigINI(
+            params=self._params, ini_path=self.ini_params_file_path
+        )
         proceed = self.check_paths_exist()
         if not proceed:
             return False
@@ -2782,6 +2785,7 @@ class Kernel(_ParamsParser):
         max_d_fwd = int(max_depth/2)
         max_d_back = max_depth-max_d_fwd
         aggregated_img = np.zeros(aggr_shape, dtype=img_data.dtype)
+        Z, Y, X = img_data.shape
         last_w = 0
         for obj in rp:
             w = obj.image.shape[-1]
@@ -2790,16 +2794,30 @@ class Kernel(_ParamsParser):
             z, y = int(zc), int(yc)
             h_top = y - max_h_top
             if h_top < 0:
+                # Object slicing would extend negative y
                 h_top = 0
                 h_bottom = max_height
             else:
                 h_bottom = y + max_h_bottom
+            
+            if h_bottom > Y:
+                # Object slicing would extend more than the img data Y
+                h_bottom = Y
+                h_top = h_bottom - max_height
+            
             d_fwd = z - max_d_fwd
             if d_fwd < 0:
+                # Object slicing would extend negative z
                 d_fwd = 0
                 d_top = max_depth
             else:
+                # Object slicing would extend more than the img data Z
                 d_top = z + max_d_back
+            
+            if d_top > Z:
+                d_top = Z
+                d_fwd = d_top - max_depth
+
             obj_slice = (
                 slice(d_fwd, d_top), slice(h_top, h_bottom), slice_w
             )
@@ -2942,7 +2960,7 @@ class Kernel(_ParamsParser):
                 threshold_func = getattr(skimage.filters, threshold_method)
             else:
                 threshold_func = threshold_method
-            
+
             if do_aggregate_objs:
                 aggr_spots_img = self.aggregate_objs(
                     spots_img, lab, lineage_table=lineage_table
@@ -2983,9 +3001,6 @@ class Kernel(_ParamsParser):
         for obj in rp:
             local_spots_img = spots_img[obj.slice]
             local_sharp_spots_img = sharp_spots_img[obj.slice]
-            printl(obj.label, obj.centroid)
-            imshow(spots_img, sharp_spots_img, local_spots_img, local_sharp_spots_img)
-            import pdb; pdb.set_trace()
             if threshold_val is None and prediction_mask is None:
                 lab_single_obj_mask, budID = self._get_obj_mask(
                     lab, obj, lineage_table
@@ -3270,7 +3285,6 @@ class Kernel(_ParamsParser):
             eff_size = features._try_metric_func(func, pos_arr, neg_arr)
             col_name = f'{name}_effect_size_{eff_size_name}'
             df.at[idx, col_name] = eff_size
-            import pdb; pdb.set_trace()
 
     def _add_spot_vs_ref_location(self, ref_ch_mask, zyx_center, df, idx):
         is_spot_in_ref_ch = int(ref_ch_mask[zyx_center] > 0)
@@ -3344,7 +3358,9 @@ class Kernel(_ParamsParser):
             A distance transform of the `min_size_spheroid_mask`. This will be 
             multiplied by the spots intensities to reduce the skewing effect of 
             neighbouring peaks. 
-            It must have the same shape of `min_size_spheroid_mask`
+            It must have the same shape of `min_size_spheroid_mask`.
+            If None, this will be initialized with 1s, meaning that normalisation 
+            will not be performed.
         ref_ch_mask_obj : (Z, Y, X) ndarray of dtype bool or None, optional
             Boolean mask of the reference channel, e.g., obtained by 
             thresholding. The first dimension must be  the number of z-slices.
@@ -3377,7 +3393,8 @@ class Kernel(_ParamsParser):
         )
 
         if dist_transform_spheroid is None:
-            dist_transform_spheroid = min_size_spheroid_mask
+            # Use all 1s --> do not correct with the distance transform
+            dist_transform_spheroid = min_size_spheroid_mask.astype(np.uint8)
 
         # Check if spots_img needs to be normalised
         if do_filter_spots_vs_ref_ch:
@@ -3394,7 +3411,7 @@ class Kernel(_ParamsParser):
             backgr_mask = np.logical_and(obj_mask, ~spheroids_mask)
 
         # Calculate background metrics
-        backgr_vals = spots_img_obj[backgr_mask]
+        backgr_vals = sharp_spots_img_obj[backgr_mask]
         for name, func in distribution_metrics_func.items():
             df_obj_spots[f'background_{name}'] = func(backgr_vals)
         
@@ -3417,11 +3434,22 @@ class Kernel(_ParamsParser):
             spheroid_mask = min_size_spheroid_mask[slice_crop_local]
             dist_transf = dist_transform_spheroid[slice_crop_local]
             spot_slice = spots_img_obj[slice_global_to_local]
-            spot_slice_edt = spot_slice*dist_transf
 
-            # Add metrics from spot_img (which could be filtered or not)
+            # Get the sharp spot sliced
+            sharp_spot_obj_z = sharp_spots_img_obj[zyx_center[0]]
+            sharp_spot_slice_z = sharp_spot_obj_z[slice_global_to_local[-2:]]
+            sharp_spot_slice_z_edt = sharp_spot_slice_z*dist_transf.max(axis=0)
+
+            # Background values at spot z-slice
+            z_global = row.z
+            backgr_mask_z_spot = backgr_mask[z_global]
+            sharp_spots_z = sharp_spots_img_obj[z_global]
+            backgr_vals_z_spot = sharp_spots_z[backgr_mask_z_spot]
+
+            # Get spot intensities
             spot_intensities = spot_slice[spheroid_mask]
-            spot_intensities_edt = spot_slice_edt[spheroid_mask]
+            spheroid_mask_proj = spheroid_mask.max(axis=0)
+            sharp_spot_intensities_z_edt = sharp_spot_slice_z_edt[spheroid_mask_proj]
 
             value = spots_img_obj[zyx_center]
             df_obj_spots.at[spot_id, 'spot_preproc_intensity_at_center'] = value
@@ -3443,20 +3471,19 @@ class Kernel(_ParamsParser):
                     raw_spot_intensities, df_obj_spots, spot_id, 
                     col_name='spot_raw_*name_in_spot_minimumsize_vol'
                 )
+            
+            imshow(sharp_spot_slice_z_edt, sharp_spots_z, backgr_mask_z_spot)
 
+            # When comparing to the background we use the sharpened image 
+            # at the center z-slice of the spot
             self._add_ttest_values(
-                spot_intensities_edt, backgr_vals, df_obj_spots, spot_id, 
-                name='spot_vs_backgr'
+                sharp_spot_intensities_z_edt, backgr_vals_z_spot, 
+                df_obj_spots, spot_id, name='spot_vs_backgr'
             )
 
-            imshow(
-                spots_img_obj, backgr_mask, spot_slice, 
-                sharp_spots_img_obj, spot_slice_edt, spheroid_mask,
-                dist_transf
-            )
             self._add_effect_sizes(
-                spot_intensities_edt, backgr_vals, df_obj_spots, spot_id, 
-                name='spot_vs_backgr'
+                sharp_spot_intensities_z_edt, backgr_vals_z_spot, 
+                df_obj_spots, spot_id, name='spot_vs_backgr'
             )
 
             if do_filter_spots_vs_ref_ch:
@@ -3801,7 +3828,13 @@ class Kernel(_ParamsParser):
         min_size_spheroid_mask = self._get_local_spheroid_mask(
             zyx_resolution_limit_pxl
         )
-        edt_spheroid = self._distance_transform_edt(min_size_spheroid_mask)
+        optimise_with_edt = (
+            self._params['Spots channel']['optimiseWithEdt']['loadedVal']
+        ) 
+        if optimise_with_edt:
+            edt_spheroid = self._distance_transform_edt(min_size_spheroid_mask)
+        else:
+            edt_spheroid = None
 
         # Get footprint passed to peak_local_max --> use half the radius
         # since spots can overlap by the radius according to resol limit
