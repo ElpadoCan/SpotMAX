@@ -59,6 +59,7 @@ dfs_filenames = {
 }
 
 zyx_local_cols = ['z_local', 'y_local', 'x_local']
+zyx_aggr_cols = ['z_aggr', 'y_aggr', 'x_aggr']
 
 class _DataLoader:
     def __init__(self, debug=False, log=print):
@@ -3002,17 +3003,21 @@ class Kernel(_ParamsParser):
         )
         
         df_spots_det, df_spots_gop = self._spots_filter(
-            spots_img, sharp_spots_img, ref_ch_img, ref_ch_mask_or_labels, 
-            do_filter_spots_vs_ref_ch, lab, rp, frame_i, detection_method,
-            zyx_resolution_limit_pxl, spot_footprint=spot_footprint,
+            df_spots_coords, spots_img, 
+            sharp_spots_img, 
+            ref_ch_img, 
+            ref_ch_mask_or_labels, 
+            do_filter_spots_vs_ref_ch, 
+            lab, rp, frame_i, 
+            zyx_resolution_limit_pxl,
             min_size_spheroid_mask=min_size_spheroid_mask,
-            threshold_val=threshold_val, verbose=verbose, 
-            threshold_func=threshold_func, dfs_lists=dfs_lists,
-            raw_spots_img=raw_spots_img, prediction_mask=prediction_mask,
+            dfs_lists=dfs_lists,
+            raw_spots_img=raw_spots_img,
             do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch, 
             gop_filtering_thresholds=gop_filtering_thresholds,
             lineage_table=lineage_table, 
-            dist_transform_spheroid=dist_transform_spheroid
+            dist_transform_spheroid=dist_transform_spheroid,
+            verbose=verbose,
         )
         if df_spots_det is not None:
             dfs_segm_obj = self._add_aggregated_spots_features(
@@ -3128,14 +3133,19 @@ class Kernel(_ParamsParser):
         return df_spots_coords
         
     def _spots_filter(
-            self, spots_img, sharp_spots_img, ref_ch_img, ref_ch_mask_or_labels, 
-            do_filter_spots_vs_ref_ch, lab, rp, frame_i, detection_method,
-            zyx_resolution_limit_pxl, dfs_lists=None,
-            threshold_val=None, verbose=False, threshold_func=None,
-            spot_footprint=None, min_size_spheroid_mask=None,
-            raw_spots_img=None, gop_filtering_thresholds=None, 
-            do_keep_spots_in_ref_ch=False, prediction_mask=None,
-            lineage_table=None, dist_transform_spheroid=None
+            self, df_spots_coords, spots_img, sharp_spots_img, 
+            ref_ch_img, ref_ch_mask_or_labels,  do_filter_spots_vs_ref_ch, 
+            lab, rp, frame_i, zyx_resolution_limit_pxl, 
+            dfs_lists=None,
+            threshold_val=None, 
+            min_size_spheroid_mask=None,
+            raw_spots_img=None, 
+            gop_filtering_thresholds=None, 
+            do_keep_spots_in_ref_ch=False, 
+            prediction_mask=None,
+            lineage_table=None, 
+            dist_transform_spheroid=None,
+            verbose=False,
         ):
         if verbose:
             print('')
@@ -3150,59 +3160,42 @@ class Kernel(_ParamsParser):
             dfs_spots_gop = dfs_lists['dfs_spots_gop_test']
             keys = dfs_lists['keys']
 
+        # We slice the object with some added tolerance
+        Z, Y, X = lab.shape
+        delta_tol = [int(np.ceil(dd)) for dd in zyx_resolution_limit_pxl]
+
         desc = 'Filtering spots'
         pbar = tqdm(
             total=len(rp), ncols=100, desc=desc, position=3, leave=False
         )
         for obj in rp:
-            local_spots_img = spots_img[obj.slice]
-            local_sharp_spots_img = sharp_spots_img[obj.slice]
-            if threshold_val is None and prediction_mask is None:
-                lab_single_obj_mask, budID = self._get_obj_mask(
-                    lab, obj, lineage_table
-                )
-                lab_single_obj_mask_rp = skimage.measure.regionprops(
-                    lab_single_obj_mask.astype(np.uint8)
-                )
-                thresh_input_img = sharp_spots_img[
-                    lab_single_obj_mask_rp[0].slice
-                ]
-                threshold_val = threshold_func(thresh_input_img)
+            crop_obj_start = np.array([s.start for s in obj.slice]) - delta_tol
+            crop_obj_start = np.clip(crop_obj_start, 0, None)
+
+            crop_obj_stop = np.array([s.stop for s in obj.slice]) + delta_tol
+            crop_obj_stop = np.clip(crop_obj_stop, None, (Z, Y, X))
             
-            if detection_method == 'peak_local_max':
-                if spot_footprint is None:
-                    zyx_radii_pxl = [val/2 for val in zyx_resolution_limit_pxl]
-                    footprint = self._get_local_spheroid_mask(zyx_radii_pxl)
-                else:
-                    footprint = spot_footprint
-                
-                if prediction_mask is None:
-                    labels = obj.image.astype(np.uint8)
-                else:
-                    threshold_val = None
-                    local_spots_mask = prediction_mask[obj.slice]
-                    labels = np.logical_and(obj.image, local_spots_mask)
-                
-                local_peaks_coords = skimage.feature.peak_local_max(
-                    local_sharp_spots_img, threshold_abs=threshold_val, 
-                    footprint=footprint, labels=labels
-                )
-            else:
-                if prediction_mask is None:
-                    local_spots_mask = local_sharp_spots_img > threshold_val
-                else:
-                    local_spots_mask = prediction_mask[obj.slice]
+            obj_slice = (
+                slice(crop_obj_start[0], crop_obj_stop[0]), 
+                slice(crop_obj_start[1], crop_obj_stop[1]),  
+                slice(crop_obj_start[2], crop_obj_stop[2]), 
+            )
+            obj_lab = lab[obj_slice]
+            obj_image = obj_lab==obj.label
 
-                local_spots_lab = skimage.measure.label(local_spots_mask)
-                local_spots_rp = skimage.measure.regionprops(local_spots_lab)
-                num_spots = len(local_spots_rp)
-                local_peaks_coords = np.zeros((len(num_spots, 3)))
-                for s, spot_obj in enumerate(local_spots_rp):
-                    local_peaks_coords[s] = spot_obj.centroid
+            local_spots_img = spots_img[obj_slice]
+            local_sharp_spots_img = sharp_spots_img[obj_slice]
 
-            # Store coordinates after detection
+            # Store global coordinates
+            local_peaks_coords = (
+                df_spots_coords.loc[obj.label, zyx_local_cols]).to_numpy()
             zyx_local_to_global = [s.start for s in obj.slice]
             global_peaks_coords = local_peaks_coords + zyx_local_to_global
+
+            # From here on we correct local_peaks_coords to take into account 
+            # the cropping tolerance `delta_tolerance`
+            local_peaks_coords = global_peaks_coords - crop_obj_start 
+
             num_spots = len(global_peaks_coords)
             df_obj_spots_det = pd.DataFrame({
                 'spot_id': np.arange(1, num_spots+1),
@@ -3217,20 +3210,20 @@ class Kernel(_ParamsParser):
             keys.append((frame_i, obj.label))
 
             if ref_ch_mask_or_labels is not None:
-                local_ref_ch_mask = ref_ch_mask_or_labels[obj.slice]>0
-                local_ref_ch_mask = np.logical_and(local_ref_ch_mask, obj.image)
+                local_ref_ch_mask = ref_ch_mask_or_labels[obj_slice]>0
+                local_ref_ch_mask = np.logical_and(local_ref_ch_mask, obj_image)
             else:
                 local_ref_ch_mask = None
 
             # Filter according to goodness-of-peak test
             # CONTINUE FROM HERE
             if ref_ch_img is not None:
-                local_ref_ch_img = ref_ch_img[obj.slice]
+                local_ref_ch_img = ref_ch_img[obj_slice]
             else:
                 local_ref_ch_img = None
             
             if raw_spots_img is not None:
-                raw_spots_img_obj = raw_spots_img[obj.slice]
+                raw_spots_img_obj = raw_spots_img[obj_slice]
 
             df_obj_spots_gop = df_obj_spots_det.copy()
             if do_keep_spots_in_ref_ch:
@@ -3244,10 +3237,9 @@ class Kernel(_ParamsParser):
             
             i = 0
             while True:     
-                printl(i)
                 num_spots_prev = len(df_obj_spots_gop)      
                 df_obj_spots_gop = self._compute_obj_spots_metrics(
-                    local_spots_img, df_obj_spots_gop, obj.image, 
+                    local_spots_img, df_obj_spots_gop, obj_image, 
                     local_sharp_spots_img, 
                     raw_spots_img_obj=raw_spots_img_obj,
                     min_size_spheroid_mask=min_size_spheroid_mask, 
@@ -3261,17 +3253,6 @@ class Kernel(_ParamsParser):
                 if i == 0:
                     # Store metrics at first iteration
                     df_obj_spots_det = df_obj_spots_gop.copy()
-                
-                if num_spots_prev != 6:
-                    from . import _debug
-                    _debug._peak_local_max(
-                        'test_peak_local_max', local_sharp_spots_img, 
-                        footprint, labels, obj.label, threshold_val, 
-                        df_obj_spots_gop=df_obj_spots_gop, 
-                        df_obj_spots_det=df_obj_spots_det, 
-                        view=True, save=True
-                    )
-                    import pdb; pdb.set_trace()
                 
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds
@@ -3517,9 +3498,7 @@ class Kernel(_ParamsParser):
         df_obj_spots : pandas.DataFrame
             Pandas DataFrame with `spot_id` as index.
         obj_mask : (Z, Y, X) ndarray of dtype bool
-            Boolean mask of the segmentation object contaning both ('z', 'y', 'x') 
-            global peaks coordinates and ('z_local', 'y_local', 'z_local') 
-            peaks coordinates in the segmentation objects' frame of reference.
+            Boolean mask of the segmentation object.
         sharp_spots_img_obj : (Z, Y, X) ndarray
             Spots' signal 3D z-stack image sliced at the segmentation object
             level. Note that this is the preprocessed image, i.e., after 
