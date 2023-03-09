@@ -2993,9 +2993,6 @@ class Kernel(_ParamsParser):
             zyx_radii_pxl = [val/2 for val in zyx_resolution_limit_pxl]
             spot_footprint = self._get_local_spheroid_mask(zyx_radii_pxl)
 
-        print('')
-        self.logger.info('Detecting spots...')
-
         df_spots_coords = self._spots_detection(
             sharp_spots_img, lab, detection_method, threshold_method, 
             prediction_method, predict_on_aggregated, spot_footprint, 
@@ -3078,6 +3075,10 @@ class Kernel(_ParamsParser):
             'z_local': zeros, 'y_local': zeros, 'x_local': zeros,
             'IDs': aggregated_lab[zz, yy, xx]
         }).set_index('IDs').sort_index()
+        num_spots_objs_txts = []
+        pbar = tqdm(
+            total=len(aggr_lab_rp), ncols=100, position=3, leave=False
+        )
         for obj in aggr_lab_rp:
             min_z, min_y, min_x = obj.bbox[:3]
             zz_local = df_spots_coords.loc[obj.label, 'z_aggr'] - min_z
@@ -3089,6 +3090,21 @@ class Kernel(_ParamsParser):
             xx_local = df_spots_coords.loc[obj.label, 'x_aggr'] - min_x
             df_spots_coords.loc[obj.label, 'x_local'] = xx_local
 
+            s = f'  * Object ID {obj.label} = {len(zz_local)}'
+            num_spots_objs_txts.append(s)
+            pbar.update()
+        pbar.close()
+        
+        print('')
+        print('*'*60)
+        num_spots_objs_txt = '\n'.join(num_spots_objs_txts)
+        self.logger.info(
+            f'Number of spots per segmented object:\n{num_spots_objs_txt}'
+        )
+        print('-'*60)
+        
+        import pdb; pdb.set_trace()
+
         return df_spots_coords
         
     def _spots_detection(
@@ -3096,6 +3112,9 @@ class Kernel(_ParamsParser):
             prediction_method, predict_on_aggregated, footprint, 
             zyx_resolution_limit_pxl, lineage_table=None
         ):
+        print('')
+        self.logger.info('Detecting spots...')
+
         aggr_spots_img, aggregated_lab = self.aggregate_objs(
             sharp_spots_img, lab, lineage_table=lineage_table, 
             zyx_tolerance=zyx_resolution_limit_pxl
@@ -3232,7 +3251,6 @@ class Kernel(_ParamsParser):
                 )
 
             print('')
-            self.logger.info(f'Number of spots detected = {num_spots}')
             self.logger.info('Iterating goodness-of-peak test...')
             
             i = 0
