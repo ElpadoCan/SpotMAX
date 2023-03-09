@@ -407,9 +407,9 @@ def writeConfigINI(params=None, ini_path=None):
             val = param.get('loadedVal')
             if val is None:
                 val = param['initialVal']
-            parser_val = param.get('parser')
-            if parser_val is not None:
-                val = parser_val(val)
+            parser_func = param.get('parser')
+            if parser_func is not None:
+                val = parser_func(val)
             comment = param.get('comment')
             if comment is not None:
                 # Add comment to config file
@@ -1733,7 +1733,20 @@ def get_relpath(path, depth=4):
     relpath = os.path.join('', *path_parts[-depth:])
     return relpath
 
+def is_part_of_path(path, relative_path):
+    path = to_system_path(path)
+    relative_path = to_system_path(path)
+    return path.endswith(relative_path)
+
+def to_system_path(path):
+    path = path.replace('\\', f'{os.sep}')
+    path = path.replace('/', f'{os.sep}')
+
+    return path
+
 def get_abspath(path):
+    path = to_system_path(path)
+    path = os.path.expanduser(path)
     path = os.path.normpath(path)
     
     if os.path.isabs(path):
@@ -1748,6 +1761,7 @@ def get_abspath(path):
     path = path.lstrip('.')
     path_parts = os.path.normpath(path).split(os.sep)
     abs_path = os.path.join(cwd_path, *path_parts)
+
     return abs_path
 
 def get_basename_and_ch_names(images_path):
@@ -1899,7 +1913,19 @@ def get_user_input(
             _raise_EOFerror(logger=logger)
     return answer_txt
 
-def save_df_to_hdf(df: pd.DataFrame, folder_path: os.PathLike, filename: str):    
+def save_df_spots(
+        df: pd.DataFrame, folder_path: os.PathLike, filename_no_ext: str, 
+        extension: str='.h5'
+    ):
+    filename = f'{filename_no_ext}{extension}'
+    if extension == '.csv':
+        df.to_csv(os.path.join(folder_path, filename))
+    else:
+        save_df_spots_to_hdf(df, folder_path, filename)
+
+def save_df_spots_to_hdf(
+        df: pd.DataFrame, folder_path: os.PathLike, filename: str
+    ):    
     temp_dirpath = tempfile.mkdtemp()
     temp_filepath = os.path.join(temp_dirpath, filename)
     store_hdf = pd.HDFStore(temp_filepath, mode='w')

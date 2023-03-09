@@ -114,6 +114,25 @@ def check_cli_file_path(file_path, desc='parameters'):
     )
 
 def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
+    """Generate the slices required to insert a local mask into a larger image.
+
+    Parameters
+    ----------
+    zyx_center : (3,) ArrayLike
+        Array, tuple, or list of `z, y, x` center coordinates
+    global_shape : tuple
+        Shape of the image where the mask will be inserted.
+    local_shape : tuple
+        Shape of the mask to be inserted into the image.
+
+    Returns
+    -------
+    tuple
+        - `slice_global_to_local`: used to slice the image to the same shape of 
+        the cropped mask.
+        - `slice_crop_local`: used to crop the local mask before inserting it 
+        into the image.
+    """    
     dz, dy, dx = local_shape
 
     slice_global_to_local = []

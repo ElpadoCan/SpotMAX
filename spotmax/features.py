@@ -1,6 +1,64 @@
 import numpy as np
 import scipy.stats
 
+def normalise_by_dist_transform_simple(
+        spot_slice_z, dist_transf, bakgr_vals_z_spots
+    ):
+    norm_spot_slice_z = spot_slice_z*dist_transf
+    backgr_median = np.median(bakgr_vals_z_spots)
+    norm_spot_slice_z[norm_spot_slice_z<backgr_median] = backgr_median
+    return norm_spot_slice_z
+
+def normalise_by_dist_transform_range(
+        spot_slice_z, dist_transf, bakgr_vals_z_spots
+    ):
+    """Normalise the distance transform based on the distance from expected 
+    value. 
+
+    The idea is that intesities that are too high and far away from the center 
+    should be corrected by the distance transform. On the other hand, if a 
+    pixel is far but already at background level it doesn't need correction. 
+
+    We do not allow corrected values below background median, so these values 
+    are set to background median.
+
+    Parameters
+    ----------
+    spot_slice_z : np.ndarray
+        2D spot intensities image. This is the z-slice at spot's center
+    dist_transf : np.ndarray, same shape as `spot_slice_z`
+        2D distance transform image. Must be 1 in the center and <1 elsewhere.
+    bakgr_vals_z_spots : np.ndarray
+        Bacgrkound values
+    
+    Returns
+    -------
+    norm_spot_slice_z : np.ndarray, same shape as `spot_slice_z`
+        Normalised `spot_slice_z`.
+    
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from spotmax import features
+    >>> bakgr_vals_z_spots = np.array([0.4, 0.4, 0.4, 0.4])
+    >>> dist_transf = np.array([0.25, 0.5, 0.75, 1.0])
+    >>> spot_slice_z = np.array([2.5,0.5,3.4,0.7])
+    >>> norm_spot_slice_z_range = features.normalise_by_dist_transform_range(
+    ...    spot_slice_z, dist_transf, bakgr_vals_z_spots)
+    >>> norm_spot_slice_z_range
+    [0.51568652 0.5        1.85727514 0.7       ]
+    """    
+    backgr_median = np.median(bakgr_vals_z_spots)
+    expected_values = (1 + (dist_transf-dist_transf.min()))*backgr_median
+    dist_from_expected_perc = (spot_slice_z-expected_values)/spot_slice_z
+    dist_transf_range = 1 - dist_transf
+    dist_transf_correction = np.abs(dist_from_expected_perc*dist_transf_range)
+    dist_tranf_required = 1-np.sqrt(dist_transf_correction)
+    norm_spot_slice_z = spot_slice_z*dist_tranf_required
+    norm_spot_slice_z[norm_spot_slice_z<backgr_median] = backgr_median
+    return norm_spot_slice_z
+    
+
 def calc_pooled_std(s1, s2, axis=0):
     n1 = s1.shape[axis]
     n2 = s2.shape[axis]

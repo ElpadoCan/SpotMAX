@@ -7,12 +7,12 @@ except ModuleNotFoundError:
     try:
         while True:
             answer = input(
-                '>>> spotMAX detected the missing library `acdctools`.'
+                '>>> spotMAX detected the missing library `acdctools`. '
                 'Do you want to proceed with its installation ([y]/n)? ',
             )
-            if answer == 'n':
+            if answer.lower() == 'n':
                 exit('Installation of `acdctools` cancelled by the user.')
-            elif answer == 'y':
+            elif answer.lower() == 'y':
                 break
             else:
                 print(
@@ -47,8 +47,11 @@ import numpy as np
 rng = np.random.default_rng(seed=6490)
 
 spotmax_path = os.path.dirname(os.path.abspath(__file__))
+spotMAX_path = os.path.dirname(spotmax_path)
 home_path = pathlib.Path.home()
 spotmax_appdata_path = os.path.join(home_path, 'spotmax_appdata')
+
+data_path = os.path.join(spotMAX_path, 'data')
 
 logs_path = os.path.join(spotmax_appdata_path, 'logs')
 if not os.path.exists(logs_path):

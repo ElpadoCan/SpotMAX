@@ -53,10 +53,12 @@ effect_size_func = features.get_effect_size_func()
 aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
 
 dfs_filenames = {
-    'spots_detection': '*rn*_0_detected_spots*desc*.h5',
-    'spots_gop': '*rn*_1_valid_spots*desc*.h5',
-    'spots_spotfit': '*rn*_2_spotfit*desc*.h5'
+    'spots_detection': '*rn*_0_detected_spots*desc*',
+    'spots_gop': '*rn*_1_valid_spots*desc*',
+    'spots_spotfit': '*rn*_2_spotfit*desc*'
 }
+
+zyx_local_cols = ['z_local', 'y_local', 'x_local']
 
 class _DataLoader:
     def __init__(self, debug=False, log=print):
@@ -212,11 +214,34 @@ class _DataLoader:
         segm_time_proj = np.any(segm_data, axis=0).astype(np.uint8)
         segm_time_proj_obj = skimage.measure.regionprops(segm_time_proj)[0]
 
+        zyxResolutionLimitPxl = self.metadata['zyxResolutionLimitPxl']
+        delta_tolerance = [int(np.ceil(dd)) for dd in zyxResolutionLimitPxl]
+
+        T, Z, Y, X = segm_data.shape
+
         # Store cropping coordinates to save correct spots coordinates
-        data['crop_to_global_coords'] = np.array([
+        crop_to_global_coords = np.array([
             s.start for s in segm_time_proj_obj.slice
-        ])
-        segm_slice = (slice(None), *segm_time_proj_obj.slice)
+        ]) 
+        crop_to_global_coords = crop_to_global_coords - delta_tolerance
+        crop_to_global_coords = np.clip(crop_to_global_coords, 0, None)
+        data['crop_to_global_coords'] = crop_to_global_coords
+
+        crop_stop_coords = np.array([
+            s.stop for s in segm_time_proj_obj.slice
+        ]) 
+        crop_stop_coords = crop_stop_coords + delta_tolerance
+        crop_stop_coords = np.clip(crop_stop_coords, None, (Z, Y, X))
+
+        # Build (z,y,x) cropping slices
+        z_start, y_start, x_start = crop_to_global_coords        
+        z_stop, y_stop, x_stop = crop_stop_coords  
+        segm_slice = (
+            slice(None), slice(z_start, z_stop), 
+            slice(y_start, y_stop), slice(x_start, x_stop)
+        )
+
+        # Crop images
         arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm', 'segm')
         for key in arr_keys:
             if key not in data:
@@ -446,11 +471,23 @@ class _ParamsParser(_DataLoader):
         for anchor, options in config_default_params.items():
             arg_name = options['parser_arg']
             value = parser_args[arg_name]
-            configPars[SECTION][options['desc']] = str(value)
-        
-        configPars['Configuration']['Folder path of the log file'] = (
-            self.logs_path
-        )
+            parser_func = options.get('parser')
+            if parser_func is not None:
+                value = parser_func(value)
+            else:
+                value = str(value)
+            check_path_to_report = (
+                anchor == 'pathToReport' 
+                and options['desc'] in configPars[SECTION]
+            )
+            if check_path_to_report:
+                # Check that path to report in ini file is a relative path 
+                # -->  we don't overwrite it with the absolute path
+                path_to_report_ini = configPars[SECTION][options['desc']]
+                if io.is_part_of_path(value, path_to_report_ini):
+                    continue
+                
+            configPars[SECTION][options['desc']] = value
 
         with open(params_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
@@ -504,6 +541,8 @@ class _ParamsParser(_DataLoader):
         log_folder_path = parser_args['log_folderpath']
         if log_folder_path and not force_default:
             self._setup_logger_file_handler(log_folder_path)
+        if not log_folder_path:
+            parser_args['log_folderpath'] = self.logs_path
         
         disable_final_report = parser_args['disable_final_report']
         report_folderpath = parser_args['report_folderpath']
@@ -603,17 +642,16 @@ class _ParamsParser(_DataLoader):
             )
         
         self.check_metadata()
-        self.check_missing_params()
+        proceed, missing_params = self.check_missing_params()
+        if not proceed:
+            return False, None
         self.cast_loaded_values_dtypes()
-        io.writeConfigINI(
-            params=self._params, ini_path=self.ini_params_file_path
-        )
         proceed = self.check_paths_exist()
         if not proceed:
-            return False
+            return False, None
         self.set_abs_exp_paths()
         self.set_metadata()
-        return True
+        return True, missing_params
     
     def _ask_user_save_ini_from_csv(self, ini_filepath):
         filename = os.path.basename(ini_filepath)
@@ -837,6 +875,11 @@ class _ParamsParser(_DataLoader):
         text_to_append = section_params['textToAppend'].get('loadedVal', '')
         if text_to_append is None:
             text_to_append = ''
+        df_spots_file_ext = section_params['dfSpotsFileExtension'].get(
+            'loadedVal', '.h5'
+        )
+        if df_spots_file_ext is None:
+            df_spots_file_ext = '.h5'
         if self.exp_paths_list:
             for i in range(len(self.exp_paths_list)):
                 for exp_path in list(self.exp_paths_list[i].keys()):
@@ -847,6 +890,7 @@ class _ParamsParser(_DataLoader):
                     exp_info['refChSegmEndName'] = ref_ch_segm_endname
                     exp_info['lineageTableEndName'] = lineage_table_endname
                     exp_info['textToAppend'] = text_to_append
+                    exp_info['df_spots_file_ext'] = df_spots_file_ext
                     self.exp_paths_list[i][exp_path] = exp_info
         else:
             self.single_path_info = {
@@ -854,7 +898,9 @@ class _ParamsParser(_DataLoader):
                 'ref_ch_filepath': ref_ch_endname,
                 'segm_filepath': segm_endname,
                 'ref_ch_segm_filepath': ref_ch_segm_endname,
-                'lineage_table_filepath': lineage_table_endname
+                'lineage_table_filepath': lineage_table_endname,
+                'text_to_append': text_to_append,
+                'df_spots_file_ext': df_spots_file_ext
             }
         
     def _add_resolution_limit_metadata(self, metadata):
@@ -982,6 +1028,32 @@ class _ParamsParser(_DataLoader):
                 continue
             self._params[section_name][anchor]['loadedVal'] = default_val
     
+    def _save_missing_params_to_ini(self, missing_params, ini_filepath):
+        configPars = config.ConfigParser()
+        configPars.read(ini_filepath, encoding="utf-8")
+
+        for param in missing_params:
+            section_name, desc, default_val, anchor = param
+            if anchor == 'runNumber':
+                # We do not force any run number, this will be determined later.
+                continue
+            if section_name not in configPars.sections():
+                configPars[section_name] = {}
+            
+            if desc in configPars[section_name]:
+                continue
+            
+            options = self._params[section_name][anchor]
+            parser_func = options.get('parser')
+            if parser_func is not None:
+                value = parser_func(default_val)
+            else:
+                value = str(default_val)
+            configPars[section_name][desc] = value
+        
+        with open(ini_filepath, 'w', encoding="utf-8") as file:
+            configPars.write(file)
+    
     def _get_default_values_params(self, missing_params):
         default_values_format = []
         for param in missing_params:
@@ -1010,7 +1082,7 @@ class _ParamsParser(_DataLoader):
             self.logger.info('*'*50)
             self.logger.info(info_txt)
             io._log_forced_default(options[0], self.logger.info)
-            return True
+            return True, missing_params
         
         while True:
             answer = io.get_user_input(
@@ -1018,10 +1090,10 @@ class _ParamsParser(_DataLoader):
                 logger=self.logger.info
             )
             if answer == 'No, stop process' or answer == None:
-                return False
+                return False, missing_params
             elif answer == 'Yes, use default values':
                 self._set_default_val_params(missing_params)
-                return True
+                return True, missing_params
             else:
                 print('')
                 default_values_format = self._get_default_values_params(
@@ -1088,7 +1160,7 @@ class _ParamsParser(_DataLoader):
     def check_missing_params(self):
         missing_params = self._get_missing_params()
         if not missing_params:
-            return
+            return True, missing_params
         
         missing_exp_folder_msg = self._check_missing_exp_folder(missing_params)
         missing_ref_ch_msg = self._check_correlated_missing_ref_ch_params(
@@ -1136,7 +1208,7 @@ class _ParamsParser(_DataLoader):
                 'with default values.\n\n'
                 f'Parameters file path: "{self.ini_params_file_path}"\n'
             )
-            proceed = self._ask_user_input_missing_params(
+            proceed, missing_params = self._ask_user_input_missing_params(
                 missing_params, info_txt=err_msg
             )
             if not proceed:
@@ -1145,7 +1217,9 @@ class _ParamsParser(_DataLoader):
                     'Some parameters are missing'
                 )
                 self.quit()
-                return
+                return False, False
+            
+        return True, missing_params
 
     def cast_loaded_values_dtypes(self):
         for section_name in list(self._params.keys()):
@@ -3008,7 +3082,9 @@ class Kernel(_ParamsParser):
                 lab_single_obj_mask_rp = skimage.measure.regionprops(
                     lab_single_obj_mask.astype(np.uint8)
                 )
-                thresh_input_img = sharp_spots_img[lab_single_obj_mask_rp[0].slice]
+                thresh_input_img = sharp_spots_img[
+                    lab_single_obj_mask_rp[0].slice
+                ]
                 threshold_val = threshold_func(thresh_input_img)
             
             if detection_method == 'peak_local_max':
@@ -3021,13 +3097,13 @@ class Kernel(_ParamsParser):
                 if prediction_mask is None:
                     labels = obj.image.astype(np.uint8)
                 else:
-                    threshold_val=None
+                    threshold_val = None
                     local_spots_mask = prediction_mask[obj.slice]
                     labels = np.logical_and(obj.image, local_spots_mask)
                 
                 local_peaks_coords = skimage.feature.peak_local_max(
                     local_sharp_spots_img, threshold_abs=threshold_val, 
-                    footprint=footprint, labels=labels, p_norm=2
+                    footprint=footprint, labels=labels
                 )
             else:
                 if prediction_mask is None:
@@ -3086,10 +3162,11 @@ class Kernel(_ParamsParser):
             
             i = 0
             while True:     
+                printl(i)
                 num_spots_prev = len(df_obj_spots_gop)      
                 df_obj_spots_gop = self._compute_obj_spots_metrics(
                     local_spots_img, df_obj_spots_gop, obj.image, 
-                    local_peaks_coords, local_sharp_spots_img, 
+                    local_sharp_spots_img, 
                     raw_spots_img_obj=raw_spots_img_obj,
                     min_size_spheroid_mask=min_size_spheroid_mask, 
                     dist_transform_spheroid=dist_transform_spheroid,
@@ -3102,6 +3179,17 @@ class Kernel(_ParamsParser):
                 if i == 0:
                     # Store metrics at first iteration
                     df_obj_spots_det = df_obj_spots_gop.copy()
+                
+                if num_spots_prev != 6:
+                    from . import _debug
+                    _debug._peak_local_max(
+                        'test_peak_local_max', local_sharp_spots_img, 
+                        footprint, labels, obj.label, threshold_val, 
+                        df_obj_spots_gop=df_obj_spots_gop, 
+                        df_obj_spots_det=df_obj_spots_det, 
+                        view=True, save=True
+                    )
+                    import pdb; pdb.set_trace()
                 
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds
@@ -3296,22 +3384,37 @@ class Kernel(_ParamsParser):
 
     def _get_normalised_spot_ref_ch_intensities(
             self, normalised_spots_img_obj, normalised_ref_ch_img_obj,
-            spheroid_mask, slice_global_to_local, dist_transf
+            spheroid_mask, slice_global_to_local
         ):
         norm_spot_slice = (normalised_spots_img_obj[slice_global_to_local])
-        norm_spot_slice_dt = norm_spot_slice*dist_transf
+        norm_spot_slice_dt = norm_spot_slice
         norm_spot_intensities = norm_spot_slice_dt[spheroid_mask]
 
         norm_ref_ch_slice = (normalised_ref_ch_img_obj[slice_global_to_local])
-        norm_ref_ch_slice_dt = norm_ref_ch_slice*dist_transf
+        norm_ref_ch_slice_dt = norm_ref_ch_slice
         norm_ref_ch_intensities = norm_ref_ch_slice_dt[spheroid_mask]
 
         return norm_spot_intensities, norm_ref_ch_intensities
 
+    def _normalise_spot_by_dist_transf(
+            self, spot_slice_z, dist_transf, backgr_vals_z_spots,
+            how='range'
+        ):
+        if how == 'range':
+            norm_spot_slice_z = features.normalise_by_dist_transform_range(
+                spot_slice_z, dist_transf, backgr_vals_z_spots
+            )
+        elif how == 'simple':
+            norm_spot_slice_z = features.normalise_by_dist_transform_simple(
+                spot_slice_z, dist_transf, backgr_vals_z_spots
+            )
+        else:
+            norm_spot_slice_z = spot_slice_z
+        return norm_spot_slice_z
 
     # @acdctools.utils.exec_time
     def _compute_obj_spots_metrics(
-            self, spots_img_obj, df_obj_spots, obj_mask, local_peaks_coords, 
+            self, spots_img_obj, df_obj_spots, obj_mask, 
             sharp_spots_img_obj, raw_spots_img_obj=None, 
             min_size_spheroid_mask=None, dist_transform_spheroid=None,
             ref_ch_mask_obj=None, ref_ch_img_obj=None, 
@@ -3335,9 +3438,6 @@ class Kernel(_ParamsParser):
             Boolean mask of the segmentation object contaning both ('z', 'y', 'x') 
             global peaks coordinates and ('z_local', 'y_local', 'z_local') 
             peaks coordinates in the segmentation objects' frame of reference.
-        local_peaks_coords : (n, 3) ndarray
-            (n, 3) array of (z,y,x) coordinates of the peaks in the segmentation
-            object's frame of reference (i.e., "local").
         sharp_spots_img_obj : (Z, Y, X) ndarray
             Spots' signal 3D z-stack image sliced at the segmentation object
             level. Note that this is the preprocessed image, i.e., after 
@@ -3385,7 +3485,8 @@ class Kernel(_ParamsParser):
         if verbose:
             print('')
             self.logger.info('Computing spots features...')
-        
+
+        local_peaks_coords = df_obj_spots[zyx_local_cols].to_numpy()
         spheroids_mask, min_size_spheroid_mask = self._get_obj_spheroids_mask(
             local_peaks_coords, obj_mask.shape, 
             min_size_spheroid_mask=min_size_spheroid_mask, 
@@ -3413,7 +3514,7 @@ class Kernel(_ParamsParser):
         # Calculate background metrics
         backgr_vals = sharp_spots_img_obj[backgr_mask]
         for name, func in distribution_metrics_func.items():
-            df_obj_spots[f'background_{name}'] = func(backgr_vals)
+            df_obj_spots.loc[:, f'background_{name}'] = func(backgr_vals)
         
         if raw_spots_img_obj is None:
             raw_spots_img_obj = spots_img_obj
@@ -3431,25 +3532,34 @@ class Kernel(_ParamsParser):
                 zyx_center, spots_img_obj.shape, min_size_spheroid_mask.shape
             )
             slice_global_to_local, slice_crop_local = slices
+            
+            # Background values at spot z-slice
+            backgr_mask_z_spot = backgr_mask[zyx_center[0]]
+            sharp_spot_obj_z = sharp_spots_img_obj[zyx_center[0]]
+            backgr_vals_z_spot = sharp_spot_obj_z[backgr_mask_z_spot]
+
+            # Crop masks
             spheroid_mask = min_size_spheroid_mask[slice_crop_local]
-            dist_transf = dist_transform_spheroid[slice_crop_local]
             spot_slice = spots_img_obj[slice_global_to_local]
 
             # Get the sharp spot sliced
-            sharp_spot_obj_z = sharp_spots_img_obj[zyx_center[0]]
             sharp_spot_slice_z = sharp_spot_obj_z[slice_global_to_local[-2:]]
-            sharp_spot_slice_z_edt = sharp_spot_slice_z*dist_transf.max(axis=0)
-
-            # Background values at spot z-slice
-            z_global = row.z
-            backgr_mask_z_spot = backgr_mask[z_global]
-            sharp_spots_z = sharp_spots_img_obj[z_global]
-            backgr_vals_z_spot = sharp_spots_z[backgr_mask_z_spot]
+            if dist_transform_spheroid is None:
+                # Do not optimise for high spot density
+                sharp_spot_slice_z_transf = sharp_spot_slice_z
+            else:
+                dist_transf = dist_transform_spheroid[slice_crop_local]
+                sharp_spot_slice_z_transf = self._normalise_spot_by_dist_transf(
+                    sharp_spot_slice_z, dist_transf.max(axis=0),
+                    backgr_vals_z_spot, how='range'
+                )
 
             # Get spot intensities
             spot_intensities = spot_slice[spheroid_mask]
             spheroid_mask_proj = spheroid_mask.max(axis=0)
-            sharp_spot_intensities_z_edt = sharp_spot_slice_z_edt[spheroid_mask_proj]
+            sharp_spot_intensities_z_edt = (
+                sharp_spot_slice_z_transf[spheroid_mask_proj]
+            )
 
             value = spots_img_obj[zyx_center]
             df_obj_spots.at[spot_id, 'spot_preproc_intensity_at_center'] = value
@@ -3471,8 +3581,6 @@ class Kernel(_ParamsParser):
                     raw_spot_intensities, df_obj_spots, spot_id, 
                     col_name='spot_raw_*name_in_spot_minimumsize_vol'
                 )
-            
-            imshow(sharp_spot_slice_z_edt, sharp_spots_z, backgr_mask_z_spot)
 
             # When comparing to the background we use the sharpened image 
             # at the center z-slice of the spot
@@ -3490,7 +3598,7 @@ class Kernel(_ParamsParser):
                 normalised_spot_intensities, normalised_ref_ch_intensities = (
                     self._get_normalised_spot_ref_ch_intensities(
                         normalised_spots_img_obj, normalised_ref_ch_img_obj,
-                        spheroid_mask, slice_global_to_local, dist_transf
+                        spheroid_mask, slice_global_to_local
                     )
                 )
                 self._add_ttest_values(
@@ -3568,6 +3676,7 @@ class Kernel(_ParamsParser):
             return df
         
         query = ' & '.join(queries)
+        import pdb; pdb.set_trace()
         return df.query(query)
     
     def _critical_feature_is_missing(self, missing_feature, df):
@@ -4025,6 +4134,7 @@ class Kernel(_ParamsParser):
             ref_ch_segm_endname = exp_info['refChSegmEndName']
             lineage_table_endname = exp_info['lineageTableEndName']
             text_to_append = exp_info['textToAppend']
+            df_spots_file_ext = exp_info['df_spots_file_ext']
             desc = 'Experiments completed'
             pbar_pos = tqdm(total=len(exp_paths), ncols=100, desc=desc, position=1) 
             for pos in pos_foldernames:
@@ -4049,7 +4159,8 @@ class Kernel(_ParamsParser):
                     continue
                 self.save_dfs(
                     pos_path, dfs, run_number=run_number, 
-                    text_to_append=text_to_append
+                    text_to_append=text_to_append, 
+                    df_spots_file_ext=df_spots_file_ext
                 )
                 pbar_pos.update()
             pbar_pos.close()
@@ -4076,7 +4187,13 @@ class Kernel(_ParamsParser):
         df_agg_dst.loc[missing_idx_df_agg_dst, cols] = vals
         return df_agg_dst
 
-    def save_dfs(self, folder_path, dfs, run_number=1, text_to_append=''):
+    def save_dfs(
+            self, folder_path, dfs, run_number=1, text_to_append='', 
+            df_spots_file_ext='.h5'
+        ):
+        if not df_spots_file_ext.startswith('.'):
+            df_spots_file_ext = f'.{df_spots_file_ext}'
+        
         spotmax_out_path = os.path.join(folder_path, 'spotMAX_output')
         if not os.path.exists(spotmax_out_path):
             os.mkdir(spotmax_out_path)
@@ -4094,12 +4211,16 @@ class Kernel(_ParamsParser):
             filename = filename.replace('*rn*', str(run_number))
             filename = filename.replace('*desc*', text_to_append)
             df_spots = dfs.get(key, None)
-            h5_filename = filename
+            df_spots_filename = filename
 
             if df_spots is not None:
-                io.save_df_to_hdf(df_spots, spotmax_out_path, h5_filename)
+                io.save_df_spots(
+                    df_spots, spotmax_out_path, df_spots_filename,
+                    extension=df_spots_file_ext
+                )
             
-            agg_filename = h5_filename.replace('.h5', '_aggregated.csv')
+            ext = df_spots_file_ext
+            agg_filename = df_spots_filename.replace(f'{ext}', '_aggregated.csv')
             agg_key = key.replace('spots', 'agg')
             df_agg = dfs.get(agg_key, None)
 
@@ -4125,7 +4246,8 @@ class Kernel(_ParamsParser):
         self._force_close_on_critical = force_close_on_critical
         if NUMBA_INSTALLED and num_numba_threads > 0:
             numba.set_num_threads(num_numba_threads)
-        proceed = self.init_params(
+        
+        proceed, missing_params = self.init_params(
             params_path, metadata_csv_path=metadata_csv_path
         )
         if not proceed:
@@ -4135,6 +4257,9 @@ class Kernel(_ParamsParser):
         if parser_args is not None:
             params_path = self.ini_params_file_path
             self.add_parser_args_to_params_ini_file(parser_args, params_path)
+        self._save_missing_params_to_ini(
+            missing_params, self.ini_params_file_path
+        )
         
         is_report_enabled = not disable_final_report
         if is_report_enabled and report_filepath:

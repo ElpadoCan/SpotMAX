@@ -116,6 +116,23 @@ def get_exp_paths(exp_paths):
     exp_paths = [io.get_abspath(path) for path in exp_paths]
     return exp_paths
 
+def get_log_folderpath(folder_path):
+    # User can provide the home path as '~'
+    log_path = folder_path.replace(r'%userprofile%', '~')
+    log_path = io.to_system_path(log_path)
+    log_path = os.path.expanduser(log_path)
+    log_path = io.get_abspath(log_path)
+    return log_path
+
+def parse_log_folderpath(log_path):
+    log_path = io.get_abspath(log_path)
+    try:
+        log_path = pathlib.Path(log_path).relative_to(pathlib.Path.home())
+        log_path = os.path.normpath(f'~{os.sep}{log_path}')
+    except ValueError as e:
+        log_path = log_path
+    return log_path
+
 def parse_list_to_configpars(iterable: list):
     if isinstance(iterable, str):
         iterable = [iterable]
@@ -272,6 +289,20 @@ def _filepaths_params():
             'actions': None,
             'dtype': str
         },
+        'dfSpotsFileExtension': {
+            'desc': 'File extension of the output tables',
+            'initialVal': '.h5',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': True,
+            'formWidgetFunc': 'widgets._dfSpotsFileExtensionsWidget',
+            'actions': None,
+            'dtype': str, 
+            'parser_arg': 'output_tables_file_ext'
+        },
     }
     return filepaths_params
 
@@ -279,7 +310,7 @@ def _configuration_params():
     config_params = {
         'pathToLog': {
             'desc': 'Folder path of the log file',
-            'initialVal': """""",
+            'initialVal': f'~{os.sep}{os.path.join("spotmax_appdata", "logs")}',
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,
@@ -288,12 +319,13 @@ def _configuration_params():
             'addEditButton': True,
             'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
             'actions': None,
-            'dtype': str, 
+            'dtype': get_log_folderpath, 
+            'parser': parse_log_folderpath,
             'parser_arg': 'log_folderpath'
         },
         'pathToReport': {
             'desc': 'Folder path of the final report',
-            'initialVal': """""",
+            'initialVal': '',
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,
@@ -302,7 +334,7 @@ def _configuration_params():
             'addEditButton': True,
             'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
             'actions': None,
-            'dtype': str, 
+            'dtype': io.get_abspath,
             'parser_arg': 'report_folderpath'
         },
         'reportFilename': {
@@ -374,21 +406,7 @@ def _configuration_params():
             'actions': None,
             'dtype': int, 
             'parser_arg': 'num_threads'
-        },
-        'dfSpotsFileExtension': {
-            'desc': 'File extension of the output tables',
-            'initialVal': '.h5',
-            'stretchWidget': True,
-            'addInfoButton': True,
-            'addComputeButton': False,
-            'addApplyButton': False,
-            'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'widgets._dfSpotsFileExtensionsWidget',
-            'actions': None,
-            'dtype': str, 
-            'parser_arg': 'output_tables_file_ext'
-        },
+        }
     }
     return config_params
 

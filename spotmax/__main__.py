@@ -73,7 +73,7 @@ def cli_parser():
 
     ap.add_argument(
         '-o', '--output_tables_file_ext',
-        default='',
+        default='.h5',
         type=str,
         metavar='OUTPUT_TABLES_FILE_EXT',
         help=('File extension of the output tables')
