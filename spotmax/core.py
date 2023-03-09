@@ -2785,7 +2785,7 @@ class Kernel(_ParamsParser):
     def segment_ref_ch(
             self, ref_ch_img, threshold_method='threshold_otsu', lab_rp=None, 
             lab=None, lineage_table=None, keep_only_largest_obj=False, 
-            do_aggregate_objs=False, df_agg=None, frame_i=0, 
+            predict_on_aggregated=False, df_agg=None, frame_i=0, 
             vox_to_um3=None, verbose=True
         ):
         if lab is None:
@@ -2809,8 +2809,8 @@ class Kernel(_ParamsParser):
         else:
             threshold_func = threshold_method
 
-        if do_aggregate_objs:
-            aggr_ref_ch_img = self.aggregate_objs(
+        if predict_on_aggregated:
+            aggr_ref_ch_img, _ = self.aggregate_objs(
                 ref_ch_img, lab, lineage_table=lineage_table
             )
             thresh_val = threshold_func(aggr_ref_ch_img.max(axis=0))
@@ -2825,32 +2825,48 @@ class Kernel(_ParamsParser):
 
         return ref_ch_segm, df_agg
     
-    def aggregate_objs(self, img_data, lab, lineage_table=None):
-        if lineage_table is not None:
-            # Check if moth-buds are to be merged before aggregation
-            lab = lab.copy()
-            df_buds = lineage_table[lineage_table.relationship == 'bud']
-            moth_IDs = df_buds['relative_ID'].unique()
-            df_buds = df_buds.reset_index().set_index('relative_ID')
-            if len(moth_IDs) > 0:
-                lab = lab.copy()
-                for mothID in moth_IDs:
-                    budID = df_buds.at[mothID, 'Cell_ID']
-                    lab[lab==budID] = mothID
+    def _merge_moth_bud(self, lineage_table, lab):
+        if lineage_table is None:
+            return lab
+
+        df_buds = lineage_table[lineage_table.relationship == 'bud']
+        moth_IDs = df_buds['relative_ID'].unique()
+        df_buds = df_buds.reset_index().set_index('relative_ID')
+        if len(moth_IDs) == 0:
+            return lab
+        
+        lab_merged = lab.copy()
+        for mothID in moth_IDs:
+            budID = df_buds.at[mothID, 'Cell_ID']
+            lab_merged[lab==budID] = mothID
+        return lab_merged
+    
+    def aggregate_objs(
+            self, img_data, lab, zyx_tolerance=None, lineage_table=None
+        ):
+        lab_merged = self._merge_moth_bud(lineage_table, lab)
+
+        # Add tolerance based on resolution limit
+        if zyx_tolerance is not None:
+            dz, dy, dx = [int(2*np.ceil(dd)) for dd in zyx_tolerance]
+        else:
+            dz, dy, dx = 0, 0, 0
 
         # Get max height and total width
-        rp = skimage.measure.regionprops(lab)
+        rp_merged = skimage.measure.regionprops(lab_merged)
         tot_width = 0
         max_height = 0
         max_depth = 0
-        for obj in rp:
+        for obj in rp_merged:
             d, h, w = obj.image.shape
+            d, h, w = d+dz, h+dy, w+dx
             if h > max_height:
                 max_height = h
             if d > max_depth:
                 max_depth = d
             tot_width += w
 
+        
         # Aggregate data horizontally by slicing object centered at 
         # centroid and using largest object as slicing box
         aggr_shape = (max_depth, max_height, tot_width)
@@ -2859,45 +2875,20 @@ class Kernel(_ParamsParser):
         max_d_fwd = int(max_depth/2)
         max_d_back = max_depth-max_d_fwd
         aggregated_img = np.zeros(aggr_shape, dtype=img_data.dtype)
-        Z, Y, X = img_data.shape
+        aggregated_lab = np.zeros(aggr_shape, dtype=lab.dtype)
         last_w = 0
-        for obj in rp:
-            w = obj.image.shape[-1]
-            slice_w = obj.slice[2]
-            zc, yc, xc = obj.centroid
-            z, y = int(zc), int(yc)
-            h_top = y - max_h_top
-            if h_top < 0:
-                # Object slicing would extend negative y
-                h_top = 0
-                h_bottom = max_height
-            else:
-                h_bottom = y + max_h_bottom
-            
-            if h_bottom > Y:
-                # Object slicing would extend more than the img data Y
-                h_bottom = Y
-                h_top = h_bottom - max_height
-            
-            d_fwd = z - max_d_fwd
-            if d_fwd < 0:
-                # Object slicing would extend negative z
-                d_fwd = 0
-                d_top = max_depth
-            else:
-                # Object slicing would extend more than the img data Z
-                d_top = z + max_d_back
-            
-            if d_top > Z:
-                d_top = Z
-                d_fwd = d_top - max_depth
-
-            obj_slice = (
-                slice(d_fwd, d_top), slice(h_top, h_bottom), slice_w
+        for obj in rp_merged:
+            w = obj.image.shape[-1] + dx
+            obj_slice = utils.get_aggregate_obj_slice(
+                obj, max_h_top, max_height, max_h_bottom, max_d_fwd, max_depth, 
+                max_d_back, img_data.shape, dx=dx
             )
             aggregated_img[:, :, last_w:last_w+w] = img_data[obj_slice]
+            obj_lab = lab[obj_slice].copy()
+            obj_lab[obj_lab != obj.label] = 0
+            aggregated_lab[:, :, last_w:last_w+w] = obj_lab
             last_w += w
-        return aggregated_img
+        return aggregated_img, aggregated_lab
     
     def _get_local_spheroid_mask(self, zyx_radii_pxl):
         zr, yr, xr = zyx_radii_pxl
@@ -2963,7 +2954,7 @@ class Kernel(_ParamsParser):
             df_agg=None, do_keep_spots_in_ref_ch=False, 
             gop_filtering_thresholds=None, dist_transform_spheroid=None,
             detection_method='peak_local_max', prediction_method='Thresholding',
-            threshold_method='threshold_otsu', do_aggregate_objs=False,
+            threshold_method='threshold_otsu', predict_on_aggregated=False,
             lineage_table=None, min_size_spheroid_mask=None, verbose=True,
             spot_footprint=None, dfs_lists=None
         ):
@@ -2997,13 +2988,17 @@ class Kernel(_ParamsParser):
             df_data = {'frame_i': [frame_i]*len(IDs), 'Cell_ID': IDs}
             df_agg = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
         
-        prediction_args = self._get_spot_prediction_args(
-            sharp_spots_img, lab, prediction_method, threshold_method, 
-            do_aggregate_objs, lineage_table=lineage_table
+        if spot_footprint is None:
+            zyx_radii_pxl = [val/2 for val in zyx_resolution_limit_pxl]
+            spot_footprint = self._get_local_spheroid_mask(zyx_radii_pxl)
+
+        local_spots_coords = self._spots_detection(
+            sharp_spots_img, lab, threshold_method, prediction_method, 
+            predict_on_aggregated, spot_footprint, zyx_resolution_limit_pxl, 
+            lineage_table=lineage_table
         )
-        threshold_val, threshold_func, prediction_mask = prediction_args
         
-        df_spots_det, df_spots_gop = self._spots_detection(
+        df_spots_det, df_spots_gop = self._spots_filter(
             spots_img, sharp_spots_img, ref_ch_img, ref_ch_mask_or_labels, 
             do_filter_spots_vs_ref_ch, lab, rp, frame_i, detection_method,
             zyx_resolution_limit_pxl, spot_footprint=spot_footprint,
@@ -3022,30 +3017,85 @@ class Kernel(_ParamsParser):
             )
             return df_spots_det, df_spots_gop, *dfs_segm_obj
     
-    def _get_spot_prediction_args(
-            self, spots_img, lab, prediction_method, threshold_method, 
-            do_aggregate_objs, lineage_table=None
+    def _get_peak_local_max_labels_thresholding(
+            self, aggr_spots_img, aggregated_lab, threshold_func, 
+            predict_on_aggregated, lineage_table=None
         ):
-        threshold_val = None
-        threshold_func = None
-        prediction_mask = None
+        if predict_on_aggregated:
+            threshold_val = threshold_func(aggr_spots_img.max(axis=0))
+            prediction_mask = aggr_spots_img>threshold_val
+            labels = np.logical_and(
+                aggregated_lab, prediction_mask).astype(np.uint8)
+            return labels
+
+        # Get prediction mask by thresholding objects separately
+        aggr_rp = skimage.measure.regionprops(aggregated_lab)
+        IDs = [obj.label for obj in aggr_rp]
+        labels = np.zeros_like(aggregated_lab)
+        for obj in aggr_rp:
+            if lineage_table is not None:
+                if lineage_table.at[obj.label, 'relationship'] == 'bud':
+                    # Skip buds since they are aggregated with mother
+                    continue
+            
+            spots_img_obj, obj_mask, budID = self._extract_img_from_segm_obj(
+                aggr_spots_img, aggregated_lab, obj, lineage_table
+            )
+
+            # Threshold
+            threshold_val = threshold_func(spots_img_obj.max(axis=0))
+            predict_mask_merged = spots_img_obj > threshold_val
+            predict_mask_merged[~obj_mask] = False
+
+            if budID > 0:
+                bud_obj = aggr_rp[IDs.index(budID)]
+                objs = [obj, bud_obj]
+            else:
+                objs = [obj]
+
+            # Iterate eventually merged (mother-bud) objects
+            for obj in objs:
+                predict_mask_obj = np.zeros_like(obj.image)
+                obj_slice = tuple([slice(0,d) for d in obj.image.shape])
+                predict_mask_obj[obj_slice] = predict_mask_merged[obj_slice]
+                labels[obj.slice][predict_mask_obj] = obj.label
+        return labels
+
+    def _from_aggr_coords_to_local(self, aggr_spots_coords, aggregated_lab):
+        aggr_lab_rp = skimage.measure.regionprops(aggregated_lab)
+        imshow(aggregated_lab)
+        import pdb; pdb.set_trace()
+        
+    def _spots_detection(
+            self, sharp_spots_img, lab, threshold_method, prediction_method,
+            predict_on_aggregated, footprint, zyx_resolution_limit_pxl, 
+            lineage_table=None
+        ):
+        aggr_spots_img, aggregated_lab = self.aggregate_objs(
+            sharp_spots_img, lab, lineage_table=lineage_table, 
+            zyx_tolerance=zyx_resolution_limit_pxl
+        )
+        
         if prediction_method == 'Thresholding':
             if isinstance(threshold_method, str):
                 threshold_func = getattr(skimage.filters, threshold_method)
             else:
                 threshold_func = threshold_method
-
-            if do_aggregate_objs:
-                aggr_spots_img = self.aggregate_objs(
-                    spots_img, lab, lineage_table=lineage_table
-                )
-                threshold_val = threshold_func(aggr_spots_img.max(axis=0))
-        elif prediction_method == 'Neural network':
+            
+            labels = self._get_peak_local_max_labels_thresholding(
+                aggr_spots_img, aggregated_lab, threshold_func, 
+                predict_on_aggregated, lineage_table=None
+            )
+        else:
             pass
         
-        return threshold_val, threshold_func, prediction_mask
-    
-    def _spots_detection(
+        aggr_spots_coords = skimage.feature.peak_local_max(
+            aggr_spots_img, footprint=footprint, labels=labels
+        )
+
+        self._from_aggr_coords_to_local(aggr_spots_coords, aggregated_lab)
+        
+    def _spots_filter(
             self, spots_img, sharp_spots_img, ref_ch_img, ref_ch_mask_or_labels, 
             do_filter_spots_vs_ref_ch, lab, rp, frame_i, detection_method,
             zyx_resolution_limit_pxl, dfs_lists=None,
@@ -3854,7 +3904,7 @@ class Kernel(_ParamsParser):
         do_segment_ref_ch = (
             self._params['Reference channel']['segmRefCh']['loadedVal']
         )
-        do_aggregate_objs = (
+        predict_on_aggregated = (
             self._params['Pre-processing']['aggregate']['loadedVal']
         )
         ref_ch_data = data.get('ref_ch')
@@ -3915,7 +3965,7 @@ class Kernel(_ParamsParser):
                     threshold_method=ref_ch_threshold_method, 
                     keep_only_largest_obj=is_ref_ch_single_obj,
                     df_agg=df_agg, frame_i=frame_i, 
-                    do_aggregate_objs=do_aggregate_objs,
+                    predict_on_aggregated=predict_on_aggregated,
                     lineage_table=lineage_table, vox_to_um3=vox_to_um3,
                     verbose=False
                 )
@@ -4030,7 +4080,7 @@ class Kernel(_ParamsParser):
                 prediction_method=prediction_method,
                 threshold_method=threshold_method,
                 detection_method=detection_method,
-                do_aggregate_objs=do_aggregate_objs,
+                predict_on_aggregated=predict_on_aggregated,
                 lineage_table=lineage_table,
                 verbose=False
             )
