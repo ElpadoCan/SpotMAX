@@ -665,7 +665,7 @@ def _spots_ch_params():
     spots_ch_params = {
         'spotDetectionMethod': {
             'desc': 'Spots detection method',
-            'initialVal': 'peak_local_max',
+            'initialVal': 'peak_local_max', # or 'label_prediction_mask'
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': True,

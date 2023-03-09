@@ -2992,10 +2992,13 @@ class Kernel(_ParamsParser):
             zyx_radii_pxl = [val/2 for val in zyx_resolution_limit_pxl]
             spot_footprint = self._get_local_spheroid_mask(zyx_radii_pxl)
 
-        local_spots_coords = self._spots_detection(
-            sharp_spots_img, lab, threshold_method, prediction_method, 
-            predict_on_aggregated, spot_footprint, zyx_resolution_limit_pxl, 
-            lineage_table=lineage_table
+        print('')
+        self.logger.info('Detecting spots...')
+
+        df_spots_coords = self._spots_detection(
+            sharp_spots_img, lab, detection_method, threshold_method, 
+            prediction_method, predict_on_aggregated, spot_footprint, 
+            zyx_resolution_limit_pxl, lineage_table=lineage_table
         )
         
         df_spots_det, df_spots_gop = self._spots_filter(
@@ -3063,13 +3066,30 @@ class Kernel(_ParamsParser):
 
     def _from_aggr_coords_to_local(self, aggr_spots_coords, aggregated_lab):
         aggr_lab_rp = skimage.measure.regionprops(aggregated_lab)
-        imshow(aggregated_lab)
-        import pdb; pdb.set_trace()
+        zz, yy, xx = aggr_spots_coords.T
+        zeros = [0]*len(zz)
+        df_spots_coords = pd.DataFrame({
+            'z_aggr': zz, 'y_aggr': yy, 'x_aggr': xx, 
+            'z_local': zeros, 'y_local': zeros, 'x_local': zeros,
+            'IDs': aggregated_lab[zz, yy, xx]
+        }).set_index('IDs').sort_index()
+        for obj in aggr_lab_rp:
+            min_z, min_y, min_x = obj.bbox[:3]
+            zz_local = df_spots_coords.loc[obj.label, 'z_aggr'] - min_z
+            df_spots_coords.loc[obj.label, 'z_local'] = zz_local
+
+            yy_local = df_spots_coords.loc[obj.label, 'y_aggr'] - min_y
+            df_spots_coords.loc[obj.label, 'y_local'] = yy_local
+
+            xx_local = df_spots_coords.loc[obj.label, 'x_aggr'] - min_x
+            df_spots_coords.loc[obj.label, 'x_local'] = xx_local
+
+        return df_spots_coords
         
     def _spots_detection(
-            self, sharp_spots_img, lab, threshold_method, prediction_method,
-            predict_on_aggregated, footprint, zyx_resolution_limit_pxl, 
-            lineage_table=None
+            self, sharp_spots_img, lab, detection_method, threshold_method, 
+            prediction_method, predict_on_aggregated, footprint, 
+            zyx_resolution_limit_pxl, lineage_table=None
         ):
         aggr_spots_img, aggregated_lab = self.aggregate_objs(
             sharp_spots_img, lab, lineage_table=lineage_table, 
@@ -3087,13 +3107,25 @@ class Kernel(_ParamsParser):
                 predict_on_aggregated, lineage_table=None
             )
         else:
+            # Here we will use U-Net
             pass
         
-        aggr_spots_coords = skimage.feature.peak_local_max(
-            aggr_spots_img, footprint=footprint, labels=labels
-        )
+        if detection_method == 'peak_local_max':
+            aggr_spots_coords = skimage.feature.peak_local_max(
+                aggr_spots_img, footprint=footprint, labels=labels
+            )
+        elif detection_method == 'label_prediction_mask':
+            prediction_lab = skimage.measure.label(labels>0)
+            prediction_lab_rp = skimage.measure.regionprops(prediction_lab)
+            num_spots = len(prediction_lab_rp)
+            aggr_spots_coords = np.zeros((len(num_spots, 3)))
+            for s, spot_obj in enumerate(prediction_lab_rp):
+                aggr_spots_coords[s] = [int(c) for c in spot_obj.centroid]
 
-        self._from_aggr_coords_to_local(aggr_spots_coords, aggregated_lab)
+        df_spots_coords = self._from_aggr_coords_to_local(
+            aggr_spots_coords, aggregated_lab
+        )
+        return df_spots_coords
         
     def _spots_filter(
             self, spots_img, sharp_spots_img, ref_ch_img, ref_ch_mask_or_labels, 
@@ -3107,7 +3139,7 @@ class Kernel(_ParamsParser):
         ):
         if verbose:
             print('')
-            self.logger.info('Detecting and filtering valid spots...')
+            self.logger.info('Filtering valid spots...')
         
         if dfs_lists is None:
             dfs_spots_det = []
@@ -3118,7 +3150,7 @@ class Kernel(_ParamsParser):
             dfs_spots_gop = dfs_lists['dfs_spots_gop_test']
             keys = dfs_lists['keys']
 
-        desc = 'Detecting spots'
+        desc = 'Filtering spots'
         pbar = tqdm(
             total=len(rp), ncols=100, desc=desc, position=3, leave=False
         )
