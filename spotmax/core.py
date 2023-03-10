@@ -3183,6 +3183,7 @@ class Kernel(_ParamsParser):
         Z, Y, X = lab.shape
         delta_tol = [int(np.ceil(dd)) for dd in zyx_resolution_limit_pxl]
 
+        num_spots_filtered_log = []
         desc = 'Filtering spots'
         pbar = tqdm(
             total=len(rp), ncols=100, desc=desc, position=3, leave=False
@@ -3215,9 +3216,9 @@ class Kernel(_ParamsParser):
             # the cropping tolerance `delta_tolerance`
             local_peaks_coords = global_peaks_coords - crop_obj_start 
 
-            num_spots = len(global_peaks_coords)
+            num_spots_detected = len(global_peaks_coords)
             df_obj_spots_det = pd.DataFrame({
-                'spot_id': np.arange(1, num_spots+1),
+                'spot_id': np.arange(1, num_spots_detected+1),
                 'z': global_peaks_coords[:,0],
                 'y': global_peaks_coords[:,1],
                 'x': global_peaks_coords[:,2],
@@ -3275,22 +3276,29 @@ class Kernel(_ParamsParser):
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds
                 )
-                num_spots_current = len(df_obj_spots_gop)
+                num_spots_filtered = len(df_obj_spots_gop)
                 
-                if num_spots_current == num_spots_prev or num_spots_current == 0:
+                if num_spots_filtered == num_spots_prev or num_spots_filtered == 0:
                     # Number of filtered spots stopped decreasing --> stop loop
                     break
 
                 i += 1
 
-            print('')
-            self.logger.info(
-                f'Number of valid spots after {i+1} iterations = {num_spots_current}'
-            )
+            nsd, nsf = num_spots_detected, num_spots_filtered
+            s = f'  * Object ID {obj.label} = {nsd} --> {nsf} ({i+1} iterations)'
+            num_spots_filtered_log.append(s)
 
             dfs_spots_gop.append(df_obj_spots_gop)
             pbar.update()
         pbar.close()
+
+        print('')
+        print('*'*60)
+        info = '\n'.join(num_spots_filtered_log)
+        self.logger.info(
+            f'Number of spots after filtering valid spots:\n{info}'
+        )
+        print('-'*60)
         
         if dfs_lists is None:
             names = ['frame_i', 'Cell_ID', 'spot_id']
