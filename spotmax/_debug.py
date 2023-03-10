@@ -36,7 +36,7 @@ def _peak_local_max(
             'spot_vs_backgr_effect_size_cohen',
             'spot_vs_backgr_effect_size_glass'
         ]
-        points_data = df_obj_spots_gop[data_cols]
+        points_data = df_obj_spots_gop[data_cols].reset_index()
     else:
         points_coords = None
         points_data = None
@@ -47,6 +47,26 @@ def _peak_local_max(
         local_sharp_spots_img, 
         local_sharp_spots_img>threshold_val,
         labels, footprint, 
+        points_coords=points_coords, 
+        points_data=points_data
+    )
+    import pdb; pdb.set_trace()
+
+def _spots_filtering(local_spots_img, df_obj_spots_gop, obj, obj_image):
+    print(f'Cell ID = {obj.label}')
+    from acdctools.plot import imshow
+    zyx_cols = ['z_local_expanded', 'y_local_expanded', 'x_local_expanded']
+    points_coords = df_obj_spots_gop[zyx_cols].to_numpy()
+    data_cols = [
+        'spot_vs_backgr_effect_size_hedge',
+        'spot_vs_backgr_effect_size_cohen',
+        'spot_vs_backgr_effect_size_glass'
+    ]
+    points_data = df_obj_spots_gop[data_cols].reset_index()
+    zyx_cols.extend(data_cols)
+    printl(df_obj_spots_gop[zyx_cols])
+    imshow(
+        local_spots_img, obj_image, obj.image,
         points_coords=points_coords, 
         points_data=points_data
     )

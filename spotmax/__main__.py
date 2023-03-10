@@ -72,6 +72,12 @@ def cli_parser():
     )
 
     ap.add_argument(
+        '-v', '--reduce-verbosity',
+        action='store_true',
+        help=('Flag to reduce the amount of infromation logged and displayed in the terminal.')
+    )
+
+    ap.add_argument(
         '-o', '--output_tables_file_ext',
         default='.h5',
         type=str,

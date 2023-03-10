@@ -2961,8 +2961,8 @@ class Kernel(_ParamsParser):
             gop_filtering_thresholds=None, dist_transform_spheroid=None,
             detection_method='peak_local_max', prediction_method='Thresholding',
             threshold_method='threshold_otsu', predict_on_aggregated=False,
-            lineage_table=None, min_size_spheroid_mask=None, verbose=True,
-            spot_footprint=None, dfs_lists=None
+            lineage_table=None, min_size_spheroid_mask=None,
+            spot_footprint=None, dfs_lists=None, verbose=True,
         ):
         if spots_img.ndim == 2:
             spots_img = spots_img[np.newaxis]
@@ -3001,7 +3001,8 @@ class Kernel(_ParamsParser):
         df_spots_coords = self._spots_detection(
             sharp_spots_img, lab, detection_method, threshold_method, 
             prediction_method, predict_on_aggregated, spot_footprint, 
-            zyx_resolution_limit_pxl, lineage_table=lineage_table
+            zyx_resolution_limit_pxl, lineage_table=lineage_table,
+            verbose=verbose
         )
         
         df_spots_det, df_spots_gop = self._spots_filter(
@@ -3034,8 +3035,7 @@ class Kernel(_ParamsParser):
         if predict_on_aggregated:
             threshold_val = threshold_func(aggr_spots_img.max(axis=0))
             prediction_mask = aggr_spots_img>threshold_val
-            labels = np.logical_and(
-                aggregated_lab, prediction_mask).astype(np.uint8)
+            labels = prediction_mask.astype(np.uint8)
             return labels
 
         # Get prediction mask by thresholding objects separately
@@ -3055,7 +3055,7 @@ class Kernel(_ParamsParser):
             # Threshold
             threshold_val = threshold_func(spots_img_obj.max(axis=0))
             predict_mask_merged = spots_img_obj > threshold_val
-            predict_mask_merged[~obj_mask] = False
+            # predict_mask_merged[~obj_mask] = False
 
             if budID > 0:
                 bud_obj = aggr_rp[IDs.index(budID)]
@@ -3144,26 +3144,18 @@ class Kernel(_ParamsParser):
             num_spots_objs_txts.append(s)
             pbar.update()
         pbar.close()
-        
-        print('')
-        print('*'*60)
-        num_spots_objs_txt = '\n'.join(num_spots_objs_txts)
-        self.logger.info(
-            f'Number of spots per segmented object:\n{num_spots_objs_txt}'
-        )
-        print('-'*60)
-        
-        import pdb; pdb.set_trace()
 
-        return df_spots_coords
+        return df_spots_coords, num_spots_objs_txts
         
     def _spots_detection(
             self, sharp_spots_img, lab, detection_method, threshold_method, 
             prediction_method, predict_on_aggregated, footprint, 
-            zyx_resolution_limit_pxl, lineage_table=None
+            zyx_resolution_limit_pxl, lineage_table=None, 
+            verbose=True
         ):
-        print('')
-        self.logger.info('Detecting spots...')
+        if verbose:
+            print('')
+            self.logger.info('Detecting spots...')
 
         aggr_spots_img, aggregated_lab = self.aggregate_objs(
             sharp_spots_img, lab, lineage_table=lineage_table, 
@@ -3196,9 +3188,17 @@ class Kernel(_ParamsParser):
             for s, spot_obj in enumerate(prediction_lab_rp):
                 aggr_spots_coords[s] = [int(c) for c in spot_obj.centroid]
 
-        df_spots_coords = self._from_aggr_coords_to_local(
+        df_spots_coords, num_spots_objs_txts = self._from_aggr_coords_to_local(
             aggr_spots_coords, aggregated_lab
         )
+        if verbose:
+            print('')
+            print('*'*60)
+            num_spots_objs_txt = '\n'.join(num_spots_objs_txts)
+            self.logger.info(
+                f'Number of spots per segmented object:\n{num_spots_objs_txt}'
+            )
+            print('-'*60)
         return df_spots_coords
         
     def _spots_filter(
@@ -3214,7 +3214,7 @@ class Kernel(_ParamsParser):
             prediction_mask=None,
             lineage_table=None, 
             dist_transform_spheroid=None,
-            verbose=False,
+            verbose=True,
         ):
         if verbose:
             print('')
@@ -3276,9 +3276,6 @@ class Kernel(_ParamsParser):
                 df_obj_spots_gop = self._drop_spots_not_in_ref_ch(
                     df_obj_spots_gop, local_ref_ch_mask, expanded_obj_coords
                 )
-
-            print('')
-            self.logger.info('Iterating goodness-of-peak test...')
             
             i = 0
             while True:     
@@ -3292,13 +3289,18 @@ class Kernel(_ParamsParser):
                     ref_ch_mask_obj=local_ref_ch_mask, 
                     ref_ch_img_obj=local_ref_ch_img,
                     do_filter_spots_vs_ref_ch=do_filter_spots_vs_ref_ch,
-                    zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
-                    verbose=verbose                    
+                    zyx_resolution_limit_pxl=zyx_resolution_limit_pxl                  
                 )
                 if i == 0:
                     # Store metrics at first iteration
                     df_obj_spots_det = df_obj_spots_gop.copy()
                 
+                # if num_spots_prev != 6:
+                #     from . import _debug
+                #     _debug._spots_filtering(
+                #         local_spots_img, df_obj_spots_gop, obj, obj_image
+                #     )
+
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds
                 )
@@ -3311,20 +3313,21 @@ class Kernel(_ParamsParser):
                 i += 1
 
             nsd, nsf = num_spots_detected, num_spots_filtered
-            s = f'  * Object ID {obj.label} = {nsd} --> {nsf} ({i+1} iterations)'
+            s = f'  * Object ID {obj.label} = {nsd} --> {nsf} ({i} iterations)'
             num_spots_filtered_log.append(s)
 
             dfs_spots_gop.append(df_obj_spots_gop)
             pbar.update()
         pbar.close()
 
-        print('')
-        print('*'*60)
-        info = '\n'.join(num_spots_filtered_log)
-        self.logger.info(
-            f'Number of spots after filtering valid spots:\n{info}'
-        )
-        print('-'*60)
+        if verbose:
+            print('')
+            print('*'*60)
+            info = '\n'.join(num_spots_filtered_log)
+            self.logger.info(
+                f'Number of spots after filtering valid spots:\n{info}'
+            )
+            print('-'*60)
         
         if dfs_lists is None:
             names = ['frame_i', 'Cell_ID', 'spot_id']
@@ -3334,10 +3337,11 @@ class Kernel(_ParamsParser):
         else:
             return None, None
     
-    def _translate_coords_segm_crop(*dfs, crop_to_global_coords):
+    def _translate_coords_segm_crop(self, *dfs, crop_to_global_coords=(0,0,0)):
         dfs_translated = []
         for i, df in enumerate(dfs):
             if df is None:
+                dfs_translated.append(None)
                 continue
             
             df = df.drop(columns=zyx_local_expanded_cols)
@@ -3348,7 +3352,7 @@ class Kernel(_ParamsParser):
             except Exception as e:
                 # Spotfit coordinates are not always present
                 pass
-            dfs_translated.append(dfs)
+            dfs_translated.append(df)
         return dfs_translated
     
     def _add_aggregated_spots_features(
@@ -3395,7 +3399,7 @@ class Kernel(_ParamsParser):
     def measure_spots_spotfit(
             self, spots_img, df_spots, zyx_voxel_size, zyx_spot_min_vol_um,
             rp=None, dfs_lists=None, lab=None, frame_i=0, 
-            ref_ch_mask_or_labels=None
+            ref_ch_mask_or_labels=None, verbose=True
         ):
         if spots_img.ndim == 2:
             spots_img = spots_img[np.newaxis]
@@ -3536,7 +3540,6 @@ class Kernel(_ParamsParser):
             ref_ch_mask_obj=None, ref_ch_img_obj=None, 
             zyx_resolution_limit_pxl=None, 
             do_filter_spots_vs_ref_ch=False,
-            verbose=False
         ):
         """_summary_
 
@@ -3593,12 +3596,7 @@ class Kernel(_ParamsParser):
             Resolution limit in (z, y, x) direction in pixels, by default None. 
             If `min_size_spheroid_mask` is None, this will be used to computed 
             the boolean mask of the smallest spot expected.
-        verbose : bool, optional
-            Log additional information of the current step, by default False
-        """        
-        if verbose:
-            print('')
-            self.logger.info('Computing spots features...')
+        """ 
 
         local_peaks_coords = df_obj_spots[zyx_local_cols].to_numpy()
         spheroids_mask, min_size_spheroid_mask = self._get_obj_spheroids_mask(
@@ -3640,7 +3638,9 @@ class Kernel(_ParamsParser):
         )
         for row in df_obj_spots.itertuples():
             spot_id = row.Index
-            zyx_center = [getattr(row, col) for col in zyx_local_expanded_cols]
+            zyx_center = tuple(
+                [getattr(row, col) for col in zyx_local_expanded_cols]
+            )
 
             slices = utils.get_slices_local_into_global_3D_arr(
                 zyx_center, spots_img_obj.shape, min_size_spheroid_mask.shape
@@ -3790,7 +3790,7 @@ class Kernel(_ParamsParser):
             return df
         
         query = ' & '.join(queries)
-        import pdb; pdb.set_trace()
+
         return df.query(query)
     
     def _critical_feature_is_missing(self, missing_feature, df):
@@ -3978,6 +3978,8 @@ class Kernel(_ParamsParser):
         ref_ch_segm_data = data.get('ref_ch_segm')
         acdc_df = data.get('lineage_table')
 
+        verbose = not self._params['Configuration']['reduceVerbosity']['loadedVal']
+
         stopFrameNum = self.metadata['stopFrameNum']
 
         desc = 'Adding segmentation objects features'
@@ -4031,7 +4033,7 @@ class Kernel(_ParamsParser):
                     df_agg=df_agg, frame_i=frame_i, 
                     predict_on_aggregated=predict_on_aggregated,
                     lineage_table=lineage_table, vox_to_um3=vox_to_um3,
-                    verbose=False
+                    verbose=verbose
                 )
                 ref_ch_segm_data[frame_i] = ref_ch_lab
                 pbar.update()
@@ -4146,7 +4148,7 @@ class Kernel(_ParamsParser):
                 detection_method=detection_method,
                 predict_on_aggregated=predict_on_aggregated,
                 lineage_table=lineage_table,
-                verbose=False
+                verbose=verbose
             )
             pbar.update()
         pbar.close()
@@ -4180,7 +4182,7 @@ class Kernel(_ParamsParser):
                     raw_spots_img, df_spots_frame, zyx_voxel_size, 
                     zyx_spot_min_vol_um, rp=rp, dfs_lists=dfs_lists,
                     ref_ch_mask_or_labels=ref_ch_mask_or_labels,
-                    frame_i=frame_i
+                    frame_i=frame_i, verbose=verbose
                 )
                 pbar.update()
             pbar.close()
@@ -4200,7 +4202,7 @@ class Kernel(_ParamsParser):
         
         dfs_translated = self._translate_coords_segm_crop(
             df_spots_det, df_spots_gop, df_spots_fit, 
-            data['crop_to_global_coords']
+            crop_to_global_coords=data['crop_to_global_coords']
         )
         df_spots_det, df_spots_gop, df_spots_fit = dfs_translated
         

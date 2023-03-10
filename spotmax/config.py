@@ -406,7 +406,21 @@ def _configuration_params():
             'actions': None,
             'dtype': int, 
             'parser_arg': 'num_threads'
-        }
+        },
+        'reduceVerbosity': {
+            'desc': 'Reduce logging verbosity',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool, 
+            'parser_arg': 'reduce_verbosity'
+        },
     }
     return config_params
 
