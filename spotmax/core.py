@@ -58,8 +58,13 @@ dfs_filenames = {
     'spots_spotfit': '*rn*_2_spotfit*desc*'
 }
 
+zyx_global_cols = ['z', 'y', 'x']
 zyx_local_cols = ['z_local', 'y_local', 'x_local']
 zyx_aggr_cols = ['z_aggr', 'y_aggr', 'x_aggr']
+zyx_local_expanded_cols = [
+    'z_local_expanded', 'y_local_expanded', 'x_local_expanded'
+]
+zyx_fit_cols = ['z_fit', 'y_fit', 'x_fit']
 
 class _DataLoader:
     def __init__(self, debug=False, log=print):
@@ -3065,6 +3070,51 @@ class Kernel(_ParamsParser):
                 predict_mask_obj[obj_slice] = predict_mask_merged[obj_slice]
                 labels[obj.slice][predict_mask_obj] = obj.label
         return labels
+    
+    def _get_expanded_obj_slice_image(
+            self, obj, delta_expand, lab
+        ):
+        Z, Y, X = lab.shape
+        crop_obj_start = np.array([s.start for s in obj.slice]) - delta_expand
+        crop_obj_start = np.clip(crop_obj_start, 0, None)
+
+        crop_obj_stop = np.array([s.stop for s in obj.slice]) + delta_expand
+        crop_obj_stop = np.clip(crop_obj_stop, None, (Z, Y, X))
+        
+        obj_slice = (
+            slice(crop_obj_start[0], crop_obj_stop[0]), 
+            slice(crop_obj_start[1], crop_obj_stop[1]),  
+            slice(crop_obj_start[2], crop_obj_stop[2]), 
+        )
+        obj_lab = lab[obj_slice]
+        obj_image = obj_lab==obj.label
+        return obj_slice, obj_image, crop_obj_start
+
+
+    def _init_df_obj_spots(self, df_spots_coords, obj, crop_obj_start):
+        local_peaks_coords = (
+            df_spots_coords.loc[obj.label, zyx_local_cols]).to_numpy()
+        zyx_local_to_global = [s.start for s in obj.slice]
+        global_peaks_coords = local_peaks_coords + zyx_local_to_global
+
+        # Add correct local_peaks_coords considering the cropping tolerance 
+        # `delta_tolerance`
+        local_peaks_coords_expanded = global_peaks_coords - crop_obj_start 
+
+        num_spots_detected = len(global_peaks_coords)
+        df_obj_spots = pd.DataFrame({
+            'spot_id': np.arange(1, num_spots_detected+1),
+            'z': global_peaks_coords[:,0],
+            'y': global_peaks_coords[:,1],
+            'x': global_peaks_coords[:,2],
+            'z_local': local_peaks_coords[:,0],
+            'y_local': local_peaks_coords[:,1],
+            'x_local': local_peaks_coords[:,2],
+            'z_local_expanded': local_peaks_coords_expanded[:,0],
+            'y_local_expanded': local_peaks_coords_expanded[:,1],
+            'x_local_expanded': local_peaks_coords_expanded[:,2],
+        }).set_index('spot_id')
+        return df_obj_spots, local_peaks_coords_expanded
 
     def _from_aggr_coords_to_local(self, aggr_spots_coords, aggregated_lab):
         aggr_lab_rp = skimage.measure.regionprops(aggregated_lab)
@@ -3189,43 +3239,19 @@ class Kernel(_ParamsParser):
             total=len(rp), ncols=100, desc=desc, position=3, leave=False
         )
         for obj in rp:
-            crop_obj_start = np.array([s.start for s in obj.slice]) - delta_tol
-            crop_obj_start = np.clip(crop_obj_start, 0, None)
-
-            crop_obj_stop = np.array([s.stop for s in obj.slice]) + delta_tol
-            crop_obj_stop = np.clip(crop_obj_stop, None, (Z, Y, X))
-            
-            obj_slice = (
-                slice(crop_obj_start[0], crop_obj_stop[0]), 
-                slice(crop_obj_start[1], crop_obj_stop[1]),  
-                slice(crop_obj_start[2], crop_obj_stop[2]), 
+            expanded_obj = self._get_expanded_obj_slice_image(
+                obj, delta_tol, lab
             )
-            obj_lab = lab[obj_slice]
-            obj_image = obj_lab==obj.label
+            obj_slice, obj_image, crop_obj_start = expanded_obj
 
             local_spots_img = spots_img[obj_slice]
             local_sharp_spots_img = sharp_spots_img[obj_slice]
 
-            # Store global coordinates
-            local_peaks_coords = (
-                df_spots_coords.loc[obj.label, zyx_local_cols]).to_numpy()
-            zyx_local_to_global = [s.start for s in obj.slice]
-            global_peaks_coords = local_peaks_coords + zyx_local_to_global
-
-            # From here on we correct local_peaks_coords to take into account 
-            # the cropping tolerance `delta_tolerance`
-            local_peaks_coords = global_peaks_coords - crop_obj_start 
-
-            num_spots_detected = len(global_peaks_coords)
-            df_obj_spots_det = pd.DataFrame({
-                'spot_id': np.arange(1, num_spots_detected+1),
-                'z': global_peaks_coords[:,0],
-                'y': global_peaks_coords[:,1],
-                'x': global_peaks_coords[:,2],
-                'z_local': local_peaks_coords[:,0],
-                'y_local': local_peaks_coords[:,1],
-                'x_local': local_peaks_coords[:,2],
-            }).set_index('spot_id')
+            df_obj_spots_det, expanded_obj_coords = self._init_df_obj_spots(
+                df_spots_coords, obj, crop_obj_start
+            )
+            num_spots_detected = len(df_obj_spots_det)
+            
             dfs_spots_det.append(df_obj_spots_det)
             keys.append((frame_i, obj.label))
 
@@ -3248,7 +3274,7 @@ class Kernel(_ParamsParser):
             df_obj_spots_gop = df_obj_spots_det.copy()
             if do_keep_spots_in_ref_ch:
                 df_obj_spots_gop = self._drop_spots_not_in_ref_ch(
-                    df_obj_spots_gop, local_ref_ch_mask, local_peaks_coords
+                    df_obj_spots_gop, local_ref_ch_mask, expanded_obj_coords
                 )
 
             print('')
@@ -3309,20 +3335,21 @@ class Kernel(_ParamsParser):
             return None, None
     
     def _translate_coords_segm_crop(*dfs, crop_to_global_coords):
-        global_det_names = ['z', 'y', 'x']
-        local_det_names = ['z_local', 'y_local', 'x_local']
-        spotfit_names = ['z_fit', 'y_fit', 'x_fit']
-        for df in dfs:
+        dfs_translated = []
+        for i, df in enumerate(dfs):
             if df is None:
                 continue
-
-            df[global_det_names] += crop_to_global_coords
-            df[local_det_names] += crop_to_global_coords
+            
+            df = df.drop(columns=zyx_local_expanded_cols)
+            df[zyx_global_cols] += crop_to_global_coords
+            df[zyx_local_cols] += crop_to_global_coords
             try:
-                df[spotfit_names] += crop_to_global_coords
+                df[zyx_fit_cols] += crop_to_global_coords
             except Exception as e:
                 # Spotfit coordinates are not always present
                 pass
+            dfs_translated.append(dfs)
+        return dfs_translated
     
     def _add_aggregated_spots_features(
             self, df_spots_det: pd.DataFrame, df_spots_gop: pd.DataFrame, 
@@ -3613,7 +3640,7 @@ class Kernel(_ParamsParser):
         )
         for row in df_obj_spots.itertuples():
             spot_id = row.Index
-            zyx_center = (row.z_local, row.y_local, row.x_local)
+            zyx_center = [getattr(row, col) for col in zyx_local_expanded_cols]
 
             slices = utils.get_slices_local_into_global_3D_arr(
                 zyx_center, spots_img_obj.shape, min_size_spheroid_mask.shape
@@ -4171,10 +4198,11 @@ class Kernel(_ParamsParser):
         else:
             df_spots_fit = None
         
-        self._translate_coords_segm_crop(
+        dfs_translated = self._translate_coords_segm_crop(
             df_spots_det, df_spots_gop, df_spots_fit, 
             data['crop_to_global_coords']
         )
+        df_spots_det, df_spots_gop, df_spots_fit = dfs_translated
         
         dfs_agg = self._add_aggregated_spots_features(
             df_spots_det, df_spots_gop, df_agg, df_spots_fit=df_spots_fit
