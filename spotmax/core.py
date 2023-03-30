@@ -3092,11 +3092,13 @@ class Kernel(_ParamsParser):
 
 
     def _init_df_obj_spots(self, df_spots_coords, obj, crop_obj_start):
+        if obj.label not in df_spots_coords.index:
+            return None, []
+        
         local_peaks_coords = (
-            df_spots_coords.loc[obj.label, zyx_local_cols]).to_numpy()
+            df_spots_coords.loc[[obj.label], zyx_local_cols]).to_numpy()
         zyx_local_to_global = [s.start for s in obj.slice]
         global_peaks_coords = local_peaks_coords + zyx_local_to_global
-
         # Add correct local_peaks_coords considering the cropping tolerance 
         # `delta_tolerance`
         local_peaks_coords_expanded = global_peaks_coords - crop_obj_start 
@@ -3114,6 +3116,7 @@ class Kernel(_ParamsParser):
             'y_local_expanded': local_peaks_coords_expanded[:,1],
             'x_local_expanded': local_peaks_coords_expanded[:,2],
         }).set_index('spot_id')
+
         return df_obj_spots, local_peaks_coords_expanded
 
     def _from_aggr_coords_to_local(self, aggr_spots_coords, aggregated_lab):
@@ -3123,22 +3126,24 @@ class Kernel(_ParamsParser):
         df_spots_coords = pd.DataFrame({
             'z_aggr': zz, 'y_aggr': yy, 'x_aggr': xx, 
             'z_local': zeros, 'y_local': zeros, 'x_local': zeros,
-            'IDs': aggregated_lab[zz, yy, xx]
-        }).set_index('IDs').sort_index()
+            'Cell_ID': aggregated_lab[zz, yy, xx]
+        }).set_index('Cell_ID').sort_index()
         num_spots_objs_txts = []
         pbar = tqdm(
             total=len(aggr_lab_rp), ncols=100, position=3, leave=False
         )
         for obj in aggr_lab_rp:
+            if obj.label not in df_spots_coords.index:
+                continue
             min_z, min_y, min_x = obj.bbox[:3]
-            zz_local = df_spots_coords.loc[obj.label, 'z_aggr'] - min_z
-            df_spots_coords.loc[obj.label, 'z_local'] = zz_local
+            zz_local = df_spots_coords.loc[[obj.label], 'z_aggr'] - min_z
+            df_spots_coords.loc[[obj.label], 'z_local'] = zz_local
 
-            yy_local = df_spots_coords.loc[obj.label, 'y_aggr'] - min_y
-            df_spots_coords.loc[obj.label, 'y_local'] = yy_local
+            yy_local = df_spots_coords.loc[[obj.label], 'y_aggr'] - min_y
+            df_spots_coords.loc[[obj.label], 'y_local'] = yy_local
 
-            xx_local = df_spots_coords.loc[obj.label, 'x_aggr'] - min_x
-            df_spots_coords.loc[obj.label, 'x_local'] = xx_local
+            xx_local = df_spots_coords.loc[[obj.label], 'x_aggr'] - min_x
+            df_spots_coords.loc[[obj.label], 'x_local'] = xx_local
 
             s = f'  * Object ID {obj.label} = {len(zz_local)}'
             num_spots_objs_txts.append(s)
@@ -3250,6 +3255,13 @@ class Kernel(_ParamsParser):
             df_obj_spots_det, expanded_obj_coords = self._init_df_obj_spots(
                 df_spots_coords, obj, crop_obj_start
             )
+            if df_obj_spots_det is None:
+                # 0 spots for this obj
+                s = f'  * Object ID {obj.label} = 0 --> 0 (0 iterations)'
+                num_spots_filtered_log.append(s)
+                dfs_spots_gop.append(df_obj_spots_gop)
+                continue
+            
             num_spots_detected = len(df_obj_spots_det)
             
             dfs_spots_det.append(df_obj_spots_det)
@@ -4337,7 +4349,7 @@ class Kernel(_ParamsParser):
                 )
             
             ext = df_spots_file_ext
-            agg_filename = df_spots_filename.replace(f'{ext}', '_aggregated.csv')
+            agg_filename = f'{df_spots_filename}_aggregated.csv'
             agg_key = key.replace('spots', 'agg')
             df_agg = dfs.get(agg_key, None)
 
