@@ -1931,7 +1931,7 @@ def save_df_spots_to_hdf(
     store_hdf = pd.HDFStore(temp_filepath, mode='w')
     for frame_i, sub_df in df.groupby(level=0):
         key = f'frame_{frame_i}'
-        store_hdf.append(key, sub_df)
+        store_hdf.append(key, sub_df.loc[frame_i])
     store_hdf.close()
     dst_filepath = os.path.join(folder_path, filename)
     shutil.move(temp_filepath, dst_filepath)

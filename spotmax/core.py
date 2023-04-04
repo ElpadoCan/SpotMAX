@@ -3246,12 +3246,12 @@ class Kernel(_ParamsParser):
             aggr_spots_coords, aggregated_lab
         )
 
-        # if self.debug:
-            # from . import _debug
-            # ID = 388
-            # _debug._spots_detection(
-            #     aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
-            # )
+        if self.debug:
+            from . import _debug
+            ID = 79
+            _debug._spots_detection(
+                aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
+            )
 
         if verbose:
             print('')
@@ -3316,13 +3316,12 @@ class Kernel(_ParamsParser):
                 # 0 spots for this obj
                 s = f'  * Object ID {obj.label} = 0 --> 0 (0 iterations)'
                 num_spots_filtered_log.append(s)
-                dfs_spots_gop.append(df_obj_spots_gop)
                 continue
             
+            keys.append((frame_i, obj.label))
             num_spots_detected = len(df_obj_spots_det)
             
             dfs_spots_det.append(df_obj_spots_det)
-            keys.append((frame_i, obj.label))
 
             if ref_ch_mask_or_labels is not None:
                 local_ref_ch_mask = ref_ch_mask_or_labels[obj_slice]>0
@@ -3364,11 +3363,11 @@ class Kernel(_ParamsParser):
                     # Store metrics at first iteration
                     df_obj_spots_det = df_obj_spots_gop.copy()
                 
-                # if self.debug and obj.label == 388:
-                #     from . import _debug
-                #     _debug._spots_filtering(
-                #         local_spots_img, df_obj_spots_gop, obj, obj_image
-                #     )
+                if self.debug and obj.label == 79:
+                    from . import _debug
+                    _debug._spots_filtering(
+                        local_spots_img, df_obj_spots_gop, obj, obj_image
+                    )
                 
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds,
@@ -3376,6 +3375,9 @@ class Kernel(_ParamsParser):
                 )
                 num_spots_filtered = len(df_obj_spots_gop)                
                 
+                if self.debug and obj.label == 79:
+                    import pdb; pdb.set_trace()
+
                 if num_spots_filtered == num_spots_prev or num_spots_filtered == 0:
                     # Number of filtered spots stopped decreasing --> stop loop
                     break
@@ -3387,6 +3389,10 @@ class Kernel(_ParamsParser):
             num_spots_filtered_log.append(s)
 
             dfs_spots_gop.append(df_obj_spots_gop)
+
+            if self.debug and obj.label == 79:
+                import pdb; pdb.set_trace()
+
             pbar.update()
         pbar.close()
 
@@ -3416,13 +3422,14 @@ class Kernel(_ParamsParser):
             
             df = df.drop(columns=ZYX_LOCAL_EXPANDED_COLS)
             df[ZYX_GLOBAL_COLS] += crop_to_global_coords
-            df[ZYX_LOCAL_COLS] += crop_to_global_coords
             try:
                 df[ZYX_FIT_COLS] += crop_to_global_coords
             except Exception as e:
                 # Spotfit coordinates are not always present
                 pass
             dfs_translated.append(df)
+            if self.debug:
+                import pdb; pdb.set_trace()
         return dfs_translated
     
     def _add_aggregated_spots_features(
@@ -4017,6 +4024,8 @@ class Kernel(_ParamsParser):
             self.quit(error)
         else:
             self.logger.exception(traceback_str)
+            if not hasattr(self, 'report'):
+                return
             if self._current_pos_path not in self._report['pos_info']:
                 self._report['pos_info'][self._current_pos_path] = {
                     'errors': [], 'warnings': []
@@ -4223,6 +4232,9 @@ class Kernel(_ParamsParser):
             pbar.update()
         pbar.close()
 
+        if self.debug:
+            import pdb; pdb.set_trace()
+
         names = ['frame_i', 'Cell_ID', 'spot_id']
         keys = dfs_lists['keys']
         df_spots_det = pd.concat(
@@ -4231,6 +4243,9 @@ class Kernel(_ParamsParser):
         df_spots_gop = pd.concat(
             dfs_lists['dfs_spots_gop_test'], keys=keys, names=names
         )
+
+        if self.debug:
+            import pdb; pdb.set_trace()
 
         if do_spotfit:
             zyx_spot_min_vol_um = self.metadata['zyxResolutionLimitUm']

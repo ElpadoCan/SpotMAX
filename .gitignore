@@ -4,6 +4,7 @@ data/*
 mytests
 spotmax/qtest.py
 spotmax/test.py
+spotmax/test1.py
 spotmax/deprecated.py
 spotmax/_version.py
 spotmax/_tests
