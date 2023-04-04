@@ -45,6 +45,7 @@ except Exception as e:
 
 try:
     from cupyx.scipy.ndimage import gaussian_filter as gpu_gaussian_filter
+    import cupy as cp
     CUPY_INSTALLED = True
 except Exception as e:
     CUPY_INSTALLED = False
@@ -57,7 +58,9 @@ np.seterr(divide='raise', invalid='raise')
 def gaussian_filter(image, sigma, use_gpu=False):
     if CUPY_INSTALLED and use_gpu:
         try:
+            image = cp.array(image)
             filtered = gpu_gaussian_filter(image, sigma)
+            filtered = cp.asnumpy(filtered)
         except Exception as e:
             filtered = skimage.filters.gaussian(image, sigma=sigma)
     else:

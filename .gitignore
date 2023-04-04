@@ -1,6 +1,7 @@
 # Custom ignores
 .vscode
 data/*
+mytests
 spotmax/qtest.py
 spotmax/test.py
 spotmax/deprecated.py
