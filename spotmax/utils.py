@@ -281,6 +281,8 @@ def listdir(path):
         f for f in os.listdir(path)
         if not f.startswith('.')
         and not f == 'desktop.ini'
+        and not f == 'recovery'
+        and not f == 'cached'
     ])
 
 def get_salute_string():

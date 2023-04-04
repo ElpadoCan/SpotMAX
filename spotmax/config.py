@@ -393,6 +393,20 @@ def _configuration_params():
             'dtype': get_bool, 
             'parser_arg': 'raise_on_critical'
         },
+        'useGpu': {
+            'desc': 'Use CUDA-compatible GPU',
+            'initialVal': True,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool, 
+            'parser_arg': 'use_cuda_gpu'
+        },
         'numbaNumThreads': {
             'desc': 'Number of threads used by numba',
             'initialVal': -1,

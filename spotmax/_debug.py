@@ -66,8 +66,31 @@ def _spots_filtering(local_spots_img, df_obj_spots_gop, obj, obj_image):
     zyx_cols.extend(data_cols)
     printl(df_obj_spots_gop[zyx_cols])
     imshow(
-        local_spots_img, obj_image, obj.image,
+        (local_spots_img/local_spots_img.max()*255).astype(np.uint8), 
+        obj_image.astype(np.uint8), 
+        obj.image.astype(np.uint8),
         points_coords=points_coords, 
         points_data=points_data
+    )
+    import pdb; pdb.set_trace()
+
+def _spots_detection(aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords):
+    from acdctools.plot import imshow
+    zz, yy, xx = np.nonzero(aggregated_lab == ID)
+    zmin, ymin, xmin = zz.min(), yy.min(), xx.min()
+    zmax, ymax, xmax = zz.max(), yy.max(), xx.max()
+    bbox_slice = (
+        slice(zmin, zmax+1), 
+        slice(ymin, ymax+1),
+        slice(xmin, xmax+1),
+    )
+    points_coords = (
+        df_spots_coords.loc[ID][['z_local', 'y_local', 'x_local']].to_numpy()
+    )
+    imshow(
+        aggregated_lab[bbox_slice], 
+        labels[bbox_slice], 
+        aggr_spots_img[bbox_slice],
+        points_coords=points_coords
     )
     import pdb; pdb.set_trace()

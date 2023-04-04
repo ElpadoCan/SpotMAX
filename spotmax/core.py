@@ -43,28 +43,44 @@ except Exception as e:
     from .utils import njit_replacement as njit
     prange = range
 
+try:
+    from cupyx.scipy.ndimage import gaussian_filter as gpu_gaussian_filter
+    CUPY_INSTALLED = True
+except Exception as e:
+    CUPY_INSTALLED = False
+
 from . import utils, rng, base_lineage_table_values
 from . import issues_url, printl, io, features, config
 
 np.seterr(divide='raise', invalid='raise')
 
+def gaussian_filter(image, sigma, use_gpu=False):
+    if CUPY_INSTALLED and use_gpu:
+        try:
+            filtered = gpu_gaussian_filter(image, sigma)
+        except Exception as e:
+            filtered = skimage.filters.gaussian(image, sigma=sigma)
+    else:
+        filtered = skimage.filters.gaussian(image, sigma=sigma)
+    return filtered
+
 distribution_metrics_func = features.get_distribution_metric_func()
 effect_size_func = features.get_effect_size_func()
 aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
 
-dfs_filenames = {
+DFs_FILENAMES = {
     'spots_detection': '*rn*_0_detected_spots*desc*',
     'spots_gop': '*rn*_1_valid_spots*desc*',
     'spots_spotfit': '*rn*_2_spotfit*desc*'
 }
 
-zyx_global_cols = ['z', 'y', 'x']
-zyx_local_cols = ['z_local', 'y_local', 'x_local']
-zyx_aggr_cols = ['z_aggr', 'y_aggr', 'x_aggr']
-zyx_local_expanded_cols = [
+ZYX_GLOBAL_COLS = ['z', 'y', 'x']
+ZYX_LOCAL_COLS = ['z_local', 'y_local', 'x_local']
+ZYX_AGGR_COLS = ['z_aggr', 'y_aggr', 'x_aggr']
+ZYX_LOCAL_EXPANDED_COLS = [
     'z_local_expanded', 'y_local_expanded', 'x_local_expanded'
 ]
-zyx_fit_cols = ['z_fit', 'y_fit', 'x_fit']
+ZYX_FIT_COLS = ['z_fit', 'y_fit', 'x_fit']
 
 class _DataLoader:
     def __init__(self, debug=False, log=print):
@@ -1917,7 +1933,7 @@ class _spotFIT(spheroid):
 
     def spotSIZE(self):
         df_spots_ID = self.df_spots_ID
-        spots_img_denoise = skimage.filters.gaussian(self.spots_img_local, 0.8)
+        spots_img_denoise = gaussian_filter(self.spots_img_local, 0.8)
         min_z, min_y, min_x = self.obj_bbox_lower
         zyx_vox_dim = self.zyx_vox_size
         zyx_spot_min_vol_um = self.zyx_spot_min_vol_um
@@ -2637,12 +2653,42 @@ class Kernel(_ParamsParser):
 
         print('')
         self.logger.info(f'Applying gaussian filter with sigma = {sigma}...')
-        filtered_data = skimage.filters.gaussian(image_data, sigma=sigma)
+
+        if self.debug:
+            return np.load(
+                r'G:\My Drive\01_Postdoc_HMGU\Python_MyScripts\MIA\Git'
+                r'\spotMAX_v2\data\test_simone_pos\2_test_missed_spots_edges_worm'
+                r'\Position_2\Images\20909_SampleD_Gonad1_fused_gauss_filtered.npy'
+            )
+
+        use_gpu = self._get_use_gpu()
+        filtered_data = gaussian_filter(image_data, sigma, use_gpu=use_gpu)
+
         return filtered_data
+
+    def _get_use_gpu(self):
+        SECTION = 'Configuration'
+        ANCHOR = 'useGpu'
+        options = self._params[SECTION][ANCHOR]
+        use_gpu = options.get('loadedVal')
+        if use_gpu == None:
+            use_gpu = False
+        return use_gpu 
     
     def _sharpen_spots(self, spots_img, metadata):
+        print('')
+        self.logger.info(f'Applying sharpening filter...')
+
+        if self.debug:
+            return np.load(
+                r'G:\My Drive\01_Postdoc_HMGU\Python_MyScripts\MIA\Git'
+                r'\spotMAX_v2\data\test_simone_pos\2_test_missed_spots_edges_worm'
+                r'\Position_2\Images\20909_SampleD_Gonad1_fused_sharpened.npy'
+            )
+    
         sigmas = metadata['zyxResolutionLimitPxl']
-        blurred = skimage.filters.gaussian(spots_img, sigma=sigmas)
+        use_gpu = self._get_use_gpu()
+        blurred = gaussian_filter(spots_img, sigmas, use_gpu=use_gpu)
         sharpened = spots_img - blurred
         out_range = (spots_img.min(), spots_img.max())
         sharp_rescaled = skimage.exposure.rescale_intensity(
@@ -2791,7 +2837,7 @@ class Kernel(_ParamsParser):
     def segment_ref_ch(
             self, ref_ch_img, threshold_method='threshold_otsu', lab_rp=None, 
             lab=None, lineage_table=None, keep_only_largest_obj=False, 
-            predict_on_aggregated=False, df_agg=None, frame_i=0, 
+            use_global_threshold=False, df_agg=None, frame_i=0, 
             vox_to_um3=None, verbose=True
         ):
         if lab is None:
@@ -2815,7 +2861,7 @@ class Kernel(_ParamsParser):
         else:
             threshold_func = threshold_method
 
-        if predict_on_aggregated:
+        if use_global_threshold:
             aggr_ref_ch_img, _ = self.aggregate_objs(
                 ref_ch_img, lab, lineage_table=lineage_table
             )
@@ -2960,7 +3006,7 @@ class Kernel(_ParamsParser):
             df_agg=None, do_keep_spots_in_ref_ch=False, 
             gop_filtering_thresholds=None, dist_transform_spheroid=None,
             detection_method='peak_local_max', prediction_method='Thresholding',
-            threshold_method='threshold_otsu', predict_on_aggregated=False,
+            threshold_method='threshold_otsu', use_global_threshold=False,
             lineage_table=None, min_size_spheroid_mask=None,
             spot_footprint=None, dfs_lists=None, verbose=True,
         ):
@@ -3000,7 +3046,7 @@ class Kernel(_ParamsParser):
 
         df_spots_coords = self._spots_detection(
             sharp_spots_img, lab, detection_method, threshold_method, 
-            prediction_method, predict_on_aggregated, spot_footprint, 
+            prediction_method, use_global_threshold, spot_footprint, 
             zyx_resolution_limit_pxl, lineage_table=lineage_table,
             verbose=verbose
         )
@@ -3030,9 +3076,9 @@ class Kernel(_ParamsParser):
     
     def _get_peak_local_max_labels_thresholding(
             self, aggr_spots_img, aggregated_lab, threshold_func, 
-            predict_on_aggregated, lineage_table=None
+            use_global_threshold, lineage_table=None
         ):
-        if predict_on_aggregated:
+        if use_global_threshold:
             threshold_val = threshold_func(aggr_spots_img.max(axis=0))
             prediction_mask = aggr_spots_img>threshold_val
             labels = prediction_mask.astype(np.uint8)
@@ -3096,7 +3142,7 @@ class Kernel(_ParamsParser):
             return None, []
         
         local_peaks_coords = (
-            df_spots_coords.loc[[obj.label], zyx_local_cols]).to_numpy()
+            df_spots_coords.loc[[obj.label], ZYX_LOCAL_COLS]).to_numpy()
         zyx_local_to_global = [s.start for s in obj.slice]
         global_peaks_coords = local_peaks_coords + zyx_local_to_global
         # Add correct local_peaks_coords considering the cropping tolerance 
@@ -3154,7 +3200,7 @@ class Kernel(_ParamsParser):
         
     def _spots_detection(
             self, sharp_spots_img, lab, detection_method, threshold_method, 
-            prediction_method, predict_on_aggregated, footprint, 
+            prediction_method, use_global_threshold, footprint, 
             zyx_resolution_limit_pxl, lineage_table=None, 
             verbose=True
         ):
@@ -3175,12 +3221,12 @@ class Kernel(_ParamsParser):
             
             labels = self._get_peak_local_max_labels_thresholding(
                 aggr_spots_img, aggregated_lab, threshold_func, 
-                predict_on_aggregated, lineage_table=None
+                use_global_threshold, lineage_table=None
             )
         else:
             # Here we will use U-Net
             pass
-        
+
         if detection_method == 'peak_local_max':
             aggr_spots_coords = skimage.feature.peak_local_max(
                 aggr_spots_img, footprint=footprint, labels=labels
@@ -3196,6 +3242,14 @@ class Kernel(_ParamsParser):
         df_spots_coords, num_spots_objs_txts = self._from_aggr_coords_to_local(
             aggr_spots_coords, aggregated_lab
         )
+
+        # if self.debug:
+            # from . import _debug
+            # ID = 388
+            # _debug._spots_detection(
+            #     aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
+            # )
+
         if verbose:
             print('')
             print('*'*60)
@@ -3307,16 +3361,17 @@ class Kernel(_ParamsParser):
                     # Store metrics at first iteration
                     df_obj_spots_det = df_obj_spots_gop.copy()
                 
-                # if num_spots_prev != 6:
+                # if self.debug and obj.label == 388:
                 #     from . import _debug
                 #     _debug._spots_filtering(
                 #         local_spots_img, df_obj_spots_gop, obj, obj_image
                 #     )
-
+                
                 df_obj_spots_gop = self.filter_spots(
-                    df_obj_spots_gop, gop_filtering_thresholds
+                    df_obj_spots_gop, gop_filtering_thresholds,
+                    debug=False
                 )
-                num_spots_filtered = len(df_obj_spots_gop)
+                num_spots_filtered = len(df_obj_spots_gop)                
                 
                 if num_spots_filtered == num_spots_prev or num_spots_filtered == 0:
                     # Number of filtered spots stopped decreasing --> stop loop
@@ -3356,11 +3411,11 @@ class Kernel(_ParamsParser):
                 dfs_translated.append(None)
                 continue
             
-            df = df.drop(columns=zyx_local_expanded_cols)
-            df[zyx_global_cols] += crop_to_global_coords
-            df[zyx_local_cols] += crop_to_global_coords
+            df = df.drop(columns=ZYX_LOCAL_EXPANDED_COLS)
+            df[ZYX_GLOBAL_COLS] += crop_to_global_coords
+            df[ZYX_LOCAL_COLS] += crop_to_global_coords
             try:
-                df[zyx_fit_cols] += crop_to_global_coords
+                df[ZYX_FIT_COLS] += crop_to_global_coords
             except Exception as e:
                 # Spotfit coordinates are not always present
                 pass
@@ -3610,7 +3665,7 @@ class Kernel(_ParamsParser):
             the boolean mask of the smallest spot expected.
         """ 
 
-        local_peaks_coords = df_obj_spots[zyx_local_cols].to_numpy()
+        local_peaks_coords = df_obj_spots[ZYX_LOCAL_COLS].to_numpy()
         spheroids_mask, min_size_spheroid_mask = self._get_obj_spheroids_mask(
             local_peaks_coords, obj_mask.shape, 
             min_size_spheroid_mask=min_size_spheroid_mask, 
@@ -3651,7 +3706,7 @@ class Kernel(_ParamsParser):
         for row in df_obj_spots.itertuples():
             spot_id = row.Index
             zyx_center = tuple(
-                [getattr(row, col) for col in zyx_local_expanded_cols]
+                [getattr(row, col) for col in ZYX_LOCAL_EXPANDED_COLS]
             )
 
             slices = utils.get_slices_local_into_global_3D_arr(
@@ -3761,7 +3816,7 @@ class Kernel(_ParamsParser):
         return df_obj_spots
     
     @utils.exception_handler_cli
-    def filter_spots(self, df: pd.DataFrame, features_thresholds: dict):
+    def filter_spots(self, df: pd.DataFrame, features_thresholds: dict, debug=False):
         """_summary_
 
         Parameters
@@ -3980,7 +4035,7 @@ class Kernel(_ParamsParser):
         do_segment_ref_ch = (
             self._params['Reference channel']['segmRefCh']['loadedVal']
         )
-        predict_on_aggregated = (
+        use_global_threshold = (
             self._params['Pre-processing']['aggregate']['loadedVal']
         )
         ref_ch_data = data.get('ref_ch')
@@ -4043,7 +4098,7 @@ class Kernel(_ParamsParser):
                     threshold_method=ref_ch_threshold_method, 
                     keep_only_largest_obj=is_ref_ch_single_obj,
                     df_agg=df_agg, frame_i=frame_i, 
-                    predict_on_aggregated=predict_on_aggregated,
+                    use_global_threshold=use_global_threshold,
                     lineage_table=lineage_table, vox_to_um3=vox_to_um3,
                     verbose=verbose
                 )
@@ -4158,7 +4213,7 @@ class Kernel(_ParamsParser):
                 prediction_method=prediction_method,
                 threshold_method=threshold_method,
                 detection_method=detection_method,
-                predict_on_aggregated=predict_on_aggregated,
+                use_global_threshold=use_global_threshold,
                 lineage_table=lineage_table,
                 verbose=verbose
             )
@@ -4336,7 +4391,7 @@ class Kernel(_ParamsParser):
         )
         shutil.copy2(self.ini_params_file_path, analysis_inputs_filepath)
 
-        for key, filename in dfs_filenames.items():
+        for key, filename in DFs_FILENAMES.items():
             filename = filename.replace('*rn*', str(run_number))
             filename = filename.replace('*desc*', text_to_append)
             df_spots = dfs.get(key, None)
@@ -4425,7 +4480,7 @@ class Kernel(_ParamsParser):
             self.logger.info(err_msg)
         else:
             self.logger.info(
-                'spotMAX command line-interface closed. '
+                'spotMAX command-line interface closed. '
                 f'{utils.get_salute_string()}'
             )
         self.logger.info('='*50)

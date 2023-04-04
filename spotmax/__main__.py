@@ -108,6 +108,14 @@ def cli_parser():
     )
 
     ap.add_argument(
+        '-u', '--use_cuda_gpu',
+        action='store_true',
+        help=(
+            'Try using CUDA-compatible GPU. Requires `cupy` package.'
+        )
+    )
+
+    ap.add_argument(
         '-d', '--debug',
         action='store_true',
         help=(
