@@ -1,6 +1,8 @@
 import os
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 from . import printl
 
 def _peak_local_max(
@@ -93,4 +95,73 @@ def _spots_detection(aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
         aggr_spots_img[bbox_slice],
         points_coords=points_coords
     )
+    import pdb; pdb.set_trace()
+
+def _spotfit_fit(
+        gauss3Dmodel, spots_img, leastsq_result, num_spots_s, 
+        num_coeffs, z, y, x, s_data, spots_centers, ID, fit_ids,
+        init_guess_s, bounds, fit_idx
+    ):
+    _shape = (num_spots_s, num_coeffs)
+    B_fit = leastsq_result.x[-1]
+    B_guess = init_guess_s[-1]
+    B_min = bounds[0][-1]
+    B_max = bounds[1][-1]
+    lstsq_x = leastsq_result.x[:-1]
+    lstsq_x = lstsq_x.reshape(_shape)
+    init_guess_s_2D = init_guess_s[:-1].reshape(_shape)
+    low_bounds_2D = bounds[0][:-1].reshape(_shape)
+    high_bounds_2D = bounds[1][:-1].reshape(_shape)
+    print('\n\n\n')
+    print(f'Cell ID = {ID}')
+    print(f'{fit_ids = }')
+    iterable = zip(lstsq_x, init_guess_s_2D, low_bounds_2D, high_bounds_2D)
+    for _x, _init, _l, _h in iterable:
+        print('Centers solution: ', _x[:3])
+        print('Centers init guess: ', _init[:3])
+        print('Centers low bound: ', _l[:3])
+        print('Centers high bound: ', _h[:3])
+        print('')
+        print('Sigma solution: ', _x[3:6])
+        print('Sigma init guess: ', _init[3:6])
+        print('Sigma low bound: ', _l[3:6])
+        print('Sigma high bound: ', _h[3:6])
+        print('')
+        print('A, B solution: ', _x[6], B_fit)
+        print('A, B init guess: ', _init[6], B_guess)
+        print('A, B low bound: ', _l[6], B_min)
+        print('A, B high bound: ', _h[6], B_max)
+        print('')
+        print('')
+    img = spots_img
+    # 3D gaussian evaluated on the entire image
+    V_fit = np.zeros_like(spots_img)
+    zz, yy, xx = np.nonzero(V_fit==0)
+    V_fit[zz, yy, xx] = gauss3Dmodel(
+        zz, yy, xx, leastsq_result.x, num_spots_s, num_coeffs, 0
+    )
+
+    fit_data = gauss3Dmodel(
+        z, y, x, leastsq_result.x, num_spots_s, num_coeffs, 0
+    )
+
+    img_fit = np.zeros_like(img)
+    img_fit[z,y,x] = fit_data
+    img_s = np.zeros_like(img)
+    img_s[z,y,x] = s_data
+    y_intens = img_s.max(axis=(0, 1))
+    y_intens = y_intens[y_intens!=0]
+    y_gauss = img_fit.max(axis=(0, 1))
+    y_gauss = y_gauss[y_gauss!=0]
+
+    fig, ax = plt.subplots(1,3)
+    ax[0].imshow(img.max(axis=0))
+    _, yyc, xxc = np.array(spots_centers[fit_idx]).T
+    ax[0].plot(xxc, yyc, 'r.')
+    ax[1].imshow(V_fit.max(axis=0))
+    ax[1].plot(xxc, yyc, 'r.')
+    ax[2].scatter(range(len(y_intens)), y_intens)
+    ax[2].plot(range(len(y_gauss)), y_gauss, c='r')
+    plt.show()
+
     import pdb; pdb.set_trace()

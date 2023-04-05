@@ -43,45 +43,10 @@ except ModuleNotFoundError:
 from . import is_mac, is_linux, printl, logs_path, settings_path, io
 
 class _Dummy:
-    def __init__(*args, **kwargs):
-        pass
-
-def exception_handler_cli(func):
-    @wraps(func)
-    def inner_function(self, *args, **kwargs):
-        try:
-            if func.__code__.co_argcount==1 and func.__defaults__ is None:
-                result = func(self)
-            elif func.__code__.co_argcount>1 and func.__defaults__ is None:
-                result = func(self, *args)
-            else:
-                result = func(self, *args, **kwargs)
-        except Exception as e:
-            result = None
-            if self.is_cli:
-                self.logger.exception(e)
-            if not self.is_batch_mode:
-                self.quit(error=e)
-            else:
-                raise e
-        return result
-    return inner_function
-
-def handle_log_exception_cli(func):
-    @wraps(func)
-    def inner_function(self, *args, **kwargs):
-        try:
-            if func.__code__.co_argcount==1 and func.__defaults__ is None:
-                result = func(self)
-            elif func.__code__.co_argcount>1 and func.__defaults__ is None:
-                result = func(self, *args)
-            else:
-                result = func(self, *args, **kwargs)
-        except Exception as error:
-            result = None
-            self.log_exception_report(error, traceback.format_exc())
-        return result
-    return inner_function
+    def __init__(self, *args, **kwargs):
+        _name = kwargs.get('name')
+        if _name is not None:
+            self.__name__ = _name
 
 def _check_cli_params_extension(params_path):
     _, ext = os.path.splitext(params_path)

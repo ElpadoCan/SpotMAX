@@ -1,5 +1,8 @@
 print('Importing modules...')
 import sys
+import traceback
+
+from functools import wraps
 
 try:
     import acdctools
@@ -113,3 +116,40 @@ error_up_str = '^'*50
 error_up_str = f'\n{error_up_str}'
 error_down_str = '^'*50
 error_down_str = f'\n{error_down_str}'
+
+def exception_handler_cli(func):
+    @wraps(func)
+    def inner_function(self, *args, **kwargs):
+        try:
+            if func.__code__.co_argcount==1 and func.__defaults__ is None:
+                result = func(self)
+            elif func.__code__.co_argcount>1 and func.__defaults__ is None:
+                result = func(self, *args)
+            else:
+                result = func(self, *args, **kwargs)
+        except Exception as e:
+            result = None
+            if self.is_cli:
+                self.logger.exception(e)
+            if not self.is_batch_mode:
+                self.quit(error=e)
+            else:
+                raise e
+        return result
+    return inner_function
+
+def handle_log_exception_cli(func):
+    @wraps(func)
+    def inner_function(self, *args, **kwargs):
+        try:
+            if func.__code__.co_argcount==1 and func.__defaults__ is None:
+                result = func(self)
+            elif func.__code__.co_argcount>1 and func.__defaults__ is None:
+                result = func(self, *args)
+            else:
+                result = func(self, *args, **kwargs)
+        except Exception as error:
+            result = None
+            self.log_exception_report(error, traceback.format_exc())
+        return result
+    return inner_function

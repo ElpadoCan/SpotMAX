@@ -405,7 +405,7 @@ def _configuration_params():
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
             'dtype': get_bool, 
-            'parser_arg': 'use_cuda_gpu'
+            'parser_arg': 'gpu'
         },
         'numbaNumThreads': {
             'desc': 'Number of threads used by numba',
