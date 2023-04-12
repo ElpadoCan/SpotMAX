@@ -26,3 +26,9 @@ To update spotMAX installed from source, open a terminal window, navigate to the
 git pull
 ```
 Since you installed with the `-e` flag, pulling with `git` is enough.
+
+## Run spotMAX from the command-line iterface
+
+To run spotMAX from the command-line, you need to create the parameters file. See [here]() an example file.
+
+Place the .ini file in a folder, activate the `acdc` environment and thne run the command `spotmax -p <path_to_ini_file>`.
