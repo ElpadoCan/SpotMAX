@@ -1,5 +1,6 @@
 print('Configuring files...')
 import os
+import re
 import json
 import pathlib
 from pprint import pprint
@@ -79,6 +80,9 @@ def get_bool(text):
 
 def get_threshold_func(func_name):
     return getattr(skimage.filters, func_name)
+
+def get_valid_text(text):
+    return re.sub('[^\w\-.]', '_', text)
 
 def parse_threshold_func(threshold_func):
     if isinstance(threshold_func, str):
@@ -163,8 +167,8 @@ def get_gop_thresholds(gop_thresholds_to_parse):
         thresholds values are separated by comma.
 
         Examples:
-            `spot_vs_bkgr_glass_effect_size,0.08,None`: Filter all the spots 
-            that have the Glass' effect size greater than 0.08. There is no max 
+            `spot_vs_bkgr_glass_effect_size,0.8,None`: Filter all the spots 
+            that have the Glass' effect size greater than 0.8. There is no max 
             set.
     """    
     features_thresholds = gop_thresholds_to_parse.split('\n')
@@ -287,7 +291,7 @@ def _filepaths_params():
             'addEditButton': True,
             'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
             'actions': None,
-            'dtype': str
+            'dtype': get_valid_text
         },
         'dfSpotsFileExtension': {
             'desc': 'File extension of the output tables',
@@ -677,6 +681,17 @@ def _ref_ch_params():
         },
         'calcRefChNetLen': {
             'desc': 'Calculate reference channel network length',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+        'saveRefChMask': {
+            'desc': 'Save reference channel segmentation masks',
             'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,

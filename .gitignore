@@ -2,6 +2,8 @@
 .vscode
 data/*
 mytests
+notebooks/test.ipynb
+notebooks/Untitled-1.ipynb
 spotmax/qtest.py
 spotmax/test.py
 spotmax/test1.py

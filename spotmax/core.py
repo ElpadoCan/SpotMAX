@@ -143,7 +143,7 @@ class _DataLoader:
             segm_endname: 'segm',
             ref_ch_segm_endname: 'ref_ch_segm'
         }
-        data = {}
+        data = {'basename': io.get_basename(utils.listdir(images_path))}
         for channel, key in channels.items():
             if not channel:
                 continue
@@ -275,6 +275,17 @@ class _DataLoader:
             slice(None), slice(z_start, z_stop), 
             slice(y_start, y_stop), slice(x_start, x_stop)
         )
+
+        pad_widths = []
+        for _slice, D in zip(segm_slice, (T, Z, Y, X)):
+            _pad_width = [0, 0]
+            if _slice.start is not None:
+                _pad_width[0] = _slice.start
+            if _slice.stop is not None:
+                _pad_width[1] = D - _slice.stop
+            pad_widths.append(tuple(_pad_width))
+
+        data['pad_width'] = pad_widths
 
         # Crop images
         arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm', 'segm')
@@ -2815,7 +2826,6 @@ class Kernel(_ParamsParser):
             df_agg['ref_ch_num_fragments'] = np.nan
             ref_ch_segm = np.zeros(lab.shape, dtype=bool)
             return ref_ch_segm, df_agg
-            
 
         if lab is None:
             lab = np.ones(ref_ch_img.shape, dtype=np.uint8)
@@ -3972,7 +3982,7 @@ class Kernel(_ParamsParser):
     def _run_from_images_path(
             self, images_path, spots_ch_endname: str='', ref_ch_endname: str='', 
             segm_endname: str='', ref_ch_segm_endname: str='', 
-            lineage_table_endname: str=''
+            lineage_table_endname: str='', text_to_append: str=''
         ):
         data = self.get_data_from_images_path(
             images_path, spots_ch_endname, ref_ch_endname, segm_endname, 
@@ -4023,6 +4033,9 @@ class Kernel(_ParamsParser):
             is_ref_ch_single_obj = (
                 self._params[SECTION]['refChSingleObj']['loadedVal']
             )
+            save_ref_ch_segm = (
+                self._params[SECTION]['saveRefChMask']['loadedVal']
+            )
             vox_to_um3 = self.metadata.get('vox_to_um3_factor', 1)
             ref_ch_segm_data = np.zeros(ref_ch_data.shape, dtype=np.uint32)
             desc = 'Frames completed (segm. ref. ch.)'
@@ -4051,6 +4064,13 @@ class Kernel(_ParamsParser):
                 ref_ch_segm_data[frame_i] = ref_ch_lab
                 pbar.update()
             pbar.close()
+
+            if save_ref_ch_segm:
+                basename = data.get('basename', '')
+                io.save_ref_ch_mask(
+                    ref_ch_segm_data, images_path, ref_ch_endname, basename,
+                    text_to_append=text_to_append, pad_width=data['pad_width']
+                )
 
             df_agg = self.ref_ch_to_physical_units(df_agg, self.metadata)
 
@@ -4306,7 +4326,8 @@ class Kernel(_ParamsParser):
                     ref_ch_endname=ref_ch_endname, 
                     segm_endname=segm_endname,
                     ref_ch_segm_endname=ref_ch_segm_endname, 
-                    lineage_table_endname=lineage_table_endname
+                    lineage_table_endname=lineage_table_endname,
+                    text_to_append=text_to_append
                 )      
                 if dfs is None:
                     # Error raised, logged and dfs is None

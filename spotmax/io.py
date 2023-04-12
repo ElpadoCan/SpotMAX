@@ -138,6 +138,18 @@ def get_endname_from_channels(filename, channels):
         elif m is not None:
             return endname
 
+def get_basename(files):
+    basename = files[0]
+    for file in files:
+        # Determine the basename based on intersection of all files
+        _, ext = os.path.splitext(file)
+        sm = difflib.SequenceMatcher(None, file, basename)
+        i, j, k = sm.find_longest_match(
+            0, len(file), 0, len(basename)
+        )
+        basename = file[i:i+k]
+    return basename
+
 def pd_int_to_bool(acdc_df, colsToCast=None):
     if colsToCast is None:
         colsToCast = acdc_df_bool_cols
@@ -1940,6 +1952,26 @@ def save_df_spots_to_hdf(
 def save_df_agg_to_csv(df: pd.DataFrame, folder_path: os.PathLike, filename: str):
     if df is None:
         return
+
+def save_ref_ch_mask(
+        ref_ch_segm_data, images_path, ref_ch_endname, basename, 
+        text_to_append='', pad_width=None
+    ):
+    if not basename.endswith('_'):
+        basename = f'{basename}_'
+    ref_ch_segm_filename = f'{basename}{ref_ch_endname}_segm_mask'
+    if text_to_append:
+        ref_ch_segm_filename = f'{ref_ch_segm_filename}_{text_to_append}'
+    
+    ref_ch_segm_filename = f'{ref_ch_segm_filename}.npz'
+    ref_ch_segm_filepath = os.path.join(images_path, ref_ch_segm_filename)
+
+    if pad_width is not None:
+        ref_ch_segm_data = np.pad(ref_ch_segm_data, pad_width)
+        
+    ref_ch_segm_data = np.squeeze(ref_ch_segm_data)    
+
+    np.savez_compressed(ref_ch_segm_filepath, ref_ch_segm_data)
 
 if __name__ == '__main__':
     from PyQt5.QtWidgets import QApplication, QStyleFactory
