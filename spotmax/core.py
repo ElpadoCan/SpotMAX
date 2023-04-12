@@ -3462,6 +3462,8 @@ class Kernel(_ParamsParser):
         desc = 'Measuring spots'
         pbar = tqdm(total=len(rp), ncols=100, desc=desc, position=3, leave=False)
         for obj in rp:
+            if obj.label not in df_spots.index:
+                continue
             expanded_obj = transformations.get_expanded_obj(obj, delta_tol, lab)
             self._SpotFit.set_args(
                 expanded_obj, spots_img, df_spots, zyx_voxel_size, 

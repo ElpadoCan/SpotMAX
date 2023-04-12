@@ -1,6 +1,8 @@
 print('Importing modules...')
 import sys
 import traceback
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from functools import wraps
 
