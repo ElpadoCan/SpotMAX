@@ -1745,21 +1745,13 @@ class spheroid:
         if additional_local_arr is not None:
             cropped_mask_2 = additional_local_arr[slice_crop].copy()
 
-        try:
-            if do_sum:
-                global_mask[slice_G_to_L] += cropped_mask
-            else:
-                global_mask[slice_G_to_L][cropped_mask] = True
-            if additional_local_arr is not None:
-                additional_global_arr[slice_G_to_L] = cropped_mask_2
-        except:
-            traceback.print_exc()
-            print(Z, Y, X)
-            print(zyx_c)
-            print(slice_G_to_L)
-            print(slice_crop)
-            print(cropped_mask.shape)
-            import pdb; pdb.set_trace()
+        if do_sum:
+            global_mask[slice_G_to_L] += cropped_mask
+        else:
+            global_mask[slice_G_to_L][cropped_mask] = True
+        if additional_local_arr is not None:
+            additional_global_arr[slice_G_to_L] = cropped_mask_2
+        
         if additional_local_arr is not None:
             if return_slice:
                 return (global_mask, additional_global_arr,
@@ -2321,10 +2313,10 @@ class _spotFIT(spheroid):
         df_spotFIT = (self.df_intersect
                                  .reset_index()
                                  .set_index(['obj_id', 's']))
-        df_spotFIT['QC_passed'] = 0
-        df_spotFIT['null_ks_test'] = 0
-        df_spotFIT['null_chisq_test'] = 0
-        df_spotFIT['solution_found'] = 0
+        df_spotFIT['QC_passed_fit'] = 0
+        df_spotFIT['null_ks_test_fit'] = 0
+        df_spotFIT['null_chisq_test_fit'] = 0
+        df_spotFIT['solution_found_fit'] = 0
 
         self._df_spotFIT = df_spotFIT
         verbose = self.verbose
@@ -2372,31 +2364,9 @@ class _spotFIT(spheroid):
         IQR = Q3-Q1
         self.QC_limit = Q3 + (1.5*IQR)
 
-        if False:
-            matplotlib.use('TkAgg')
-            fig, ax = plt.subplots(2,4)
-            ax = ax.flatten()
-
-            sns.histplot(x=all_gof_metrics[:,0], ax=ax[0])
-            sns.boxplot(x=all_gof_metrics[:,0], ax=ax[4])
-            ax[0].set_title('Reduced chisquare')
-
-            sns.histplot(x=all_gof_metrics[:,2], ax=ax[1])
-            sns.boxplot(x=all_gof_metrics[:,2], ax=ax[5])
-            ax[1].set_title('RMSE')
-
-            sns.histplot(x=all_gof_metrics[:,5], ax=ax[2])
-            sns.boxplot(x=all_gof_metrics[:,5], ax=ax[6])
-            ax[2].axvline(self.QC_limit, color='r', linestyle='--')
-            ax[6].axvline(self.QC_limit, color='r', linestyle='--')
-            ax[2].set_title('NMRSE')
-
-            sns.histplot(x=all_gof_metrics[:,6], ax=ax[3])
-            sns.boxplot(x=all_gof_metrics[:,6], ax=ax[7])
-            ax[3].set_title('F_NRMSE')
-
-            plt.show()
-            matplotlib.use('Agg')
+        if self.debug:
+            from ._debug import _spotfit_quality_control
+            _spotfit_quality_control(self.QC_limit, all_gof_metrics)
 
         # Given QC_limit determine which spots should be fitted again
         for obj_id, df_obj in df_spotFIT.groupby(level=0):
@@ -2580,38 +2550,41 @@ class _spotFIT(spheroid):
         self._df_spotFIT.at[(obj_id, s), 'sigma_z_fit'] = abs(sz_fit)
         self._df_spotFIT.at[(obj_id, s), 'sigma_y_fit'] = abs(sy_fit)
         self._df_spotFIT.at[(obj_id, s), 'sigma_x_fit'] = abs(sx_fit)
-        self._df_spotFIT.at[(obj_id, s),
-                            'sigma_yx_mean'] = (abs(sy_fit)+abs(sx_fit))/2
+        self._df_spotFIT.at[(obj_id, s), 'sigma_yx_mean_fit'] = (
+            (abs(sy_fit)+abs(sx_fit))/2
+        )
 
         _vol = 4/3*np.pi*abs(sz_fit)*abs(sy_fit)*abs(sx_fit)
-        self._df_spotFIT.at[(obj_id, s), 'spotfit_vol_vox'] = _vol
+        self._df_spotFIT.at[(obj_id, s), 'spheroid_vol_vox_fit'] = _vol
 
         self._df_spotFIT.at[(obj_id, s), 'A_fit'] = A_fit
         self._df_spotFIT.at[(obj_id, s), 'B_fit'] = B_fit
 
-        self._df_spotFIT.at[(obj_id, s), 'I_tot'] = I_tot
-        self._df_spotFIT.at[(obj_id, s), 'I_foregr'] = I_foregr
+        self._df_spotFIT.at[(obj_id, s), 'total_integral_fit'] = I_tot
+        self._df_spotFIT.at[(obj_id, s), 'foreground_integral_fit'] = I_foregr
 
         (reduced_chisq, p_chisq,
         ks, p_ks, RMSE, NRMSE, F_NRMSE) = gof_metrics
 
-        self._df_spotFIT.at[(obj_id, s), 'reduced_chisq'] = reduced_chisq
-        self._df_spotFIT.at[(obj_id, s), 'p_chisq'] = p_chisq
+        self._df_spotFIT.at[(obj_id, s), 'reduced_chisq_fit'] = reduced_chisq
+        self._df_spotFIT.at[(obj_id, s), 'p_chisq_fit'] = p_chisq
 
-        self._df_spotFIT.at[(obj_id, s), 'KS_stat'] = ks
-        self._df_spotFIT.at[(obj_id, s), 'p_KS'] = p_ks
+        self._df_spotFIT.at[(obj_id, s), 'KS_stat_fit'] = ks
+        self._df_spotFIT.at[(obj_id, s), 'p_KS_fit'] = p_ks
 
-        self._df_spotFIT.at[(obj_id, s), 'RMSE'] = RMSE
-        self._df_spotFIT.at[(obj_id, s), 'NRMSE'] = NRMSE
-        self._df_spotFIT.at[(obj_id, s), 'F_NRMSE'] = F_NRMSE
+        self._df_spotFIT.at[(obj_id, s), 'RMSE_fit'] = RMSE
+        self._df_spotFIT.at[(obj_id, s), 'NRMSE_fit'] = NRMSE
+        self._df_spotFIT.at[(obj_id, s), 'F_NRMSE_fit'] = F_NRMSE
 
         QC_passed = int(NRMSE<self.QC_limit)
-        self._df_spotFIT.at[(obj_id, s), 'QC_passed'] = QC_passed
+        self._df_spotFIT.at[(obj_id, s), 'QC_passed_fit'] = QC_passed
 
-        self._df_spotFIT.at[(obj_id, s), 'null_ks_test'] = int(p_ks > 0.05)
-        self._df_spotFIT.at[(obj_id, s), 'null_chisq_test'] = int(p_chisq > 0.05)
+        self._df_spotFIT.at[(obj_id, s), 'null_ks_test_fit'] = int(p_ks > 0.05)
+        self._df_spotFIT.at[(obj_id, s), 'null_chisq_test_fit'] = (
+            int(p_chisq > 0.05))
 
-        self._df_spotFIT.at[(obj_id, s), 'solution_found'] = int(solution_found)
+        self._df_spotFIT.at[(obj_id, s), 'solution_found_fit'] = (
+            int(solution_found))
 
 class Kernel(_ParamsParser):
     def __init__(self, debug=False, is_cli=True):
@@ -2901,51 +2874,9 @@ class Kernel(_ParamsParser):
             self, img_data, lab, zyx_tolerance=None, lineage_table=None
         ):
         lab_merged = self._merge_moth_bud(lineage_table, lab)
-
-        # Add tolerance based on resolution limit
-        if zyx_tolerance is not None:
-            dz, dy, dx = [int(2*np.ceil(dd)) for dd in zyx_tolerance]
-        else:
-            dz, dy, dx = 0, 0, 0
-
-        # Get max height and total width
-        rp_merged = skimage.measure.regionprops(lab_merged)
-        tot_width = 0
-        max_height = 0
-        max_depth = 0
-        for obj in rp_merged:
-            d, h, w = obj.image.shape
-            d, h, w = d+dz, h+dy, w+dx
-            if h > max_height:
-                max_height = h
-            if d > max_depth:
-                max_depth = d
-            tot_width += w
-
-        # Aggregate data horizontally by slicing object centered at 
-        # centroid and using largest object as slicing box
-        aggr_shape = (max_depth, max_height, tot_width)
-        max_h_top = int(max_height/2)
-        max_h_bottom = max_height-max_h_top
-        max_d_fwd = int(max_depth/2)
-        max_d_back = max_depth-max_d_fwd
-        aggregated_img = np.zeros(aggr_shape, dtype=img_data.dtype)
-        aggregated_lab = np.zeros(aggr_shape, dtype=lab.dtype)
-        last_w = 0
-        for obj in rp_merged:
-            w = obj.image.shape[-1] + dx
-            obj_slice = utils.get_aggregate_obj_slice(
-                obj, max_h_top, max_height, max_h_bottom, max_d_fwd, max_depth, 
-                max_d_back, img_data.shape, dx=dx
-            )
-            aggregated_img[:, :, last_w:last_w+w] = img_data[obj_slice]
-            obj_lab = lab[obj_slice].copy()
-            obj_lab[obj_lab != obj.label] = 0
-            try:
-                aggregated_lab[:, :, last_w:last_w+w] = obj_lab
-            except Exception as e:
-                import pdb; pdb.set_trace()
-            last_w += w
+        aggregated_img, aggregated_lab = transformations.aggregate_objs(
+            img_data, lab_merged, zyx_tolerance=zyx_tolerance
+        )
         return aggregated_img, aggregated_lab
     
     def _get_local_spheroid_mask(self, zyx_radii_pxl):
@@ -3357,9 +3288,9 @@ class Kernel(_ParamsParser):
                 
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds,
-                    debug=False
+                    is_spotfit=False, debug=False
                 )
-                num_spots_filtered = len(df_obj_spots_gop)                
+                num_spots_filtered = len(df_obj_spots_gop)           
 
                 if num_spots_filtered == num_spots_prev or num_spots_filtered == 0:
                     # Number of filtered spots stopped decreasing --> stop loop
@@ -3675,11 +3606,11 @@ class Kernel(_ParamsParser):
             normalised_ref_ch_img_obj, ref_ch_norm_value = self._normalise_img(
                 ref_ch_img_obj, backgr_mask, raise_if_norm_zero=False
             )
-            df_obj_spots['ref_ch_normalising_value'] = ref_ch_norm_value
+            df_obj_spots.loc[:, 'ref_ch_normalising_value'] = ref_ch_norm_value
             normalised_spots_img_obj, spots_norm_value = self._normalise_img(
                 spots_img_obj, backgr_mask, raise_if_norm_zero=True
             )
-            df_obj_spots['spots_normalising_value'] = spots_norm_value
+            df_obj_spots.loc[:, 'spots_normalising_value'] = spots_norm_value
         else:
             backgr_mask = np.logical_and(obj_mask, ~spheroids_mask)
 
@@ -3809,7 +3740,10 @@ class Kernel(_ParamsParser):
         return df_obj_spots
     
     @exception_handler_cli
-    def filter_spots(self, df: pd.DataFrame, features_thresholds: dict, debug=False):
+    def filter_spots(
+            self, df: pd.DataFrame, features_thresholds: dict, is_spotfit=False,
+            debug=False
+        ):
         """_summary_
 
         Parameters
@@ -3839,8 +3773,16 @@ class Kernel(_ParamsParser):
         """      
         queries = []  
         for feature_name, thresholds in features_thresholds.items():
+            if not is_spotfit and feature_name.endswith('_fit'):
+                # Ignore _fit features if not spotfit
+                continue
+            if is_spotfit and not feature_name.endswith('_fit'):
+                # Ignore non _fit features if spotfit
+                continue
             if feature_name not in df.columns:
-                self._critical_feature_is_missing(feature_name, df)
+                # Warn and ignore missing features
+                self._warn_feature_is_missing(feature_name, df)
+                continue
             _min, _max = thresholds
             if _min is not None:
                 queries.append(f'({feature_name} > {_min})')
@@ -3852,13 +3794,22 @@ class Kernel(_ParamsParser):
         query = ' & '.join(queries)
 
         return df.query(query)
+
+    def _warn_feature_is_missing(self, missing_feature, df):
+        self.logger.info(f"\n{'='*50}")
+        txt = (
+            f'[WARNING]: The feature name "{missing_feature}" is not present '
+            'in the table. It cannot be used for filtering spots at '
+            f'this stage.{error_up_str}'
+        )
+        self.logger.info(txt)
     
     def _critical_feature_is_missing(self, missing_feature, df):
         format_colums = [f'    * {col}' for col in df.columns]
         format_colums = '\n'.join(format_colums)
-        self.logger.info('='*50)
+        self.logger.info(f"\n{'='*50}")
         txt = (
-            f'[ERROR]: The feature name {missing_feature} is not present in the table.\n\n'
+            f'[ERROR]: The feature name "{missing_feature}" is not present in the table.\n\n'
             f'Available features are:\n\n{format_colums}{error_up_str}'
         )
         self.logger.info(txt)
@@ -4154,8 +4105,6 @@ class Kernel(_ParamsParser):
             self._params[SECTION]['spotDetectionMethod']['loadedVal']
         )
         do_spotfit = self._params[SECTION]['doSpotFit']['loadedVal']
-        spotfit_minsize = self._params[SECTION]['minSpotSize']['loadedVal']
-        spotfit_maxsize = self._params[SECTION]['maxSpotSize']['loadedVal']
         dfs_lists = {
             'dfs_spots_detection': [], 'dfs_spots_gop_test': [], 'keys': []
         }
@@ -4278,9 +4227,13 @@ class Kernel(_ParamsParser):
             self._add_spotfit_features_to_df_spots_gop(
                 df_spots_fit, df_spots_gop
             )
-            df_spots_fit = self._filter_spots_by_size(
-                df_spots_fit, spotfit_minsize, spotfit_maxsize
+            df_spots_fit = self.filter_spots(
+                df_spots_fit, gop_filtering_thresholds,
+                is_spotfit=True, debug=False
             )
+            # df_spots_fit = self._filter_spots_by_size(
+            #     df_spots_fit, spotfit_minsize, spotfit_maxsize
+            # )
         else:
             df_spots_fit = None
         

@@ -769,28 +769,28 @@ def _spots_ch_params():
         #     'actions': None,
         #     'dtype': get_bool
         # },
-        'minSpotSize': {
-            'desc': 'Discard spots with radius less than (pixels)',
-            'initialVal': 0.0,
-            'stretchWidget': True,
-            'addInfoButton': True,
-            'addComputeButton': False,
-            'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
-            'actions': None,
-            'dtype': float
-        },
-        'maxSpotSize': {
-            'desc': 'Discard spots with radius greater than (pixels)',
-            'initialVal': 0.0,
-            'stretchWidget': True,
-            'addInfoButton': True,
-            'addComputeButton': False,
-            'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
-            'actions': None,
-            'dtype': float
-        }
+        # 'minSpotSize': {
+        #     'desc': 'Discard spots with radius less than (pixels)',
+        #     'initialVal': 0.0,
+        #     'stretchWidget': True,
+        #     'addInfoButton': True,
+        #     'addComputeButton': False,
+        #     'addApplyButton': False,
+        #     'formWidgetFunc': 'widgets.floatLineEdit',
+        #     'actions': None,
+        #     'dtype': float
+        # },
+        # 'maxSpotSize': {
+        #     'desc': 'Discard spots with radius greater than (pixels)',
+        #     'initialVal': 0.0,
+        #     'stretchWidget': True,
+        #     'addInfoButton': True,
+        #     'addComputeButton': False,
+        #     'addApplyButton': False,
+        #     'formWidgetFunc': 'widgets.floatLineEdit',
+        #     'actions': None,
+        #     'dtype': float
+        # }
     }
     return spots_ch_params
 

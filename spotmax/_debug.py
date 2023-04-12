@@ -1,6 +1,7 @@
 import os
 import numpy as np
 
+import seaborn as sns
 import matplotlib.pyplot as plt
 
 from . import printl
@@ -162,6 +163,32 @@ def _spotfit_fit(
     ax[1].plot(xxc, yyc, 'r.')
     ax[2].scatter(range(len(y_intens)), y_intens)
     ax[2].plot(range(len(y_gauss)), y_gauss, c='r')
+    plt.show()
+
+    import pdb; pdb.set_trace()
+
+def _spotfit_quality_control(QC_limit, all_gof_metrics):
+    fig, ax = plt.subplots(2,4)
+    ax = ax.flatten()
+
+    sns.histplot(x=all_gof_metrics[:,0], ax=ax[0])
+    sns.boxplot(x=all_gof_metrics[:,0], ax=ax[4])
+    ax[0].set_title('Reduced chisquare')
+
+    sns.histplot(x=all_gof_metrics[:,2], ax=ax[1])
+    sns.boxplot(x=all_gof_metrics[:,2], ax=ax[5])
+    ax[1].set_title('RMSE')
+
+    sns.histplot(x=all_gof_metrics[:,5], ax=ax[2])
+    sns.boxplot(x=all_gof_metrics[:,5], ax=ax[6])
+    ax[2].axvline(QC_limit, color='r', linestyle='--')
+    ax[6].axvline(QC_limit, color='r', linestyle='--')
+    ax[2].set_title('NMRSE')
+
+    sns.histplot(x=all_gof_metrics[:,6], ax=ax[3])
+    sns.boxplot(x=all_gof_metrics[:,6], ax=ax[7])
+    ax[3].set_title('F_NRMSE')
+
     plt.show()
 
     import pdb; pdb.set_trace()

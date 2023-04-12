@@ -119,46 +119,6 @@ def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
     
     return tuple(slice_global_to_local), tuple(slice_crop_local)
 
-def get_aggregate_obj_slice(
-        obj, max_h_top, max_height, max_h_bottom, max_d_fwd, max_depth, 
-        max_d_back, img_data_shape, dx=0
-    ):
-    Z, Y, X = img_data_shape
-    slice_w = obj.slice[2]
-    slice_w = slice(slice_w.start-int(dx/2), slice_w.stop+int(dx/2))
-    zc, yc, xc = obj.centroid
-    z, y = int(zc), int(yc)
-    h_top = y - max_h_top
-    if h_top < 0:
-        # Object slicing would extend negative y
-        h_top = 0
-        h_bottom = max_height
-    else:
-        h_bottom = y + max_h_bottom
-    
-    if h_bottom > Y:
-        # Object slicing would extend more than the img data Y
-        h_bottom = Y
-        h_top = h_bottom - max_height
-    
-    d_fwd = z - max_d_fwd
-    if d_fwd < 0:
-        # Object slicing would extend negative z
-        d_fwd = 0
-        d_top = max_depth
-    else:
-        # Object slicing would extend more than the img data Z
-        d_top = z + max_d_back
-    
-    if d_top > Z:
-        d_top = Z
-        d_fwd = d_top - max_depth
-
-    obj_slice = (
-        slice(d_fwd, d_top), slice(h_top, h_bottom), slice_w
-    )
-    return obj_slice
-
 def is_valid_url(x):
     try:
         result = urlparse(x)
