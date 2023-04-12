@@ -244,6 +244,8 @@ class _DataLoader:
 
     def _crop_based_on_segm_data(self, data):
         segm_data = data['segm']
+        if not np.any(segm_data):
+            return data
         segm_time_proj = np.any(segm_data, axis=0).astype(np.uint8)
         segm_time_proj_obj = skimage.measure.regionprops(segm_time_proj)[0]
 
@@ -2822,6 +2824,11 @@ class Kernel(_ParamsParser):
         df_agg['ref_ch_vol_um3'] = df_agg['ref_ch_vol_vox']*vox_to_um3_factor
         return df_agg
 
+    def _is_lab_all_zeros(self, lab):
+        if lab is None:
+            return False
+        return not np.any(lab)
+
     @exception_handler_cli
     def segment_ref_ch(
             self, ref_ch_img, threshold_method='threshold_otsu', lab_rp=None, 
@@ -2829,6 +2836,14 @@ class Kernel(_ParamsParser):
             use_global_threshold=False, df_agg=None, frame_i=0, 
             vox_to_um3=None, verbose=True
         ):
+        if self._is_lab_all_zeros(lab):
+            df_agg['ref_ch_threshold_value'] = np.nan
+            df_agg['ref_ch_vol_vox'] = np.nan
+            df_agg['ref_ch_num_fragments'] = np.nan
+            ref_ch_segm = np.zeros(lab.shape, dtype=bool)
+            return ref_ch_segm, df_agg
+            
+
         if lab is None:
             lab = np.ones(ref_ch_img.shape, dtype=np.uint8)
             lineage_table = None
@@ -3019,6 +3034,9 @@ class Kernel(_ParamsParser):
 
         if sharp_spots_img is None:
             sharp_spots_img = spots_img
+
+        if self._is_lab_all_zeros(lab):
+            return
 
         if lab is None:
             lab = np.ones(spots_img.shape, dtype=np.uint8)
@@ -4196,6 +4214,28 @@ class Kernel(_ParamsParser):
             )
             pbar.update()
         pbar.close()
+
+        if not dfs_lists['dfs_spots_detection']:
+            missing_cols = list(aggregate_spots_feature_func.keys())
+            if not do_spotfit: 
+                missing_cols = missing_cols[:2]
+            df_agg_det = df_agg.copy()
+            df_agg_det[missing_cols] = np.nan
+            df_agg_gop = df_agg_det
+            # Lab was all 0s
+            if do_spotfit:
+                df_agg_spotfit = df_agg_gop
+            else:
+                df_agg_spotfit = None
+            dfs = {
+                'spots_detection': None,
+                'spots_gop': None,
+                'spots_spotfit': None,
+                'agg_detection': df_agg_det,
+                'agg_gop': df_agg_gop,
+                'agg_spotfit': df_agg_spotfit
+            }
+            return dfs
 
         names = ['frame_i', 'Cell_ID', 'spot_id']
         keys = dfs_lists['keys']
