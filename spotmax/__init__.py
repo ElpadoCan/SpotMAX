@@ -37,6 +37,9 @@ except ModuleNotFoundError:
 
 try:
     import cellacdc
+    from PyQt5.QtGui import QFont
+    font = QFont()
+    font.setPixelSize(11)
     GUI_INSTALLED = True
 except ModuleNotFoundError:
     GUI_INSTALLED = False
@@ -155,3 +158,15 @@ def handle_log_exception_cli(func):
             self.log_exception_report(error, traceback.format_exc())
         return result
     return inner_function
+
+def read_version():
+    try:
+        from setuptools_scm import get_version
+        version = get_version(root='..', relative_to=__file__)
+        return version
+    except Exception as e:
+        try:
+            from . import _version
+            return _version.version
+        except Exception as e:
+            return 'ND'

@@ -1,4 +1,4 @@
-# <a href="https://github.com/ElpadoCan/spotMAX_v2/blob/main/spotmax/resources/logo.svg"><img src="https://raw.githubusercontent.com/ElpadoCan/spotMAX_v2/main/spotmax/resources/logo.svg?token=GHSAT0AAAAAACBKBSCCI6NWGGFS36CZIOUCZBWUNIQ" width="80" height="80"></a> spotMAX
+# <a href="https://github.com/ElpadoCan/spotMAX_v2/blob/main/spotmax/resources/logo_spotmax.svg"><img src="https://raw.githubusercontent.com/ElpadoCan/spotMAX_v2/main/spotmax/resources/logo.svg?token=GHSAT0AAAAAACBKBSCCI6NWGGFS36CZIOUCZBWUNIQ" width="80" height="80"></a> spotMAX
 
 ### A Python package for automatic **detection**, and **quantification** of fluorescent spot in microscopy data
 
@@ -29,6 +29,6 @@ Since you installed with the `-e` flag, pulling with `git` is enough.
 
 ## Run spotMAX from the command-line iterface
 
-To run spotMAX from the command-line, you need to create the parameters file. Click [here](https://github.com/ElpadoCan/spotMAX/blob/main/examples/example_config_params.ini) to download an example file.
+To run spotMAX from the command-line, you need to create the parameters file. Click [here](https://github.com/ElpadoCan/spotMAX/tree/main/examples) to download an example file.
 
 Place the .ini file in a folder, activate the `acdc` environment and thne run the command `spotmax -p <path_to_ini_file>`.

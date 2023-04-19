@@ -22,7 +22,7 @@ from PyQt5.QtGui import (
 )
 from PyQt5.QtWidgets import (
     QTextEdit, QLabel, QProgressBar, QHBoxLayout, QToolButton, QCheckBox,
-    QApplication, QWidget, QVBoxLayout, QMainWindow, QStyleFactory,
+    QFormLayout, QWidget, QVBoxLayout, QMainWindow, QStyleFactory,
     QLineEdit, QSlider, QSpinBox, QGridLayout, QDockWidget,
     QScrollArea, QSizePolicy, QComboBox, QPushButton, QScrollBar,
     QGroupBox, QAbstractSlider, QDialog, QStyle, QSpacerItem,
@@ -32,10 +32,12 @@ from PyQt5.QtWidgets import (
 
 import pyqtgraph as pg
 
+from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 
-from . import is_mac, is_win
+from . import is_mac, is_win, printl, font
 from . import utils, dialogs, config, html_func, docs
+from . import features
 
 # NOTE: Enable icons
 from . import qrc_resources
@@ -134,6 +136,14 @@ class computePushButton(QPushButton):
         super().__init__(*args)
         self.setIcon(QIcon(':compute.svg'))
 
+class lessThanPushButton(QPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setIcon(QIcon(':less_than.svg'))
+        flat = kwargs.get('flat')
+        if flat is not None:
+            self.setFlat(True)
+
 class QSpinBoxOdd(QSpinBox):
     def __init__(self, acceptedValues=(), parent=None):
         QSpinBox.__init__(self, parent)
@@ -191,9 +201,223 @@ class tooltipLineEdit(QLineEdit):
     def setTextTooltip(self):
         self.setToolTip(self.text())
 
-class GopFeaturesAndThresholds(QWidget):
+class StretchableEmptyWidget(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
+        self.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+
+class VerticalSpacerEmptyWidget(QWidget):
+    def __init__(self, parent=None, height=5) -> None:
+        super().__init__(parent)
+        self.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Minimum
+        )
+        self.setFixedHeight(height)
+
+class FeatureSelectorButton(QPushButton):
+    def __init__(self, text, parent=None):
+        super().__init__(text, parent=parent)
+        self._isFeatureSet = False
+    
+    def setFeatureText(self, text):
+        self.setText(text)
+        self.setFlat(True)
+        self._isFeatureSet = True
+    
+    def enterEvent(self, event) -> None:
+        if self._isFeatureSet:
+            self.setFlat(False)
+        return super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        if self._isFeatureSet:
+            self.setFlat(True)
+        self.update()
+        return super().leaveEvent(event)
+
+    def setSizeLongestText(self, longestText):
+        currentText = self.text()
+        self.setText(longestText)
+        w, h = self.sizeHint().width(), self.sizeHint().height()
+        self.setMinimumWidth(w+10)
+        # self.setMinimumHeight(h+5)
+        self.setText(currentText)
+
+class FeatureSelectorDialog(acdc_apps.TreeSelectorDialog):
+    sigClose = pyqtSignal()
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+        features_groups = features.get_features_groups()
+        self.addTree(features_groups)
+
+        self.setFont(font)
+    
+    def closeEvent(self, event):
+        self.sigClose.emit()
+
+class CheckableSpinBoxWidgets:
+    def __init__(self, isFloat=True):
+        if isFloat:
+            self.spinbox = acdc_widgets.DoubleSpinBox()
+        else:
+            self.spinbox = acdc_widgets.SpinBox()
+        self.checkbox = QCheckBox('Activate')
+        self.spinbox.setEnabled(False)
+        self.checkbox.toggled.connect(self.spinbox.setEnabled)
+    
+    def value(self):
+        if not self.checkbox.isChecked():
+            return
+        return self.spinbox.value()
+
+class FeatureRangeSelector:
+    def __init__(self) -> None:
+        self.lowRangeWidgets = CheckableSpinBoxWidgets()
+        self.highRangeWidgets = CheckableSpinBoxWidgets()        
+        
+        self.selectButton = FeatureSelectorButton('Click to select feature...')
+        self.selectButton.setSizeLongestText(
+            'Spotfit intens. metric, Foregr. integral gauss. peak'
+        )
+        self.selectButton.clicked.connect(self.selectFeature)
+        self.selectButton.setCursor(Qt.PointingHandCursor)
+
+        self.widgets = [
+            {'pos': (0, 0), 'widget': self.lowRangeWidgets.checkbox}, 
+            {'pos': (1, 0), 'widget': self.lowRangeWidgets.spinbox}, 
+            {'pos': (1, 1), 'widget': lessThanPushButton(flat=True)},
+            {'pos': (1, 2), 'widget': self.selectButton},
+            {'pos': (1, 3), 'widget': lessThanPushButton(flat=True)},
+            {'pos': (0, 4), 'widget': self.highRangeWidgets.checkbox},
+            {'pos': (1, 4), 'widget': self.highRangeWidgets.spinbox}, 
+            {'pos': (2, 0), 'widget': VerticalSpacerEmptyWidget(height=10)}
+        ]
+    
+    def setText(self, text):
+        self.selectButton.setText(text)
+    
+    def getFeatureGroup(self):
+        if self.selectButton.text().find('Click') != -1:
+            return ''
+
+        text = self.selectButton.text()
+        topLevelText, childText = text.split(', ')
+        return {topLevelText: childText}
+    
+    def selectFeature(self):
+        self.selectFeatureDialog = FeatureSelectorDialog(
+            parent=self.selectButton, multiSelection=False, 
+            expandOnDoubleClick=True, isTopLevelSelectable=False, 
+            infoTxt='Select feature', allItemsExpanded=False
+        )
+        self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
+        # self.selectFeatureDialog.resizeVertical()
+        self.selectFeatureDialog.sigClose.connect(self.setFeatureText)
+        self.selectFeatureDialog.show()
+    
+    def setFeatureText(self):
+        if self.selectFeatureDialog.cancel:
+            return
+        self.selectButton.setFlat(True)
+        selection = self.selectFeatureDialog.selectedItems()
+        group_name = list(selection.keys())[0]
+        feature_name = selection[group_name][0]
+        featureText = f'{group_name}, {feature_name}'
+        self.selectButton.setFeatureText(featureText)
+        column_name = features.feature_names_to_col_names_mapper()[featureText]
+        lowValue = self.lowRangeWidgets.value()
+        highValue = self.highRangeWidgets.value()
+        self.selectButton.setToolTip(f'{column_name}')
+
+class GopFeaturesAndThresholdsGroupbox(QGroupBox):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+
+        self.setTitle('Features and thresholds for filtering true spots')
+        # self.setCheckable(True)
+
+        self._layout = QGridLayout()
+        self._layout.setVerticalSpacing(0)
+
+        firstSelector = FeatureRangeSelector()
+        self.addButton = acdc_widgets.addPushButton('  Add feature    ')
+        self.addButton.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        for col, widget in enumerate(firstSelector.widgets):
+            row, col = widget['pos']
+            self._layout.addWidget(widget['widget'], row, col)
+        lastCol = self._layout.columnCount()
+        self._layout.addWidget(self.addButton, 0, lastCol+1, 2, 1)
+        self.lastCol = lastCol+1
+        self.selectors = [firstSelector]
+
+        self._layout.setColumnStretch(0, 1)
+        self._layout.setColumnStretch(1, 0)
+        self.setLayout(self._layout)
+
+        self.setFont(font)
+
+        self.addButton.clicked.connect(self.addFeatureField)
+
+    def addFeatureField(self):
+        row = self._layout.rowCount()
+        selector = FeatureRangeSelector()
+        delButton = acdc_widgets.delPushButton('Remove feature')
+        delButton.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        delButton.selector = selector
+        for col, widget in enumerate(selector.widgets):
+            relRow, col = widget['pos']
+            self._layout.addWidget(widget['widget'], relRow+row, col)
+        self._layout.addWidget(delButton, row, self.lastCol, 2, 1)
+        self.selectors.append(selector)
+        delButton.clicked.connect(self.removeFeatureField)
+    
+    def removeFeatureField(self):
+        delButton = self.sender()
+        for widget in delButton.selector.widgets:
+            self._layout.removeWidget(widget['widget'])
+        self._layout.removeWidget(delButton)
+        self.selectors.remove(delButton.selector)
+    
+    def setValue(self, value):
+        pass
+            
+
+class _GopFeaturesAndThresholdsButton(QPushButton):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setText(' Set features or view the selected ones... ')
+        self.selectedFeaturesWindow = dialogs.GopFeaturesAndThresholdsDialog(
+            parent=self.parent()
+        )
+        self.clicked.connect(self.setFeatures)
+        self.selectedFeaturesWindow.hide()
+    
+    def setFeatures(self):
+        self.selectedFeaturesWindow.exec_()
+        if self.selectedFeaturesWindow.cancel:
+            return
+        
+        tooltip = self.selectedFeaturesWindow.configIniParam()
+        self.setToolTip(tooltip)
+    
+    def text(self):
+        tooltip = self.toolTip()
+        start_idx = len('Features and ranges set:\n\n')
+        text = tooltip[start_idx:]
+        return text.replace('  * ', '\t')
+
+class _CenteredLineEdit(tooltipLineEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAlignment(Qt.AlignCenter)
 
 def _refChThresholdFuncWidget():
     widget = myQComboBox()
@@ -247,6 +471,9 @@ class _spotMinSizeLabels(QWidget):
     def setText(self, text):
         self.umLabel.setText(text)
         self.pixelLabel.setText(text)
+    
+    def text(self):
+        return ''
 
 class formWidget(QWidget):
     sigApplyButtonClicked = pyqtSignal(object)
@@ -270,36 +497,35 @@ class formWidget(QWidget):
             addBrowseButton=False,
             addAutoButton=False,
             addEditButton=False,
+            addLabel=True,
             key='',
-            parent=None
+            parent=None,
+            valueSetter=None,
         ):
         QWidget.__init__(self, parent)
         self.widget = widget
         self.anchor = anchor
         self.key = key
+        self.addLabel = addLabel
+        self.labelTextLeft = labelTextLeft
 
         widget.setParent(self)
 
-        if isinstance(initialVal, bool):
-            widget.setChecked(initialVal)
-        elif isinstance(initialVal, str):
-            try:
-                widget.setCurrentText(initialVal)
-            except AttributeError:
-                widget.setText(initialVal)
-        elif isinstance(initialVal, float) or isinstance(initialVal, int):
-            widget.setValue(initialVal)
-
+        self.setValue(initialVal, valueSetter=valueSetter)
+        
         self.items = []
 
         if font is None:
             font = QFont()
-            font.setPixelSize(13)
+            font.setPixelSize(11)
 
-        self.labelLeft = acdc_widgets.QClickableLabel(widget)
-        self.labelLeft.setText(labelTextLeft)
-        self.labelLeft.setFont(font)
-        self.items.append(self.labelLeft)
+        if addLabel:
+            self.labelLeft = acdc_widgets.QClickableLabel(widget)
+            self.labelLeft.setText(labelTextLeft)
+            self.labelLeft.setFont(font)
+            self.items.append(self.labelLeft)
+        else:
+            self.items.append(None)
 
         if not stretchWidget:
             widgetLayout = QHBoxLayout()
@@ -320,26 +546,28 @@ class formWidget(QWidget):
             infoButton.setCursor(Qt.WhatsThisCursor)
             if labelTextLeft:
                 infoButton.setToolTip(
-                    f'Info about "{self.labelLeft.text()}" parameter'
+                    f'Info about "{labelTextLeft}" parameter'
                 )
-            else:
+            elif labelTextRight:
                 infoButton.setToolTip(
-                    f'Info about "{self.labelRight.text()}" measurement'
+                    f'Info about "{labelTextRight}" parameter'
                 )
             infoButton.clicked.connect(self.showInfo)
             self.items.append(infoButton)
         
-        if addEditButton:
-            editButton = acdc_widgets.editPushButton(self)
-            editButton.setToolTip('Edit field')
-            self.sigEditClicked.connect(self.editButtonClicked)
-            self.items.append(editButton)
-
         if addBrowseButton:
             browseButton = acdc_widgets.showInFileManagerButton(self)
             browseButton.setToolTip('Browse')
             browseButton.clicked.connect(self.browseButtonClicked)
+            self.browseButton = browseButton
             self.items.append(browseButton)
+        
+        if addEditButton:
+            editButton = acdc_widgets.editPushButton(self)
+            editButton.setToolTip('Edit field')
+            editButton.clicked.connect(self.editButtonClicked)
+            self.editButton = editButton
+            self.items.append(editButton)
 
         if addApplyButton:
             applyButton = applyPushButton(self)
@@ -347,6 +575,7 @@ class formWidget(QWidget):
             applyButton.setCheckable(True)
             applyButton.setToolTip('Apply this step and visualize results')
             applyButton.clicked.connect(self.applyButtonClicked)
+            self.applyButton = applyButton
             self.items.append(applyButton)
 
         if addAutoButton:
@@ -354,16 +583,43 @@ class formWidget(QWidget):
             autoButton.setCheckable(True)
             autoButton.setToolTip('Automatically infer this parameter')
             autoButton.clicked.connect(self.autoButtonClicked)
+            self.autoButton = autoButton
             self.items.append(autoButton)
 
         if addComputeButton:
             computeButton = computePushButton(self)
             computeButton.setToolTip('Compute this step and visualize results')
             computeButton.clicked.connect(self.computeButtonClicked)
+            self.computeButton = computeButton
             self.items.append(computeButton)
 
-        self.labelLeft.clicked.connect(self.tryChecking)
+        if addLabel:
+            self.labelLeft.clicked.connect(self.tryChecking)
         self.labelRight.clicked.connect(self.tryChecking)
+    
+    def text(self):
+        return self.labelTextLeft
+    
+    def setValue(self, value, valueSetter=None):
+        if value is None:
+            return
+        
+        if valueSetter is not None:
+            if isinstance(valueSetter, str):
+                getattr(self.widget, valueSetter)(value)
+            else:
+                valueSetter(value)
+            return 
+        
+        if isinstance(value, bool):
+            self.widget.setChecked(value)
+        elif isinstance(value, str):
+            try:
+                self.widget.setCurrentText(value)
+            except AttributeError:
+                self.widget.setText(value)
+        elif isinstance(value, float) or isinstance(value, int):
+            self.widget.setValue(value)
 
     def tryChecking(self, label):
         try:
@@ -401,7 +657,9 @@ class formWidget(QWidget):
 
     def showInfo(self):
         anchor = self.anchor
-        txt = html_func.paragraph(docs.paramsInfoText().get(anchor, ''))
+        txt = html_func.paragraph(
+            docs.paramsInfoText().get(anchor, docs.notDocumentedYetText())
+        )
         if not txt:
             return
         msg = acdc_widgets.myMessageBox(parent=self, showCentered=False)
@@ -423,6 +681,15 @@ class myFormLayout(QGridLayout):
 
     def addFormWidget(self, formWidget, row=0):
         for col, item in enumerate(formWidget.items):
+            if item is None:
+                continue
+            
+            if col == 1 and not formWidget.addLabel:
+                col = 0
+                colspan = 2
+            else:
+                colspan = 1
+            
             if col==0:
                 alignment = Qt.AlignRight
             elif col==2:
@@ -430,10 +697,10 @@ class myFormLayout(QGridLayout):
             else:
                 alignment = Qt.AlignmentFlag()
             try:
-                self.addWidget(item, row, col, alignment=alignment)
+                self.addWidget(item, row, col, 1, colspan, alignment=alignment)
             except TypeError:
-                self.addLayout(item, row, col)
-
+                self.addLayout(item, row, col, 1, colspan)
+            
 class myQScrollBar(QScrollBar):
     sigActionTriggered = pyqtSignal(int)
 
@@ -532,7 +799,7 @@ class intLineEdit(QLineEdit):
         self.setAlignment(Qt.AlignCenter)
 
         font = QFont()
-        font.setPixelSize(13)
+        font.setPixelSize(11)
         self.setFont(font)
         self.setText('0')
 
@@ -567,7 +834,7 @@ class floatLineEdit(QLineEdit):
         self.setAlignment(Qt.AlignCenter)
 
         font = QFont()
-        font.setPixelSize(13)
+        font.setPixelSize(11)
         self.setFont(font)
 
         self.textChanged.connect(self.emitValueChanged)

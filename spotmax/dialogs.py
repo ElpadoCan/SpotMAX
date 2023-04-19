@@ -1,5 +1,5 @@
 import os
-import sys
+import datetime
 import re
 import pathlib
 import time
@@ -24,21 +24,18 @@ from PyQt5.QtWidgets import (
     QTreeWidgetItemIterator, QAbstractItemView, QFrame, QMessageBox,
     QMainWindow, QWidget, QTableView, QTextEdit, QGridLayout,
     QProgressBar, QSpinBox, QDoubleSpinBox, QListWidget, QGroupBox,
-    QSlider, QDockWidget, QTabWidget, QScrollArea, QScrollBar
+    QFileDialog, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 
 from . import html_func, io, widgets, utils, config
-from . import core
+from . import core, dock_params_callbacks
 
 # NOTE: Enable icons
-from . import qrc_resources, printl
+from . import qrc_resources, printl, font
 from . import is_mac, is_win, is_linux
-
-font = QFont()
-font.setPixelSize(11)
 
 class QBaseDialog(QDialog):
     def __init__(self, parent=None):
@@ -57,6 +54,69 @@ class QBaseDialog(QDialog):
     def closeEvent(self, event):
         if hasattr(self, 'loop'):
             self.loop.exit()
+
+class GopFeaturesAndThresholdsDialog(QBaseDialog):
+    def __init__(self, parent=None):
+        self.cancel = True
+        super().__init__(parent)
+
+        self.setWindowTitle('Features and thresholds for filtering true spots')
+
+        mainLayout = QVBoxLayout()
+
+        self.setFeaturesGroupbox = widgets.GopFeaturesAndThresholdsGroupbox()
+        mainLayout.addWidget(self.setFeaturesGroupbox)
+
+        buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
+        buttonsLayout.cancelButton.clicked.connect(self.close)
+        buttonsLayout.okButton.clicked.connect(self.ok_cb)
+
+        mainLayout.addLayout(buttonsLayout)
+
+        self.setLayout(mainLayout)
+    
+    def show(self, block=False) -> None:
+        super().show(block=False)
+        firstButton = self.setFeaturesGroupbox.selectors[0].selectButton
+        featuresNeverSet = firstButton.text().find('Click') != -1
+        if featuresNeverSet:
+            self.setFeaturesGroupbox.selectors[0].selectButton.click()
+        super().show(block=block)
+    
+    def configIniParam(self):
+        paramsText = ''
+        for selector in self.setFeaturesGroupbox.selectors:
+            selectButton = selector.selectButton
+            column_name = selectButton.toolTip()
+            if not column_name:
+                continue
+            lowValue = selector.lowRangeWidgets.value()
+            highValue = selector.highRangeWidgets.value()
+            if lowValue is None and highValue is None:
+                self.warnRangeNotSelected(selectButton.text())
+                return False
+            paramsText = f'{paramsText}  * {column_name}, {lowValue}, {highValue}\n'
+        tooltip = f'Features and ranges set:\n\n{paramsText}'
+        return tooltip
+    
+    def warnRangeNotSelected(self, buttonText):
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph(
+            'The following feature<br><br>'
+            f'<code>{buttonText}</code><br><br>'
+            'does <b>not have a valid range</b>.<br><br>'
+            'Make sure you select <b>at least one</b> of the lower and higher '
+            'range values.'
+        )
+        msg.critical(self, 'Invalid selection', txt)
+    
+    def ok_cb(self):
+        isSelectionValid = self.configIniParam()
+        if not isSelectionValid:
+            return
+        self.cancel = False
+        self.close()
+
 
 class measurementsQGroupBox(QGroupBox):
     def __init__(self, names, parent=None):
@@ -447,14 +507,118 @@ class guiBottomWidgets(QGroupBox):
             combobox.setDisabled(True, applyToCheckbox=False)
 
 class guiTabControl(QTabWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, logging_func=print):
         super().__init__(parent)
+
+        self.loadedFilename = ''
 
         self.parametersTab = QScrollArea(self)
         self.parametersQGBox = analysisInputsQGBox(self.parametersTab)
-        self.parametersTab.setWidget(self.parametersQGBox)
+        self.logging_func = logging_func
+        containerWidget = QWidget()
+        containerLayout = QVBoxLayout()
+
+        buttonsLayout = QHBoxLayout()
+        
+        self.saveParamsButton = acdc_widgets.savePushButton(
+            'Save parameters to configuration file...'
+        )
+        self.loadPreviousParamsButton = acdc_widgets.browseFileButton(
+            'Load parameters from a previous analysis', 
+            ext={'Configuration files': ['.ini', '.csv']},
+            start_dir=utils.getMostRecentPath(), 
+            title='Select analysis parameters file'
+        )
+        buttonsLayout.addWidget(self.loadPreviousParamsButton)
+        buttonsLayout.addWidget(self.saveParamsButton)
+        buttonsLayout.addStretch(1)
+
+        containerLayout.addLayout(buttonsLayout)
+
+        containerLayout.addWidget(self.parametersQGBox)
+        containerWidget.setLayout(containerLayout)
+
+        self.parametersTab.setWidget(containerWidget)
+
+        self.loadPreviousParamsButton.sigPathSelected.connect(
+            self.loadPreviousParams
+        )
+        self.saveParamsButton.clicked.connect(self.saveParamsFile)
 
         self.addTab(self.parametersTab, 'Analysis paramenters')
+    
+    def setValuesFromParams(self, params):
+        for section, anchorOptions in self.parametersQGBox.params.items():
+            for anchor, options in anchorOptions.items():
+                formWidget = options['formWidget']
+                try:
+                    val = params[section][anchor]['loadedVal']
+                except Exception as e:
+                    continue
+                groupbox = options['groupBox']
+                try:
+                    groupbox.setChecked(True)
+                except Exception as e:
+                    pass
+                formWidget.setValue(val)
+    
+    def loadPreviousParams(self, filePath):
+        self.logging_func(f'Loading analysis parameters from "{filePath}"...')
+        io.addToRecentPaths(os.path.dirname(filePath))
+        self.loadedFilename, ext = os.path.splitext(os.path.basename(filePath))
+        params = config.analysisInputsParams(filePath)
+        self.setValuesFromParams(params)
+        
+    def saveParamsFile(self):
+        if self.loadedFilename:
+            entry = self.loadedFilename
+        else:
+            now = datetime.datetime.now().strftime(r'%Y-%m-%d')
+            entry = f'{now}_analysis_parameters'
+        txt = (
+            'Insert <b>filename</b> for the parameters file.<br><br>'
+            'After confirming, you will be asked to <b>choose the folder</b> '
+            'where to save the file.'
+        )
+        while True:
+            filenameWindow = acdc_apps.filenameDialog(
+                parent=self, title='Insert file name for the parameters file', 
+                allowEmpty=False, defaultEntry=entry, ext='.ini', hintText=txt
+            )
+            filenameWindow.exec_()
+            if filenameWindow.cancel:
+                return
+            
+            folder_path = QFileDialog.getExistingDirectory(
+                    self, 'Select folder where to save the parameters file', 
+                    utils.getMostRecentPath()
+                )
+            if not folder_path:
+                return
+            
+            filePath = os.path.join(folder_path, filenameWindow.filename)
+            if not os.path.exists(filePath):
+                break
+            else:
+                msg = acdc_widgets.myMessageBox(wrapText=False)
+                txt = (
+                    'The following file already exists:<br><br>'
+                    f'<code>{filePath}</code><br><br>'
+                    'Do you want to continue?'
+                )
+                _, noButton, yesButton = msg.warning(
+                    self, 'File exists', txt, 
+                    buttonsTexts=(
+                        'Cancel',
+                        'No, let me choose a different path',
+                        'Yes, overwrite existing file'
+                    )
+                )
+                if msg.cancel:
+                    return
+                if msg.clickedButton == yesButton:
+                    break
+        self.parametersQGBox.saveToIniFile(filePath)
 
     def addInspectResultsTab(self, posData):
         self.inspectResultsTab = QScrollArea(self)
@@ -536,7 +700,11 @@ class analysisInputsQGBox(QGroupBox):
             formLayout = widgets.myFormLayout()
             self.params[section] = {}
             groupBox = QGroupBox(section)
-            if section == 'File paths and channels' or section == 'METADATA':
+            isNotCheckableGroup = (
+                section == 'File paths and channels' or section == 'METADATA'
+                or section == 'Pre-processing'
+            )
+            if isNotCheckableGroup:
                 groupBox.setCheckable(False)
             else:
                 groupBox.setCheckable(True)
@@ -560,10 +728,13 @@ class analysisInputsQGBox(QGroupBox):
                     addBrowseButton=paramValues.get('addBrowseButton', False),
                     addAutoButton=paramValues.get('addAutoButton', False),
                     addEditButton=paramValues.get('addEditButton', False),
+                    addLabel=paramValues.get('addLabel', True),
+                    valueSetter=paramValues.get('valueSetter'),
                     parent=self
                 )
                 formWidget.section = section
                 formWidget.sigLinkClicked.connect(self.infoLinkClicked)
+                self.connectFormWidgetButtons(formWidget, paramValues)
                 formLayout.addFormWidget(formWidget, row=row)
                 self.params[section][anchor]['widget'] = formWidget.widget
                 self.params[section][anchor]['formWidget'] = formWidget
@@ -587,6 +758,17 @@ class analysisInputsQGBox(QGroupBox):
 
         self.setLayout(mainLayout)
         self.updateMinSpotSize()
+    
+    def _getCallbackFunction(self, callbackFuncPath):
+        moduleName, functionName = callbackFuncPath.split('.')
+        module = globals()[moduleName]
+        return getattr(module, functionName)
+    
+    def connectFormWidgetButtons(self, formWidget, paramValues):
+        editButtonCallback = paramValues.get('editButtonCallback')        
+        if editButtonCallback is not None:
+            function = self._getCallbackFunction(editButtonCallback)
+            formWidget.sigEditClicked.connect(function)
 
     def infoLinkClicked(self, link):
         try:
@@ -597,9 +779,14 @@ class analysisInputsQGBox(QGroupBox):
             pass
 
         try:
-            section, anchor = link.split(';')
+            section, anchor, *option = link.split(';')
             formWidget = self.params[section][anchor]['formWidget']
-            self.blinker = utils.widgetBlinker(formWidget.widget)
+            if option:
+                option = option[0]
+                widgetToBlink = getattr(formWidget, option)
+            else:
+                widgetToBlink = formWidget.widget
+            self.blinker = utils.widgetBlinker(widgetToBlink)
             label = formWidget.labelLeft
             self.labelBlinker = utils.widgetBlinker(
                 label, styleSheetOptions=('color',)
@@ -653,6 +840,40 @@ class analysisInputsQGBox(QGroupBox):
         spotMinSizeLabels = metadata['spotMinSizeLabels']['widget']
         spotMinSizeLabels.pixelLabel.setText(zyxMinSize_pxl_txt)
         spotMinSizeLabels.umLabel.setText(zyxMinSize_um_txt)
+    
+    def configIniParams(self):
+        ini_params = {}
+        for section, section_params in self.params.items():
+            ini_params[section] = {}
+            for anchor, options in section_params.items():
+                groupbox = options['groupBox']
+                initalVal = options['initialVal']
+                widget = options['widget']
+                if groupbox.isCheckable() and not groupbox.isChecked():
+                    value = initalVal
+                elif isinstance(initalVal, bool):
+                    value = widget.isChecked()
+                elif isinstance(initalVal, str):
+                    try:
+                        value = widget.currentText()
+                    except AttributeError:
+                        value = widget.text()
+                elif isinstance(initalVal, float) or isinstance(initalVal, int):
+                    value = widget.value()
+                
+                if not value:
+                    continue
+                ini_params[section][anchor] = {
+                    'desc': options['desc'], 'loadedVal': value
+                }
+        return ini_params
+
+    def saveToIniFile(self, ini_filepath):
+        params = self.configIniParams()
+        io.writeConfigINI(params, ini_filepath)
+        print('-'*60)
+        print(f'Configuration file saved to: "{ini_filepath}"')
+        print('*'*60)
 
     def showInfo(self):
         print(self.sender().label.text())
@@ -1982,69 +2203,60 @@ class selectSpotsH5FileLayout(QVBoxLayout):
             item.setExpanded(True)
             item.setSelected(False)
 
-if __name__ == '__main__':
-    class Window(QMainWindow):
-        def __init__(self):
-            super().__init__()
+def getSelectedExpPaths(utilityName, parent=None):
+    msg = acdc_widgets.myMessageBox()
+    txt = html_func.paragraph("""
+        After you click "Ok" on this dialog you will be asked
+        to <b>select the experiment folders</b>, one by one.<br><br>
+        Next, you will be able to <b>choose specific Positions</b>
+        from each selected experiment.
+    """)
+    msg.information(
+        parent, f'{utilityName}', txt,
+        buttonsTexts=('Cancel', 'Ok')
+    )
+    if msg.cancel:
+        return
 
-            container = QWidget()
-            layout = QVBoxLayout()
+    expPaths = {}
+    mostRecentPath = utils.getMostRecentPath()
+    while True:
+        exp_path = QFileDialog.getExistingDirectory(
+            parent, 'Select experiment folder containing Position_n folders',
+            mostRecentPath
+        )
+        if not exp_path:
+            break
+        io.addToRecentPaths(exp_path)
+        pathScanner = io.expFolderScanner(homePath=exp_path)
+        _exp_paths = pathScanner.getExpPathsWithPosFoldernames()
+        
+        expPaths = {**expPaths, **_exp_paths}
+        mostRecentPath = exp_path
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph("""
+            Do you want to select <b>additional experiment folders</b>?
+        """)
+        noButton, yesButton = msg.question(
+            parent, 'Select additional experiments?', txt,
+            buttonsTexts=('No', 'Yes')
+        )
+        if msg.clickedButton == noButton:
+            break
+    
+    if not expPaths:
+        return
 
-            self.tabControl = guiTabControl(self)
+    multiplePos = any([len(posFolders) > 1 for posFolders in expPaths.values()])
 
-            bottomWidgets = guiBottomWidgets(
-                'left', ['test'], ['test'], isCheckable=True, checked=False
-            )
-
-            layout.addWidget(self.tabControl)
-            layout.addWidget(bottomWidgets)
-            names = utils.singleSpotCountMeasurementsName()
-            layout.addWidget(measurementsQGroupBox(names, parent=self))
-
-            # layout.addStretch(1)
-            container.setLayout(layout)
-            self.setCentralWidget(container)
-
-        def show(self):
-            QMainWindow.show(self)
-
-            parametersQGBox = self.tabControl.parametersQGBox
-            parametersTab = self.tabControl.parametersTab
-            horizontalScrollBar = parametersTab.horizontalScrollBar()
-            i = 1
-            while horizontalScrollBar.isVisible():
-                self.resize(self.width()+i, self.height())
-                i += 1
-
-            channelDataPath = r"G:\My Drive\1_MIA_Data\Dimitra\test_spotMAX_nucleusSegm_1\TIFFs\Position_2\Images\20210526_DCY8_SCGE_M2_10_s02_mCitr.tif"
-            user_ch_name = 'mCitr'
-            posData = io.loadData(channelDataPath, user_ch_name)
-
-            run_nums = posData.validRuns()
-            runsInfo = {}
-            for run in run_nums:
-                h5_files = posData.h5_files(run)
-                if not h5_files:
-                    continue
-                runsInfo[run] = h5_files
-
-            # self.dialog = selectSpotsH5FileDialog(runsInfo)
-            # self.dialog.show()
-            self.tabControl.addInspectResultsTab(posData)
-
-
-            # print(self.tabControl.inspectResultsQGBox.width())
-            # self.tabControl.inspectResultsQGBox.setMinimumWidth(500)
-            # print(self.tabControl.inspectResultsQGBox.width())
-
-    app = QApplication(sys.argv)
-    app.setStyle(QStyleFactory.create('Fusion'))
-    # win = QDialogMetadata(
-    #     60, 40, 180, 0.35, 0.06, 0.06, True, True, True, 15,
-    #     imgDataShape=(60,40,600,600)
-    # )
-    win = Window()
-    win.show()
-    app.exec_()
-
-    # print(win.selectedPaths)
+    if len(expPaths) > 1 or multiplePos:
+        # infoPaths = io.getInfoPosStatus(expPaths)
+        selectPosWin = acdc_apps.selectPositionsMultiExp(expPaths)
+        selectPosWin.exec_()
+        if selectPosWin.cancel:
+            return
+        selectedExpPaths = selectPosWin.selectedPaths
+    else:
+        selectedExpPaths = expPaths
+    
+    return selectedExpPaths

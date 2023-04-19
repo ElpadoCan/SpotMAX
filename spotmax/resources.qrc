@@ -9,7 +9,8 @@
   <file alias="file-save.svg">resources/icons/file-save.svg</file>
   <file alias="folder-open.svg">resources/icons/folder-open.svg</file>
   <file alias="folder-upload.svg">resources/icons/folder-upload.svg</file>
-  <file alias="logo.svg">resources/logo.svg</file>
+  <file alias="logo_spotmax.svg">resources/logo.svg</file>
+  <file alias="icon_spotmax.ico">resources/icon.ico</file>
   <file alias="image.svg">resources/icons/image.svg</file>
   <file alias="redo.svg">resources/icons/redo.svg</file>
   <file alias="undo.svg">resources/icons/undo.svg</file>
@@ -40,5 +41,6 @@
   <file alias="magnGlass.svg">resources/icons/magnGlass.svg</file>
   <file alias="magnGlassSpot.svg">resources/icons/magnGlass.svg</file>
   <file alias="more.svg">resources/icons/more.svg</file>
+  <file alias="less_than.svg">resources/icons/math/less_than.svg</file>
 </qresource>
 </RCC>

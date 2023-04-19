@@ -85,6 +85,7 @@ from cellacdc import exception_handler
 
 from . import io, dialogs, utils, widgets, qtworkers, html_func
 from . import spotmax_path, settings_path, colorItems_path
+from . import printl
 
 # NOTE: Enable icons
 from . import qrc_resources, config
@@ -166,26 +167,27 @@ class spotMAX_Win(QMainWindow):
 
         self.app = app
         self.num_screens = len(app.screens())
-
+    
+    def run(self):
         self.funcDescription = 'Initializer'
 
         # Center main window and determine location of slideshow window
         # depending on number of screens available
         if self.num_screens > 1:
-            screen1 = app.screens()[0]
-            screen2 = app.screens()[1]
+            screen1 = self.app.screens()[0]
+            screen2 = self.app.screens()[1]
             screen2Center = screen2.size().width()/2
             screen2Left = screen1.size().width()
             self.slideshowWinLeft = int(screen2Left+screen2Center-850/2)
             self.slideshowWinTop = int(screen1.size().height()/2 - 800/2)
         else:
-            screen1 = app.screens()[0]
+            screen1 = self.app.screens()[0]
             self.slideshowWinLeft = int(screen1.size().width()-850)
             self.slideshowWinTop = int(screen1.size().height()/2 - 800/2)
 
         self.setWindowTitle("spotMAX - GUI")
+        self.setWindowIcon(QIcon(":icon_spotmax.ico"))
 
-        self.setWindowIcon(QIcon(":logo.svg"))
         self.setAcceptDrops(True)
 
         self.rightClickButtons = []
@@ -226,7 +228,6 @@ class spotMAX_Win(QMainWindow):
         self.gui_createSpotsClickedContextMenuActions()
         self.gui_createSkeletonClickedContextMenuActions()
 
-        self.gui_connectActions()
         self.gui_createStatusBar()
 
         self.gui_createBottomLayout()
@@ -239,6 +240,9 @@ class spotMAX_Win(QMainWindow):
 
         self.gui_createSideLayout()
         self.gui_addSideLayoutWidgets()
+
+        self.gui_connectActions()
+        self.gui_connectComputeDockParamsActions()
 
         self.gui_createThreadPool()
 
@@ -253,6 +257,7 @@ class spotMAX_Win(QMainWindow):
         self.setCentralWidget(mainContainer)
 
         self.gui_init(first_call=True)
+        self.show()
 
     def setVersion(self, version):
         self._version = version
@@ -745,7 +750,9 @@ class spotMAX_Win(QMainWindow):
 
     def gui_createComputeDockWidget(self):
         self.computeDockWidget = QDockWidget('spotMAX Tab Control', self)
-        computeTabControl = dialogs.guiTabControl(parent=self.computeDockWidget)
+        computeTabControl = dialogs.guiTabControl(
+            parent=self.computeDockWidget, logging_func=self.logger.info
+        )
 
         self.computeDockWidget.setWidget(computeTabControl)
         self.computeDockWidget.setFeatures(
@@ -839,6 +846,11 @@ class spotMAX_Win(QMainWindow):
 
         self.setMeasurementsAction.triggered.connect(self.setMeasurements)
 
+        self.showComputeDockButton.clicked.connect(self.showComputeDockWidget)
+    
+    def gui_connectComputeDockParamsActions(self):
+        pass
+
     def gui_connectBottomWidgetsSignals(self, side):
         if self.areActionsConnected[side]:
             return
@@ -884,8 +896,6 @@ class spotMAX_Win(QMainWindow):
     def gui_connectSideToolbarsSignals(self, side):
         if self.areActionsConnected[side]:
             return
-
-        self.showComputeDockButton.clicked.connect(self.showComputeDockWidget)
 
         viewToolbar = self.sideToolbar[side]['viewToolbar']
 
@@ -1629,7 +1639,19 @@ class spotMAX_Win(QMainWindow):
             self.computeDockWidget.setEnabled(True)
             # if self.computeDockWidgetMinWidth is not None:
             #     self.resizeDocks([self.computeDockWidget], [w+5], Qt.Horizontal)
-            self.addInspectResultsTab(self.lastLoadedSide)
+            try:
+                self.addInspectResultsTab(self.lastLoadedSide)
+            except Exception as e:
+                pass
+    
+    def resizeComputeDockWidget(self):
+        paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
+        paramsScrollArea = self.computeDockWidget.widget().parametersTab
+        verticalScrollbar = paramsScrollArea.verticalScrollBar()
+        groupboxWidth = paramsGroupbox.size().width()
+        scrollbarWidth = verticalScrollbar.size().width()
+        minWidth = groupboxWidth + scrollbarWidth + 10
+        self.resizeDocks([self.computeDockWidget], [minWidth], Qt.Horizontal)
 
     def getDockWidgetWidth(self):
         if 'computeDockWidgetMinWidth' in self.df_settings.index:
@@ -2325,7 +2347,7 @@ class spotMAX_Win(QMainWindow):
         self.setWindowTitle(f'spotMAX - GUI - "{selectedPath}"')
 
         self.selectedPath = selectedPath
-        self.addToRecentPaths(selectedPath)
+        io.addToRecentPaths(selectedPath)
 
         selectedPath_basename = os.path.basename(selectedPath)
         is_pos_path = selectedPath_basename.find('Position_')!=-1
@@ -3664,39 +3686,6 @@ class spotMAX_Win(QMainWindow):
 
         systems.get(os.name, os.startfile)(posData.images_path)
 
-    def addToRecentPaths(self, selectedPath):
-        if not os.path.exists(selectedPath):
-            return
-        recentPaths_path = os.path.join(
-            settings_path, 'recentPaths.csv'
-        )
-        if os.path.exists(recentPaths_path):
-            df = pd.read_csv(recentPaths_path, index_col='index')
-            recentPaths = df['path'].to_list()
-            if 'opened_last_on' in df.columns:
-                openedOn = df['opened_last_on'].to_list()
-            else:
-                openedOn = [np.nan]*len(recentPaths)
-            if selectedPath in recentPaths:
-                pop_idx = recentPaths.index(selectedPath)
-                recentPaths.pop(pop_idx)
-                openedOn.pop(pop_idx)
-            recentPaths.insert(0, selectedPath)
-            openedOn.insert(0, datetime.datetime.now())
-            # Keep max 30 recent paths
-            if len(recentPaths) > 30:
-                recentPaths.pop(-1)
-                openedOn.pop(-1)
-        else:
-            recentPaths = [selectedPath]
-            openedOn = [datetime.datetime.now()]
-        df = pd.DataFrame({
-            'path': recentPaths,
-            'opened_last_on': pd.Series(openedOn, dtype='datetime64[ns]')
-        })
-        df.index.name = 'index'
-        df.to_csv(recentPaths_path)
-
     def storeDefaultAndCustomColors(self):
         c = self.overlayButton.palette().button().color().name()
         self.defaultToolBarButtonColor = c
@@ -3741,9 +3730,12 @@ class spotMAX_Win(QMainWindow):
 
         self.readSettings()
 
+        self.computeDockWidget.hide()
+        QTimer.singleShot(50, self.resizeComputeDockWidget)
+
         # Dynamically resize dock widget until horizontalScrollBar is not visible
-        self.computeDockWidgetMinWidth = None
-        self.count = 0
-        self.resizeTimer = QTimer()
-        self.resizeTimer.timeout.connect(self.getDockWidgetWidth)
-        self.resizeTimer.start(1)
+        # self.computeDockWidgetMinWidth = None
+        # self.count = 0
+        # self.resizeTimer = QTimer()
+        # self.resizeTimer.timeout.connect(self.getDockWidgetWidth)
+        # self.resizeTimer.start(1)

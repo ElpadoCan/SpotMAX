@@ -63,29 +63,14 @@ def untag(text, tag):
 
 
 def tag(text, tag_info='p style="font-size:10pt"'):
-    if is_mac:
-        # Qt < 5.15.3 has a bug on macOS and the space after comma and perdiod
-        # are super small. Force a non-breaking space (except for 'e.g.,').
-        text = text.replace(',', ',&nbsp;')
-        text = text.replace('.', '.&nbsp;')
-        text = text.replace('e.&nbsp;g.&nbsp;', 'e.g.')
-        text = text.replace('.&nbsp;.&nbsp;.&nbsp;', '...')
-        text = text.replace('i.&nbsp;e.&nbsp;', 'i.e.')
-        text = text.replace('etc.&nbsp;)', 'etc.)')
     tag = tag_info.split(' ')[0]
     text = f'<{tag_info}>{text}</{tag}>'
     return text
 
+def href(text, link):
+    return f'<a href="{link}">{text}</a>'
+
 def paragraph(txt, font_size='13px', font_color=None, wrap=True, center=False):
-    # if is_mac:
-    #     # Qt < 5.15.3 has a bug on macOS and the space after comma and perdiod
-    #     # are super small. Force a non-breaking space (except for 'e.g.,').
-    #     txt = txt.replace(',', ',&nbsp;')
-    #     txt = txt.replace('.', '.&nbsp;')
-    #     txt = txt.replace('e.&nbsp;g.&nbsp;', 'e.g.')
-    #     txt = txt.replace('.&nbsp;.&nbsp;.&nbsp;', '...')
-    #     txt = txt.replace('i.&nbsp;e.&nbsp;', 'i.e.')
-    #     txt = txt.replace('etc.&nbsp;)', 'etc.)')
     if not wrap:
         txt = txt.replace(' ', '&nbsp;')
     if font_color is None:

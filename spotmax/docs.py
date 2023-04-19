@@ -1,4 +1,4 @@
-from . import config, html_func
+from . import config, html_func, issues_url
 
 def get_href_tags():
     params = config.analysisInputsParams()
@@ -9,6 +9,23 @@ def get_href_tags():
             tag_info = f'a href="{section};{anchor}"'
             href_tags[anchor] = html_func.tag(desc, tag_info)
     return href_tags
+
+def get_edit_button_file_paths_href():
+    section = 'File paths and channels'
+    anchor = 'filePathsToAnalyse'
+    option = 'editButton'
+    tag_info = f'a href="{section};{anchor};{option}"'
+    text = '<code>Edit</code> button'
+    return html_func.tag(text, tag_info)
+
+def notDocumentedYetText():
+    href = html_func.href('GitHub page', issues_url)
+    return (f"""
+        Unfortunately, this is not documented yet. We are working on it.<br><br>
+        Feel free to <b>open a new issue</b> on our {href}
+        to ask for help about this.<br><br>
+        Thank you for your patience!
+    """)
 
 def dataStructInfoText():
     return ("""
@@ -25,10 +42,11 @@ a name that identifies the channel, e.g. <code>experiment_1_GFP.tif</code>,
     """)
 
 def paramsInfoText():
+    href_tags = get_href_tags()
     paramsInfoText = {
         'filePathsToAnalyse': (f"""
-        Click on the browse button (folder icon) to start adding experiemnt folders 
-        that you want to analyse.<br><br>
+        Click on the {get_edit_button_file_paths_href()} to start adding 
+        experiment folders that you want to analyse.<br><br>
         Each folder path can be a specific Position folder, 
         the Images folder inside a Position folder, or the experiment folder containing 
         multiple Positions (in which case you will be asked to choose which 
@@ -40,7 +58,7 @@ def paramsInfoText():
         '<b>OPTIONAL</b>: Last part of the name of the file containing the '
         '<b>spots channel signal</b>.<br><br>'
         'Leave empty if you only need to segment the reference channel '
-        f'(see the {get_href_tags()["refChFilePath"]}).'
+        f'(see the {href_tags["refChEndName"]}).'
         '<br><br>'
         f'{dataStructInfoText()}<br><br>'
     ),
@@ -67,19 +85,19 @@ def paramsInfoText():
         the following options:
         {html_func.ul(
             'Automatically <b>segment the reference channel</b>'
-            f'(see the {get_href_tags()["segmRefCh"]} parameter)<br>',
+            f'(see the {href_tags["segmRefCh"]} parameter)<br>',
 
             '<b>Load a segmentation mask</b> for the reference channel'
-            f'(see the {get_href_tags()["refChSegmFilePath"]} parameter)<br>',
+            f'(see the {href_tags["refChSegmEndName"]} parameter)<br>',
 
             '<b>Remove spots</b> that are detected <b>outside of the '
             'reference channel mask</b>'
-            f'(see the {get_href_tags()["keepPeaksInsideRef"]} parameter)<br>',
+            f'(see the {href_tags["keepPeaksInsideRef"]} parameter)<br>',
 
             '<b>Comparing the spots signal to the reference channel</b> and'
             'keep only the spots that fulfill a specific criteria'
-            f'(see the {get_href_tags()["filterPeaksInsideRef"]}'
-            f'and {get_href_tags()["gopMethod"]} parameters)<br>'
+            f'(see the {href_tags["filterPeaksInsideRef"]}'
+            f'and {href_tags["gopThresholds"]} parameters)<br>'
         )}
         {dataStructInfoText()}<br><br>
     """),
@@ -90,7 +108,7 @@ def paramsInfoText():
         channel signal.<br><br>
         If you load a segmentation mask you can then choose to <b>remove
         spots</b> that are detected <b>outside of the reference channel mask</b>
-        (see the {get_href_tags()["keepPeaksInsideRef"]} parameter).
+        (see the {href_tags["keepPeaksInsideRef"]} parameter).
         <br><br>
         {dataStructInfoText()}<br><br>
     """),
@@ -120,7 +138,7 @@ def paramsInfoText():
         r'<math>r = \frac{\lambda}{2NA}</math>'
         'where <code>\u03bb</code> is the emission wavelength '
         'of the fluorescent reporter '
-        f'(see the {get_href_tags()["emWavelen"]} parameter).'
+        f'(see the {href_tags["emWavelen"]} parameter).'
     ),
     'emWavelen': (
         '<b>Emission wavelength</b> of the spots signal\'s fluorescent reporter.<br><br>'
@@ -130,7 +148,7 @@ def paramsInfoText():
         r'<math>r = \frac{\lambda}{2NA}</math>'
         'where <code>\u03bb</code> is the emission wavelength '
         'of the fluorescent reporter '
-        f'(see the {get_href_tags()["numAperture"]} parameter).'
+        f'(see the {href_tags["numAperture"]} parameter).'
     ),
     'zResolutionLimit': (
         'Rough estimate of the resolution limit of the microscope in the '
@@ -148,10 +166,10 @@ def paramsInfoText():
         'Factor used to <b>multiply the radii of the spots\'s '
         'expected volume</b> in the X- and Y-direction.<br><br>'
         'This parameter is used in conjunction with '
-        f'{get_href_tags()["zResolutionLimit"]} to compute the expected spot '
+        f'{href_tags["zResolutionLimit"]} to compute the expected spot '
         f'volume.<br><br>'
         'The final volume is displayed on the '
-        f'{get_href_tags()["spotMinSizeLabels"]} labels.<br><br>'
+        f'{href_tags["spotMinSizeLabels"]} labels.<br><br>'
         '<b>Increase</b> this parameter if spotMAX detects multiple spots within '
         'a single spot.<br><br>'
         '<b>Decrease</b> this parameter if spotMAX detects fewer spots '
@@ -160,27 +178,27 @@ def paramsInfoText():
     'spotMinSizeLabels': (
         '<b>Radii</b> in Z-, Y- and X-direction of the '
         '<b>expected spot volume</b>.<br><br>'
-        f'The Z-radius is equal to the {get_href_tags()["zResolutionLimit"]} '
+        f'The Z-radius is equal to the {href_tags["zResolutionLimit"]} '
         'parameter.<br><br>'
         'The X- and Y- radii are computed from the <b>Abbe diffraction limit\'s '
         'formula</b> (see below). The result of this formula is then multiplied '
-        f'by {get_href_tags()["yxResolLimitMultiplier"]} to obtain the radii '
+        f'by {href_tags["yxResolLimitMultiplier"]} to obtain the radii '
         'in \u00b5m.<br><br>'
         'Finally, the radii are converted from \u00b5m into pixels using the '
-        f'{get_href_tags()["pixelWidth"]}, '
-        f'the {get_href_tags()["pixelHeight"]}, and the '
-        f'{get_href_tags()["voxelDepth"]}<br><br>'
+        f'{href_tags["pixelWidth"]}, '
+        f'the {href_tags["pixelHeight"]}, and the '
+        f'{href_tags["voxelDepth"]}<br><br>'
         'Abbe diffraction limit formula:<br>'
         r'<math>r = \frac{\lambda}{2NA}</math>'
-        f'where <code>\u03bb</code> is the {get_href_tags()["emWavelen"]} '
-        f'and <code>NA</code> is the {get_href_tags()["numAperture"]}.'
+        f'where <code>\u03bb</code> is the {href_tags["emWavelen"]} '
+        f'and <code>NA</code> is the {href_tags["numAperture"]}.'
     ),
     'aggregate': (
         'If you chose to aggreate the objects, spotMAX will first create '
         'an image with the spots <b>signal from each '
         'bounding box stacked next to each other</b>.<br><br>'
         'The segmentation mask can be loaded from the '
-        f'{get_href_tags()["segmFilePath"]} parameter.<br><br>'
+        f'{href_tags["segmEndName"]} parameter.<br><br>'
         'Activate this option if you expect some cells in the image to be '
         'without any spot. In this case, aggregation is required because '
         '<b>automatic thresholding</b> will be <b>more accurate</b> '
@@ -206,22 +224,22 @@ def paramsInfoText():
         'the <b>raw image</b> and a <b>blurred image</b>. The blurred image '
         'is obtained with a gaussian filter with one sigma for each dimension '
         'and values equal to the radii of the diffraction limited volume (see '
-        f'{get_href_tags()["spotMinSizeLabels"]}).'
+        f'{href_tags["spotMinSizeLabels"]}).'
     ),
     'segmRefCh': (
         'Choose whether to <b>automatically segment</b> the reference '
         'channel signal.<br><br>'
         'Once segmented spotMAX can remove spots that are outside of the '
         'reference channel mask (only if you also activate '
-        f'{get_href_tags()["keepPeaksInsideRef"]} parameter)'
+        f'{href_tags["keepPeaksInsideRef"]} parameter)'
 
     ),
     'keepPeaksInsideRef': (
         'If you activate this option AND provide a segmentation mask '
         'for the reference channel '
-        f'(see {get_href_tags()["refChSegmFilePath"]}) '
+        f'(see {href_tags["refChSegmEndName"]}) '
         'or you load AND segment the reference channel '
-        f'(see {get_href_tags()["segmRefCh"]}) '
+        f'(see {href_tags["segmRefCh"]}) '
         'spotMAX will then <b>remove the spots that are detected outside '
         'of the reference channel mask</b>.'
     ),

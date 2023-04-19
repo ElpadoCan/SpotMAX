@@ -8,16 +8,16 @@ import pandas as pd
 import configparser
 import skimage.filters
 
-try:
+from . import GUI_INSTALLED
+
+if GUI_INSTALLED:
     from PyQt5.QtGui import QFont
     from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
 
     from cellacdc import widgets as acdc_widgets
 
     from . import widgets
-    GUI_INSTALLED = True
-except ModuleNotFoundError:
-    GUI_INSTALLED = False
+else:
     from . import utils
 
 from . import io, colorItems_path, default_ini_path
@@ -197,10 +197,11 @@ def _filepaths_params():
             'addApplyButton': False,
             'addBrowseButton': True,
             'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': get_exp_paths,
-            'parser': parse_list_to_configpars
+            'parser': parse_list_to_configpars,
+            'editButtonCallback': 'dock_params_callbacks.editFilePathsToAnalyse'
         },
         'spotsEndName': {
             'desc': 'Spots channel end name or path',
@@ -210,8 +211,8 @@ def _filepaths_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': str
         },
@@ -223,8 +224,8 @@ def _filepaths_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': str
         },
@@ -236,8 +237,8 @@ def _filepaths_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': str
         },
@@ -249,8 +250,8 @@ def _filepaths_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': str
         },
@@ -262,8 +263,8 @@ def _filepaths_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': str
         },
@@ -276,7 +277,7 @@ def _filepaths_params():
             'addApplyButton': False,
             'addBrowseButton': False,
             'addEditButton': False,
-            'formWidgetFunc': 'QtWidgets.QSpinBox',
+            'formWidgetFunc': 'acdc_widgets.SpinBox',
             'actions': None,
             'dtype': int
         },
@@ -288,8 +289,8 @@ def _filepaths_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': get_valid_text
         },
@@ -301,7 +302,7 @@ def _filepaths_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
+            'addEditButton': False,
             'formWidgetFunc': 'widgets._dfSpotsFileExtensionsWidget',
             'actions': None,
             'dtype': str, 
@@ -320,8 +321,8 @@ def _configuration_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': get_log_folderpath, 
             'parser': parse_log_folderpath,
@@ -335,8 +336,8 @@ def _configuration_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': io.get_abspath,
             'parser_arg': 'report_folderpath'
@@ -349,8 +350,8 @@ def _configuration_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'addEditButton': True,
-            'formWidgetFunc': 'acdc_widgets.alphaNumericLineEdit',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': str, 
             'parser_arg': 'report_filename'
@@ -740,16 +741,18 @@ def _spots_ch_params():
         },
         'gopThresholds': {
             'desc': 'Features and thresholds for filtering true spots',
-            'initialVal': 'spot_vs_bkgr_glass_effect_size,0.08,None',
+            'initialVal': None,
             'stretchWidget': True,
+            'addLabel': True,
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.GopFeaturesAndThresholds',
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._GopFeaturesAndThresholdsButton',
             'actions': None,
             'dtype': get_gop_thresholds,
             'parser': parse_list_to_configpars,
-            'comment': gop_thresholds_comment
+            'comment': gop_thresholds_comment,
         },
         'optimiseWithEdt': {
             'desc': 'Optimise detection for high spot density',

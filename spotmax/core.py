@@ -75,7 +75,7 @@ def gaussian_filter(image, sigma, use_gpu=False, logger_func=print):
         filtered = skimage.filters.gaussian(image, sigma=sigma)
     return filtered
 
-distribution_metrics_func = features.get_distribution_metric_func()
+distribution_metrics_func = features.get_distribution_metrics_func()
 effect_size_func = features.get_effect_size_func()
 aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
 
@@ -851,7 +851,9 @@ class _ParamsParser(_DataLoader):
                 exp_paths = {}
             
             # Scan and determine run numbers
-            pathScanner = io.expFolderScanner(exp_path)
+            pathScanner = io.expFolderScanner(
+                exp_path, logger_func=self.logger.info
+            )
             pathScanner.getExpPaths(exp_path)
             pathScanner.infoExpPaths(pathScanner.expPaths)
             run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
@@ -2542,9 +2544,10 @@ class _spotFIT(spheroid):
                                      leastsq_result.success, B_fit=B_fit
             )
 
-    def store_metrics_good_spots(self, obj_id, s, fitted_coeffs_s,
-                                 I_tot, I_foregr, gof_metrics,
-                                 solution_found, B_fit):
+    def store_metrics_good_spots(
+            self, obj_id, s, fitted_coeffs_s, I_tot, I_foregr, gof_metrics,
+            solution_found, B_fit
+        ):
 
         (z0_fit, y0_fit, x0_fit,
         sz_fit, sy_fit, sx_fit,

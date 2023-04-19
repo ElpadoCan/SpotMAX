@@ -7,7 +7,7 @@ if GUI_INSTALLED:
     from . import gui
 
 def run_gui(debug=False, app=None):
-    from . import utils
+    from . import read_version
 
     EXEC = False
     if app is None:
@@ -26,7 +26,7 @@ def run_gui(debug=False, app=None):
 
         # Apply style
         app.setStyle(QStyleFactory.create('Fusion'))
-        app.setWindowIcon(QIcon(":logo.svg"))
+        app.setWindowIcon(QIcon(":icon_spotmax.ico"))
         # src_path = os.path.dirname(os.path.abspath(__file__))
         # styles_path = os.path.join(src_path, 'styles')
         # dark_orange_path = os.path.join(styles_path, '01_buttons.qss')
@@ -35,10 +35,10 @@ def run_gui(debug=False, app=None):
         # app.setStyleSheet(styleSheet)
         EXEC = True
 
-    version = utils.read_version()
+    version = read_version()
     win = gui.spotMAX_Win(app, debug=debug, executed=EXEC)
     win.setVersion(version)
-    win.show()
+    win.run()
 
     win.logger.info('Lauching application...')
     print('\n**********************************************')

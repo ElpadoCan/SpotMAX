@@ -2,7 +2,7 @@ import sys
 import os
 import argparse
 
-from spotmax._run import run_gui, run_cli
+from spotmax._run import run_gui, run_cli, GUI_INSTALLED
 from spotmax import help_text
 
 def cli_parser():
@@ -140,6 +140,29 @@ def run():
             '"_analysis_inputs.csv" file. To run the GUI use the command '
             '`spotmax -g`'
         )
+
+    if not PARAMS_PATH and not GUI_INSTALLED:
+        err_msg = (
+            'GUI modules are not installed. Please, install them with the '
+            'command `pip install cellacdc`, or go to this link for more '
+            'information: https://github.com/SchmollerLab/Cell_ACDC'
+        )
+        sep = '='*60
+        warn_msg = (
+            f'{sep}\n'
+            'GUI modules are not installed. '
+            'To run spotMAX GUI you need to install the package called `cellacdc`.\n'
+            'To do so, run the command `pip install cellacdc`.\n\n'
+            'Do you want to install it now ([Y]/n)? '
+        )
+        answer = input(warn_msg)
+        if answer.lower() == 'n':
+            raise ModuleNotFoundError(f'{err_msg}')
+        else:
+            import subprocess
+            subprocess.check_call(
+                [sys.executable, '-m', 'pip', 'install', '-U', 'cellacdc']
+            )
 
     if PARAMS_PATH:
         run_cli(parser_args, debug=DEBUG)

@@ -2,7 +2,7 @@ import os
 import sys
 import re
 import difflib
-import pathlib
+import datetime
 import time
 import copy
 import logging
@@ -29,7 +29,9 @@ import skimage
 import skimage.io
 import skimage.color
 
-try:
+from . import GUI_INSTALLED
+
+if GUI_INSTALLED:
     import pyqtgraph as pg
     from PyQt5.QtGui import QFont
     from PyQt5.QtWidgets import QMessageBox
@@ -37,17 +39,15 @@ try:
 
     from cellacdc import apps as acdc_apps
     from cellacdc import widgets as acdc_widgets
+    from cellacdc import myutils as acdc_utils
 
     from . import dialogs, html_func
-
-    GUI_INSTALLED = True
-except ModuleNotFoundError:
-    GUI_INSTALLED = False
 
 import acdctools.utils
 
 from . import utils, config
 from . import core, printl, error_up_str
+from . import settings_path
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -150,6 +150,15 @@ def get_basename(files):
         basename = file[i:i+k]
     return basename
 
+def get_pos_foldernames(exp_path):
+    ls = utils.listdir(exp_path)
+    pos_foldernames = [
+        pos for pos in ls if pos.find('Position_')!=-1
+        and os.path.isdir(os.path.join(exp_path, pos))
+        and os.path.exists(os.path.join(exp_path, pos, 'Images'))
+    ]
+    return pos_foldernames
+
 def pd_int_to_bool(acdc_df, colsToCast=None):
     if colsToCast is None:
         colsToCast = acdc_df_bool_cols
@@ -169,22 +178,30 @@ def pd_bool_to_int(acdc_df, colsToCast=None, csv_path=None, inplace=True):
         acdc_df = acdc_df.copy()
     if colsToCast is None:
         colsToCast = acdc_df_bool_cols
-    for col in colsToCast:
+    for col in colsToCast:   
         try:
-            isInt = pd.api.types.is_integer_dtype(acdc_df[col])
-            isFloat = pd.api.types.is_float_dtype(acdc_df[col])
-            isObject = pd.api.types.is_object_dtype(acdc_df[col])
-            isString = pd.api.types.is_string_dtype(acdc_df[col])
-            isBool = pd.api.types.is_bool_dtype(acdc_df[col])
+            series = acdc_df[col]
+            notna_idx = series.notna()
+            notna_series = series.dropna()
+            isInt = pd.api.types.is_integer_dtype(notna_series)
+            isFloat = pd.api.types.is_float_dtype(notna_series)
+            isObject = pd.api.types.is_object_dtype(notna_series)
+            isString = pd.api.types.is_string_dtype(notna_series)
+            isBool = pd.api.types.is_bool_dtype(notna_series)
             if isFloat or isBool:
-                acdc_df[col] = acdc_df[col].astype(int)
+                acdc_df.loc[notna_idx, col] = acdc_df.loc[notna_idx, col].astype(int)
             elif isString or isObject:
                 # Object data type can have mixed data types so we first convert
                 # to strings
-                acdc_df[col] = acdc_df[col].astype(str)
-                acdc_df[col] = (acdc_df[col].str.lower() == 'true').astype(int)
+                acdc_df.loc[notna_idx, col] = acdc_df.loc[notna_idx, col].astype(str)
+                acdc_df.loc[notna_idx, col] = (
+                    acdc_df.loc[notna_idx, col].str.lower() == 'true'
+                ).astype(int)
         except KeyError:
             continue
+        except Exception as e:
+            printl(col)
+            traceback.print_exc()
     if csv_path is not None:
         acdc_df.to_csv(csv_path)
     return acdc_df
@@ -352,8 +369,13 @@ def readStoredParamsINI(ini_path, params):
                 params[section][anchor]['isSectionInConfig'] = False
                 params[section][anchor]['loadedVal'] = None
                 continue
-
-            if isinstance(defaultVal, bool):
+            
+            dtype = params[section][anchor].get('dtype')
+            if dtype == str:
+                config_value = configPars.get(section, option)
+            elif dtype == int:
+                config_value = configPars.getint(section, option)
+            elif isinstance(defaultVal, bool):
                 try:
                     config_value = configPars.getboolean(section, option)
                 except Exception as e:
@@ -632,7 +654,7 @@ class channelName:
     def askSelectChannel(self, parent, channel_names, informativeText='',
                  CbLabel='Select channel name to load:  '):
         font = QFont()
-        font.setPixelSize(13)
+        font.setPixelSize(11)
         win = dialogs.QDialogCombobox(
             'Select channel name', channel_names,
             informativeText, CbLabel=CbLabel,
@@ -659,10 +681,15 @@ class channelName:
             self.user_ch_name = self.channel_name
 
 class expFolderScanner:
-    def __init__(self, homePath=''):
+    def __init__(self, homePath='', logger_func=print):
         self.is_first_call = True
         self.expPaths = []
         self.homePath = homePath
+        if homePath:
+            logger_func(
+                f'Experiment folder scanner initialized with path "{homePath}"'
+            )
+        self.logger_func = logger_func
 
     def getExpPaths(self, path, signals=None):
         """Recursively scan the directory tree to search for folders that
@@ -689,8 +716,7 @@ class expFolderScanner:
             self.is_first_call = False
             if signals is not None:
                 signals.progress.emit(
-                    'Searching valid experiment folders...',
-                    'INFO'
+                    'Searching valid experiment folders...', 'INFO'
                 )
                 signals.initProgressBar.emit(0)
 
@@ -783,6 +809,29 @@ class expFolderScanner:
                 'isPosSpotCounted': False,
                 'isPosSpotSized': False
             }
+    
+    def getExpPathsWithPosFoldernames(self):
+        if not self.expPaths:
+            self.getExpPaths(self.homePath)
+        
+        expPathsWithPosFoldernames = {}
+        if not self.expPaths:
+            self.expPaths = [self.homePath]
+        for expPath in self.expPaths:
+            isPosFolder = is_pos_folder(expPath)
+            isImagesFolder = is_images_folder(expPath)
+            if isPosFolder:
+                exp_path = os.path.dirname(expPath)
+                posFoldernames = [os.path.basename(expPath)]
+            elif isImagesFolder:
+                pos_path = os.path.dirname(expPath)
+                exp_path = os.path.dirname(pos_path)
+                posFoldernames = [os.path.basename(pos_path)]
+            else:
+                exp_path = expPath
+                posFoldernames = get_pos_foldernames(exp_path)
+            expPathsWithPosFoldernames[exp_path] = posFoldernames
+        return expPathsWithPosFoldernames
 
     def infoExpPaths(self, expPaths, signals=None):
         """Method used to determine how each experiment was analysed.
@@ -810,8 +859,7 @@ class expFolderScanner:
         if signals is not None:
             print('')
             signals.progress.emit(
-                'Scanning experiment folder(s)...',
-                'INFO'
+                'Scanning experiment folder(s)...', 'INFO'
             )
         else:
             print('Scanning experiment folders...')
@@ -1566,7 +1614,7 @@ class loadData:
             save=False
         ):
         font = QFont()
-        font.setPixelSize(13)
+        font.setPixelSize(11)
         metadataWin = dialogs.QDialogMetadata(
             self.SizeT, self.SizeZ, self.TimeIncrement,
             self.PhysicalSizeZ, self.PhysicalSizeY, self.PhysicalSizeX,
@@ -1973,38 +2021,59 @@ def save_ref_ch_mask(
 
     np.savez_compressed(ref_ch_segm_filepath, ref_ch_segm_data)
 
-if __name__ == '__main__':
-    from PyQt5.QtWidgets import QApplication, QStyleFactory
+def addToRecentPaths(selectedPath):
+    if not os.path.exists(selectedPath):
+        return
+    recentPaths_path = os.path.join(
+        settings_path, 'recentPaths.csv'
+    )
+    if os.path.exists(recentPaths_path):
+        df = pd.read_csv(recentPaths_path, index_col='index')
+        recentPaths = df['path'].to_list()
+        if 'opened_last_on' in df.columns:
+            openedOn = df['opened_last_on'].to_list()
+        else:
+            openedOn = [np.nan]*len(recentPaths)
+        if selectedPath in recentPaths:
+            pop_idx = recentPaths.index(selectedPath)
+            recentPaths.pop(pop_idx)
+            openedOn.pop(pop_idx)
+        recentPaths.insert(0, selectedPath)
+        openedOn.insert(0, datetime.datetime.now())
+        # Keep max 30 recent paths
+        if len(recentPaths) > 30:
+            recentPaths.pop(-1)
+            openedOn.pop(-1)
+    else:
+        recentPaths = [selectedPath]
+        openedOn = [datetime.datetime.now()]
+    df = pd.DataFrame({
+        'path': recentPaths,
+        'opened_last_on': pd.Series(openedOn, dtype='datetime64[ns]')
+    })
+    df.index.name = 'index'
+    df.to_csv(recentPaths_path)
 
-    app = QApplication(sys.argv)
-    app.setStyle(QStyleFactory.create('Fusion'))
+def getInfoPosStatus(expPaths):
+    infoPaths = {}
+    for exp_path, posFoldernames in expPaths.items():
+        posFoldersInfo = {}
+        for pos in posFoldernames:
+            pos_path = os.path.join(exp_path, pos)
+            status = acdc_utils.get_pos_status(pos_path)
+            posFoldersInfo[pos] = status
+        infoPaths[exp_path] = posFoldersInfo
+    return infoPaths
 
-    print('Searching experiment folders...')
-    homePath = r'G:\My Drive\1_MIA_Data\Anika\Mutants\Petite'
-    # homePath = r'G:\My Drive\1_MIA_Data\Anika\WTs\SCD'
-    pathScanner = expFolderScanner(
-        homePath = homePath
+def is_pos_folder(path):
+    foldername = os.path.basename(path)
+    return (
+        re.search('Position_(\d+)$', foldername) is not None
+        and os.path.exists(os.path.join(path, 'Images'))
     )
 
-
-    t0 = time.time()
-    pathScanner.getExpPaths(pathScanner.homePath)
-    t1 = time.time()
-
-    print((t1-t0)*1000)
-
-    t0 = time.time()
-    pathScanner.infoExpPaths(pathScanner.expPaths)
-    t1 = time.time()
-
-    print((t1-t0)*1000)
-
-    print(pathScanner.paths.keys())
-
-    # selectedRunPaths = pathScanner.paths[1]
-    # for exp_path, expInfo in selectedRunPaths.items():
-    #     print('------------------------------------------')
-    #     print(exp_path)
-    #     pprint(expInfo)
-
-    pathScanner.input()
+def is_images_folder(path):
+    foldername = os.path.basename(path)
+    return (
+        os.path.isdir(path) and foldername == 'Images'
+    )

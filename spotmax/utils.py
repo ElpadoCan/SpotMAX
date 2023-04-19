@@ -22,7 +22,9 @@ from tifffile.tifffile import TiffWriter, TiffFile
 import skimage.color
 import colorsys
 
-try:
+from . import GUI_INSTALLED
+
+if GUI_INSTALLED:
     import matplotlib.colors
     import matplotlib.pyplot as plt
 
@@ -34,11 +36,6 @@ try:
     from . import widgets
 
     GUI_INSTALLED = True
-except ModuleNotFoundError:
-    print('-'*50)
-    print('GUI not installed. Running spotMAX in the command line.')
-    print('-'*50)
-    GUI_INSTALLED = False
 
 from . import is_mac, is_linux, printl, logs_path, settings_path, io
 
@@ -55,7 +52,7 @@ def _check_cli_params_extension(params_path):
     else:
         raise FileNotFoundError(
             'The extension of the parameters file must be either `.ini` or `.csv`.'
-            f'File path: "{params_path}"'
+            f'File path provided: "{params_path}"'
         )
 
 def njit_replacement(parallel=False):
@@ -173,18 +170,6 @@ def getMostRecentPath():
     else:
         mostRecentPath = ''
     return mostRecentPath
-
-def read_version():
-    try:
-        from setuptools_scm import get_version
-        version = get_version(root='..', relative_to=__file__)
-        return version
-    except Exception as e:
-        try:
-            from . import _version
-            return _version.version
-        except Exception as e:
-            return 'ND'
 
 def showInExplorer(path):
     if is_mac:
@@ -939,21 +924,34 @@ def nearest_nonzero(arr: np.ndarray, y: int, x: int):
         min_dist = 0
         return value, min_dist
 
+
+def _get_all_filepaths(start_path):
+    filepaths = []
+    for dirpath, dirnames, filenames in os.walk(start_path):
+        for f in filenames:
+            fp = os.path.join(dirpath, f)
+            # skip if it is symbolic link
+            if os.path.islink(fp):
+                continue
+            filepaths.append(fp)
+    return filepaths
+
+def get_sizes_path(start_path, return_df=False):
+    filepaths = _get_all_filepaths(start_path) 
+    sizes = {'rel_path': [], 'size_bytes': []}
+    for filepath in tqdm(filepaths, ncols=100):
+        try:
+            sizes['size_bytes'].append(os.path.getsize(filepath))
+        except Exception as e:
+            continue
+        sizes['rel_path'].append(os.path.relpath(filepath, start_path))
+    if not return_df:
+        return sizes
+    else:
+        df = pd.DataFrame(sizes).sort_values('size_bytes')
+        df['size_MB'] = df['size_bytes']*1e-6
+        df['size_GB'] = df['size_bytes']*1e-9
+        return df
+    
 if __name__ == '__main__':
-    dset = np.random.randint(1,255, size=(16,50,50))
-
-    loadSizeZ = 10
-    SizeZ = dset.shape[-3]
-
-    midZ = int(SizeZ/2)
-    halfZ = int(loadSizeZ/2)
-    z0 = midZ-halfZ
-    z1 = midZ+halfZ
-    z0_window = z0
-
-    a = dset[z0:z1]
-
-    print(a.shape)
-
-    direction = 'backward'
-    chunkSizeZ = 1
+    df = get_sizes_path(r'C:\Users\Frank', return_df=True)
