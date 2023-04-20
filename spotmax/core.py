@@ -4380,6 +4380,21 @@ class Kernel(_ParamsParser):
         if text_to_append and not text_to_append.startswith('_'):
             text_to_append = f'_{text_to_append}'
         
+        # Remove existing run numbers (they might have a different text appended)
+        for file in utils.listdir(spotmax_out_path):
+            file_path = os.path.join(spotmax_out_path, file)
+            if not os.path.isfile(file_path):
+                continue
+            if not file.startswith(f'{run_number}_'):
+                continue
+            if file.find('analysis_parameters') != -1 or file.find('spot') != -1:
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    self.logger.info(
+                        f'[WARNING]: File "{file_path}" could not be deleted.'
+                    )
+
         analysis_inputs_filepath = os.path.join(
             spotmax_out_path, 
             f'{run_number}_analysis_parameters{text_to_append}.ini'

@@ -61,7 +61,6 @@ def untag(text, tag):
 
     return in_tag_texts, out_tag_texts
 
-
 def tag(text, tag_info='p style="font-size:10pt"'):
     tag = tag_info.split(' ')[0]
     text = f'<{tag_info}>{text}</{tag}>'
@@ -69,6 +68,17 @@ def tag(text, tag_info='p style="font-size:10pt"'):
 
 def href(text, link):
     return f'<a href="{link}">{text}</a>'
+
+def span(text, font_color=None):
+    if font_color is not None:
+        s = (
+            f'<span style="color:{font_color};">'
+            f'{text}'
+            '</span>'
+        )
+    else:
+        s = (f'<span>{text}</span>')
+    return s
 
 def paragraph(txt, font_size='13px', font_color=None, wrap=True, center=False):
     if not wrap:

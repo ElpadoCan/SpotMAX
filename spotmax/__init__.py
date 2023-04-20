@@ -56,6 +56,8 @@ rng = np.random.default_rng(seed=6490)
 
 spotmax_path = os.path.dirname(os.path.abspath(__file__))
 spotMAX_path = os.path.dirname(spotmax_path)
+html_path = os.path.join(spotmax_path, 'html_files')
+
 home_path = pathlib.Path.home()
 spotmax_appdata_path = os.path.join(home_path, 'spotmax_appdata')
 
@@ -71,6 +73,7 @@ if not os.path.exists(settings_path):
 
 default_ini_path = os.path.join(spotmax_appdata_path, 'config.ini')
 colorItems_path = os.path.join(settings_path, 'colorItems.json')
+gui_settings_csv_path = os.path.join(settings_path, 'gui_settings.csv')
 
 def printl(*objects, pretty=False, is_decorator=False, **kwargs):
     # Copy current stdout, reset to default __stdout__ and then restore current

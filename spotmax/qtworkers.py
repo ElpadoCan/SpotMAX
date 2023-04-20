@@ -161,8 +161,8 @@ class loadDataWorker(QRunnable):
 
             logger.info(f'Channel data shape = {posData.chData_shape}')
             logger.info(f'Loaded data shape = {posData.chData.shape}')
-            logger.info(f'Metadata:')
-            logger.info(posData.metadata_df)
+            # logger.info(f'Metadata:')
+            # logger.info(posData.metadata_df)
 
             dataSide.append(posData)
 

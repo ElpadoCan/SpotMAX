@@ -21,14 +21,15 @@ from PyQt5.QtGui import (
 from PyQt5.QtWidgets import (
     QDialog, QComboBox, QVBoxLayout, QHBoxLayout, QLabel, QApplication,
     QPushButton, QStyleFactory, QCheckBox, QTreeWidget, QTreeWidgetItem,
-    QTreeWidgetItemIterator, QAbstractItemView, QFrame, QMessageBox,
+    QTreeWidgetItemIterator, QAbstractItemView, QFrame, QFormLayout,
     QMainWindow, QWidget, QTableView, QTextEdit, QGridLayout,
-    QProgressBar, QSpinBox, QDoubleSpinBox, QListWidget, QGroupBox,
+    QProgressBar, QSpinBox, QDoubleSpinBox, QButtonGroup, QGroupBox,
     QFileDialog, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
+from cellacdc import myutils as acdc_utils
 
 from . import html_func, io, widgets, utils, config
 from . import core, dock_params_callbacks
@@ -36,6 +37,7 @@ from . import core, dock_params_callbacks
 # NOTE: Enable icons
 from . import qrc_resources, printl, font
 from . import is_mac, is_win, is_linux
+from . import gui_settings_csv_path as settings_csv_path
 
 class QBaseDialog(QDialog):
     def __init__(self, parent=None):
@@ -168,11 +170,107 @@ class measurementsQGroupBox(QGroupBox):
         else:
             self.selectAllButton.setText('Select all')
 
+class guiQuickSettingsGroupbox(QGroupBox):
+    sigPxModeToggled = pyqtSignal(bool, bool)
+    sigChangeFontSize = pyqtSignal(int)
+
+    def __init__(self, df_settings, parent=None):
+        super().__init__(parent)
+        self.setTitle('Quick settings')
+
+        formLayout = QFormLayout()
+        formLayout.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
+        formLayout.setFormAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        self.autoSaveToggle = acdc_widgets.Toggle()
+        autoSaveTooltip = (
+            'Automatically store a copy of the segmentation data and of '
+            'the annotations in the `.recovery` folder after every edit.'
+        )
+        self.autoSaveToggle.setChecked(True)
+        self.autoSaveToggle.setToolTip(autoSaveTooltip)
+        autoSaveLabel = QLabel('Autosave')
+        autoSaveLabel.setToolTip(autoSaveTooltip)
+        formLayout.addRow(autoSaveLabel, self.autoSaveToggle)
+
+        self.highLowResToggle = acdc_widgets.Toggle()
+        self.highLowResToggle.setShortcut('w')
+        highLowResTooltip = (
+            'Resolution of the text annotations. High resolution results '
+            'in slower update of the annotations.\n'
+            'Not recommended with a number of segmented objects > 500.\n\n'
+            'SHORTCUT: "W" key'
+        )
+        highResLabel = QLabel('High resolution')
+        highResLabel.setToolTip(highLowResTooltip)
+        self.highLowResToggle.setToolTip(highLowResTooltip)
+        formLayout.addRow(highResLabel, self.highLowResToggle)
+
+        self.realTimeTrackingToggle = acdc_widgets.Toggle()
+        self.realTimeTrackingToggle.setChecked(True)
+        self.realTimeTrackingToggle.setDisabled(True)
+        label = QLabel('Real-time tracking')
+        label.setDisabled(True)
+        self.realTimeTrackingToggle.label = label
+        formLayout.addRow(label, self.realTimeTrackingToggle)
+
+        self.pxModeToggle = acdc_widgets.Toggle()
+        self.pxModeToggle.setChecked(True)
+        pxModeTooltip = (
+            'With "Pixel mode" active, the text annotations scales relative '
+            'to the object when zooming in/out (fixed size in pixels).\n'
+            'This is typically faster to render, but it makes annotations '
+            'smaller/larger when zooming in/out, respectively.\n\n'
+            'Try activating it to speed up the annotation of many objects '
+            'in high resolution mode.\n\n'
+            'After activating it, you might need to increase the font size '
+            'from the menu on the top menubar `Edit --> Font size`.'
+        )
+        pxModeLabel = QLabel('Pixel mode')
+        self.pxModeToggle.label = pxModeLabel
+        pxModeLabel.setToolTip(pxModeTooltip)
+        self.pxModeToggle.setToolTip(pxModeTooltip)
+        self.pxModeToggle.clicked.connect(self.pxModeToggled)
+        formLayout.addRow(pxModeLabel, self.pxModeToggle)
+
+        # Font size
+        self.fontSizeSpinBox = acdc_widgets.SpinBox()
+        self.fontSizeSpinBox.setMinimum(1)
+        self.fontSizeSpinBox.setMaximum(99)
+        formLayout.addRow('Font size', self.fontSizeSpinBox) 
+        savedFontSize = str(df_settings.at['fontSize', 'value'])
+        if savedFontSize.find('pt') != -1:
+            savedFontSize = savedFontSize[:-2]
+        self.fontSize = int(savedFontSize)
+        if 'pxMode' not in df_settings.index:
+            # Users before introduction of pxMode had pxMode=False, but now 
+            # the new default is True. This requires larger font size.
+            self.fontSize = 2*self.fontSize
+            df_settings.at['pxMode', 'value'] = 1
+            df_settings.to_csv(settings_csv_path)
+
+        self.fontSizeSpinBox.setValue(self.fontSize)
+        self.fontSizeSpinBox.editingFinished.connect(self.changeFontSize) 
+        self.fontSizeSpinBox.sigUpClicked.connect(self.changeFontSize)
+        self.fontSizeSpinBox.sigDownClicked.connect(self.changeFontSize)
+
+        formLayout.addWidget(self.quickSettingsGroupbox)
+        formLayout.addStretch(1)
+
+        self.setLayout(formLayout)
+    
+    def pxModeToggled(self, checked):
+        self.sigPxModeToggled.emit(checked, self.highLowResToggle.isChecked())
+    
+    def changeFontSize(self):
+        self.sigChangeFontSize.emit(self.fontSizeSpinBox.value())
+
 class guiBottomWidgets(QGroupBox):
+    sigAnnotOptionClicked = pyqtSignal(object)
+
     def __init__(
-            self, side, drawSegmComboboxItems, zProjItems,
-            isCheckable=False, checked=False, parent=None,
-            font=None
+            self, side, zProjItems,  isCheckable=False, checked=False, 
+            parent=None, font=None
         ):
         if font is None:
             self._font = QFont()
@@ -215,17 +313,6 @@ class guiBottomWidgets(QGroupBox):
 
         row = 0
         col = initialCol +1
-        howDrawSegmCombobox = widgets.myQComboBox(checkBox=howToDrawCheckbox)
-        howDrawSegmCombobox.addItems(drawSegmComboboxItems)
-        # Always adjust combobox width to largest item
-        howDrawSegmCombobox.setSizeAdjustPolicy(
-            howDrawSegmCombobox.AdjustToContents
-        )
-        # layout.addWidget(
-        #     howDrawSegmCombobox, row, col, alignment=Qt.AlignCenter
-        # )
-        bottomWidgets['howDrawSegmCombobox'] = howDrawSegmCombobox
-        howDrawSegmCombobox.hide()
         checkboxes_text = (
             'IDs', 'Cell cycle info', 'Only mother-daughter line', '|', 
             'Contours', 'Segm. masks', '|' , 'Do not annotate'
@@ -375,106 +462,7 @@ class guiBottomWidgets(QGroupBox):
             zSliceL1checkbox.setChecked(checked)
     
     def annotOptionClicked(self):
-        # First manually set exclusive with uncheckable
-        clickedIDs = self.sender() == self.checkboxes['IDs']
-        clickedCca = self.sender() == self.checkboxes['Cell cycle info']
-        clickedMBline = self.sender() == self.checkboxes['Only mother-daughter line']
-        if self.checkboxes['IDs'].isChecked() and clickedIDs:
-            if self.checkboxes['Cell cycle info'].isChecked():
-                self.checkboxes['Cell cycle info'].setChecked(False)
-            if self.checkboxes['Only mother-daughter line'].isChecked():
-                self.checkboxes['Only mother-daughter line'].setChecked(False)
-        
-        if self.checkboxes['Cell cycle info'].isChecked() and clickedCca:
-            if self.checkboxes['IDs'].isChecked():
-                self.checkboxes['IDs'].setChecked(False)
-            if self.checkboxes['Only mother-daughter line'].isChecked():
-                self.checkboxes['Only mother-daughter line'].setChecked(False)
-        
-        if self.checkboxes['Only mother-daughter line'].isChecked() and clickedMBline:
-            if self.checkboxes['IDs'].isChecked():
-                self.checkboxes['IDs'].setChecked(False)
-            if self.checkboxes['Cell cycle info'].isChecked():
-                self.checkboxes['Cell cycle info'].setChecked(False)
-        
-        clickedCont = self.sender() == self.checkboxes['Contours']
-        clickedSegm = self.sender() == self.checkboxes['Segm. masks']
-        if self.checkboxes['Contours'].isChecked() and clickedCont:
-            if self.checkboxes['Segm. masks'].isChecked():
-                self.checkboxes['Segm. masks'].setChecked(False)
-        
-        if self.checkboxes['Segm. masks'].isChecked() and clickedSegm:
-            if self.checkboxes['Contours'].isChecked():
-                self.checkboxes['Contours'].setChecked(False)
-        
-        clickedDoNot = self.sender() == self.checkboxes['Do not annotate']
-        if clickedDoNot:
-            self.checkboxes['IDs'].setChecked(False)
-            self.checkboxes['Cell cycle info'].setChecked(False)
-            self.checkboxes['Contours'].setChecked(False)
-            self.checkboxes['Segm. masks'].setChecked(False)
-            self.checkboxes['Only mother-daughter line'].setChecked(False)
-        else:
-            self.checkboxes['Do not annotate'].setChecked(False)
-        
-        self.annotOptionsToComboboxText()
-    
-    def annotOptionsToComboboxText(self):
-        if self.checkboxes['IDs'].isChecked():
-            if self.checkboxes['Contours'].isChecked():
-                t = 'Draw IDs and contours'
-                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            elif self.checkboxes['Segm. masks'].isChecked():
-                t = 'Draw IDs and overlay segm. masks'
-                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            else:
-                t = 'Draw only IDs'
-                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            return
-        
-        if self.checkboxes['Cell cycle info'].isChecked():
-            if self.checkboxes['Contours'].isChecked():
-                t = 'Draw cell cycle info and contours'
-                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            elif self.checkboxes['Segm. masks'].isChecked():
-                t = 'Draw cell cycle info and overlay segm. masks'
-                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            else:
-                t = 'Draw only cell cycle info'
-                self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            return
-        
-        if self.checkboxes['Segm. masks'].isChecked():
-            t = 'Draw only overlay segm. masks'
-            self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            return
-
-        if self.checkboxes['Contours'].isChecked():
-            t = 'Draw only contours'
-            self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            return
-        
-        if self.checkboxes['Only mother-daughter line'].isChecked():
-            t = 'Draw only mother-bud lines'
-            self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            return
-        
-        if self.checkboxes['Do not annotate'].isChecked():
-            t = 'Draw nothing'
-            self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-            return
-        
-        t = 'Draw nothing'
-        self.bottomWidgets['howDrawSegmCombobox'].setCurrentText(t)
-    
-    def setAnnotOptionsChecked(self, checked):
-        for checkbox in self.checkboxes.values():
-            checkbox.setChecked(checked)
-
-    def setHowToDrawEnabled(self, state):
-        bottomWidgets = self.bottomWidgets
-        for checkbox in self.checkboxes.values():
-            checkbox.setDisabled(not state)
+        self.sigAnnotOptionClicked.emit(self.sender())
 
     def setNavigateEnabled(self, state):
         bottomWidgets = self.bottomWidgets
@@ -730,6 +718,7 @@ class analysisInputsQGBox(QGroupBox):
                     addEditButton=paramValues.get('addEditButton', False),
                     addLabel=paramValues.get('addLabel', True),
                     valueSetter=paramValues.get('valueSetter'),
+                    disableComputeButtons=True,
                     parent=self
                 )
                 formWidget.section = section
@@ -1594,9 +1583,15 @@ class selectPathsSpotmax(QBaseDialog):
         buttonsLayout.addWidget(cancelButton)
         buttonsLayout.addSpacing(20)
 
+        showInFileManagerButton = acdc_widgets.showInFileManagerButton(
+            setDefaultText=True
+        )
+        showInFileManagerButton.clicked.connect(self.showInFileManager)
+        buttonsLayout.addWidget(showInFileManagerButton)
+
         okButton = acdc_widgets.okPushButton('Ok')
         # okButton.setShortcut(Qt.Key_Enter)
-        buttonsLayout.addWidget(okButton, alignment=Qt.AlignRight)
+        buttonsLayout.addWidget(okButton)
 
         mainLayout = QVBoxLayout()
         mainLayout.addWidget(infoLabel, alignment=Qt.AlignCenter)
@@ -1624,6 +1619,36 @@ class selectPathsSpotmax(QBaseDialog):
         self.setFont(font)
 
         self.setMyStyleSheet()
+    
+    def showInFileManager(self):
+        selectedItems = self.pathSelector.selectedItems()
+        doc = QTextDocument()
+        firstItem = selectedItems[0]
+        label = self.pathSelector.itemWidget(firstItem, 0)
+        doc.setHtml(label.text())
+        plainText = doc.toPlainText()
+        parent = firstItem.parent()
+        if parent is None:
+            posFoldername = ''
+            parentText = plainText
+        else:
+            try:
+                posFoldername = re.findall('(.+) \(', plainText)[0]
+            except IndexError:
+                posFoldername = plainText
+            parentLabel = self.pathSelector.itemWidget(parent, 0)
+            doc.setHtml(parentLabel.text())
+            parentText = doc.toPlainText()
+        
+        relPath = re.findall('...(.+) \(', parentText)[0]
+        relPath = pathlib.Path(relPath)
+        relPath = pathlib.Path(*relPath.parts[2:])
+        absPath = self.homePath / relPath / posFoldername
+        acdc_utils.showInExplorer(str(absPath))
+
+
+                
+                
 
     def on_focusChanged(self):
         self.isCtrlDown = False
@@ -1693,7 +1718,9 @@ class selectPathsSpotmax(QBaseDialog):
             exp_path = os.path.join(self.homePath, relPath)
 
             selectedRunPaths = self.paths[run]
-            df = selectedRunPaths[os.path.normpath(exp_path)].get('analysisInputs')
+            analysisInputs = selectedRunPaths[os.path.normpath(exp_path)].get(
+                'analysisInputs'
+            )
         else:
             posFoldername = re.findall('(.+) \(', plainText)[0]
             parentLabel = label = self.pathSelector.itemWidget(parent, 0)
@@ -1706,22 +1733,30 @@ class selectPathsSpotmax(QBaseDialog):
             exp_path = self.homePath / relPath / posFoldername
             spotmaxOutPath = exp_path / 'spotMAX_output'
             if os.path.exists(spotmaxOutPath):
-                df = io.expFolderScanner().loadAnalysisInputs(spotmaxOutPath, run)
+                analysisInputs = io.expFolderScanner().loadAnalysisInputs(
+                    spotmaxOutPath, run
+                )
             else:
-                df = None
+                analysisInputs = None
 
-        if df is None:
+        if analysisInputs is None:
             self.warnAnalysisInputsNone(exp_path, run)
             return
 
-        title = f'Analysis inputs table'
-        infoText = html_func.paragraph(
-            f'Analysis inputs used to analyse <b>run number {run}</b> '
-            f'of experiment:<br>"{relPath1}"<br>'
-        )
-        self.analysisInputsTableWin = pdDataFrameWidget(
-            df.reset_index(), title=title, infoText=infoText, parent=self
-        )
+        if isinstance(analysisInputs, pd.DataFrame):
+            title = f'Analysis inputs table'
+            infoText = html_func.paragraph(
+                f'Analysis inputs used to analyse <b>run number {run}</b> '
+                f'of experiment:<br>"{relPath1}"<br>'
+            )
+            self.analysisInputsTableWin = pdDataFrameWidget(
+                analysisInputs.reset_index(), title=title, infoText=infoText, 
+                parent=self
+            )
+        else:
+            self.analysisInputsTableWin = iniFileWidget(
+                analysisInputs, filename=analysisInputs.filename()
+            )
         self.analysisInputsTableWin.show()
 
     def updateRun(self, idx):
@@ -1809,7 +1844,8 @@ class selectPathsSpotmax(QBaseDialog):
     def warnAnalysisInputsNone(self, exp_path, run):
         text = (
             f'The selected experiment "{exp_path}" '
-            f'does not have the <b>"{run}_analysis_inputs.csv"</b> file.<br><br>'
+            f'does not have the <b>"{run}_analysis_inputs.csv"</b> nor '
+            f'the <b>"{run}_analysis_parameters.ini"</b> file.<br><br>'
             'Sorry about that.'
         )
         msg = acdc_widgets.myMessageBox()
@@ -1847,7 +1883,7 @@ class selectPathsSpotmax(QBaseDialog):
                 posFoldername = re.findall('(.+) \(', plainText)[0]
             except IndexError:
                 posFoldername = plainText
-            parentLabel = label = self.pathSelector.itemWidget(parent, 0)
+            parentLabel = self.pathSelector.itemWidget(parent, 0)
             doc.setHtml(parentLabel.text())
             parentText = doc.toPlainText()
             relPath = re.findall('...(.+) \(', parentText)[0]
@@ -1987,6 +2023,65 @@ class DataFrameModel(QtCore.QAbstractTableModel):
             DataFrameModel.ValueRole: b'value'
         }
         return roles
+
+class iniFileWidget(QBaseDialog):
+    def __init__(self, configPars, filename='', parent=None):
+        self.cancel = True
+
+        super().__init__(parent)
+
+        self.setWindowTitle('Configuration file content')
+
+        mainLayout = QVBoxLayout()
+
+        if filename:
+            label = QLabel()
+            txt = html_func.paragraph(f'Filename: <code>{filename}</code><br>')
+            label.setText(txt)
+            mainLayout.addWidget(label)
+        
+        self.textWidget = QTextEdit()
+        self.textWidget.setReadOnly(True)
+        self.setIniText(configPars)
+        
+        buttonsLayout = QHBoxLayout()
+        buttonsLayout.addStretch(1)
+
+        okButton = acdc_widgets.okPushButton(' Ok ')
+        buttonsLayout.addWidget(okButton)
+
+        okButton.clicked.connect(self.ok_cb)
+        
+        mainLayout.addWidget(self.textWidget)
+        mainLayout.addLayout(buttonsLayout)
+        self.setLayout(mainLayout)
+    
+    def setIniText(self, configPars):
+        htmlText = ''
+        for section in configPars.sections():
+            sectionText = html_func.span(f'[{section}]', font_color='#8449AB')
+            htmlText = f'{htmlText}{sectionText}<br>'
+            for option in configPars.options(section):
+                value = configPars[section][option]
+                # option = option.replace('Î¼', '&micro;')
+                optionText = html_func.span(
+                    f'<i>{option}</i> = ', font_color='#464646'
+                )
+                value = value.replace('\n', '<br>&nbsp;&nbsp;&nbsp;&nbsp;')
+                htmlText = f'{htmlText}{optionText}{value}<br>'
+            htmlText = f'{htmlText}<br>'
+        self.textWidget.setHtml(html_func.paragraph(htmlText))
+    
+    def show(self, block=False):
+        super().show(block=False)
+        self.move(self.pos().x(), 20)
+        height = int(self.screen().size().height()*0.7)
+        self.resize(int(self.width()*1.3), height)
+        super().show(block=block)
+    
+    def ok_cb(self):
+        self.cancel = False
+        self.close()
 
 class pdDataFrameWidget(QMainWindow):
     def __init__(self, df, title='Table', infoText='', parent=None):

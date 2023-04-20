@@ -26,6 +26,17 @@ class ConfigParser(configparser.ConfigParser):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, allow_no_value=True, **kwargs)
         self.optionxform = str
+    
+    def read(self, filepath, encoding='utf-8'):
+        super().read(filepath, encoding=encoding)
+        self._filename = os.path.basename(filepath)
+        self._filepath = filepath
+
+    def filepath(self):
+        return self._filepath
+
+    def filename(self):
+        return self._filename
 
 def initColorItems():
     if os.path.exists(colorItems_path):
@@ -420,7 +431,7 @@ def _configuration_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': False,
-            'addAutoButton': True,
+            'addAutoButton': False,
             'formWidgetFunc': 'acdc_widgets.SpinBox',
             'actions': None,
             'dtype': int, 
@@ -452,7 +463,7 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'addAutoButton': True,
+            'addAutoButton': False,
             'formWidgetFunc': 'widgets.intLineEdit',
             'actions': None,
             'dtype': int
@@ -464,7 +475,7 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'addAutoButton': True,
+            'addAutoButton': False,
             'formWidgetFunc': 'widgets.intLineEdit',
             'actions': None,
             'dtype': int
@@ -476,7 +487,7 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'addAutoButton': True,
+            'addAutoButton': False,
             'formWidgetFunc': 'widgets.intLineEdit',
             'actions': None,
             'dtype': int

@@ -44,6 +44,7 @@ if GUI_INSTALLED:
     from . import dialogs, html_func
 
 import acdctools.utils
+import acdctools.features
 
 from . import utils, config
 from . import core, printl, error_up_str
@@ -635,7 +636,7 @@ class channelName:
         ch = self.which_channel
         if self.which_channel is not None:
             _path = os.path.dirname(os.path.realpath(__file__))
-            txt_path = os.path.join(config.settings_path, f'{ch}_last_sel.txt')
+            txt_path = os.path.join(settings_path, f'{ch}_last_sel.txt')
             if os.path.exists(txt_path):
                 with open(txt_path) as txt:
                     last_sel_channel = txt.read()
@@ -645,9 +646,9 @@ class channelName:
         ch = self.which_channel
         if self.which_channel is not None:
             _path = os.path.dirname(os.path.realpath(__file__))
-            if not os.path.exists(config.settings_path):
-                os.mkdir(config.settings_path)
-            txt_path = os.path.join(config.settings_path, f'{ch}_last_sel.txt')
+            if not os.path.exists(settings_path):
+                os.mkdir(settings_path)
+            txt_path = os.path.join(settings_path, f'{ch}_last_sel.txt')
             with open(txt_path, 'w') as txt:
                 txt.write(selection)
 
@@ -873,15 +874,20 @@ class expFolderScanner:
     def loadAnalysisInputs(self, spotmaxOutPath, run):
         df = None
         for file in utils.listdir(spotmaxOutPath):
-            m = re.match(f'{run}_(\w*)analysis_inputs.csv', file)
-            if m is not None:
+            match_csv = re.match(f'{run}_(\w*)analysis_inputs\.csv', file)
+            match_ini = re.match(f'{run}_analysis_parameters(.*)\.ini', file)
+            if match_csv is not None:
                 csvPath = os.path.join(spotmaxOutPath, file)
                 df = pd.read_csv(csvPath, index_col='Description')
                 df1 = utils.pdDataFrame_boolTo0s1s(df, labelsToCast='allRows')
                 if not df.equals(df1):
                     df1.to_csv(csvPath)
                     df = df1
-        return df
+                return df
+            if match_ini is not None:
+                configPars = config.ConfigParser()
+                configPars.read(os.path.join(spotmaxOutPath, file))
+                return configPars
 
     def runNumbers(self, spotmaxOutPath):
         run_nums = set()
@@ -1021,10 +1027,10 @@ class loadData:
 
     def loadLastEntriesMetadata(self):
         src_path = os.path.dirname(os.path.realpath(__file__))
-        if not os.path.exists(config.settings_path):
+        if not os.path.exists(settings_path):
             self.last_md_df = None
             return
-        csv_path = os.path.join(config.settings_path, 'last_entries_metadata.csv')
+        csv_path = os.path.join(settings_path, 'last_entries_metadata.csv')
         if not os.path.exists(csv_path):
             self.last_md_df = None
         else:
@@ -1034,7 +1040,7 @@ class loadData:
         src_path = os.path.dirname(os.path.realpath(__file__))
         if not os.path.exists:
             return
-        csv_path = os.path.join(config.settings_path, 'last_entries_metadata.csv')
+        csv_path = os.path.join(settings_path, 'last_entries_metadata.csv')
         self.metadata_df.to_csv(csv_path)
 
     def getBasenameAndChNames(self, load=True):
@@ -1350,7 +1356,7 @@ class loadData:
                 skimage.measure.regionprops(lab) for lab in self.segm_data
             ]
             self.newIDs = []
-            self.IDs = []
+            self._IDs = []
             self.rpDict = []
             for frame_i, rp in enumerate(self.rp):
                 if frame_i == 0:
@@ -1359,26 +1365,16 @@ class loadData:
                 prevIDs = [obj.label for obj in self.regionprops(frame_i-1)]
                 currentIDs = [obj.label for obj in rp]
                 newIDs = [ID for ID in currentIDs if ID not in prevIDs]
-                self.IDs.append(currentIDs)
+                self._IDs.append(currentIDs)
                 self.newIDs.append(newIDs)
-                self.computeRotationalCellVolume(rp)
+                rp = acdctools.features.add_rotational_volume_regionprops(rp)
                 rpDict = {obj.label:obj for obj in rp}
                 self.rpDict.append(rpDict)
         else:
             self.rp = skimage.measure.regionprops(self.segm_data)
-            self.IDs = [obj.label for obj in self.rp]
+            self._IDs = [obj.label for obj in self.rp]
             self.rpDict = {obj.label:obj for obj in self.rp}
-            self.computeRotationalCellVolume(self.rp)
-
-    def computeRotationalCellVolume(self, rp):
-        for obj in rp:
-            vol_vox, vol_fl = core.rotationalVolume(
-                obj,
-                PhysicalSizeY=self.PhysicalSizeY,
-                PhysicalSizeX=self.PhysicalSizeX
-            )
-            obj.vol_vox, obj.vol_fl = vol_vox, vol_fl
-        return vol_vox, vol_fl
+            acdctools.features.add_rotational_volume_regionprops(self.rp)
 
     def getNewIDs(self, frame_i):
         if frame_i == 0:
@@ -1391,9 +1387,9 @@ class loadData:
 
     def IDs(self, frame_i):
         if self.SizeT > 1:
-            return self.IDs[frame_i]
+            return self._IDs[frame_i]
         else:
-            return self.IDs
+            return self._IDs
 
     def regionprops(self, frame_i, returnDict=False):
         if self.SizeT > 1:

@@ -498,6 +498,7 @@ class formWidget(QWidget):
             addAutoButton=False,
             addEditButton=False,
             addLabel=True,
+            disableComputeButtons=True,
             key='',
             parent=None,
             valueSetter=None,
@@ -577,6 +578,8 @@ class formWidget(QWidget):
             applyButton.clicked.connect(self.applyButtonClicked)
             self.applyButton = applyButton
             self.items.append(applyButton)
+            if disableComputeButtons:
+                applyButton.setDisabled(True)
 
         if addAutoButton:
             autoButton = acdc_widgets.autoPushButton(self)
@@ -585,6 +588,8 @@ class formWidget(QWidget):
             autoButton.clicked.connect(self.autoButtonClicked)
             self.autoButton = autoButton
             self.items.append(autoButton)
+            if disableComputeButtons:
+                autoButton.setDisabled(True)
 
         if addComputeButton:
             computeButton = computePushButton(self)
@@ -592,6 +597,8 @@ class formWidget(QWidget):
             computeButton.clicked.connect(self.computeButtonClicked)
             self.computeButton = computeButton
             self.items.append(computeButton)
+            if disableComputeButtons:
+                computeButton.setDisabled(True)
 
         if addLabel:
             self.labelLeft.clicked.connect(self.tryChecking)

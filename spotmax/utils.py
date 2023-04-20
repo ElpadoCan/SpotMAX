@@ -37,7 +37,7 @@ if GUI_INSTALLED:
 
     GUI_INSTALLED = True
 
-from . import is_mac, is_linux, printl, logs_path, settings_path, io
+from . import is_mac, is_linux, printl, settings_path, io
 
 class _Dummy:
     def __init__(self, *args, **kwargs):
@@ -222,35 +222,6 @@ def logger_file_handler(log_filepath, mode='w'):
     )
     output_file_handler.setFormatter(formatter)
     return output_file_handler
-
-
-def setupLogger(name='spotmax_gui'):
-    logger = logging.getLogger(f'spotmax-logger-{name}')
-    logger.setLevel(logging.INFO)
-
-    if not os.path.exists(logs_path):
-        os.mkdir(logs_path)
-    else:
-        # Keep 20 most recent logs
-        ls = listdir(logs_path)
-        if len(ls)>20:
-            ls = [os.path.join(logs_path, f) for f in ls]
-            ls.sort(key=lambda x: os.path.getmtime(x))
-            for file in ls[:-20]:
-                os.remove(file)
-
-    date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    log_filename = f'{date_time}_{name}_stdout.log'
-    log_path = os.path.join(logs_path, log_filename)
-
-    output_file_handler = logger_file_handler(log_path)
-    logger._file_handler = output_file_handler
-    logger.addHandler(output_file_handler)
-    
-    stdout_handler = logging.StreamHandler(sys.stdout)    
-    logger.addHandler(stdout_handler)
-
-    return logger, log_path, logs_path
 
 def _bytes_to_MB(size_bytes):
     i = int(math.floor(math.log(size_bytes, 1024)))
