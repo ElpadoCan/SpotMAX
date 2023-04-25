@@ -55,7 +55,7 @@ from . import utils, rng, base_lineage_table_values
 from . import issues_url, printl, io, features, config
 from . import transformations
 
-np.seterr(divide='raise', invalid='raise')
+np.seterr(divide='warn', invalid='raise')
 
 def gaussian_filter(image, sigma, use_gpu=False, logger_func=print):
     if CUPY_INSTALLED and use_gpu:
