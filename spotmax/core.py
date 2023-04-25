@@ -802,7 +802,6 @@ class _ParamsParser(_DataLoader):
             for exp_path in list(exp_paths.keys()):
                 exp_paths[exp_path]['run_number'] = run_number
         else:
-            exp_paths = {}
             for run_num, run_num_info in pathScannerPaths.items():
                 for exp_path, exp_info in run_num_info.items():
                     if exp_path in exp_paths:
@@ -811,6 +810,7 @@ class _ParamsParser(_DataLoader):
                         'pos_foldernames': exp_info['posFoldernames'],
                         'run_number': run_number
                     }
+
         # Store in .ini file
         configPars = config.ConfigParser()
         configPars.read(self.ini_params_file_path, encoding="utf-8")
@@ -2817,8 +2817,8 @@ class Kernel(_ParamsParser):
     def segment_ref_ch(
             self, ref_ch_img, threshold_method='threshold_otsu', lab_rp=None, 
             lab=None, lineage_table=None, keep_only_largest_obj=False, 
-            use_global_threshold=False, df_agg=None, frame_i=0, 
-            vox_to_um3=None, verbose=True
+            do_aggregate=False, df_agg=None, frame_i=0, 
+            vox_to_um3=None, zyx_tolerance=None, verbose=True
         ):
         if self._is_lab_all_zeros(lab):
             df_agg['ref_ch_threshold_value'] = np.nan
@@ -2848,9 +2848,10 @@ class Kernel(_ParamsParser):
         else:
             threshold_func = threshold_method
 
-        if use_global_threshold:
+        if do_aggregate:
             aggr_ref_ch_img, _ = self.aggregate_objs(
-                ref_ch_img, lab, lineage_table=lineage_table
+                ref_ch_img, lab, lineage_table=lineage_table, 
+                zyx_tolerance=zyx_tolerance
             )
             thresh_val = threshold_func(aggr_ref_ch_img.max(axis=0))
         else:
@@ -2864,29 +2865,64 @@ class Kernel(_ParamsParser):
 
         return ref_ch_segm, df_agg
     
-    def _merge_moth_bud(self, lineage_table, lab):
+    def _merge_moth_bud(self, lineage_table, lab, return_bud_images=False):
         if lineage_table is None:
-            return lab
+            if return_bud_images:
+                return lab, {}
+            else:
+                return lab
 
         df_buds = lineage_table[lineage_table.relationship == 'bud']
         moth_IDs = df_buds['relative_ID'].unique()
         df_buds = df_buds.reset_index().set_index('relative_ID')
         if len(moth_IDs) == 0:
-            return lab
+            if return_bud_images:
+                return lab, {}
+            else:
+                return lab
         
         lab_merged = lab.copy()
+        if return_bud_images:
+            bud_images = {}
         for mothID in moth_IDs:
             budID = df_buds.at[mothID, 'Cell_ID']
             lab_merged[lab==budID] = mothID
+            if return_bud_images:
+                moth_bud_image = np.zeros(lab_merged.shape, dtype=np.uint8)
+                moth_bud_image[lab==budID] = 1
+                moth_bud_image[lab==mothID] = 1
+                moth_bud_obj = skimage.measure.regionprops(moth_bud_image)[0]
+                moth_bud_image[lab==mothID] = 0
+                bud_image = moth_bud_image[moth_bud_obj.slice] > 0
+                bud_images[mothID] = {
+                    'image': bud_image, 'budID': budID
+                }
+        if return_bud_images:
+            return lab_merged, bud_images
+        else:
+            return lab_merged
+    
+    def _separate_moth_buds(self, lab_merged, bud_images):
+        rp = skimage.measure.regionprops(lab_merged)
+        for obj in rp:
+            if obj.label not in bud_images:
+                continue
+            bud_info = bud_images.get(obj.label)
+            budID = bud_info['budID']
+            bud_image = bud_info['image']
+            lab_merged[obj.slice][bud_image] = budID
         return lab_merged
     
     def aggregate_objs(
             self, img_data, lab, zyx_tolerance=None, lineage_table=None
         ):
-        lab_merged = self._merge_moth_bud(lineage_table, lab)
+        lab_merged, bud_images = self._merge_moth_bud(
+            lineage_table, lab, return_bud_images=True
+        )
         aggregated_img, aggregated_lab = transformations.aggregate_objs(
             img_data, lab_merged, zyx_tolerance=zyx_tolerance
         )
+        aggregated_lab = self._separate_moth_buds(aggregated_lab, bud_images)
         return aggregated_img, aggregated_lab
     
     def _get_local_spheroid_mask(self, zyx_radii_pxl):
@@ -2953,7 +2989,7 @@ class Kernel(_ParamsParser):
             df_agg=None, do_keep_spots_in_ref_ch=False, 
             gop_filtering_thresholds=None, dist_transform_spheroid=None,
             detection_method='peak_local_max', prediction_method='Thresholding',
-            threshold_method='threshold_otsu', use_global_threshold=False,
+            threshold_method='threshold_otsu', do_aggregate=False,
             lineage_table=None, min_size_spheroid_mask=None,
             spot_footprint=None, dfs_lists=None, verbose=True,
         ):
@@ -2996,7 +3032,7 @@ class Kernel(_ParamsParser):
 
         df_spots_coords = self._spots_detection(
             sharp_spots_img, lab, detection_method, threshold_method, 
-            prediction_method, use_global_threshold, spot_footprint, 
+            prediction_method, do_aggregate, spot_footprint, 
             zyx_resolution_limit_pxl, lineage_table=lineage_table,
             verbose=verbose
         )
@@ -3026,9 +3062,9 @@ class Kernel(_ParamsParser):
     
     def _get_peak_local_max_labels_thresholding(
             self, aggr_spots_img, aggregated_lab, threshold_func, 
-            use_global_threshold, lineage_table=None
+            do_aggregate, lineage_table=None
         ):
-        if use_global_threshold:
+        if do_aggregate:
             threshold_val = threshold_func(aggr_spots_img.max(axis=0))
             prediction_mask = aggr_spots_img>threshold_val
             labels = prediction_mask.astype(np.uint8)
@@ -3130,7 +3166,7 @@ class Kernel(_ParamsParser):
         
     def _spots_detection(
             self, sharp_spots_img, lab, detection_method, threshold_method, 
-            prediction_method, use_global_threshold, footprint, 
+            prediction_method, do_aggregate, footprint, 
             zyx_resolution_limit_pxl, lineage_table=None, 
             verbose=True
         ):
@@ -3151,7 +3187,7 @@ class Kernel(_ParamsParser):
             
             labels = self._get_peak_local_max_labels_thresholding(
                 aggr_spots_img, aggregated_lab, threshold_func, 
-                use_global_threshold, lineage_table=None
+                do_aggregate, lineage_table=None
             )
         else:
             # Here we will use U-Net
@@ -3300,7 +3336,7 @@ class Kernel(_ParamsParser):
                     df_obj_spots_gop, gop_filtering_thresholds,
                     is_spotfit=False, debug=False
                 )
-                num_spots_filtered = len(df_obj_spots_gop)           
+                num_spots_filtered = len(df_obj_spots_gop)   
 
                 if num_spots_filtered == num_spots_prev or num_spots_filtered == 0:
                     # Number of filtered spots stopped decreasing --> stop loop
@@ -3473,7 +3509,7 @@ class Kernel(_ParamsParser):
         zz = local_peaks_coords[:,0]
         yy = local_peaks_coords[:,1]
         xx = local_peaks_coords[:,2]
-        in_ref_ch_spots_mask = ref_ch_mask[zz, yy, xx]
+        in_ref_ch_spots_mask = ref_ch_mask[zz, yy, xx] > 0
         return df[in_ref_ch_spots_mask]
 
     def _add_ttest_values(
@@ -3991,7 +4027,7 @@ class Kernel(_ParamsParser):
         do_segment_ref_ch = (
             self._params['Reference channel']['segmRefCh']['loadedVal']
         )
-        use_global_threshold = (
+        do_aggregate = (
             self._params['Pre-processing']['aggregate']['loadedVal']
         )
         ref_ch_data = data.get('ref_ch')
@@ -4000,6 +4036,7 @@ class Kernel(_ParamsParser):
         df_agg = data.get('df_agg')
         ref_ch_segm_data = data.get('ref_ch_segm')
         acdc_df = data.get('lineage_table')
+        zyx_resolution_limit_pxl = self.metadata['zyxResolutionLimitPxl']
 
         verbose = not self._params['Configuration']['reduceVerbosity']['loadedVal']
 
@@ -4057,9 +4094,10 @@ class Kernel(_ParamsParser):
                     threshold_method=ref_ch_threshold_method, 
                     keep_only_largest_obj=is_ref_ch_single_obj,
                     df_agg=df_agg, frame_i=frame_i, 
-                    use_global_threshold=use_global_threshold,
+                    do_aggregate=do_aggregate,
                     lineage_table=lineage_table, vox_to_um3=vox_to_um3,
-                    verbose=verbose
+                    zyx_tolerance=zyx_resolution_limit_pxl,
+                    verbose=verbose,                    
                 )
                 ref_ch_segm_data[frame_i] = ref_ch_lab
                 pbar.update()
@@ -4082,7 +4120,6 @@ class Kernel(_ParamsParser):
             return dfs
         
         spots_data = data.get('spots_ch')
-        zyx_resolution_limit_pxl = self.metadata['zyxResolutionLimitPxl']
         min_size_spheroid_mask = self._get_local_spheroid_mask(
             zyx_resolution_limit_pxl
         )
@@ -4177,7 +4214,7 @@ class Kernel(_ParamsParser):
                 prediction_method=prediction_method,
                 threshold_method=threshold_method,
                 detection_method=detection_method,
-                use_global_threshold=use_global_threshold,
+                do_aggregate=do_aggregate,
                 lineage_table=lineage_table,
                 verbose=verbose
             )

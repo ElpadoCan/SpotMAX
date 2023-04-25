@@ -62,8 +62,8 @@ def get_aggregate_obj_slice(
         x_right = X
 
     slice_w = slice(x_left, x_right)
-    zc, yc, xc = obj.centroid
-    z, y = int(zc), int(yc)
+    zmin, ymin, xmin, zmax, ymax, xmax = obj.bbox
+    z, y = int(zmin+(zmax-zmin)/2), int(ymin+(ymax-ymin)/2)
     h_top = y - max_h_top
     if h_top < 0:
         # Object slicing would extend negative y
