@@ -78,6 +78,35 @@ def check_cli_file_path(file_path, desc='parameters'):
         f'The following {desc} file provided does not exist: "{abs_file_path}"'
     )
 
+def setup_cli_logger(name='spotmax_cli'):
+    from . import logs_path
+    logger = logging.getLogger(f'spotmax-logger-{name}')
+    logger.setLevel(logging.INFO)
+
+    if not os.path.exists(logs_path):
+        os.mkdir(logs_path)
+    else:
+        # Keep 20 most recent logs
+        ls = listdir(logs_path)
+        if len(ls)>20:
+            ls = [os.path.join(logs_path, f) for f in ls]
+            ls.sort(key=lambda x: os.path.getmtime(x))
+            for file in ls[:-20]:
+                os.remove(file)
+
+    date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    log_filename = f'{date_time}_{name}_stdout.log'
+    log_path = os.path.join(logs_path, log_filename)
+
+    output_file_handler = logger_file_handler(log_path)
+    logger._file_handler = output_file_handler
+    logger.addHandler(output_file_handler)
+    
+    stdout_handler = logging.StreamHandler(sys.stdout)    
+    logger.addHandler(stdout_handler)
+
+    return logger, log_path, logs_path
+
 def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
     """Generate the slices required to insert a local mask into a larger image.
 

@@ -368,7 +368,7 @@ def readStoredParamsINI(ini_path, params):
                     config_value = configPars.getint(section, option)
                 except Exception as e:
                     config_value = None
-            elif isinstance(defaultVal, str):
+            elif isinstance(defaultVal, str) or defaultVal is None:
                 try:
                     config_value = configPars.get(section, option)
                 except Exception as e:
