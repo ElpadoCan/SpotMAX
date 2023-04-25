@@ -133,7 +133,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         verticalScrollbar = paramsScrollArea.verticalScrollBar()
         groupboxWidth = paramsGroupbox.size().width()
         scrollbarWidth = verticalScrollbar.size().width()
-        minWidth = groupboxWidth + scrollbarWidth + 10
+        minWidth = groupboxWidth + scrollbarWidth + 13
         self.resizeDocks([self.computeDockWidget], [minWidth], Qt.Horizontal)
         self.showParamsDockButton.click()
     

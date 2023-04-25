@@ -2602,9 +2602,7 @@ class _spotFIT(spheroid):
 
 class Kernel(_ParamsParser):
     def __init__(self, debug=False, is_cli=True):
-        self.logger, self.log_path, self.logs_path = utils.setupLogger(
-            'spotmax_cli'
-        )
+        self.logger, self.log_path, self.logs_path = utils.setup_cli_logger()
         super().__init__(debug=debug, is_cli=is_cli, log=self.logger.info)
         self.debug = debug
         self.is_batch_mode = False
@@ -2612,7 +2610,7 @@ class Kernel(_ParamsParser):
         self._force_close_on_critical = False
         self._SpotFit = _spotFIT(debug=debug)
 
-    def _preprocess(self, image_data):
+    def _preprocess(self, image_data, verbose=True):
         SECTION = 'Pre-processing'
         ANCHOR = 'gaussSigma'
         options = self._params[SECTION][ANCHOR]
@@ -2623,8 +2621,9 @@ class Kernel(_ParamsParser):
         if sigma == 0:
             return image_data
 
-        print('')
-        self.logger.info(f'Applying gaussian filter with sigma = {sigma}...')
+        if verbose:
+            print('')
+            self.logger.info(f'Applying gaussian filter with sigma = {sigma}...')
 
         # if self.debug:
         #     return np.load(
@@ -2707,7 +2706,7 @@ class Kernel(_ParamsParser):
         img_local = image[lab_mask_obj.slice]
         backgr_vals = img_local[~lab_mask_obj.image]
         if backgr_vals.size == 0:
-            return img_local, lab_mask, bud_ID
+            return img_local, lab_mask_obj.image, bud_ID
         
         backgr_mean = backgr_vals.mean()
         backgr_mean = backgr_mean if backgr_mean>=0 else 0
@@ -2741,7 +2740,7 @@ class Kernel(_ParamsParser):
             threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
             vox_to_um3=None, thresh_val=None, verbose=True
         ):
-        if verbose:
+        if verbose and frame_i == 0:
             print('')
             self.logger.info('Segmenting reference channel...')
         IDs = [obj.label for obj in lab_rp]
@@ -3032,6 +3031,9 @@ class Kernel(_ParamsParser):
         if spot_footprint is None:
             zyx_radii_pxl = [val/2 for val in zyx_resolution_limit_pxl]
             spot_footprint = self._get_local_spheroid_mask(zyx_radii_pxl)
+        
+        if gop_filtering_thresholds is None:
+            gop_filtering_thresholds = {}
 
         df_spots_coords = self._spots_detection(
             sharp_spots_img, lab, detection_method, threshold_method, 
@@ -4081,7 +4083,7 @@ class Kernel(_ParamsParser):
             desc = 'Frames completed (segm. ref. ch.)'
             pbar = tqdm(
                 total=stopFrameNum, ncols=100, desc=desc, position=2, 
-                leave=False
+                leave=stopFrameNum>1
             )
             for frame_i in range(stopFrameNum):
                 if acdc_df is not None:
@@ -4090,7 +4092,7 @@ class Kernel(_ParamsParser):
                     lineage_table = None
                 lab_rp = segm_rp[frame_i]
                 ref_ch_img = ref_ch_data[frame_i]
-                ref_ch_img = self._preprocess(ref_ch_img)
+                ref_ch_img = self._preprocess(ref_ch_img, verbose=frame_i==0)
                 lab = segm_data[frame_i]
                 ref_ch_lab, df_agg = self.segment_ref_ch(
                     ref_ch_img, lab_rp=lab_rp, lab=lab, 
@@ -4155,6 +4157,9 @@ class Kernel(_ParamsParser):
         gop_filtering_thresholds = (
             self._params[SECTION]['gopThresholds']['loadedVal']
         )
+        if gop_filtering_thresholds is None:
+            gop_filtering_thresholds = {}
+        
         prediction_method = (
             self._params[SECTION]['spotPredictionMethod']['loadedVal']
         )
@@ -4174,7 +4179,8 @@ class Kernel(_ParamsParser):
 
         desc = 'Frames completed (spot detection)'
         pbar = tqdm(
-            total=stopFrameNum, ncols=100, desc=desc, position=2, leave=False
+            total=stopFrameNum, ncols=100, desc=desc, position=2, 
+            leave=stopFrameNum>1
         )
         for frame_i in range(stopFrameNum):
             raw_spots_img = spots_data[frame_i]
