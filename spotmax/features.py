@@ -95,6 +95,17 @@ def hedge_effect_size(positive_sample, negative_sample, n_bootstraps=0):
     correction_factor = 1 - (3/((4*(n1-n2))-9))
     return cohen_effect_size(positive_sample, negative_sample)*correction_factor
 
+def _try_combine_pvalues(*args, **kwargs):
+    try:
+        result = scipy.stats.combine_pvalues(*args, **kwargs)
+        try:
+            stat, pvalue = result
+        except Exception as e:
+            pvalue = result.pvalue
+        return pvalue
+    except Exception as e:
+        return 0.0
+
 def get_aggregating_spots_feature_func():
     func = {
         'num_spots_inside_ref_ch': ('is_spot_inside_ref_ch', 'sum', 0),
@@ -111,7 +122,7 @@ def get_aggregating_spots_feature_func():
         'mean_B_fit_fit': ('B_fit', 'mean', np.nan),
         'solution_found_fit': ('solution_found_fit', 'mean', np.nan),
         'mean_reduced_chisq_fit': ('reduced_chisq_fit', 'mean', np.nan),
-        'combined_p_chisq_fit': ('p_chisq_fit', scipy.stats.combine_pvalues, np.nan),
+        'combined_p_chisq_fit': ('p_chisq_fit', _try_combine_pvalues, np.nan),
         'mean_RMSE_fit': ('RMSE_fit', 'mean', np.nan),
         'mean_NRMSE_fit': ('NRMSE_fit', 'mean', np.nan),
         'mean_F_NRMSE_fit': ('F_NRMSE_fit', 'mean', np.nan),
