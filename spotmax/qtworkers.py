@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import subprocess
 from functools import wraps
 
 import numpy as np
@@ -51,6 +52,13 @@ def worker_exception_handler(func):
         return result
     return run
 
+class workerLogger:
+    def __init__(self, sigProcess):
+        self.sigProcess = sigProcess
+
+    def log(self, message):
+        self.sigProcess.emit(message, 'INFO')
+
 class signals(QObject):
     finished = pyqtSignal(object)
     finishedNextStep = pyqtSignal(object, str, str)
@@ -60,6 +68,24 @@ class signals(QObject):
     progressBar = pyqtSignal(int)
     critical = pyqtSignal(object)
     sigLoadingNewChunk = pyqtSignal(object)
+
+class analysisWorker(QRunnable):
+    def __init__(self, ini_filepath, is_tempfile):
+        QRunnable.__init__(self)
+        self.signals = signals()
+        self._ini_filepath = ini_filepath
+        self._is_tempfile = is_tempfile
+        self.logger = workerLogger(self.signals.progress)
+
+    @worker_exception_handler
+    def run(self):
+        from . import _process
+        command = f'spotmax, -p, {self._ini_filepath}'
+        # command = r'python, spotmax\test.py'
+        
+        self.logger.log(f'spotMAX analysis started with command `{command}`')
+        subprocess.run([sys.executable, _process.__file__, '-c', command])
+        self.signals.finished.emit((self._ini_filepath, self._is_tempfile))
 
 class pathScannerWorker(QRunnable):
     def __init__(self, selectedPath):

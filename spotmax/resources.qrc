@@ -23,6 +23,7 @@
   <file alias="skeletonize.svg">resources/icons/skeletonize.svg</file>
   <file alias="contour.svg">resources/icons/contour.svg</file>
   <file alias="info.svg">resources/icons/info.svg</file>
+  <file alias="run_spotmax.svg">resources/icons/run_spotmax.svg</file>
   <file alias="expand.svg">resources/icons/expand.svg</file>
   <file alias="collapse.svg">resources/icons/collapse.svg</file>
   <file alias="binoculars.svg">resources/icons/binoculars.svg</file>

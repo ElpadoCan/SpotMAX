@@ -3,6 +3,8 @@ import datetime
 import re
 import pathlib
 import time
+import shutil
+import tempfile
 import traceback
 from pprint import pprint
 
@@ -495,6 +497,8 @@ class guiBottomWidgets(QGroupBox):
             combobox.setDisabled(True, applyToCheckbox=False)
 
 class guiTabControl(QTabWidget):
+    sigRunAnalysis = pyqtSignal(str, bool)
+
     def __init__(self, parent=None, logging_func=print):
         super().__init__(parent)
 
@@ -509,10 +513,10 @@ class guiTabControl(QTabWidget):
         buttonsLayout = QHBoxLayout()
         
         self.saveParamsButton = acdc_widgets.savePushButton(
-            'Save parameters to configuration file...'
+            'Save parameters to file...'
         )
         self.loadPreviousParamsButton = acdc_widgets.browseFileButton(
-            'Load parameters from a previous analysis', 
+            'Load from previous analysis', 
             ext={'Configuration files': ['.ini', '.csv']},
             start_dir=utils.getMostRecentPath(), 
             title='Select analysis parameters file'
@@ -520,6 +524,9 @@ class guiTabControl(QTabWidget):
         buttonsLayout.addWidget(self.loadPreviousParamsButton)
         buttonsLayout.addWidget(self.saveParamsButton)
         buttonsLayout.addStretch(1)
+
+        self.runSpotMaxButton = widgets.RunSpotMaxButton('  Run analysis...')
+        buttonsLayout.addWidget(self.runSpotMaxButton)
 
         containerLayout.addLayout(buttonsLayout)
 
@@ -532,8 +539,60 @@ class guiTabControl(QTabWidget):
             self.loadPreviousParams
         )
         self.saveParamsButton.clicked.connect(self.saveParamsFile)
+        self.runSpotMaxButton.clicked.connect(self.runAnalysis)
 
         self.addTab(self.parametersTab, 'Analysis paramenters')
+    
+    def runAnalysis(self):
+        txt = html_func.paragraph("""
+            Do you want to <b>save the current parameters</b> 
+            to a configuration file?<br><br>
+            A configuration file can be used to run the analysis again with 
+            same parameters.
+        """)
+        msg = acdc_widgets.myMessageBox()
+        _, yesButton, noButton = msg.question(
+            self, 'Save parameters?', txt, 
+            buttonsTexts=('Cancel', 'Yes', 'No')
+        )
+        if msg.cancel:
+            return
+        if msg.clickedButton == yesButton:
+            ini_filepath = self.saveParamsFile()
+            if not ini_filepath:
+                return
+            is_tempinifile = False
+        else:
+            # Save temp ini file
+            temp_dirpath = tempfile.mkdtemp()
+            now = datetime.datetime.now().strftime(r'%Y-%m-%d_%H-%M-%S')
+            ini_filename = f'{now}_spotmax_analysis_parameters.ini'
+            ini_filepath = os.path.join(temp_dirpath, ini_filename)
+            self.parametersQGBox.saveToIniFile(ini_filepath)
+            is_tempinifile = True
+        
+        txt = html_func.paragraph(f"""
+            spotMAX analysis will now <b>run in the terminal</b>. All progress 
+            will be displayed there. Have fun!<br><br>
+            
+            NOTE: If you prefer to run this analysis manually in any terminal of 
+            your choice run the following command:<br>
+        """)
+        msg = acdc_widgets.myMessageBox()
+        msg.information(
+            self, 'Analysis will run in the terminal', txt,
+            buttonsTexts=('Cancel', 'Ok, got it'),
+            commands=(f'spotmax -p "{ini_filepath}"',)
+        )
+        if msg.cancel:
+            try:
+                shutil.rmtree(temp_dirpath)
+            except Exception as e:
+                pass
+            return
+
+        print(ini_filepath, is_tempinifile)
+        self.sigRunAnalysis.emit(ini_filepath, is_tempinifile)
     
     def setValuesFromParams(self, params):
         for section, anchorOptions in self.parametersQGBox.params.items():
@@ -575,14 +634,14 @@ class guiTabControl(QTabWidget):
             )
             filenameWindow.exec_()
             if filenameWindow.cancel:
-                return
+                return ''
             
             folder_path = QFileDialog.getExistingDirectory(
                     self, 'Select folder where to save the parameters file', 
                     utils.getMostRecentPath()
                 )
             if not folder_path:
-                return
+                return ''
             
             filePath = os.path.join(folder_path, filenameWindow.filename)
             if not os.path.exists(filePath):
@@ -603,10 +662,11 @@ class guiTabControl(QTabWidget):
                     )
                 )
                 if msg.cancel:
-                    return
+                    return ''
                 if msg.clickedButton == yesButton:
                     break
         self.parametersQGBox.saveToIniFile(filePath)
+        return filePath
 
     def addInspectResultsTab(self, posData):
         self.inspectResultsTab = QScrollArea(self)

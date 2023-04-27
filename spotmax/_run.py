@@ -43,8 +43,6 @@ def _setup_app():
     splashScreen.show()
     splashScreen.raise_()
 
-    print('splash screen visible')
-
     app._splashScreen = splashScreen
 
     return app
@@ -169,6 +167,11 @@ def run_gui(debug=False, app=None):
         '-----------------------------------'
     )
     win.logger.info(welcome_text)
+
+    try:
+        app._splashScreen.close()
+    except Exception as e:
+        pass
 
     if EXEC:
         sys.exit(app.exec_())

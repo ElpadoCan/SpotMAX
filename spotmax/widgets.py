@@ -144,6 +144,11 @@ class lessThanPushButton(QPushButton):
         if flat is not None:
             self.setFlat(True)
 
+class RunSpotMaxButton(QPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setIcon(QIcon(':cog_play.svg'))
+
 class QSpinBoxOdd(QSpinBox):
     def __init__(self, acceptedValues=(), parent=None):
         QSpinBox.__init__(self, parent)

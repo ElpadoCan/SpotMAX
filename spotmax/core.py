@@ -3935,7 +3935,7 @@ class Kernel(_ParamsParser):
         folder_path = os.path.dirname(params_path)
         params_filename = os.path.basename(params_path)
         report_filename = params_filename.replace('.ini', '_spotMAX_report.rst')
-        save_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        save_datetime = datetime.now().strftime(r'%Y-%m-%d_%H-%M-%S')
         report_filename = f'{save_datetime}_{report_filename}'
         report_filepath = os.path.join(folder_path, report_filename)
         return report_filepath

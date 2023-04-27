@@ -1,10 +1,12 @@
 import os
-import pathlib
+import shutil
+import datetime
+import subprocess
 
 import numpy as np
 import pandas as pd
 
-from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer, QThreadPool
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWidgets import QDockWidget, QToolBar, QAction
 
@@ -12,8 +14,8 @@ from cellacdc import gui as acdc_gui
 from cellacdc import widgets as acdc_widgets
 from cellacdc import exception_handler
 
-from . import utils, io, printl, dialogs
-from . import logs_path, html_path, settings_path
+from . import qtworkers, io, printl, dialogs
+from . import logs_path, html_path, html_func
 
 from . import qrc_resources
 
@@ -36,6 +38,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.setWindowIcon(QIcon(":icon_spotmax.ico"))
 
         self.initGui()
+        self.threadPool = QThreadPool.globalInstance()
     
     def gui_createRegionPropsDockWidget(self):
         super().gui_createRegionPropsDockWidget(side=Qt.RightDockWidgetArea)
@@ -70,6 +73,9 @@ class spotMAX_Win(acdc_gui.guiWin):
     def gui_connectActions(self):
         super().gui_connectActions()
         self.showParamsDockButton.sigClicked.connect(self.showComputeDockWidget)
+        self.computeDockWidget.widget().sigRunAnalysis.connect(
+            self.runAnalysis
+        )
         
     def _setWelcomeText(self):
         html_filepath = os.path.join(html_path, 'gui_welcome.html')
@@ -106,6 +112,44 @@ class spotMAX_Win(acdc_gui.guiWin):
             except Exception as e:
                 pass
     
+    @exception_handler
+    def runAnalysis(self, ini_filepath, is_tempfile):
+        self.logger.info('Starting spotMAX analysis...')
+        self._analysis_started_datetime = datetime.datetime.now()
+        self.funcDescription = 'starting analysis process'
+        worker = qtworkers.analysisWorker(ini_filepath, is_tempfile)
+
+        worker.signals.finished.connect(self.analysisWorkerFinished)
+        worker.signals.progress.connect(self.workerProgress)
+        # worker.signals.initProgressBar.connect(self.workerInitProgressbar)
+        # worker.signals.progressBar.connect(self.workerUpdateProgressbar)
+        worker.signals.critical.connect(self.workerCritical)
+        self.threadPool.start(worker)
+        
+    def analysisWorkerFinished(self, args):
+        ini_filepath, is_tempfile = args
+        self.logger.info('Analysis finished')
+        if is_tempfile:
+            tempdir = os.path.dirname(ini_filepath)
+            self.logger.info(f'Deleting temp folder "{tempdir}"')
+            shutil.rmtree(tempdir)
+        self._analysis_finished_datetime = datetime.datetime.now()
+        delta = self._analysis_finished_datetime-self._analysis_started_datetime
+        delta_sec = str(delta).split('.')[0]
+        ff = r'%d %b %Y, %H:%M:%S'
+        txt = (
+            'spotMAX analysis finished!\n\n'
+            f'    * Started on: {self._analysis_finished_datetime.strftime(ff)}\n'
+            f'    * Ended on: {self._analysis_finished_datetime.strftime(ff)}\n'
+            f'    * Total execution time = {delta_sec} H:mm:ss\n'
+        )
+        line_str = '-'*60
+        close_str = '*'*60
+        self.logger.info(f'{line_str}\n{txt}\n{close_str}')
+        txt = html_func.paragraph(txt.replace('\n', '<br>'))
+        msg = acdc_widgets.myMessageBox()
+        msg.information(self, 'spotMAX analysis finished!', txt)
+    
     def gui_createActions(self):
         super().gui_createActions()
 
@@ -133,7 +177,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         verticalScrollbar = paramsScrollArea.verticalScrollBar()
         groupboxWidth = paramsGroupbox.size().width()
         scrollbarWidth = verticalScrollbar.size().width()
-        minWidth = groupboxWidth + scrollbarWidth + 13
+        minWidth = groupboxWidth + scrollbarWidth + 20
         self.resizeDocks([self.computeDockWidget], [minWidth], Qt.Horizontal)
         self.showParamsDockButton.click()
     
