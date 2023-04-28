@@ -11,7 +11,7 @@ from PyQt5.QtCore import (
     Qt, QTimer, QThreadPool, QThread, QMutex, QWaitCondition
 )
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QDockWidget, QToolBar, QAction, QFileDialog
+from PyQt5.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
 
 from cellacdc import gui as acdc_gui
 from cellacdc import widgets as acdc_widgets
@@ -94,7 +94,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     def addSpotsCoordinatesTriggered(self):
         posData = self.data[self.pos_i]
         h5files = posData.getSpotmaxH5files()
-        toolbutton = self.spotsItems.addLayer(h5files, posData.spotmax_out_path)
+        self.spotsItems.setPosition(posData.spotmax_out_path)
+        toolbutton = self.spotsItems.addLayer(h5files)
         self.spotmaxToolbar.addWidget(toolbutton)
         self.ax1.addItem(toolbutton.item)
 
@@ -228,6 +229,38 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.resizeDocks([self.computeDockWidget], [minWidth], Qt.Horizontal)
         self.showParamsDockButton.click()
     
+    def zSliceScrollBarActionTriggered(self, action):
+        super().zSliceScrollBarActionTriggered(action)
+        if action != QAbstractSlider.SliderMove:
+            return
+        posData = self.data[self.pos_i]
+        self.spotsItems.setData(
+            posData.frame_i, z=self.currentZ(checkIfProj=True)
+        )
+    
+    def updateAllImages(self, *args, **kwargs):
+        posData = self.data[self.pos_i]
+        super().updateAllImages(*args, **kwargs)
+        self.spotsItems.setData(
+            posData.frame_i, z=self.currentZ(checkIfProj=True)
+        )
+    
+    def updatePos(self):
+        self.setSaturBarLabel()
+        self.checkManageVersions()
+        self.removeAlldelROIsCurrentFrame()
+        proceed_cca, never_visited = self.get_data()
+        self.initContoursImage()
+        self.initTextAnnot()
+        self.postProcessing()
+        posData = self.data[self.pos_i]
+        self.spotsItems.setPosition(posData.spotmax_out_path)
+        self.spotsItems.loadSpotsTables()
+        self.updateAllImages(updateFilters=True)
+        self.zoomToCells()
+        self.updateScrollbars()
+        self.computeSegm()
+
     def show(self):
         super().show()
         self.showParamsDockButton.setMaximumWidth(15)

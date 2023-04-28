@@ -2535,7 +2535,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
             labelTextLeft='Symbol opacity: ', parent=self
         )
         if state is not None:
-            self.opacityWidget.setValue(state['opacity'])
+            self.opacitySlider.setValue(state['opacity'])
         layout.addFormWidget(self.opacityWidget, row=row)
 
         row += 1

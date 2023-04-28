@@ -1175,14 +1175,14 @@ class SpotsItems:
     def __init__(self):
         self.buttons = []
 
-    def addLayer(self, h5files, spotmax_out_path):
+    def addLayer(self, h5files):
         win = dialogs.SpotsItemPropertiesDialog(h5files)
         win.exec_()
         if win.cancel:
             return
 
         toolbutton = self.addToolbarButton(win.state)
-        toolbutton.spotmax_out_path = spotmax_out_path
+        toolbutton.h5files = h5files
         self.buttons.append(toolbutton)
         self.createSpotItem(win.state, toolbutton)
         self.loadSpotsTables(toolbutton)
@@ -1193,33 +1193,83 @@ class SpotsItems:
         symbol = state['pg_symbol']
         color = state['symbolColor']
         toolbutton = SpotsItemToolButton(symbol, color=color)
+        toolbutton.state = state
         toolbutton.setCheckable(True)
         toolbutton.sigToggled.connect(self.buttonToggled)
+        toolbutton.sigEditAppearance.connect(self.editAppearance)
         toolbutton.filename = state['h5_filename']
         return toolbutton
     
     def buttonToggled(self, button, checked):
         button.item.setVisible(checked)
     
-    def createSpotItem(self, state, toolbutton):
+    def editAppearance(self, button):
+        win = dialogs.SpotsItemPropertiesDialog(
+            button.h5files, state=button.state
+        )
+        win.exec_()
+        if win.cancel:
+            return
+        
+        button.state = win.state
+        state = win.state
+        symbol = state['pg_symbol']
+        color = state['symbolColor']
+        button.updateIcon(symbol, color)
+
+        alpha = self.getAlpha(state)
+        
+        pen = self.getPen(state)
+        brush = self.getBrush(state, alpha)
+        hoverBrush = self.getBrush(state)
+        symbol = state['pg_symbol']
+        size = state['size']
+        xx, yy = button.item.getData()
+        button.item.setData(
+            xx, yy, size=size, pen=pen, brush=brush, hoverBrush=hoverBrush, 
+            symbol=symbol
+        )
+    
+    def getBrush(self, state, alpha=255):
         r,g,b,a = state['symbolColor'].getRgb()
-        alpha = round(state['opacity']*255)
+        brush = pg.mkBrush(color=(r,g,b,alpha))
+        return brush
+    
+    def getPen(self, state):
+        r,g,b,a = state['symbolColor'].getRgb()
+        pen = pg.mkPen(width=2, color=(r,g,b))
+        return pen
+
+    def getAlpha(self, state):
+        return round(state['opacity']*255)
+    
+    def createSpotItem(self, state, toolbutton):
+        alpha = self.getAlpha(state)
+        pen = self.getPen(state)
+        brush = self.getBrush(state, alpha)
+        hoverBrush = self.getBrush(state)
         symbol = state['pg_symbol']
         size = state['size']
         scatterItem = pg.ScatterPlotItem(
             [], [], symbol=symbol, pxMode=False, size=size,
-            brush=pg.mkBrush(color=(r,g,b,alpha)),
-            pen=pg.mkPen(width=2, color=(r,g,b)),
-            hoverable=True, hoverBrush=pg.mkBrush((r,g,b,255)), 
+            brush=brush, pen=pen, hoverable=True, hoverBrush=hoverBrush, 
             tip=None
         )
+        scatterItem.frame_i = -1
+        scatterItem.z = -1
         toolbutton.item = scatterItem
     
+    def setPosition(self, spotmax_out_path):
+        self.spotmax_out_path = spotmax_out_path
+    
     def _loadSpotsTable(self, toolbutton):
-        spotmax_out_path = toolbutton.spotmax_out_path
+        spotmax_out_path = self.spotmax_out_path
         filename = toolbutton.filename
         df = io.load_spots_table(spotmax_out_path, filename)
-        toolbutton.df = df.reset_index().set_index(['frame_i', 'z'])
+        if df is None:
+            toolbutton.df = None
+        else:
+            toolbutton.df = df.reset_index().set_index(['frame_i', 'z'])
     
     def loadSpotsTables(self, toolbutton=None):
         if toolbutton is None:
@@ -1230,11 +1280,21 @@ class SpotsItems:
     
     def _setDataButton(self, toolbutton, frame_i, z=None):
         scatterItem = toolbutton.item
+        if frame_i == scatterItem.frame_i and z == scatterItem.z:
+            return
+        if toolbutton.df is None:
+            return
+        
         data = toolbutton.df.loc[frame_i]
         if z is not None:
-            data = data.loc[z]
+            try:
+                data = data.loc[[z]]
+            except Exception as e:
+                return
         yy, xx = data['y'].values, data['x'].values
         scatterItem.setData(xx, yy)
+        scatterItem.z = z
+        scatterItem.frame_i = frame_i
 
     def setData(self, frame_i, toolbutton=None, z=None):
         if toolbutton is None:
