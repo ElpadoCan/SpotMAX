@@ -3312,7 +3312,11 @@ class Kernel(_ParamsParser):
             
             i = 0
             while True:     
-                num_spots_prev = len(df_obj_spots_gop)      
+                num_spots_prev = len(df_obj_spots_gop)
+                if num_spots_prev == 0:
+                    num_spots_filtered = 0
+                    break
+			
                 df_obj_spots_gop = self._compute_obj_spots_metrics(
                     local_spots_img, df_obj_spots_gop, obj_image, 
                     local_sharp_spots_img, 
