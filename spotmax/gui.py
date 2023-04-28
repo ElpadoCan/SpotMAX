@@ -2,17 +2,21 @@ import os
 import shutil
 import datetime
 import subprocess
+from queue import Queue
 
 import numpy as np
 import pandas as pd
 
-from PyQt5.QtCore import Qt, QTimer, QThreadPool
+from PyQt5.QtCore import (
+    Qt, QTimer, QThreadPool, QThread, QMutex, QWaitCondition
+)
 from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QDockWidget, QToolBar, QAction
+from PyQt5.QtWidgets import QDockWidget, QToolBar, QAction, QFileDialog
 
 from cellacdc import gui as acdc_gui
 from cellacdc import widgets as acdc_widgets
 from cellacdc import exception_handler
+from cellacdc import apps as acdc_apps
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
@@ -38,6 +42,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.setWindowIcon(QIcon(":icon_spotmax.ico"))
 
         self.initGui()
+        self.createThreadPool()
+    
+    def createThreadPool(self):
+        self.maxThreads = QThreadPool.globalInstance().maxThreadCount()
+        self.threadCount = 0
+        self.threadQueue = Queue()
         self.threadPool = QThreadPool.globalInstance()
     
     def gui_createRegionPropsDockWidget(self):
@@ -111,7 +121,18 @@ class spotMAX_Win(acdc_gui.guiWin):
                 self.addInspectResultsTab(self.lastLoadedSide)
             except Exception as e:
                 pass
-    
+
+    def _loadFromExperimentFolder(self, selectedPath):
+        self.funcDescription = 'scanning experiment paths'
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
+            title='Path scanner progress', parent=self,
+            pbarDesc='Scanning experiment folder...'
+        )
+        self.progressWin.show(self.app)
+        self.pathScanner = io.PathScanner(self, self.progressWin)
+        self.pathScanner.start(selectedPath)
+        return self.pathScanner.images_paths
+
     @exception_handler
     def runAnalysis(self, ini_filepath, is_tempfile):
         self.logger.info('Starting spotMAX analysis...')

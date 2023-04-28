@@ -12,6 +12,8 @@ import skimage.io
 
 from PyQt5.QtCore import pyqtSignal, QObject, QRunnable
 
+from cellacdc.workers import worker_exception_handler, workerLogger
+
 from . import io, utils
 
 """
@@ -40,24 +42,6 @@ def loadDataWorkerFinished(self):
     self.progressWin.close()
     ... more code
 """
-
-def worker_exception_handler(func):
-    @wraps(func)
-    def run(self):
-        try:
-            result = func(self)
-        except Exception as error:
-            result = None
-            self.signals.critical.emit(error)
-        return result
-    return run
-
-class workerLogger:
-    def __init__(self, sigProcess):
-        self.sigProcess = sigProcess
-
-    def log(self, message):
-        self.sigProcess.emit(message, 'INFO')
 
 class signals(QObject):
     finished = pyqtSignal(object)
@@ -196,7 +180,7 @@ class loadDataWorker(QRunnable):
 
         self.signals.finished.emit(None)
 
-class loadChunkDataWorker(QObject):
+class LazyLoaderWorker(QObject):
     sigLoadingFinished = pyqtSignal(object)
 
     def __init__(self, mutex, waitCond, readH5mutex, waitReadH5cond):
@@ -211,10 +195,9 @@ class loadChunkDataWorker(QObject):
         self.readH5mutex = readH5mutex
         self.isFinished = False
 
-    def setArgs(self, posData, side, current_idx, axis, updateImgOnFinished):
+    def setArgs(self, posData, current_idx, axis, updateImgOnFinished):
         self.wait = False
         self.updateImgOnFinished = updateImgOnFinished
-        self.side = side
         self.posData = posData
         self.current_idx = current_idx
         self.axis = axis
@@ -255,7 +238,7 @@ class loadChunkDataWorker(QObject):
         self.signals.finished.emit(None)
         self.isFinished = True
 
-class load_H5Store_Worker(QRunnable):
+class LoadH5StoreWorker(QRunnable):
     def __init__(self, expData, h5_filename, side):
         QRunnable.__init__(self)
         self.signals = signals()
@@ -283,7 +266,7 @@ class load_H5Store_Worker(QRunnable):
             self.signals.progressBar.emit(1)
         self.signals.finished.emit(self.side)
 
-class load_relFilenameData_Worker(QRunnable):
+class LoadRelFilenameDataWorker(QRunnable):
     """
     Load data given a list of relative filenames
     (filename without the common basename)

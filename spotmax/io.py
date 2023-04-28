@@ -35,13 +35,15 @@ if GUI_INSTALLED:
     import pyqtgraph as pg
     from PyQt5.QtGui import QFont
     from PyQt5.QtWidgets import QMessageBox
-    from PyQt5.QtCore import QRect, QRectF
+    from PyQt5.QtCore import (
+        QRect, QRectF, QThread, QMutex, QWaitCondition, QEventLoop
+    )
 
     from cellacdc import apps as acdc_apps
     from cellacdc import widgets as acdc_widgets
     from cellacdc import myutils as acdc_utils
 
-    from . import dialogs, html_func
+    from . import dialogs, html_func, qtworkers
 
 import acdctools.utils
 import acdctools.features
@@ -2073,3 +2075,29 @@ def is_images_folder(path):
     return (
         os.path.isdir(path) and foldername == 'Images'
     )
+
+class PathScanner:
+    def __init__(self, guiWin, progressWin):
+        self.guiWin = guiWin
+        self.progressWin = progressWin
+    
+    def start(self, selectedPath):
+        worker = qtworkers.pathScannerWorker(selectedPath)
+        worker.signals.finished.connect(self.pathScannerWorkerFinished)
+        worker.signals.progress.connect(self.guiWin.workerProgress)
+        worker.signals.initProgressBar.connect(self.guiWin.workerInitProgressbar)
+        worker.signals.progressBar.connect(self.guiWin.workerUpdateProgressbar)
+        worker.signals.critical.connect(self.guiWin.workerCritical)
+        self.guiWin.threadPool.start(worker)
+        self._wait()
+    
+    def _wait(self):
+        self._loop = QEventLoop()
+        self._loop.exec_()
+    
+    def pathScannerWorkerFinished(self, pathScanner):
+        self.progressWin.workerFinished = True
+        self.progressWin.close()
+        pathScanner.input(app=self.guiWin.app)
+        self.images_paths = pathScanner.selectedPaths
+        self._loop.exit()
