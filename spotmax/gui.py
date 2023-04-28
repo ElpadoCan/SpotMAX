@@ -20,6 +20,7 @@ from cellacdc import apps as acdc_apps
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
+from . import widgets
 
 from . import qrc_resources
 
@@ -86,6 +87,27 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.computeDockWidget.widget().sigRunAnalysis.connect(
             self.runAnalysis
         )
+        self.addSpotsCoordinatesAction.triggered.connect(
+            self.addSpotsCoordinatesTriggered
+        )
+    
+    def addSpotsCoordinatesTriggered(self):
+        posData = self.data[self.pos_i]
+        h5files = posData.getSpotmaxH5files()
+        toolbutton = self.spotsItems.addLayer(h5files, posData.spotmax_out_path)
+        self.spotmaxToolbar.addWidget(toolbutton)
+        self.ax1.addItem(toolbutton.item)
+
+        self.spotsItems.setData(
+            posData.frame_i, toolbutton=toolbutton,
+            z=self.currentZ(checkIfProj=True)
+        )
+    
+    def currentZ(self, checkIfProj=True):
+        if checkIfProj and self.zProjComboBox.currentText() != 'single z-slice':
+            return
+        
+        return self.zSliceScrollBar.sliderPosition()
         
     def _setWelcomeText(self):
         html_filepath = os.path.join(html_path, 'gui_welcome.html')
@@ -175,8 +197,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         super().gui_createActions()
 
         self.addSpotsCoordinatesAction = QAction(self)
-        self.addSpotsCoordinatesAction.setIcon(QIcon(":plotSpots.svg"))
-        self.addSpotsCoordinatesAction.setToolTip('Plot spots coordinates')
+        self.addSpotsCoordinatesAction.setIcon(QIcon(":addPlotSpots.svg"))
+        self.addSpotsCoordinatesAction.setToolTip('Add plot for spots coordinates')
     
     def gui_createToolBars(self):
         super().gui_createToolBars()
@@ -187,7 +209,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.addToolBar(Qt.LeftToolBarArea, self.spotmaxToolbar)
         self.spotmaxToolbar.addAction(self.addSpotsCoordinatesAction)
         self.spotmaxToolbar.setVisible(False)
+        self.spotsItems = widgets.SpotsItems()
     
+    def gui_addTopLayerItems(self):
+        super().gui_addTopLayerItems()
+
     def loadingDataCompleted(self):
         super().loadingDataCompleted()
         self.spotmaxToolbar.setVisible(True)

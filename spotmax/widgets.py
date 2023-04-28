@@ -37,7 +37,7 @@ from cellacdc import widgets as acdc_widgets
 
 from . import is_mac, is_win, printl, font
 from . import utils, dialogs, config, html_func, docs
-from . import features
+from . import features, io
 
 # NOTE: Enable icons
 from . import qrc_resources
@@ -1158,3 +1158,87 @@ class mathTeXLabel(QWidget):
 
         self._figure.set_size_inches(w/80, h/80)
         self.setFixedSize(w,h)
+
+class SpotsItemToolButton(acdc_widgets.PointsLayerToolButton):
+    sigToggled = pyqtSignal(object, bool)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.toggled.connect(self.emitToggled)
+    
+    def emitToggled(self, checked):
+        self.sigToggled.emit(self, checked)
+
+class SpotsItems:
+    sigButtonToggled = pyqtSignal(object, bool)
+
+    def __init__(self):
+        self.buttons = []
+
+    def addLayer(self, h5files, spotmax_out_path):
+        win = dialogs.SpotsItemPropertiesDialog(h5files)
+        win.exec_()
+        if win.cancel:
+            return
+
+        toolbutton = self.addToolbarButton(win.state)
+        toolbutton.spotmax_out_path = spotmax_out_path
+        self.buttons.append(toolbutton)
+        self.createSpotItem(win.state, toolbutton)
+        self.loadSpotsTables(toolbutton)
+        toolbutton.setChecked(True)
+        return toolbutton
+
+    def addToolbarButton(self, state):
+        symbol = state['pg_symbol']
+        color = state['symbolColor']
+        toolbutton = SpotsItemToolButton(symbol, color=color)
+        toolbutton.setCheckable(True)
+        toolbutton.sigToggled.connect(self.buttonToggled)
+        toolbutton.filename = state['h5_filename']
+        return toolbutton
+    
+    def buttonToggled(self, button, checked):
+        button.item.setVisible(checked)
+    
+    def createSpotItem(self, state, toolbutton):
+        r,g,b,a = state['symbolColor'].getRgb()
+        alpha = round(state['opacity']*255)
+        symbol = state['pg_symbol']
+        size = state['size']
+        scatterItem = pg.ScatterPlotItem(
+            [], [], symbol=symbol, pxMode=False, size=size,
+            brush=pg.mkBrush(color=(r,g,b,alpha)),
+            pen=pg.mkPen(width=2, color=(r,g,b)),
+            hoverable=True, hoverBrush=pg.mkBrush((r,g,b,255)), 
+            tip=None
+        )
+        toolbutton.item = scatterItem
+    
+    def _loadSpotsTable(self, toolbutton):
+        spotmax_out_path = toolbutton.spotmax_out_path
+        filename = toolbutton.filename
+        df = io.load_spots_table(spotmax_out_path, filename)
+        toolbutton.df = df.reset_index().set_index(['frame_i', 'z'])
+    
+    def loadSpotsTables(self, toolbutton=None):
+        if toolbutton is None:
+            for toolbutton in self.buttons:
+                self._loadSpotsTable(toolbutton)
+        else:
+            self._loadSpotsTable(toolbutton)
+    
+    def _setDataButton(self, toolbutton, frame_i, z=None):
+        scatterItem = toolbutton.item
+        data = toolbutton.df.loc[frame_i]
+        if z is not None:
+            data = data.loc[z]
+        yy, xx = data['y'].values, data['x'].values
+        scatterItem.setData(xx, yy)
+
+    def setData(self, frame_i, toolbutton=None, z=None):
+        if toolbutton is None:
+            for toolbutton in self.buttons:
+                self._setDataButton(toolbutton, frame_i, z=z)
+        else:
+            self._setDataButton(toolbutton, frame_i, z=z)

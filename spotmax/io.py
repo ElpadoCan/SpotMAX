@@ -460,6 +460,26 @@ def writeConfigINI(params=None, ini_path=None):
     with open(ini_path, 'w', encoding="utf-8") as file:
         configPars.write(file)
 
+def _load_spots_table_h5(filepath):
+    with pd.HDFStore(filepath, mode='r') as store:
+        dfs = []
+        keys = []
+        for key in store.keys():
+            df = store.get(key)
+            frame_i = int(re.findall(r'frame_(\d+)', key)[0])
+            dfs.append(df)
+            keys.append(frame_i)
+        df = pd.concat(dfs, keys=keys, names=['frame_i'])
+    return df
+
+def load_spots_table(spotmax_out_path, filename):
+    filepath = os.path.join(spotmax_out_path, filename)
+    if filename.endswith('csv'):
+        df = pd.read_csv(filepath, index_col=['frame_i', 'Cell_ID'])
+    elif filename.endswith('.h5'):
+        df = _load_spots_table_h5(filepath)
+    return df
+
 class channelName:
     def __init__(self, which_channel=None, QtParent=None, load=True):
         self.parent = QtParent

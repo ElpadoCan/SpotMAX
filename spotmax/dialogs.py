@@ -22,10 +22,10 @@ from PyQt5.QtGui import (
 )
 from PyQt5.QtWidgets import (
     QDialog, QComboBox, QVBoxLayout, QHBoxLayout, QLabel, QApplication,
-    QPushButton, QStyleFactory, QCheckBox, QTreeWidget, QTreeWidgetItem,
+    QPushButton, QPlainTextEdit, QCheckBox, QTreeWidget, QTreeWidgetItem,
     QTreeWidgetItemIterator, QAbstractItemView, QFrame, QFormLayout,
     QMainWindow, QWidget, QTableView, QTextEdit, QGridLayout,
-    QProgressBar, QSpinBox, QDoubleSpinBox, QButtonGroup, QGroupBox,
+    QSpacerItem, QSpinBox, QDoubleSpinBox, QButtonGroup, QGroupBox,
     QFileDialog, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
@@ -591,7 +591,6 @@ class guiTabControl(QTabWidget):
                 pass
             return
 
-        print(ini_filepath, is_tempinifile)
         self.sigRunAnalysis.emit(ini_filepath, is_tempinifile)
     
     def setValuesFromParams(self, params):
@@ -2415,3 +2414,228 @@ def getSelectedExpPaths(utilityName, parent=None):
         selectedExpPaths = expPaths
     
     return selectedExpPaths
+
+class SpotsItemPropertiesDialog(QBaseDialog):
+    sigDeleteSelecAnnot = pyqtSignal(object)
+
+    def __init__(self, h5files, parent=None, state=None):
+        self.cancel = True
+        self.loop = None
+        self.clickedButton = None
+
+        super().__init__(parent)
+
+        self.setWindowTitle('Spots scatter plot item')
+
+        layout = acdc_widgets.myFormLayout()
+
+        row = 0
+        h5fileCombobox = QComboBox()
+        h5fileCombobox.addItems(h5files)
+        if state is not None:
+            h5fileCombobox.setCurrentText(state['h5_filename'])
+            h5fileCombobox.setDisabled(True)
+        self.h5fileCombobox = h5fileCombobox
+        body_txt = ("""
+            Select which table you want to plot.
+        """)
+        h5FileInfoTxt = (f'{html_func.paragraph(body_txt)}')
+        self.h5FileWidget = acdc_widgets.formWidget(
+            h5fileCombobox, addInfoButton=True, labelTextLeft='Table to plot: ',
+            parent=self, infoTxt=h5FileInfoTxt
+        )
+        layout.addFormWidget(self.h5FileWidget, row=row)
+
+        row += 1
+        self.nameInfoLabel = QLabel()
+        layout.addWidget(
+            self.nameInfoLabel, row, 0, 1, 2, alignment=Qt.AlignCenter
+        )
+
+        row += 1
+        symbolInfoTxt = ("""
+        <b>Symbol</b> used to draw the spot.
+        """)
+        symbolInfoTxt = (f'{html_func.paragraph(symbolInfoTxt)}')
+        self.symbolWidget = acdc_widgets.formWidget(
+            acdc_widgets.pgScatterSymbolsCombobox(), addInfoButton=True,
+            labelTextLeft='Symbol: ', parent=self, infoTxt=symbolInfoTxt
+        )
+        if state is not None:
+            self.symbolWidget.widget.setCurrentText(state['symbol_text'])
+        layout.addFormWidget(self.symbolWidget, row=row)
+
+        row += 1
+        shortcutInfoTxt = ("""
+        <b>Shortcut</b> that you can use to <b>activate/deactivate</b> annotation
+        of this spots item.<br><br> Leave empty if you don't need a shortcut.
+        """)
+        shortcutInfoTxt = (f'{html_func.paragraph(shortcutInfoTxt)}')
+        self.shortcutWidget = acdc_widgets.formWidget(
+            acdc_widgets.ShortcutLineEdit(), addInfoButton=True,
+            labelTextLeft='Shortcut: ', parent=self, infoTxt=shortcutInfoTxt
+        )
+        if state is not None:
+            self.shortcutWidget.widget.setText(state['shortcut'])
+        layout.addFormWidget(self.shortcutWidget, row=row)
+
+        row += 1
+        descInfoTxt = ("""
+        <b>Description</b> will be used as the <b>tool tip</b> that will be
+        displayed when you hover with the mouse cursor on the toolbar button
+        specific for this annotation.
+        """)
+        descInfoTxt = (f'{html_func.paragraph(descInfoTxt)}')
+        self.descWidget = acdc_widgets.formWidget(
+            QPlainTextEdit(), addInfoButton=True,
+            labelTextLeft='Description: ', parent=self, infoTxt=descInfoTxt
+        )
+        if state is not None:
+            self.descWidget.widget.setPlainText(state['description'])
+        layout.addFormWidget(self.descWidget, row=row)
+
+        row += 1
+        self.colorButton = acdc_widgets.myColorButton(color=(255, 0, 0))
+        self.colorButton.clicked.disconnect()
+        self.colorButton.clicked.connect(self.selectColor)
+        self.colorButton.setCursor(Qt.PointingHandCursor)
+        self.colorWidget = acdc_widgets.formWidget(
+            self.colorButton, addInfoButton=False, stretchWidget=False,
+            labelTextLeft='Symbol color: ', parent=self, 
+            widgetAlignment='left'
+        )
+        if state is not None:
+            self.colorButton.setColor(state['symbolColor'])
+        layout.addFormWidget(self.colorWidget, row=row)
+
+        row += 1
+        self.sizeSpinBox = acdc_widgets.SpinBox()
+        self.sizeSpinBox.setMinimum(1)
+        self.sizeSpinBox.setValue(3)
+
+        self.sizeWidget = acdc_widgets.formWidget(
+            self.sizeSpinBox, addInfoButton=False, stretchWidget=False,
+            labelTextLeft='Symbol size: ', parent=self, 
+            widgetAlignment='left'
+        )
+        if state is not None:
+            self.sizeSpinBox.setValue(state['size'])
+        layout.addFormWidget(self.sizeWidget, row=row)
+
+        row += 1
+        self.opacitySlider = acdc_widgets.sliderWithSpinBox(
+            isFloat=True, normalize=True
+        )
+        self.opacitySlider.setMinimum(0)
+        self.opacitySlider.setMaximum(100)
+        self.opacitySlider.setValue(0.3)
+
+        self.opacityWidget = acdc_widgets.formWidget(
+            self.opacitySlider, addInfoButton=False, stretchWidget=True,
+            labelTextLeft='Symbol opacity: ', parent=self
+        )
+        if state is not None:
+            self.opacityWidget.setValue(state['opacity'])
+        layout.addFormWidget(self.opacityWidget, row=row)
+
+        row += 1
+        layout.addItem(QSpacerItem(5, 5), row, 0)
+
+        row += 1
+        noteText = (
+            '<br><i>NOTE: you can change these options later with<br>'
+            '<b>RIGHT-click</b> on the associated left-side <b>toolbar button<b>.</i>'
+        )
+        noteLabel = QLabel(html_func.paragraph(noteText, font_size='11px'))
+        layout.addWidget(noteLabel, row, 1, 1, 3)
+
+        buttonsLayout = QHBoxLayout()
+
+        self.okButton = acdc_widgets.okPushButton('  Ok  ')
+        cancelButton = acdc_widgets.cancelPushButton('Cancel')
+
+        buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(cancelButton)
+        buttonsLayout.addSpacing(20)
+        buttonsLayout.addWidget(self.okButton)
+
+        cancelButton.clicked.connect(self.cancelCallBack)
+        self.cancelButton = cancelButton
+        self.okButton.clicked.connect(self.ok_cb)
+        self.okButton.setFocus(True)
+
+        mainLayout = QVBoxLayout()
+
+        mainLayout.addLayout(layout)
+        mainLayout.addStretch(1)
+        mainLayout.addSpacing(20)
+        mainLayout.addLayout(buttonsLayout)
+
+        self.setLayout(mainLayout)
+
+    def checkName(self, text):
+        if not text:
+            txt = 'Name cannot be empty'
+            self.nameInfoLabel.setText(
+                html_func.paragraph(
+                    txt, font_size='11px', font_color='red'
+                )
+            )
+            return
+        for name in self.internalNames:
+            if name.find(text) != -1:
+                txt = (
+                    f'"{text}" cannot be part of the name, '
+                    'because <b>reserved<b>.'
+                )
+                self.nameInfoLabel.setText(
+                    html_func.paragraph(
+                        txt, font_size='11px', font_color='red'
+                    )
+                )
+                break
+        else:
+            self.nameInfoLabel.setText('')
+
+    def selectColor(self):
+        color = self.colorButton.color()
+        self.colorButton.origColor = color
+        self.colorButton.colorDialog.setCurrentColor(color)
+        self.colorButton.colorDialog.setWindowFlags(
+            Qt.Window | Qt.WindowStaysOnTopHint
+        )
+        self.colorButton.colorDialog.open()
+        w = self.width()
+        left = self.pos().x()
+        colorDialogTop = self.colorButton.colorDialog.pos().y()
+        self.colorButton.colorDialog.move(w+left+10, colorDialogTop)
+
+    def ok_cb(self, checked=True):
+        self.cancel = False
+        self.clickedButton = self.okButton
+        self.toolTip = (
+            f'Table name: {self.h5FileWidget.widget.currentText()}\n\n'
+            f'Edit properties: right-click on button\n\n'
+            f'Description: {self.descWidget.widget.toPlainText()}\n\n'
+            f'SHORTCUT: "{self.shortcutWidget.widget.text()}"'
+        )
+
+        symbol = self.symbolWidget.widget.currentText()
+        self.symbol = re.findall(r"\'(.+)\'", symbol)[0]
+
+        self.state = {
+            'h5_filename': self.h5FileWidget.widget.currentText(),
+            'symbol_text':  self.symbolWidget.widget.currentText(),
+            'pg_symbol': self.symbol,
+            'shortcut': self.shortcutWidget.widget.text(),
+            'description': self.descWidget.widget.toPlainText(),
+            'symbolColor': self.colorButton.color(),
+            'size': self.sizeSpinBox.value(),
+            'opacity': self.opacitySlider.value()
+        }
+        self.close()
+
+    def cancelCallBack(self, checked=True):
+        self.cancel = True
+        self.clickedButton = self.cancelButton
+        self.close()
