@@ -12,6 +12,7 @@ import tkinter as tk
 import pathlib
 import re
 from collections.abc import Iterable
+from uuid import uuid4
 import configparser
 from functools import wraps, partial
 from urllib.parse import urlparse
@@ -75,8 +76,9 @@ def check_cli_file_path(file_path, desc='parameters'):
         f'The following {desc} file provided does not exist: "{abs_file_path}"'
     )
 
-def setup_cli_logger(name='spotmax_cli'):
-    from . import logs_path
+def setup_cli_logger(name='spotmax_cli', logs_path=None):    
+    if logs_path is None:
+        from . import logs_path
     logger = logging.getLogger(f'spotmax-logger-{name}')
     logger.setLevel(logging.INFO)
 
@@ -89,10 +91,14 @@ def setup_cli_logger(name='spotmax_cli'):
             ls = [os.path.join(logs_path, f) for f in ls]
             ls.sort(key=lambda x: os.path.getmtime(x))
             for file in ls[:-20]:
-                os.remove(file)
+                try:
+                    os.remove(file)
+                except Exception as e:
+                    pass
 
     date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    log_filename = f'{date_time}_{name}_stdout.log'
+    id = uuid4()
+    log_filename = f'.{date_time}_{name}_{id}_stdout.log'
     log_path = os.path.join(logs_path, log_filename)
 
     output_file_handler = logger_file_handler(log_path)

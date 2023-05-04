@@ -185,6 +185,7 @@ def run_cli(parser_args, debug=False):
     
     kernel = core.Kernel(debug=debug)
     parser_args = kernel.check_parsed_arguments(parser_args)
+
     report_filepath = os.path.join(
         parser_args['report_folderpath'], parser_args['report_filename']
     )

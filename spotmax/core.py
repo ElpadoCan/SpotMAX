@@ -335,15 +335,15 @@ class _ParamsParser(_DataLoader):
                 'The provided path to the log does not exist or '
                 f'is not a folder path. Path: "{log_folder_path}"'
             ) 
-
+        
         if self.logs_path == os.path.normpath(log_folder_path):
             return
 
         self.logs_path = os.path.normpath(log_folder_path)
         log_filename = os.path.basename(self.log_path)
         new_log_path = os.path.join(log_folder_path, log_filename)
-        self.log_path = new_log_path
         shutil.copy(self.log_path, new_log_path)
+        self.log_path = new_log_path
 
         # Copy log file and add new handler
         self.logger.removeHandler(self.logger._file_handler)
@@ -585,7 +585,7 @@ class _ParamsParser(_DataLoader):
             parser_args['metadata'] = metadata_path
         
         log_folder_path = parser_args['log_folderpath']
-        if log_folder_path and not force_default:
+        if log_folder_path:
             self._setup_logger_file_handler(log_folder_path)
         if not log_folder_path:
             parser_args['log_folderpath'] = self.logs_path
