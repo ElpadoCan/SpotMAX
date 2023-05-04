@@ -1,6 +1,7 @@
 import sys
 import os
 import time
+import subprocess
 from functools import wraps
 
 import numpy as np
@@ -10,6 +11,8 @@ import h5py
 import skimage.io
 
 from PyQt5.QtCore import pyqtSignal, QObject, QRunnable
+
+from cellacdc.workers import worker_exception_handler, workerLogger
 
 from . import io, utils
 
@@ -40,17 +43,6 @@ def loadDataWorkerFinished(self):
     ... more code
 """
 
-def worker_exception_handler(func):
-    @wraps(func)
-    def run(self):
-        try:
-            result = func(self)
-        except Exception as error:
-            result = None
-            self.signals.critical.emit(error)
-        return result
-    return run
-
 class signals(QObject):
     finished = pyqtSignal(object)
     finishedNextStep = pyqtSignal(object, str, str)
@@ -60,6 +52,24 @@ class signals(QObject):
     progressBar = pyqtSignal(int)
     critical = pyqtSignal(object)
     sigLoadingNewChunk = pyqtSignal(object)
+
+class analysisWorker(QRunnable):
+    def __init__(self, ini_filepath, is_tempfile):
+        QRunnable.__init__(self)
+        self.signals = signals()
+        self._ini_filepath = ini_filepath
+        self._is_tempfile = is_tempfile
+        self.logger = workerLogger(self.signals.progress)
+
+    @worker_exception_handler
+    def run(self):
+        from . import _process
+        command = f'spotmax, -p, {self._ini_filepath}'
+        # command = r'python, spotmax\test.py'
+        
+        self.logger.log(f'spotMAX analysis started with command `{command}`')
+        subprocess.run([sys.executable, _process.__file__, '-c', command])
+        self.signals.finished.emit((self._ini_filepath, self._is_tempfile))
 
 class pathScannerWorker(QRunnable):
     def __init__(self, selectedPath):
@@ -161,8 +171,8 @@ class loadDataWorker(QRunnable):
 
             logger.info(f'Channel data shape = {posData.chData_shape}')
             logger.info(f'Loaded data shape = {posData.chData.shape}')
-            logger.info(f'Metadata:')
-            logger.info(posData.metadata_df)
+            # logger.info(f'Metadata:')
+            # logger.info(posData.metadata_df)
 
             dataSide.append(posData)
 
@@ -170,7 +180,7 @@ class loadDataWorker(QRunnable):
 
         self.signals.finished.emit(None)
 
-class loadChunkDataWorker(QObject):
+class LazyLoaderWorker(QObject):
     sigLoadingFinished = pyqtSignal(object)
 
     def __init__(self, mutex, waitCond, readH5mutex, waitReadH5cond):
@@ -185,10 +195,9 @@ class loadChunkDataWorker(QObject):
         self.readH5mutex = readH5mutex
         self.isFinished = False
 
-    def setArgs(self, posData, side, current_idx, axis, updateImgOnFinished):
+    def setArgs(self, posData, current_idx, axis, updateImgOnFinished):
         self.wait = False
         self.updateImgOnFinished = updateImgOnFinished
-        self.side = side
         self.posData = posData
         self.current_idx = current_idx
         self.axis = axis
@@ -229,7 +238,7 @@ class loadChunkDataWorker(QObject):
         self.signals.finished.emit(None)
         self.isFinished = True
 
-class load_H5Store_Worker(QRunnable):
+class LoadH5StoreWorker(QRunnable):
     def __init__(self, expData, h5_filename, side):
         QRunnable.__init__(self)
         self.signals = signals()
@@ -257,7 +266,7 @@ class load_H5Store_Worker(QRunnable):
             self.signals.progressBar.emit(1)
         self.signals.finished.emit(self.side)
 
-class load_relFilenameData_Worker(QRunnable):
+class LoadRelFilenameDataWorker(QRunnable):
     """
     Load data given a list of relative filenames
     (filename without the common basename)

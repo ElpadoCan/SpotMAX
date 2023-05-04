@@ -1,6 +1,8 @@
 import numpy as np
 import scipy.stats
 
+from . import printl
+
 def normalise_by_dist_transform_simple(
         spot_slice_z, dist_transf, bakgr_vals_z_spots
     ):
@@ -149,7 +151,7 @@ def _try_quantile(arr, q):
         val = np.nan
     return val
 
-def get_distribution_metric_func():
+def get_distribution_metrics_func():
     metrics_func = {
         'mean': lambda arr: _try_metric_func(np.mean, arr),
         'sum': lambda arr: _try_metric_func(np.sum, arr),
@@ -163,6 +165,44 @@ def get_distribution_metric_func():
     }
     return metrics_func
 
+def distrubution_metrics_names():
+    metrics_names = {}
+    for metric_name in get_distribution_metrics_func().keys():
+        if metric_name.startswith('q'):
+            key = f'{int(metric_name[1:])} percentile'
+            metrics_names[key] = metric_name
+        else:
+            key = metric_name.capitalize()
+            metrics_names[key] = metric_name
+    return metrics_names
+
+def spotfit_size_metrics_names():
+    metrics_names = {
+        'Radius x- direction': 'sigma_x_fit',
+        'Radius y- direction': 'sigma_y_fit',
+        'Radius z- direction': 'sigma_z_fit',
+        'Mean radius xy- direction': 'sigma_yx_mean_fit',
+        'Spot volume (voxel)': 'spheroid_vol_vox_fit',
+    }
+    return metrics_names
+
+def spotfit_intensities_metrics_names():
+    metrics_names = {
+        'Total integral gauss. peak': 'total_integral_fit',
+        'Foregr. integral gauss. peak': 'foreground_integral_fit',
+        'Amplitude gauss. peak': 'A_fit',
+        'Backgr. level gauss. peak': 'B_fit',
+    }
+    return metrics_names
+
+def spotfit_gof_metrics_names():
+    metrics_names = {
+        'RMS error gauss. fit': 'RMSE_fit',
+        'Normalised RMS error gauss. fit': 'NRMSE_fit',
+        'F-norm. RMS error gauss. fit': 'F_NRMSE_fit'
+    }
+    return metrics_names
+
 def get_effect_size_func():
     effect_size_func = {
         'cohen': cohen_effect_size,
@@ -170,3 +210,68 @@ def get_effect_size_func():
         'hedge': hedge_effect_size
     }
     return effect_size_func
+
+def get_features_groups():
+    features_groups = {
+        'Effect size (vs. backgr.)': 
+            ['Glass', 'Cohen', 'Hedge'],
+        'Effect size (vs. ref. ch.)': 
+            ['Glass', 'Cohen', 'Hedge'],
+        'Statistical test (vs. backgr.)': 
+            ['t-statistic', 'p-value (t-test)'],
+        'Statistical test (vs. ref. ch.)': 
+            ['t-statistic', 'p-value (t-test)'],
+        'Raw intens. metric': 
+           list( distrubution_metrics_names().keys()),
+        'Preprocessed intens. metric': 
+            list(distrubution_metrics_names().keys()), 
+        'Spotfit size metric':
+            list(spotfit_size_metrics_names().keys()),
+        'Spotfit intens. metric':
+            list(spotfit_intensities_metrics_names().keys()),
+        'Goodness-of-fit':
+            list(spotfit_gof_metrics_names().keys()),
+    }
+    return features_groups
+
+def _feature_types_to_col_endname_mapper():
+    mapper = {
+        'Glass': 'effect_size_glass',
+        'Cohen': 'effect_size_cohen',
+        'Hedge': 'effect_size_hedge',
+        't-statistic': 'ttest_tstat',
+        'p-value (t-test)': 'ttest_pvalue'
+    }
+    mapper = {
+        **mapper,
+        **distrubution_metrics_names(),
+        **spotfit_size_metrics_names(),
+        **spotfit_intensities_metrics_names(),
+        **spotfit_gof_metrics_names(),
+    }
+    return mapper
+
+def feature_names_to_col_names_mapper():
+    mapper = {}
+    types_to_col_endname_mapper = _feature_types_to_col_endname_mapper()
+    for group_name, feature_names in get_features_groups().items():
+        if group_name.find('backgr') != -1:
+            prefix = 'spot_vs_backgr_'
+            suffix = ''
+        elif group_name.find('ref. channel') != -1:
+            prefix = 'spot_vs_ref_ch_'
+            suffix = ''
+        elif group_name.find('Preprocessed') != -1:
+            prefix = 'spot_preproc_'
+            suffix = '_in_spot_minimumsize_vol'
+        elif group_name.find('Raw') != -1:
+            prefix = 'spot_raw_'
+            suffix = '_in_spot_minimumsize_vol'
+        else:
+            prefix = ''
+            suffix = ''
+        for feature_name in feature_names:
+            endname = types_to_col_endname_mapper[feature_name]
+            colname = f'{prefix}{endname}{suffix}'
+            mapper[f'{group_name}, {feature_name}'] = colname
+    return mapper

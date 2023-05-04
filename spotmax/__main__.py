@@ -3,7 +3,7 @@ import os
 import argparse
 
 from spotmax._run import run_gui, run_cli
-from spotmax import help_text
+from spotmax import help_text, GUI_INSTALLED
 
 def cli_parser():
     ap = argparse.ArgumentParser(

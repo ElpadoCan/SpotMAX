@@ -7,36 +7,10 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from functools import wraps
 
 try:
-    import acdctools
-except ModuleNotFoundError:
-    try:
-        while True:
-            answer = input(
-                '>>> spotMAX detected the missing library `acdctools`. '
-                'Do you want to proceed with its installation ([y]/n)? ',
-            )
-            if answer.lower() == 'n':
-                exit('Installation of `acdctools` cancelled by the user.')
-            elif answer.lower() == 'y':
-                break
-            else:
-                print(
-                    f'"{answer}" is not a valid answer. '
-                    'Type "y" for yes, or "n" for no.'
-                )
-    except EOFError as e:
-        print(
-            '[ERROR]: The library `acdctools` is missing. '
-            'Please install it with `pip install acdctools`'
-        )
-    import subprocess
-    subprocess.check_call(
-        [sys.executable, '-m', 'pip', 'install', '-U',
-        'git+https://github.com/SchmollerLab/acdc_tools']
-    )
-
-try:
     import cellacdc
+    from PyQt5.QtGui import QFont
+    font = QFont()
+    font.setPixelSize(11)
     GUI_INSTALLED = True
 except ModuleNotFoundError:
     GUI_INSTALLED = False
@@ -53,6 +27,8 @@ rng = np.random.default_rng(seed=6490)
 
 spotmax_path = os.path.dirname(os.path.abspath(__file__))
 spotMAX_path = os.path.dirname(spotmax_path)
+html_path = os.path.join(spotmax_path, 'html_files')
+
 home_path = pathlib.Path.home()
 spotmax_appdata_path = os.path.join(home_path, 'spotmax_appdata')
 
@@ -68,6 +44,7 @@ if not os.path.exists(settings_path):
 
 default_ini_path = os.path.join(spotmax_appdata_path, 'config.ini')
 colorItems_path = os.path.join(settings_path, 'colorItems.json')
+gui_settings_csv_path = os.path.join(settings_path, 'gui_settings.csv')
 
 def printl(*objects, pretty=False, is_decorator=False, **kwargs):
     # Copy current stdout, reset to default __stdout__ and then restore current
@@ -155,3 +132,15 @@ def handle_log_exception_cli(func):
             self.log_exception_report(error, traceback.format_exc())
         return result
     return inner_function
+
+def read_version():
+    try:
+        from setuptools_scm import get_version
+        version = get_version(root='..', relative_to=__file__)
+        return version
+    except Exception as e:
+        try:
+            from . import _version
+            return _version.version
+        except Exception as e:
+            return 'ND'

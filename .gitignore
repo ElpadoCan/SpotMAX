@@ -10,6 +10,7 @@ spotmax/test1.py
 spotmax/deprecated.py
 spotmax/_version.py
 spotmax/_tests
+spotmax/_old_gui.py
 spotmax/mytests/*
 spotmax/spotmax_v1_paramWin.png
 spotmax/spotmax_v2_parameters.png

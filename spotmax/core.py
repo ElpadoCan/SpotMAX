@@ -55,7 +55,7 @@ from . import utils, rng, base_lineage_table_values
 from . import issues_url, printl, io, features, config
 from . import transformations
 
-np.seterr(divide='raise', invalid='raise')
+np.seterr(divide='warn', invalid='raise')
 
 def gaussian_filter(image, sigma, use_gpu=False, logger_func=print):
     if CUPY_INSTALLED and use_gpu:
@@ -75,7 +75,7 @@ def gaussian_filter(image, sigma, use_gpu=False, logger_func=print):
         filtered = skimage.filters.gaussian(image, sigma=sigma)
     return filtered
 
-distribution_metrics_func = features.get_distribution_metric_func()
+distribution_metrics_func = features.get_distribution_metrics_func()
 effect_size_func = features.get_effect_size_func()
 aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
 
@@ -335,15 +335,15 @@ class _ParamsParser(_DataLoader):
                 'The provided path to the log does not exist or '
                 f'is not a folder path. Path: "{log_folder_path}"'
             ) 
-
+        
         if self.logs_path == os.path.normpath(log_folder_path):
             return
 
         self.logs_path = os.path.normpath(log_folder_path)
         log_filename = os.path.basename(self.log_path)
         new_log_path = os.path.join(log_folder_path, log_filename)
-        self.log_path = new_log_path
         shutil.copy(self.log_path, new_log_path)
+        self.log_path = new_log_path
 
         # Copy log file and add new handler
         self.logger.removeHandler(self.logger._file_handler)
@@ -585,7 +585,7 @@ class _ParamsParser(_DataLoader):
             parser_args['metadata'] = metadata_path
         
         log_folder_path = parser_args['log_folderpath']
-        if log_folder_path and not force_default:
+        if log_folder_path:
             self._setup_logger_file_handler(log_folder_path)
         if not log_folder_path:
             parser_args['log_folderpath'] = self.logs_path
@@ -851,7 +851,9 @@ class _ParamsParser(_DataLoader):
                 exp_paths = {}
             
             # Scan and determine run numbers
-            pathScanner = io.expFolderScanner(exp_path)
+            pathScanner = io.expFolderScanner(
+                exp_path, logger_func=self.logger.info
+            )
             pathScanner.getExpPaths(exp_path)
             pathScanner.infoExpPaths(pathScanner.expPaths)
             run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
@@ -2542,9 +2544,10 @@ class _spotFIT(spheroid):
                                      leastsq_result.success, B_fit=B_fit
             )
 
-    def store_metrics_good_spots(self, obj_id, s, fitted_coeffs_s,
-                                 I_tot, I_foregr, gof_metrics,
-                                 solution_found, B_fit):
+    def store_metrics_good_spots(
+            self, obj_id, s, fitted_coeffs_s, I_tot, I_foregr, gof_metrics,
+            solution_found, B_fit
+        ):
 
         (z0_fit, y0_fit, x0_fit,
         sz_fit, sy_fit, sx_fit,
@@ -3312,7 +3315,11 @@ class Kernel(_ParamsParser):
             
             i = 0
             while True:     
-                num_spots_prev = len(df_obj_spots_gop)      
+                num_spots_prev = len(df_obj_spots_gop)
+                if num_spots_prev == 0:
+                    num_spots_filtered = 0
+                    break  
+                
                 df_obj_spots_gop = self._compute_obj_spots_metrics(
                     local_spots_img, df_obj_spots_gop, obj_image, 
                     local_sharp_spots_img, 
@@ -3932,7 +3939,7 @@ class Kernel(_ParamsParser):
         folder_path = os.path.dirname(params_path)
         params_filename = os.path.basename(params_path)
         report_filename = params_filename.replace('.ini', '_spotMAX_report.rst')
-        save_datetime = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        save_datetime = datetime.now().strftime(r'%Y-%m-%d_%H-%M-%S')
         report_filename = f'{save_datetime}_{report_filename}'
         report_filepath = os.path.join(folder_path, report_filename)
         return report_filepath
@@ -4420,6 +4427,21 @@ class Kernel(_ParamsParser):
         if text_to_append and not text_to_append.startswith('_'):
             text_to_append = f'_{text_to_append}'
         
+        # Remove existing run numbers (they might have a different text appended)
+        for file in utils.listdir(spotmax_out_path):
+            file_path = os.path.join(spotmax_out_path, file)
+            if not os.path.isfile(file_path):
+                continue
+            if not file.startswith(f'{run_number}_'):
+                continue
+            if file.find('analysis_parameters') != -1 or file.find('spot') != -1:
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    self.logger.info(
+                        f'[WARNING]: File "{file_path}" could not be deleted.'
+                    )
+
         analysis_inputs_filepath = os.path.join(
             spotmax_out_path, 
             f'{run_number}_analysis_parameters{text_to_append}.ini'
