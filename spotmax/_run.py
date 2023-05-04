@@ -11,7 +11,7 @@ def _setup_app():
         def __init__(self):
             super().__init__()
             resources_path = os.path.join(spotmax_path, 'resources')
-            logo_path = os.path.join(resources_path, 'logo.png')
+            logo_path = os.path.join(resources_path, 'spotMAX_logo.png')
             self.setPixmap(QtGui.QPixmap(logo_path))
 
     # Handle high resolution displays:

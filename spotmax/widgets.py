@@ -2,9 +2,11 @@ import sys
 import time
 import re
 import traceback
+import typing
 import webbrowser
 from pprint import pprint
 from functools import partial
+from PyQt5 import QtCore
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -126,6 +128,11 @@ class showPushButton(QPushButton):
         super().__init__(*args)
         self.setIcon(QIcon(':magnGlass.svg'))
 
+class TunePushButton(QPushButton):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.setIcon(QIcon(':tune.svg'))
+
 class applyPushButton(QPushButton):
     def __init__(self, *args):
         super().__init__(*args)
@@ -161,6 +168,25 @@ class QSpinBoxOdd(QSpinBox):
             return
         if val % 2 == 0:
             self.setValue(val+1)
+
+class AutoTuningButton(QPushButton):
+    sigToggled = pyqtSignal(bool)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setCheckable(True)
+        self.setText('  Start autotuning  ')
+        self.setIcon(QIcon(':tune.svg'))
+        self.toggled.connect(self.onToggled)
+    
+    def onToggled(self, checked):
+        if checked:
+            self.setText('  Stop autotuning   ')
+            self.setIcon(QIcon(':stop.svg'))
+        else:
+            self.setText('  Start autotuning  ')
+            self.setIcon(QIcon(':tune.svg'))
+        self.sigToggled.emit(self, checked)
 
 class measurementsQGroupBox(QGroupBox):
     def __init__(self, names, parent=None):
@@ -516,6 +542,7 @@ class formWidget(QWidget):
         self.labelTextLeft = labelTextLeft
 
         widget.setParent(self)
+        widget.parentFormWidget = self
 
         self.setValue(initialVal, valueSetter=valueSetter)
         
@@ -712,6 +739,7 @@ class myFormLayout(QGridLayout):
                 self.addWidget(item, row, col, 1, colspan, alignment=alignment)
             except TypeError:
                 self.addLayout(item, row, col, 1, colspan)
+        formWidget.row = row
             
 class myQScrollBar(QScrollBar):
     sigActionTriggered = pyqtSignal(int)
@@ -825,6 +853,25 @@ class intLineEdit(QLineEdit):
 
     def emitValueChanged(self, text):
         self.valueChanged.emit(self.value())
+
+class ReadOnlyLineEdit(QLineEdit):
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.setReadOnly(True)
+        self.setAlignment(Qt.AlignCenter)
+    
+    def setValue(self, value):
+        super().setText(str(value))
+
+class ReadOnlySpinBox(acdc_widgets.SpinBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setReadOnly(True)
+
+class ReadOnlyDoubleSpinBox(acdc_widgets.DoubleSpinBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setReadOnly(True)
 
 class floatLineEdit(QLineEdit):
     valueChanged = pyqtSignal(float)
@@ -1302,3 +1349,143 @@ class SpotsItems:
                 self._setDataButton(toolbutton, frame_i, z=z)
         else:
             self._setDataButton(toolbutton, frame_i, z=z)
+
+def ParamFormWidget(anchor, param, parent, use_tuned=False):
+    if use_tuned:
+        widgetName = param['autoTuneWidget']
+    else:
+        widgetName = param['formWidgetFunc']
+    
+    module_name, attr = widgetName.split('.')
+    try:
+        widgets_module = globals()[module_name]
+        widgetFunc = getattr(widgets_module, attr)
+    except KeyError as e:
+        widgetFunc = globals()[attr]
+    return formWidget(
+        widgetFunc(),
+        anchor=anchor,
+        labelTextLeft=param.get('desc', ''),
+        initialVal=param.get('initialVal', None),
+        stretchWidget=param.get('stretchWidget', True),
+        addInfoButton=param.get('addInfoButton', True),
+        addComputeButton=param.get('addComputeButton', False),
+        addApplyButton=param.get('addApplyButton', False),
+        addBrowseButton=param.get('addBrowseButton', False),
+        addAutoButton=param.get('addAutoButton', False),
+        addEditButton=param.get('addEditButton', False),
+        addLabel=param.get('addLabel', True),
+        valueSetter=param.get('valueSetter'),
+        disableComputeButtons=True,
+        parent=parent
+    )
+
+class SelectFeatureAutoTuneButton(acdc_widgets.editPushButton):
+    sigFeatureSelected = pyqtSignal(str)
+
+    def __init__(self, featureLabel, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clicked.connect(self.selectFeature)
+        self.featureLabel = featureLabel
+    
+    def getFeatureGroup(self):
+        if self.featureLabel.text().find('Click') != -1:
+            return ''
+
+        text = self.featureLabel.text()
+        topLevelText, childText = text.split(', ')
+        return {topLevelText: childText}
+    
+    def selectFeature(self):
+        self.selectFeatureDialog = FeatureSelectorDialog(
+            parent=self, multiSelection=False, 
+            expandOnDoubleClick=True, isTopLevelSelectable=False, 
+            infoTxt='Select feature', allItemsExpanded=False
+        )
+        self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
+        # self.selectFeatureDialog.resizeVertical()
+        self.selectFeatureDialog.sigClose.connect(self.setFeatureText)
+        self.selectFeatureDialog.show()
+    
+    def setFeatureText(self):
+        if self.selectFeatureDialog.cancel:
+            return
+        
+        selection = self.selectFeatureDialog.selectedItems()
+        group_name = list(selection.keys())[0]
+        feature_name = selection[group_name][0]
+        featureText = f'{group_name}, {feature_name}'
+
+        column_name = features.feature_names_to_col_names_mapper()[featureText]
+        self.featureLabel.setText(featureText)
+        self.featureLabel.column_name = column_name
+
+class ReadOnlySelectedFeatureLabel(QLabel):
+    def __init__(self, *args):
+        super().__init__(*args)
+        txt = ' Click on edit button to select feature. '
+        txt = html_func.span(f'<i>{txt}</i>', font_color='rgb(100,100,100)')
+        self.setText(txt)
+        # self.setFrameShape(QFrame.StyledPanel)
+        # self.setFrameShadow(QFrame.Plain)
+    
+    def setText(self, text):
+        super().setText(text)
+
+class SelectFeaturesAutoTune(QWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+
+        layout = QGridLayout()
+        self.featureLabels = {}
+        
+        featureLabel = ReadOnlySelectedFeatureLabel()
+        layout.addWidget(featureLabel, 0, 0, alignment=Qt.AlignCenter)
+        layout.setColumnStretch(0, 1)
+        self.featureLabels[0] = featureLabel
+        
+        selectFeatureButton = SelectFeatureAutoTuneButton(featureLabel)
+        layout.addWidget(selectFeatureButton, 0, 1)
+        layout.setColumnStretch(1, 0)
+
+        addFeatureButton = acdc_widgets.addPushButton()
+        layout.addWidget(addFeatureButton, 0, 2)
+        layout.setColumnStretch(2, 0)
+
+        addFeatureButton.clicked.connect(self.addFeatureField)
+
+        self.setLayout(layout)
+        self._layout = layout
+    
+    def addFeatureField(self):
+        parentFormWidget = self.parentFormWidget
+        parentFormLayout = self.parent().layout()
+
+        layout = self.layout()
+        row = layout.rowCount()
+        
+        featureLabel = ReadOnlySelectedFeatureLabel()
+        selectFeatureButton = SelectFeatureAutoTuneButton(featureLabel)
+        delButton = acdc_widgets.delPushButton()
+        
+        layout.addWidget(featureLabel, row, 0, alignment=Qt.AlignCenter)
+        layout.addWidget(selectFeatureButton, row, 1)
+        layout.addWidget(delButton, row, 2)
+
+        delButton._widgets = (featureLabel, selectFeatureButton)
+        delButton._row = row
+        delButton.clicked.connect(self.removeFeatureField)
+
+        self.featureLabels[row] = featureLabel
+    
+    def removeFeatureField(self):
+        delButton = self.sender()
+        row = delButton._row
+        for widget in delButton._widgets:
+            widget.hide()
+            self._layout.removeWidget(widget)
+        delButton.hide()
+        self._layout.removeWidget(delButton)
+        del self.featureLabels[row]
+
+        

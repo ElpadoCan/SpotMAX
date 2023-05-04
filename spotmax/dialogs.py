@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import traceback
 from pprint import pprint
+import typing
 
 import numpy as np
 import pandas as pd
@@ -32,6 +33,7 @@ from PyQt5.QtWidgets import (
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc import myutils as acdc_utils
+from cellacdc import html_utils as acdc_html
 
 from . import html_func, io, widgets, utils, config
 from . import core, dock_params_callbacks
@@ -679,6 +681,116 @@ class guiTabControl(QTabWidget):
         self.removeTab(1)
         self.addTab(self.inspectResultsTab, 'Inspect results')
         self.inspectResultsQGBox.resizeSelector()
+    
+    def addAutoTuneTab(self):
+        self.autoTuneTabWidget = AutoTuneTabWidget()
+        # self.autoTuneTabWidget.setDisabled(True)
+        self.addTab(self.autoTuneTabWidget, 'Tune parameters')
+
+class AutoTuneGroupbox(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        mainLayout = QVBoxLayout()
+        font = config.font()
+
+        params = config.analysisInputsParams()
+        self.params = {}
+        for section, section_params in params.items():
+            groupBox = None
+            row = 0
+            for anchor, param in section_params.items():
+                tunedWidget = param.get('autoTuneWidget')
+                if tunedWidget is None:
+                    continue
+                if section not in self.params:
+                    self.params[section] = {}
+                    self.params[section]['groupBox'] = QGroupBox(section)
+                    self.params[section]['formLayout'] = widgets.myFormLayout()
+                self.params[section][anchor] = param.copy()
+                groupBox = self.params[section]['groupBox']
+                formLayout = self.params[section]['formLayout']
+                formWidget = widgets.ParamFormWidget(
+                    anchor, param, self, use_tuned=True
+                )
+                formLayout.addFormWidget(formWidget, row=row)
+                self.params[section][anchor]['widget'] = formWidget.widget
+                self.params[section][anchor]['formWidget'] = formWidget
+                self.params[section][anchor]['groupBox'] = groupBox
+                row += 1
+            if groupBox is None:
+                continue
+            groupBox.setLayout(formLayout)
+            mainLayout.addWidget(groupBox)
+        
+        mainLayout.addStretch(1)
+        self.setLayout(mainLayout)
+        self.setFont(font)
+
+class AutoTuneTabWidget(QWidget):
+    sigStartAutoTune = pyqtSignal(object)
+    sigStopAutoTune = pyqtSignal(object)
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+
+        layout = QVBoxLayout()
+
+        buttonsLayout = QHBoxLayout()
+        helpButton = acdc_widgets.helpPushButton('Help...')
+        autoTuningButton = widgets.AutoTuningButton()
+        buttonsLayout.addWidget(helpButton)
+        buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(autoTuningButton)
+        self.autoTuningButton = autoTuningButton
+
+        autoTuneScrollArea = QScrollArea(self)
+        autoTuneScrollArea.setWidgetResizable(True)
+
+        self.autoTuneGroupbox = AutoTuneGroupbox(parent=self)
+        autoTuneScrollArea.setWidget(self.autoTuneGroupbox)
+
+        layout.addLayout(buttonsLayout)
+        layout.addWidget(autoTuneScrollArea)
+        # layout.addStretch(1)
+        # layout.addWidget(self.autoTuneGroupbox)
+        self.setLayout(layout)
+
+        autoTuningButton.sigToggled.connect(self.emitAutoTuningSignal)
+        helpButton.clicked.connect(self.showHelp)
+    
+    def emitAutoTuningSignal(self, started):
+        if started:
+            self.sigStartAutoTune.emit(self)
+        else:
+            self.sigStopAutoTune.emit(self)
+    
+    def showHelp(self):
+        msg = acdc_widgets.myMessageBox()
+        steps = [
+    'Load images (<code>Open folder</code> button on the top toolbar).',
+    'Select the features used to filter true spots.',
+    'Click <code>Start autotuning</code> on the "Autotune parameters" tab.',
+    'Choose whether to use the current spots segmentation mask.',
+    'Adjust spot size with up/down arrow keys.',
+    'Click on the true spots on the image.'
+        ]
+        txt = html_func.paragraph(f"""
+            Autotuning can be used to interactively determine the 
+            <b>optimal parameters</b> for the analysis.<br><br>
+            Instructions:{acdc_html.to_list(steps, ordered=True)}<br>
+            Select as many features as you want. The tuning process will then 
+            optimise their values that will be used to filter true spots.<br><br>
+            The more true spots you add, the better the optimisation process 
+            will be. However, adding the spots that are 
+            <b>more difficult to detect</b> (e.g., out-of-focus or dim) 
+            should yield <b>better results</b>.
+        """)
+        msg.information(self, 'Autotuning instructions', txt)
+    
+    def setDisabled(self, disabled: bool) -> None:
+        self.autoTuneGroupbox.setDisabled(disabled)
+        self.autoTuningButton.setDisabled(disabled)
 
 class inspectResults(QGroupBox):
     def __init__(self, posData, parent=None):
@@ -756,42 +868,21 @@ class analysisInputsQGBox(QGroupBox):
             else:
                 groupBox.setCheckable(True)
             groupBox.setFont(font)
-            for row, (anchor, paramValues) in enumerate(section_params.items()):
-                self.params[section][anchor] = paramValues.copy()
-                widgetFuncName = paramValues.get('formWidgetFunc', None)
-                if widgetFuncName is not None:
-                    module_name, attr = widgetFuncName.split('.')
-                    widgets_module = globals()[module_name]
-                    widgetFunc = getattr(widgets_module, attr)
-                formWidget = widgets.formWidget(
-                    widgetFunc(),
-                    anchor=anchor,
-                    labelTextLeft=paramValues.get('desc', ''),
-                    initialVal=paramValues.get('initialVal', None),
-                    stretchWidget=paramValues.get('stretchWidget', True),
-                    addInfoButton=paramValues.get('addInfoButton', True),
-                    addComputeButton=paramValues.get('addComputeButton', False),
-                    addApplyButton=paramValues.get('addApplyButton', False),
-                    addBrowseButton=paramValues.get('addBrowseButton', False),
-                    addAutoButton=paramValues.get('addAutoButton', False),
-                    addEditButton=paramValues.get('addEditButton', False),
-                    addLabel=paramValues.get('addLabel', True),
-                    valueSetter=paramValues.get('valueSetter'),
-                    disableComputeButtons=True,
-                    parent=self
-                )
+            for row, (anchor, param) in enumerate(section_params.items()):
+                self.params[section][anchor] = param.copy()
+                formWidget = widgets.ParamFormWidget(anchor, param, self)
                 formWidget.section = section
                 formWidget.sigLinkClicked.connect(self.infoLinkClicked)
-                self.connectFormWidgetButtons(formWidget, paramValues)
+                self.connectFormWidgetButtons(formWidget, param)
                 formLayout.addFormWidget(formWidget, row=row)
                 self.params[section][anchor]['widget'] = formWidget.widget
                 self.params[section][anchor]['formWidget'] = formWidget
                 self.params[section][anchor]['groupBox'] = groupBox
 
-                isGroupChecked = paramValues.get('isSectionInConfig', True)
+                isGroupChecked = param.get('isSectionInConfig', True)
                 groupBox.setChecked(isGroupChecked)
 
-                actions = paramValues.get('actions', None)
+                actions = param.get('actions', None)
                 if actions is None:
                     continue
 
@@ -802,7 +893,7 @@ class analysisInputsQGBox(QGroupBox):
             groupBox.setLayout(formLayout)
             mainLayout.addWidget(groupBox)
 
-        mainLayout.addStretch()
+        # mainLayout.addStretch()
 
         self.setLayout(mainLayout)
         self.updateMinSpotSize()

@@ -163,7 +163,7 @@ def paramsInfoText():
         'than expected.'
     ),
     'yxResolLimitMultiplier': (
-        'Factor used to <b>multiply the radii of the spots\'s '
+        'Factor used to <b>multiply the radii of the spots\' '
         'expected volume</b> in the X- and Y-direction.<br><br>'
         'This parameter is used in conjunction with '
         f'{href_tags["zResolutionLimit"]} to compute the expected spot '

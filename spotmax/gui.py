@@ -60,6 +60,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         computeTabControl = dialogs.guiTabControl(
             parent=self.computeDockWidget, logging_func=self.logger.info
         )
+        computeTabControl.addAutoTuneTab()
 
         self.computeDockWidget.setWidget(computeTabControl)
         self.computeDockWidget.setFeatures(
@@ -138,12 +139,6 @@ class spotMAX_Win(acdc_gui.guiWin):
         else:
             self.computeDockWidget.setVisible(True)
             self.computeDockWidget.setEnabled(True)
-            # if self.computeDockWidgetMinWidth is not None:
-            #     self.resizeDocks([self.computeDockWidget], [w+5], Qt.Horizontal)
-            try:
-                self.addInspectResultsTab(self.lastLoadedSide)
-            except Exception as e:
-                pass
 
     def _loadFromExperimentFolder(self, selectedPath):
         self.funcDescription = 'scanning experiment paths'
@@ -218,6 +213,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     def loadingDataCompleted(self):
         super().loadingDataCompleted()
         self.spotmaxToolbar.setVisible(True)
+        self.computeDockWidget.widget().autoTuneTabWidget.setDisabled(False)
     
     def resizeComputeDockWidget(self):
         paramsGroupbox = self.computeDockWidget.widget().parametersQGBox

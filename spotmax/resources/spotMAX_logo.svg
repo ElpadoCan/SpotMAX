@@ -5,8 +5,8 @@
    viewBox="0 0 32.000001 32.000001"
    version="1.1"
    id="svg8"
-   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
-   sodipodi:docname="logo.svg"
+   inkscape:version="1.1 (c68e22c387, 2021-05-23)"
+   sodipodi:docname="spotMAX_logo.svg"
    inkscape:export-filename="G:\My Drive\01_Postdoc_HMGU\Python_MyScripts\MIA\Git\spotMAX_v2\spotmax\resources\logo.png"
    inkscape:export-xdpi="300"
    inkscape:export-ydpi="300"
@@ -155,15 +155,15 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="3.959798"
-     inkscape:cx="33.966379"
-     inkscape:cy="59.725269"
+     inkscape:zoom="5.6"
+     inkscape:cx="83.571428"
+     inkscape:cy="61.339285"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      inkscape:document-rotation="0"
      showgrid="false"
      inkscape:window-width="1920"
-     inkscape:window-height="1017"
+     inkscape:window-height="1137"
      inkscape:window-x="1912"
      inkscape:window-y="-8"
      inkscape:window-maximized="1"
@@ -212,8 +212,8 @@
     <ellipse
        style="fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.105193;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        id="path947"
-       cx="13.241627"
-       cy="11.733517"
+       cx="13.308444"
+       cy="12.034195"
        rx="0.69693559"
        ry="0.71679133" />
     <ellipse
@@ -233,8 +233,8 @@
     <ellipse
        style="fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.105193;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        id="path947-0"
-       cx="13.770718"
-       cy="22.787825"
+       cx="13.837535"
+       cy="23.088503"
        rx="0.69693559"
        ry="0.71679133" />
     <path
@@ -258,8 +258,8 @@
     <ellipse
        style="fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:0.105193;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        id="path947-3"
-       cx="22.863997"
-       cy="14.075254"
+       cx="22.911243"
+       cy="14.391809"
        rx="0.69693559"
        ry="0.71679133" />
   </g>

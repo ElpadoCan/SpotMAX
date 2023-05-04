@@ -568,7 +568,8 @@ def _metadata_params():
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
-            'dtype': float
+            'dtype': float,
+            'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
         },
         'yxResolLimitMultiplier': {
             'desc': 'Resolution multiplier in y- and x- direction',
@@ -581,7 +582,8 @@ def _metadata_params():
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
-            'dtype': float
+            'dtype': float,
+            'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
         },
         'spotMinSizeLabels': {
             'desc': 'Spot (z,y,x) minimum dimensions',
@@ -748,7 +750,8 @@ def _spots_ch_params():
             'formWidgetFunc': 'widgets._spotThresholdFunc',
             'actions': None,
             'dtype': get_threshold_func,
-            'parser': parse_threshold_func
+            'parser': parse_threshold_func,
+            'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
         },
         'gopThresholds': {
             'desc': 'Features and thresholds for filtering true spots',
@@ -764,6 +767,7 @@ def _spots_ch_params():
             'dtype': get_gop_thresholds,
             'parser': parse_list_to_configpars,
             'comment': gop_thresholds_comment,
+            'autoTuneWidget': 'widgets.SelectFeaturesAutoTune'
         },
         'optimiseWithEdt': {
             'desc': 'Optimise detection for high spot density',
