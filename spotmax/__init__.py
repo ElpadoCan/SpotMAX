@@ -11,6 +11,8 @@ try:
     from PyQt5.QtGui import QFont
     font = QFont()
     font.setPixelSize(11)
+    font_small = QFont()
+    font_small.setPixelSize(9)
     GUI_INSTALLED = True
 except ModuleNotFoundError:
     GUI_INSTALLED = False

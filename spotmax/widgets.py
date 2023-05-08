@@ -37,7 +37,7 @@ import pyqtgraph as pg
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 
-from . import is_mac, is_win, printl, font
+from . import is_mac, is_win, printl, font, font_small
 from . import utils, dialogs, config, html_func, docs
 from . import features, io
 
@@ -1383,17 +1383,17 @@ def ParamFormWidget(anchor, param, parent, use_tuned=False):
 class SelectFeatureAutoTuneButton(acdc_widgets.editPushButton):
     sigFeatureSelected = pyqtSignal(str)
 
-    def __init__(self, featureLabel, *args, **kwargs):
+    def __init__(self, featureGroupbox, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.clicked.connect(self.selectFeature)
-        self.featureLabel = featureLabel
+        self.featureGroupbox = featureGroupbox
     
     def getFeatureGroup(self):
-        if self.featureLabel.text().find('Click') != -1:
+        if self.featureGroupbox.title().find('Click') != -1:
             return ''
 
-        text = self.featureLabel.text()
-        topLevelText, childText = text.split(', ')
+        title = self.featureGroupbox.title()
+        topLevelText, childText = title.split(', ')
         return {topLevelText: childText}
     
     def selectFeature(self):
@@ -1417,8 +1417,8 @@ class SelectFeatureAutoTuneButton(acdc_widgets.editPushButton):
         featureText = f'{group_name}, {feature_name}'
 
         column_name = features.feature_names_to_col_names_mapper()[featureText]
-        self.featureLabel.setText(featureText)
-        self.featureLabel.column_name = column_name
+        self.featureGroupbox.setTitle(featureText)
+        self.featureGroupbox.column_name = column_name
 
 class ReadOnlySelectedFeatureLabel(QLabel):
     def __init__(self, *args):
@@ -1432,30 +1432,77 @@ class ReadOnlySelectedFeatureLabel(QLabel):
     def setText(self, text):
         super().setText(text)
 
+class SelectedFeatureAutoTuneGroupbox(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._txt = ' Click on edit button to select feature. '
+        
+        layout = QFormLayout()
+        
+        self.minLineEdit = QLineEdit()
+        self.minLineEdit.setAlignment(Qt.AlignCenter)
+        self.minLineEdit.setReadOnly(True)
+        layout.addRow('Minimum: ', self.minLineEdit)
+        
+        self.maxLineEdit = QLineEdit()
+        self.maxLineEdit.setAlignment(Qt.AlignCenter)
+        self.maxLineEdit.setReadOnly(True)
+        layout.addRow('Maximum: ', self.maxLineEdit)
+        
+        self.setLayout(layout)
+        
+        self.setFont(font)
+        self.clear()
+        
+    def clear(self):
+        self.minLineEdit.setDisabled(True)
+        self.layout().labelForField(self.minLineEdit).setDisabled(True)
+        self.maxLineEdit.setDisabled(True)
+        self.layout().labelForField(self.maxLineEdit).setDisabled(True)
+        super().setTitle(self._txt)
+    
+    def setTitle(self, title):
+        self.minLineEdit.setDisabled(False)
+        self.layout().labelForField(self.minLineEdit).setDisabled(False)
+        self.maxLineEdit.setDisabled(False)
+        self.layout().labelForField(self.maxLineEdit).setDisabled(False)
+        super().setTitle(title)
+
 class SelectFeaturesAutoTune(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
         layout = QGridLayout()
-        self.featureLabels = {}
+        self.featureGroupboxes = {}
         
-        featureLabel = ReadOnlySelectedFeatureLabel()
-        layout.addWidget(featureLabel, 0, 0, alignment=Qt.AlignCenter)
+        featureGroupbox = SelectedFeatureAutoTuneGroupbox()
+        layout.addWidget(featureGroupbox, 0, 0)
+        
+        self.featureGroupboxes[0] = featureGroupbox
+        
+        buttonsLayout = QVBoxLayout()
+        selectFeatureButton = SelectFeatureAutoTuneButton(featureGroupbox)    
+        addFeatureButton = acdc_widgets.addPushButton()   
+        clearPushButton = acdc_widgets.delPushButton()
+        buttonsLayout.addSpacing(20)
+        buttonsLayout.addWidget(selectFeatureButton)
+        buttonsLayout.addWidget(addFeatureButton)
+        buttonsLayout.addWidget(clearPushButton)
+        buttonsLayout.addStretch(1)
+        
+        layout.addLayout(buttonsLayout, 0, 1)
+
         layout.setColumnStretch(0, 1)
-        self.featureLabels[0] = featureLabel
-        
-        selectFeatureButton = SelectFeatureAutoTuneButton(featureLabel)
-        layout.addWidget(selectFeatureButton, 0, 1)
         layout.setColumnStretch(1, 0)
 
-        addFeatureButton = acdc_widgets.addPushButton()
-        layout.addWidget(addFeatureButton, 0, 2)
-        layout.setColumnStretch(2, 0)
-
         addFeatureButton.clicked.connect(self.addFeatureField)
+        clearPushButton.clicked.connect(self.clearTopFeatureField)
 
         self.setLayout(layout)
         self._layout = layout
+    
+    def clearTopFeatureField(self):
+        self.featureGroupboxes[0].clear()
     
     def addFeatureField(self):
         parentFormWidget = self.parentFormWidget
@@ -1464,19 +1511,24 @@ class SelectFeaturesAutoTune(QWidget):
         layout = self.layout()
         row = layout.rowCount()
         
-        featureLabel = ReadOnlySelectedFeatureLabel()
-        selectFeatureButton = SelectFeatureAutoTuneButton(featureLabel)
-        delButton = acdc_widgets.delPushButton()
+        featureGroupbox = SelectedFeatureAutoTuneGroupbox()
         
-        layout.addWidget(featureLabel, row, 0, alignment=Qt.AlignCenter)
-        layout.addWidget(selectFeatureButton, row, 1)
-        layout.addWidget(delButton, row, 2)
+        buttonsLayout = QVBoxLayout()
+        selectFeatureButton = SelectFeatureAutoTuneButton(featureGroupbox)
+        delButton = acdc_widgets.delPushButton()
+        buttonsLayout.addSpacing(20)
+        buttonsLayout.addWidget(selectFeatureButton)
+        buttonsLayout.addWidget(delButton)
+        
+        layout.addWidget(featureGroupbox, row, 0)
+        layout.addLayout(buttonsLayout, row, 1)
 
-        delButton._widgets = (featureLabel, selectFeatureButton)
+        delButton._widgets = (featureGroupbox, selectFeatureButton)
+        delButton._buttonsLayout = buttonsLayout
         delButton._row = row
         delButton.clicked.connect(self.removeFeatureField)
 
-        self.featureLabels[row] = featureLabel
+        self.featureGroupboxes[row] = featureGroupbox
     
     def removeFeatureField(self):
         delButton = self.sender()
@@ -1485,7 +1537,8 @@ class SelectFeaturesAutoTune(QWidget):
             widget.hide()
             self._layout.removeWidget(widget)
         delButton.hide()
+        self._layout.removeItem(delButton._buttonsLayout)
         self._layout.removeWidget(delButton)
-        del self.featureLabels[row]
+        del self.featureGroupboxes[row]
 
         
