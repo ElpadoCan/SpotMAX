@@ -3967,7 +3967,7 @@ class Kernel(_ParamsParser):
             f'Analysis started on: {self._report["datetime_started"]}\n'
             f'Analysis ended on: {datetime_stopped}\n'
             f'Log file: "{self.log_path}"\n\n'
-            f'Parameters file: "{self._report["params_path"]}"'
+            f'Parameters file: "{self._report["params_path"]}"\n\n'
         )
         pos_txt = None
         for pos_path, info in self._report['pos_info'].items():
@@ -4023,7 +4023,7 @@ class Kernel(_ParamsParser):
             self.quit(error)
         else:
             self.logger.exception(traceback_str)
-            if not hasattr(self, 'report'):
+            if not hasattr(self, '_report'):
                 return
             if self._current_pos_path not in self._report['pos_info']:
                 self._report['pos_info'][self._current_pos_path] = {
