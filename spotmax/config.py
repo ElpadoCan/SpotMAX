@@ -38,6 +38,16 @@ class ConfigParser(configparser.ConfigParser):
     def filename(self):
         return self._filename
 
+    def get(self, section, option, **kwargs):
+        value = super().get(section, option, **kwargs)
+        try:
+            comment_idx = value.find('#')
+            if comment_idx > 0:
+                value = value[:comment_idx]
+        except Exception as e:
+            pass
+        return value
+
 def initColorItems():
     if os.path.exists(colorItems_path):
         return
@@ -90,6 +100,7 @@ def get_bool(text):
     raise TypeError(f'The object "{text}" cannot be converted to a valid boolean object')
 
 def get_threshold_func(func_name):
+    func_name = func_name.strip()
     return getattr(skimage.filters, func_name)
 
 def get_valid_text(text):

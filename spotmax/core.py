@@ -3078,7 +3078,11 @@ class Kernel(_ParamsParser):
             threshold_val = threshold_func(aggr_spots_img.max(axis=0))
             prediction_mask = aggr_spots_img>threshold_val
             labels = prediction_mask.astype(np.uint8)
-            import pdb; pdb.set_trace()
+            # from . import _debug
+            # _debug._threshold_spots_img(aggr_spots_img)
+            # from acdctools.plot import imshow
+            # imshow(aggr_spots_img, labels)
+            # import pdb; pdb.set_trace()
             return labels
 
         # Get prediction mask by thresholding objects separately

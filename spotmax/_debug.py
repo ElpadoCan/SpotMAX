@@ -192,3 +192,23 @@ def _spotfit_quality_control(QC_limit, all_gof_metrics):
     plt.show()
 
     import pdb; pdb.set_trace()
+
+def _threshold_spots_img(spots_img):
+    import skimage.filters
+    from acdctools.plot import imshow
+    threshold_func_names = (
+        'threshold_li', 
+        'threshold_otsu', 
+        'threshold_triangle', 
+        'threshold_yen', 
+        'threshold_isodata', 
+        'threshold_minimum'
+    )
+    all_thresholded = []
+    for func_name in threshold_func_names:
+        thresh_func = getattr(skimage.filters, func_name)
+        thresh_val = thresh_func(spots_img.max(axis=0))
+        prediction_mask = spots_img>thresh_val
+        all_thresholded.append(prediction_mask)
+    imshow(spots_img, *all_thresholded, axis_titles=threshold_func_names)
+    import pdb; pdb.set_trace()
