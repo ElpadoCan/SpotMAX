@@ -3346,10 +3346,10 @@ class Kernel(_ParamsParser):
                     df_obj_spots_det = df_obj_spots_gop.copy()
                 
                 # if self.debug and obj.label == 79:
-                #     from . import _debug
-                #     _debug._spots_filtering(
-                #         local_spots_img, df_obj_spots_gop, obj, obj_image
-                #     )
+                # from . import _debug
+                # _debug._spots_filtering(
+                #     local_spots_img, df_obj_spots_gop, obj, obj_image
+                # )
                 
                 df_obj_spots_gop = self.filter_spots(
                     df_obj_spots_gop, gop_filtering_thresholds,
@@ -3853,6 +3853,7 @@ class Kernel(_ParamsParser):
                 queries.append(f'({feature_name} > {_min})')
             if _max is not None:
                 queries.append(f'({feature_name} < {_max})')
+
         if not queries:
             return df
         

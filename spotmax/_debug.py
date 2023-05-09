@@ -65,9 +65,15 @@ def _spots_filtering(local_spots_img, df_obj_spots_gop, obj, obj_image):
         'spot_vs_backgr_effect_size_cohen',
         'spot_vs_backgr_effect_size_glass'
     ]
-    points_data = df_obj_spots_gop[data_cols].reset_index()
+    points_data = (
+        df_obj_spots_gop[data_cols]
+        .reset_index()
+    )
     zyx_cols.extend(data_cols)
-    printl(df_obj_spots_gop[zyx_cols])
+    printl(
+        df_obj_spots_gop[zyx_cols]
+        .sort_values('spot_vs_backgr_effect_size_glass', ascending=False)
+    )
     imshow(
         (local_spots_img/local_spots_img.max()*255).astype(np.uint8), 
         obj_image.astype(np.uint8), 
@@ -210,5 +216,5 @@ def _threshold_spots_img(spots_img):
         thresh_val = thresh_func(spots_img.max(axis=0))
         prediction_mask = spots_img>thresh_val
         all_thresholded.append(prediction_mask)
-    imshow(spots_img, *all_thresholded, axis_titles=threshold_func_names)
+    imshow(spots_img, *all_thresholded, axis_titles=('image', *threshold_func_names))
     import pdb; pdb.set_trace()
