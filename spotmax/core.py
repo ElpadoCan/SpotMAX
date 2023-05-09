@@ -2005,6 +2005,7 @@ class _spotFIT(spheroid):
         _spot_surf_means = [0]*num_spots
         _spot_surf_stds = [0]*num_spots
         _spot_B_mins = [0]*num_spots
+        drop_spots_ids = set()
         for i in range(max_i+1):
             # Note that expanded_labels has id from df_spots_ID
             # expanded_labels = transformations.expand_labels(
@@ -2035,6 +2036,10 @@ class _spotFIT(spheroid):
                     exanped_spot_mask, prev_iter_spot_mask
                 )
                 surf_vals = spots_img_denoise[s_obj.slice][local_spot_surf_mask]
+                if len(surf_vals) == 0:
+                    drop_spots_ids.add(id)
+                    continue
+                    
                 surf_mean = surf_vals.mean()
 
                 if surf_mean > limit and i < max_i:
@@ -2074,9 +2079,9 @@ class _spotFIT(spheroid):
                 break
 
         self.spots_radii_pxl = np.column_stack(
-                                        (self.spots_z_size_pxl,
-                                         self.spots_yx_size_pxl,
-                                         self.spots_yx_size_pxl)
+            (self.spots_z_size_pxl, 
+             self.spots_yx_size_pxl, 
+             self.spots_yx_size_pxl)
         )
 
         self.df_spots_ID['spotsize_yx_radius_um'] = self.spots_yx_size_um
@@ -2090,7 +2095,9 @@ class _spotFIT(spheroid):
         self.df_spots_ID['spot_surf_mean'] = _spot_surf_means
         self.df_spots_ID['spot_surf_std'] = _spot_surf_stds
         self.df_spots_ID['spot_B_min'] = _spot_B_mins
-
+        
+        self.df_spots_ID = self.df_spots_ID.drop(index=drop_spots_ids)
+        
         # Used as a lower bound for B parameter in spotfit
         self.B_mins = _spot_B_mins
 
