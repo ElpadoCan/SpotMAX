@@ -377,7 +377,10 @@ def readStoredParamsINI(ini_path, params):
             if dtype == str:
                 config_value = configPars.get(section, option)
             elif dtype == int:
-                config_value = configPars.getint(section, option)
+                try:
+                    config_value = configPars.getint(section, option)
+                except Exception as e:
+                    config_value = None
             elif isinstance(defaultVal, bool):
                 try:
                     config_value = configPars.getboolean(section, option)

@@ -1169,7 +1169,8 @@ class _ParamsParser(_DataLoader):
             if not isinstance(value, bool):
                 continue
             if value:
-                # At least one option suggests tha ref. channel is required.
+                # At least one option suggests that ref. channel is required.
+                param_requiring_ref_ch = options['desc']
                 break
         else:
             return missing_ref_ch_msg
@@ -1178,6 +1179,10 @@ class _ParamsParser(_DataLoader):
             '[ERROR]: You requested to use the reference channel for the analysis '
             'but the entry "Reference channel end name or path" is missing in the '
             '.ini params file.\n\n'
+            'If you do not need a reference channel, then set the following '
+            'parameters in the parameters file:\n\n'
+            f'   - {param_requiring_ref_ch} = False'
+            '\n\n'
         )
 
         return missing_ref_ch_msg
@@ -3073,6 +3078,7 @@ class Kernel(_ParamsParser):
             threshold_val = threshold_func(aggr_spots_img.max(axis=0))
             prediction_mask = aggr_spots_img>threshold_val
             labels = prediction_mask.astype(np.uint8)
+            import pdb; pdb.set_trace()
             return labels
 
         # Get prediction mask by thresholding objects separately
