@@ -2624,6 +2624,12 @@ class Kernel(_ParamsParser):
 
     def _preprocess(self, image_data, verbose=True):
         SECTION = 'Pre-processing'
+        ANCHOR = 'removeHotPixels'
+        options = self._params[SECTION][ANCHOR]
+        do_remove_hot_pixels = options.get('loadedVal')
+        if do_remove_hot_pixels:
+            image_data = skimage.morphology.opening(image_data)
+        
         ANCHOR = 'gaussSigma'
         options = self._params[SECTION][ANCHOR]
         sigma = options.get('loadedVal')
@@ -3315,7 +3321,6 @@ class Kernel(_ParamsParser):
                 local_ref_ch_mask = None
 
             # Filter according to goodness-of-peak test
-            # CONTINUE FROM HERE
             if ref_ch_img is not None:
                 local_ref_ch_img = ref_ch_img[obj_slice]
             else:

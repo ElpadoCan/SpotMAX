@@ -1,5 +1,6 @@
 # Custom ignores
 .vscode
+**/.DS_Store
 data/*
 mytests
 notebooks/test.ipynb

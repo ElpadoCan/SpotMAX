@@ -621,6 +621,17 @@ def _pre_processing_params():
             'actions': None,
             'dtype': get_bool
         },
+        'removeHotPixels': {
+            'desc': 'Remove hot pixels',
+            'initialVal': True,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
         'gaussSigma': {
             'desc': 'Initial gaussian filter sigma',
             'initialVal': 0.75,
