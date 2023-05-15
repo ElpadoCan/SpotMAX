@@ -1002,7 +1002,7 @@ class _ParamsParser(_DataLoader):
     def _get_missing_metadata(self):
         SECTION = 'METADATA'
         missing_metadata = []
-        for param_name, options in self._params[SECTION].items():
+        for anchor, options in self._params[SECTION].items():
             dtype_converter = options.get('dtype')
             if dtype_converter is None:
                 continue
@@ -1016,11 +1016,72 @@ class _ParamsParser(_DataLoader):
                 missing_metadata.append(options['desc'])
         return missing_metadata
 
+    def _check_timelapse_metadata(self, missing_metadata):
+        SECTION = 'METADATA'
+        timelapse_metadata = ('SizeT', 'stopFrameNum')
+        loaded_timelapse_metadata = {}
+        for anchor, options in self._params[SECTION].items():
+            if anchor not in timelapse_metadata:
+                continue
+            desc = options['desc']
+            if desc in missing_metadata:
+                loaded_value = 1
+            else:
+                loaded_value = self._params[SECTION][anchor]['loadedVal']
+            loaded_timelapse_metadata[desc] = (anchor, loaded_value)
+        
+        if any([val>1 for _, val in loaded_timelapse_metadata.values()]):
+            # One of the timelapse metadata value suggest we are dealing with 
+            # timelapse data and metadata is required.
+            return
+        
+        # Both timelapse values are missing or 1 --> it is fine if they are missing
+        for desc, (anchor, loaded_value) in loaded_timelapse_metadata.items():          
+            self._params[SECTION][anchor]['loadedVal'] = 1
+            try:
+                missing_metadata.remove(desc)
+            except Exception as e:
+                pass
+        return missing_metadata
+    
+    def _check_zstack_metadata(self, missing_metadata):
+        SECTION = 'METADATA'
+        zstack_metadata = ('SizeZ', 'voxelDepth', 'zResolutionLimit')
+        loaded_zstack_metadata = {}
+        for anchor, options in self._params[SECTION].items():
+            if anchor not in zstack_metadata:
+                continue
+            desc = options['desc']
+            if desc in missing_metadata:
+                loaded_value = 1
+            else:
+                loaded_value = self._params[SECTION][anchor]['loadedVal']
+            loaded_zstack_metadata[desc] = (anchor, loaded_value)
+        
+        if any([val>1 for _, val in loaded_zstack_metadata.values()]):
+            # One of the zstack metadata value suggest we are dealing with 
+            # zstack data and metadata is required.
+            return
+        
+        # Both zstack values are missing or 1 --> it is fine if they are missing
+        for desc, (anchor, loaded_value) in loaded_zstack_metadata.items():          
+            self._params[SECTION][anchor]['loadedVal'] = 1
+            try:
+                missing_metadata.remove(desc)
+            except Exception as e:
+                pass
+        return missing_metadata
+    
     def check_metadata(self):
         missing_metadata = self._get_missing_metadata()
         if not missing_metadata:
             return
 
+        missing_metadata = self._check_timelapse_metadata(missing_metadata)
+        missing_metadata = self._check_zstack_metadata(missing_metadata)
+        if not missing_metadata:
+            return
+        
         missing_metadata_str = [f'    * {v}' for v in missing_metadata]
         missing_metadata_format = '\n'.join(missing_metadata_str)
         print('*'*50)
@@ -1233,7 +1294,6 @@ class _ParamsParser(_DataLoader):
             for param in missing_params
         ]
         missing_params_format = '\n'.join(missing_params_str)
-        print('*'*50)
         err_msg = (
             f'[WARNING]: The configuration file "{self.ini_params_filename}" is missing '
             'the following parameters:\n\n'

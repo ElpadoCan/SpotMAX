@@ -361,18 +361,23 @@ def readStoredParamsINI(ini_path, params):
     section_params = list(params.values())
     configPars = config.ConfigParser()
     configPars.read(ini_path, encoding="utf-8")
-    configSections = configPars.sections()
     for section, section_params in zip(sections, section_params):
         anchors = list(section_params.keys())
         for anchor in anchors:
             option = section_params[anchor]['desc']
             defaultVal = section_params[anchor]['initialVal']
             config_value = None
-            if section not in configPars:
+            if not configPars.has_section(section):
                 params[section][anchor]['isSectionInConfig'] = False
                 params[section][anchor]['loadedVal'] = None
                 continue
+            else:
+                params[section][anchor]['isSectionInConfig'] = True
             
+            if not configPars.has_option(section, option):
+                params[section][anchor]['loadedVal'] = None
+                continue
+
             dtype = params[section][anchor].get('dtype')
             if dtype == str:
                 config_value = configPars.get(section, option)
@@ -402,7 +407,6 @@ def readStoredParamsINI(ini_path, params):
                 except Exception as e:
                     config_value = None
 
-            params[section][anchor]['isSectionInConfig'] = True
             params[section][anchor]['loadedVal'] = config_value
     return params
 
