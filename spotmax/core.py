@@ -843,7 +843,11 @@ class _ParamsParser(_DataLoader):
             elif io.is_images_path(exp_path):
                 pos_path = os.path.dirname(exp_path)
                 pos_foldername = os.path.basename(pos_path)
-                exp_path = os.path.dirname(os.path.dirname(pos_path))
+                if pos_foldername.startswith('Position_'):
+                    exp_path = os.path.dirname(os.path.dirname(pos_path))
+                else:
+                    # Images folder without a Position_n folder as parent folder
+                    exp_path = os.path.dirname(pos_path)
                 exp_paths = (
                     {exp_path: {'pos_foldernames': [pos_foldername]}}
                 )
@@ -3221,7 +3225,10 @@ class Kernel(_ParamsParser):
 
     def _from_aggr_coords_to_local(self, aggr_spots_coords, aggregated_lab):
         aggr_lab_rp = skimage.measure.regionprops(aggregated_lab)
-        zz, yy, xx = aggr_spots_coords.T
+        if len(aggr_spots_coords) == 0:
+            zz, yy, xx = [], [], []
+        else:
+            zz, yy, xx = aggr_spots_coords.T
         zeros = [0]*len(zz)
         df_spots_coords = pd.DataFrame({
             'z_aggr': zz, 'y_aggr': yy, 'x_aggr': xx, 
@@ -3296,6 +3303,7 @@ class Kernel(_ParamsParser):
         df_spots_coords, num_spots_objs_txts = self._from_aggr_coords_to_local(
             aggr_spots_coords, aggregated_lab
         )
+        import pdb; pdb.set_trace()
 
         # if self.debug:
         #     from . import _debug
@@ -3365,7 +3373,10 @@ class Kernel(_ParamsParser):
             )
             if df_obj_spots_det is None:
                 # 0 spots for this obj
-                s = f'  * Object ID {obj.label} = 0 --> 0 (0 iterations)'
+                s = (
+                    f'  * Number of spots for object ID {obj.label} = 0 '
+                    '--> 0 (0 iterations)'
+                )
                 num_spots_filtered_log.append(s)
                 continue
             
@@ -4463,7 +4474,7 @@ class Kernel(_ParamsParser):
                     text_to_append=text_to_append
                 )      
                 if dfs is None:
-                    # Error raised, logged and dfs is None
+                    # Error raised, logged while dfs is None
                     continue
                 self.save_dfs(
                     pos_path, dfs, run_number=run_number, 
