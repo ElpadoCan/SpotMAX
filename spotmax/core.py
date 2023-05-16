@@ -3134,7 +3134,6 @@ class Kernel(_ParamsParser):
             zyx_resolution_limit_pxl, lineage_table=lineage_table,
             verbose=verbose
         )
-        import pdb; pdb.set_trace()
         
         df_spots_det, df_spots_gop = self._spots_filter(
             df_spots_coords, spots_img, 
