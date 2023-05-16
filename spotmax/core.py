@@ -971,6 +971,8 @@ class _ParamsParser(_DataLoader):
             physical_size_y, physical_size_z, z_resolution_limit_um, 
             yx_resolution_multiplier
         )
+        if metadata['SizeZ'] == 1:
+            zyx_resolution_limit_pxl = (0, *zyx_resolution_limit_pxl[1:])
         metadata['zyxResolutionLimitPxl'] = zyx_resolution_limit_pxl
         metadata['zyxResolutionLimitUm'] = zyx_resolution_limit_um
         deltaTolerance = np.array(zyx_resolution_limit_pxl)
@@ -2792,12 +2794,16 @@ class Kernel(_ParamsParser):
         
         backgr_mean = backgr_vals.mean()
         backgr_mean = backgr_mean if backgr_mean>=0 else 0
-        backgr_std = backgr_vals.std()
-        gamma_shape = np.square(backgr_mean/backgr_std)
-        gamma_scale = np.square(backgr_std)/backgr_mean
-        img_backgr = rng.gamma(
-            gamma_shape, gamma_scale, size=lab_mask_obj.image.shape
+        backgr_std = backgr_vals.std()/3
+        # gamma_shape = np.square(backgr_mean/backgr_std)
+        # gamma_scale = np.square(backgr_std)/backgr_mean
+        # img_backgr = rng.gamma(
+        #     gamma_shape, gamma_scale, size=lab_mask_obj.image.shape
+        # )
+        img_backgr = rng.normal(
+            backgr_mean, backgr_std, size=lab_mask_obj.image.shape
         )
+        np.clip(img_backgr, 0, 1, out=img_backgr)
 
         img_backgr[lab_mask_obj.image] = img_local[lab_mask_obj.image]
 
@@ -3017,8 +3023,13 @@ class Kernel(_ParamsParser):
         z, y, x = np.ogrid[-d:d+1, -wh:wh+1, -wh:wh+1]
 
         # 3D spheroid equation
-        mask = (x**2 + y**2)/(yr**2) + z**2/(zr**2) <= 1
-
+        if zr > 0:
+            mask = (x**2 + y**2)/(yr**2) + z**2/(zr**2) <= 1
+            # # Remove empty slices
+            # mask = mask[np.any(mask, axis=(0,1))]
+        else:
+            mask = (x**2 + y**2)/(yr**2) <= 1
+        
         return mask
     
     def _distance_transform_edt(self, mask):
@@ -3123,6 +3134,7 @@ class Kernel(_ParamsParser):
             zyx_resolution_limit_pxl, lineage_table=lineage_table,
             verbose=verbose
         )
+        import pdb; pdb.set_trace()
         
         df_spots_det, df_spots_gop = self._spots_filter(
             df_spots_coords, spots_img, 
@@ -3227,6 +3239,10 @@ class Kernel(_ParamsParser):
         aggr_lab_rp = skimage.measure.regionprops(aggregated_lab)
         if len(aggr_spots_coords) == 0:
             zz, yy, xx = [], [], []
+        elif aggr_spots_coords.shape[1] == 2:
+            # Add z=0 for spots detected in 2D images
+            yy, xx = aggr_spots_coords.T
+            zz = [0]*len(xx)
         else:
             zz, yy, xx = aggr_spots_coords.T
         zeros = [0]*len(zz)
@@ -3289,9 +3305,14 @@ class Kernel(_ParamsParser):
             pass
 
         if detection_method == 'peak_local_max':
-            aggr_spots_coords = skimage.feature.peak_local_max(
-                aggr_spots_img, footprint=footprint, labels=labels
-            )
+            try:
+                aggr_spots_coords = skimage.feature.peak_local_max(
+                    np.squeeze(aggr_spots_img), 
+                    footprint=np.squeeze(footprint), 
+                    labels=np.squeeze(labels)
+                )
+            except Exception as e:
+                pass
         elif detection_method == 'label_prediction_mask':
             prediction_lab = skimage.measure.label(labels>0)
             prediction_lab_rp = skimage.measure.regionprops(prediction_lab)
@@ -3303,7 +3324,6 @@ class Kernel(_ParamsParser):
         df_spots_coords, num_spots_objs_txts = self._from_aggr_coords_to_local(
             aggr_spots_coords, aggregated_lab
         )
-        import pdb; pdb.set_trace()
 
         # if self.debug:
         #     from . import _debug
@@ -3373,10 +3393,7 @@ class Kernel(_ParamsParser):
             )
             if df_obj_spots_det is None:
                 # 0 spots for this obj
-                s = (
-                    f'  * Number of spots for object ID {obj.label} = 0 '
-                    '--> 0 (0 iterations)'
-                )
+                s = f'  * Object ID {obj.label} = 0 --> 0 (0 iterations)'
                 num_spots_filtered_log.append(s)
                 continue
             
