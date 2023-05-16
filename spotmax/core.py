@@ -2693,6 +2693,7 @@ class Kernel(_ParamsParser):
         ANCHOR = 'removeHotPixels'
         options = self._params[SECTION][ANCHOR]
         do_remove_hot_pixels = options.get('loadedVal')
+        import pdb; pdb.set_trace()
         if do_remove_hot_pixels:
             image_data = skimage.morphology.opening(image_data)
         
@@ -3205,7 +3206,7 @@ class Kernel(_ParamsParser):
                 obj_slice = tuple([slice(0,d) for d in obj.image.shape])
                 predict_mask_obj[obj_slice] = predict_mask_merged[obj_slice]
                 labels[obj.slice][predict_mask_obj] = obj.label
-        return labels
+        return labels.astype(np.int32)
 
     def _init_df_obj_spots(self, df_spots_coords, obj, crop_obj_start):
         if obj.label not in df_spots_coords.index:
@@ -3305,14 +3306,11 @@ class Kernel(_ParamsParser):
             pass
 
         if detection_method == 'peak_local_max':
-            try:
-                aggr_spots_coords = skimage.feature.peak_local_max(
-                    np.squeeze(aggr_spots_img), 
-                    footprint=np.squeeze(footprint), 
-                    labels=np.squeeze(labels)
-                )
-            except Exception as e:
-                pass
+            aggr_spots_coords = skimage.feature.peak_local_max(
+                np.squeeze(aggr_spots_img), 
+                footprint=np.squeeze(footprint), 
+                labels=np.squeeze(labels)
+            )
         elif detection_method == 'label_prediction_mask':
             prediction_lab = skimage.measure.label(labels>0)
             prediction_lab_rp = skimage.measure.regionprops(prediction_lab)
