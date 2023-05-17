@@ -2693,8 +2693,15 @@ class Kernel(_ParamsParser):
         ANCHOR = 'removeHotPixels'
         options = self._params[SECTION][ANCHOR]
         do_remove_hot_pixels = options.get('loadedVal')
+        if verbose and do_remove_hot_pixels:
+            print('')
+            self.logger.info(f'Removing hot pixels...')
         if do_remove_hot_pixels:
-            image_data = skimage.morphology.opening(image_data)
+            pbar = tqdm(total=len(image_data), ncols=100)
+            for z, image in enumerate(image_data):
+                image_data[z] = skimage.morphology.opening(image)
+                pbar.update()
+            pbar.close()
         
         ANCHOR = 'gaussSigma'
         options = self._params[SECTION][ANCHOR]
