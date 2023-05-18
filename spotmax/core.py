@@ -3638,7 +3638,13 @@ class Kernel(_ParamsParser):
             self, arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, 
             idx: Union[int, pd.Index], name: str='spot_vs_backgr'
         ):
-        tstat, pvalue = scipy.stats.ttest_ind(arr1, arr2, equal_var=False)
+        try:
+            tstat, pvalue = scipy.stats.ttest_ind(arr1, arr2, equal_var=False)
+        except FloatingPointError as e:
+            self.logger.info(
+                '[WARNING]: FloatingPointError while performing t-test.'
+            )
+            tstat, pvalue = np.nan, np.nan
         df.at[idx, f'{name}_ttest_tstat'] = tstat
         df.at[idx, f'{name}_ttest_pvalue'] = pvalue
 
@@ -4742,13 +4748,4 @@ def findContours(dataToCont, is_zstack=False):
                 contours_li = objContours(obj)
                 allObjContours[obj.label] = contours_li
             contCoords[z] = allObjContours
-        dataToCont2D = dataToCont.max(axis=0)
-    else:
-        dataToCont2D = dataToCont.max(axis=0)
-
-    lab = skimage.measure.label(dataToCont2D)
-    rp = skimage.measure.regionprops(lab)
-    for obj in rp:
-        contours_li = objContours(obj)
-        contCoords['proj'][obj.label] = contours_li
-    return contCoords
+        dataToCont2D = dataToCont.max
