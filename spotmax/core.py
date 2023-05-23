@@ -4502,6 +4502,7 @@ class Kernel(_ParamsParser):
                 if dfs is None:
                     # Error raised, logged while dfs is None
                     continue
+                self.add_post_detection_features(dfs)
                 self.save_dfs(
                     pos_path, dfs, run_number=run_number, 
                     text_to_append=text_to_append, 
@@ -4532,6 +4533,19 @@ class Kernel(_ParamsParser):
 
         df_agg_dst.loc[missing_idx_df_agg_dst, cols] = vals
         return df_agg_dst
+
+    def add_post_detection_features(self, dfs):
+        zyx_voxel_size = self.metadata['zyxVoxelSize']
+        for key, df in dfs.items():
+            if 'z' not in df.columns:
+                continue
+            features.add_consecutive_spots_distance(df, zyx_voxel_size)
+            
+            if 'z_fit' not in df.columns:
+                continue
+            features.add_consecutive_spots_distance(
+                df, zyx_voxel_size, suffix='_fit'
+            )
 
     def save_dfs(
             self, folder_path, dfs, run_number=1, text_to_append='', 

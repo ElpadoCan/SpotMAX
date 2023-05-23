@@ -275,3 +275,18 @@ def feature_names_to_col_names_mapper():
             colname = f'{prefix}{endname}{suffix}'
             mapper[f'{group_name}, {feature_name}'] = colname
     return mapper
+
+def add_consecutive_spots_distance(df, zyx_voxel_size, suffix=''):
+    coords_colnames = ['z', 'y', 'x']
+    if suffix:
+        coords_colnames = [f'{col}{suffix}' for col in coords_colnames]
+    df_coords = df[coords_colnames]
+    df_coords_diff = df_coords.rolling(2).apply(lambda x: x.iloc[1] - x.iloc[0])
+    df[f'consecutive_spots_distance{suffix}_voxel'] = np.linalg.norm(
+        df_coords_diff.values, axis=1
+    )
+    df_coords_diff_physical_units = df_coords_diff*zyx_voxel_size
+    df[f'consecutive_spots_distance{suffix}_um'] = np.linalg.norm(
+        df_coords_diff_physical_units.values, axis=1
+    )
+    return df
