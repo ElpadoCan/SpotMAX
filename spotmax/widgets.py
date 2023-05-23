@@ -170,7 +170,7 @@ class QSpinBoxOdd(QSpinBox):
             self.setValue(val+1)
 
 class AutoTuningButton(QPushButton):
-    sigToggled = pyqtSignal(bool)
+    sigToggled = pyqtSignal(object, bool)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

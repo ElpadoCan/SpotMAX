@@ -97,6 +97,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         h5files = posData.getSpotmaxH5files()
         self.spotsItems.setPosition(posData.spotmax_out_path)
         toolbutton = self.spotsItems.addLayer(h5files)
+        if toolbutton is None:
+            self.logger.info(
+                'Add spots layer process cancelled.'
+            )
+            return
         self.spotmaxToolbar.addWidget(toolbutton)
         self.ax1.addItem(toolbutton.item)
 
