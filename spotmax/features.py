@@ -289,4 +289,3 @@ def add_consecutive_spots_distance(df, zyx_voxel_size, suffix=''):
     df[f'consecutive_spots_distance{suffix}_um'] = np.linalg.norm(
         df_coords_diff_physical_units.values, axis=1
     )
-    return df

@@ -100,7 +100,7 @@ def setup_cli_logger(name='spotmax_cli', logs_path=None):
 
     date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     id = uuid4()
-    log_filename = f'.{date_time}_{name}_{id}_stdout.log'
+    log_filename = f'{date_time}_{name}_{id}_stdout.log'
     log_path = os.path.join(logs_path, log_filename)
 
     output_file_handler = logger_file_handler(log_path)
