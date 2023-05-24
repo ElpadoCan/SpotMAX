@@ -4,6 +4,7 @@ import re
 import json
 import pathlib
 from pprint import pprint
+from typing import Any
 import pandas as pd
 import configparser
 import skimage.filters
@@ -99,9 +100,33 @@ def get_bool(text):
         return False
     raise TypeError(f'The object "{text}" cannot be converted to a valid boolean object')
 
+class InvalidThresholdFunc:
+    def __init__(self, func_name):
+        self._name = func_name
+    
+    def __call__(self, *args, **kwds):
+        raise AttributeError(
+            f'`{self._name}` is not a valid thresholding function. '
+            'Carefully check for typos. Available automatic thresholding '
+            'methods are the following:\n\n'
+            '  * threshold_li\n'
+            '  * threshold_otsu\n' 
+            '  * threshold_isodata\n'
+            '  * threshold_triangle\n'
+            '  * threshold_minimum\n'
+            '  * threshold_mean\n'
+            '  * threshold_yen\n\n'
+            'You can find more details here '
+            'https://scikit-image.org/docs/dev/auto_examples/segmentation/plot_thresholding.html'
+        )
+
 def get_threshold_func(func_name):
     func_name = func_name.strip()
-    return getattr(skimage.filters, func_name)
+    try:
+        func = getattr(skimage.filters, func_name)
+    except Exception as e:
+        func = InvalidThresholdFunc(func_name)
+    return func
 
 def get_valid_text(text):
     return re.sub('[^\w\-.]', '_', text)

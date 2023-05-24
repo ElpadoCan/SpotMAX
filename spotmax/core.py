@@ -832,6 +832,7 @@ class _ParamsParser(_DataLoader):
         loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
         user_run_number = self._params[SECTION]['runNumber'].get('loadedVal')
         self.exp_paths_list = []
+        run_num_log = []
         for exp_path in loaded_exp_paths:
             if io.is_pos_path(exp_path):
                 pos_path = exp_path
@@ -861,7 +862,6 @@ class _ParamsParser(_DataLoader):
             pathScanner.getExpPaths(exp_path)
             pathScanner.infoExpPaths(pathScanner.expPaths)
             run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
-
             if len(run_nums) > 1 and user_run_number is None:
                 # Multiple run numbers detected
                 run_number = self._ask_user_multiple_run_nums(run_nums)
@@ -911,8 +911,10 @@ class _ParamsParser(_DataLoader):
                     
                 run_number = user_run_number
             self._store_run_number(run_number, pathScanner.paths, exp_paths)
+            run_num_log.append(f'  * Run number = {run_number} ("{exp_path}")')
             self.exp_paths_list.append(exp_paths)
         self.set_channel_names()
+        self.logger.info('\n'.join(run_num_log))
     
     def set_channel_names(self):
         SECTION = 'File paths and channels'
@@ -4547,6 +4549,27 @@ class Kernel(_ParamsParser):
                 df, zyx_voxel_size, suffix='_fit'
             )
 
+    def _copy_ini_params_to_spotmax_out(
+            self, spotmax_out_path, run_number, text_to_append
+        ):
+        analysis_inputs_filepath = os.path.join(
+            spotmax_out_path, 
+            f'{run_number}_analysis_parameters{text_to_append}.ini'
+        )
+        
+        # Add the run number
+        configPars = config.ConfigParser()
+        configPars.read(self.ini_params_file_path, encoding="utf-8")
+        SECTION = 'File paths and channels'
+        if SECTION not in configPars.sections():
+            configPars[SECTION] = {}
+        ANCHOR = 'runNumber'
+        option = self._params[SECTION][ANCHOR]['desc']
+        configPars[SECTION][option] = str(run_number)
+        
+        with open(analysis_inputs_filepath, 'w', encoding="utf-8") as file:
+            configPars.write(file)
+    
     def save_dfs(
             self, folder_path, dfs, run_number=1, text_to_append='', 
             df_spots_file_ext='.h5'
@@ -4576,11 +4599,9 @@ class Kernel(_ParamsParser):
                         f'[WARNING]: File "{file_path}" could not be deleted.'
                     )
 
-        analysis_inputs_filepath = os.path.join(
-            spotmax_out_path, 
-            f'{run_number}_analysis_parameters{text_to_append}.ini'
+        self._copy_ini_params_to_spotmax_out(
+            spotmax_out_path, run_number, text_to_append
         )
-        shutil.copy2(self.ini_params_file_path, analysis_inputs_filepath)
 
         for key, filename in DFs_FILENAMES.items():
             filename = filename.replace('*rn*', str(run_number))
