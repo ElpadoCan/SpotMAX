@@ -248,7 +248,8 @@ def _filepaths_params():
             'actions': None,
             'dtype': get_exp_paths,
             'parser': parse_list_to_configpars,
-            'editButtonCallback': 'dock_params_callbacks.editFilePathsToAnalyse'
+            'editButtonCallback': 'dock_params_callbacks.editFilePathsToAnalyse',
+            'valueSetter': 'setText'
         },
         'spotsEndName': {
             'desc': 'Spots channel end name or path',
@@ -261,7 +262,8 @@ def _filepaths_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
-            'dtype': str
+            'dtype': str,
+            'valueSetter': 'setText'
         },
         'segmEndName': {
             'desc': 'Cells segmentation end name or path',
@@ -274,7 +276,8 @@ def _filepaths_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
-            'dtype': str
+            'dtype': str,
+            'valueSetter': 'setText'
         },
         'refChEndName': {
             'desc': 'Reference channel end name or path',
@@ -326,7 +329,8 @@ def _filepaths_params():
             'addEditButton': False,
             'formWidgetFunc': 'acdc_widgets.SpinBox',
             'actions': None,
-            'dtype': int
+            'dtype': int,
+            'valueSetter': 'setValue'
         },
         'textToAppend': {
             'desc': 'Text to append at the end of the output files',
@@ -502,7 +506,8 @@ def _metadata_params():
             'addAutoButton': False,
             'formWidgetFunc': 'widgets.intLineEdit',
             'actions': None,
-            'dtype': int
+            'dtype': int,
+            'valueSetter': 'setValue'
         },
         'stopFrameNum': {
             'desc': 'Analyse until frame number',
@@ -514,7 +519,8 @@ def _metadata_params():
             'addAutoButton': False,
             'formWidgetFunc': 'widgets.intLineEdit',
             'actions': None,
-            'dtype': int
+            'dtype': int,
+            'valueSetter': 'setValue'
         },
         'SizeZ': {
             'desc': 'Number of z-slices (SizeZ)',
@@ -526,7 +532,8 @@ def _metadata_params():
             'addAutoButton': False,
             'formWidgetFunc': 'widgets.intLineEdit',
             'actions': None,
-            'dtype': int
+            'dtype': int,
+            'valueSetter': 'setValue'
         },
         'pixelWidth': {
             'desc': 'Pixel width (μm)',
@@ -539,7 +546,8 @@ def _metadata_params():
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
-            'dtype': float
+            'dtype': float,
+            'valueSetter': 'setValue'
         },
         'pixelHeight': {
             'desc': 'Pixel height (μm)',
@@ -552,7 +560,8 @@ def _metadata_params():
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
-            'dtype': float
+            'dtype': float,
+            'valueSetter': 'setValue'
         },
         'voxelDepth': {
             'desc': 'Voxel depth (μm)',
@@ -565,7 +574,8 @@ def _metadata_params():
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
-            'dtype': float
+            'dtype': float,
+            'valueSetter': 'setValue'
         },
         'numAperture': {
             'desc': 'Numerical aperture',
@@ -578,7 +588,8 @@ def _metadata_params():
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
-            'dtype': float
+            'dtype': float,
+            'valueSetter': 'setValue'
         },
         'emWavelen': {
             'desc': 'Spots reporter emission wavelength (nm)',
@@ -591,7 +602,8 @@ def _metadata_params():
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
-            'dtype': float
+            'dtype': float,
+            'valueSetter': 'setValue'
         },
         'zResolutionLimit': {
             'desc': 'Spot minimum z-size (μm)',
@@ -874,7 +886,6 @@ def _spots_ch_params():
     }
     return spots_ch_params
 
-
 def analysisInputsParams(params_path=default_ini_path):
     # NOTE: if you change the anchors (i.e., the key of each second level
     # dictionary, e.g., 'spotsEndName') remember to change them also in
@@ -888,6 +899,9 @@ def analysisInputsParams(params_path=default_ini_path):
         'Configuration': _configuration_params()
     
     }
+    if params_path is None:
+        return params
+    
     if params_path.endswith('.ini'):
         params = io.readStoredParamsINI(params_path, params)
     else:

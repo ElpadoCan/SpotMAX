@@ -20,7 +20,7 @@ from cellacdc import apps as acdc_apps
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
-from . import widgets
+from . import widgets, config
 
 from . import qrc_resources
 
@@ -217,8 +217,63 @@ class spotMAX_Win(acdc_gui.guiWin):
 
     def loadingDataCompleted(self):
         super().loadingDataCompleted()
+        posData = self.data[self.pos_i]
+        self.setWindowTitle(f'spotMAX - GUI - "{posData.exp_path}"')
         self.spotmaxToolbar.setVisible(True)
         self.computeDockWidget.widget().autoTuneTabWidget.setDisabled(False)
+        
+        self.setRunNumbers()
+        
+        self.setAnalysisParameters()
+    
+    def setRunNumbers(self):
+        posData = self.data[self.pos_i]
+        # Scan and determine run numbers
+        pathScanner = io.expFolderScanner(
+            posData.exp_path, logger_func=self.logger.info
+        )
+        pathScanner.getExpPaths(posData.exp_path)
+        pathScanner.infoExpPaths(pathScanner.expPaths)
+        run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
+        self.loaded_exp_run_nums = run_nums
+        
+    def setAnalysisParameters(self):
+        paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
+        posData = self.data[self.pos_i]
+        segmFilename = os.path.basename(posData.segm_npz_path)
+        segmEndName = segmFilename[len(posData.basename):]
+        runNum = max(self.loaded_exp_run_nums) + 1
+        try:
+            emWavelen = posData.emWavelens[self.user_ch_name]
+        except Exception as e:
+            emWavelen = 500.0
+        loadedValues = {
+            'File paths and channels': [
+                {'anchor': 'filePathsToAnalyse', 'value': self.exp_path},
+                {'anchor': 'spotsEndName', 'value': self.user_ch_name},
+                {'anchor': 'segmEndName', 'value': segmEndName},
+                {'anchor': 'runNumber', 'value': runNum}
+            ],
+            'METADATA': [
+                {'anchor': 'SizeT', 'value': posData.SizeT},
+                {'anchor': 'stopFrameNum', 'value': posData.SizeT},
+                {'anchor': 'SizeZ', 'value': posData.SizeZ},
+                {'anchor': 'pixelWidth', 'value': posData.PhysicalSizeX},
+                {'anchor': 'pixelHeight', 'value': posData.PhysicalSizeY},
+                {'anchor': 'voxelDepth', 'value': posData.PhysicalSizeZ},
+                {'anchor': 'numAperture', 'value': posData.numAperture},
+                {'anchor': 'emWavelen', 'value': emWavelen}
+            ]
+        }
+        analysisParams = config.analysisInputsParams(params_path=None)
+        for section, params in loadedValues.items():
+            for paramValue in params:
+                anchor = paramValue['anchor']
+                widget = paramsGroupbox.params[section][anchor]['widget']
+                valueSetter = analysisParams[section][anchor]['valueSetter']
+                setterFunc = getattr(widget, valueSetter)
+                value = paramValue['value']
+                setterFunc(value)
     
     def resizeComputeDockWidget(self):
         paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
