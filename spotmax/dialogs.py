@@ -15,13 +15,13 @@ from natsort import natsorted
 
 from collections import defaultdict
 
-from PyQt5 import QtCore
-from PyQt5.QtCore import Qt, pyqtSignal, QEventLoop
-from PyQt5.QtGui import (
+from qtpy import QtCore
+from qtpy.QtCore import Qt, Signal, QEventLoop
+from qtpy.QtGui import (
     QFont, QFontMetrics, QTextDocument, QPalette, QColor,
     QIcon
 )
-from PyQt5.QtWidgets import (
+from qtpy.QtWidgets import (
     QDialog, QComboBox, QVBoxLayout, QHBoxLayout, QLabel, QApplication,
     QPushButton, QPlainTextEdit, QCheckBox, QTreeWidget, QTreeWidgetItem,
     QTreeWidgetItemIterator, QAbstractItemView, QFrame, QFormLayout,
@@ -175,15 +175,15 @@ class measurementsQGroupBox(QGroupBox):
             self.selectAllButton.setText('Select all')
 
 class guiQuickSettingsGroupbox(QGroupBox):
-    sigPxModeToggled = pyqtSignal(bool, bool)
-    sigChangeFontSize = pyqtSignal(int)
+    sigPxModeToggled = Signal(bool, bool)
+    sigChangeFontSize = Signal(int)
 
     def __init__(self, df_settings, parent=None):
         super().__init__(parent)
         self.setTitle('Quick settings')
 
         formLayout = QFormLayout()
-        formLayout.setFieldGrowthPolicy(QFormLayout.FieldsStayAtSizeHint)
+        formLayout.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.FieldsStayAtSizeHint)
         formLayout.setFormAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
         self.autoSaveToggle = acdc_widgets.Toggle()
@@ -270,7 +270,7 @@ class guiQuickSettingsGroupbox(QGroupBox):
         self.sigChangeFontSize.emit(self.fontSizeSpinBox.value())
 
 class guiBottomWidgets(QGroupBox):
-    sigAnnotOptionClicked = pyqtSignal(object)
+    sigAnnotOptionClicked = Signal(object)
 
     def __init__(
             self, side, zProjItems,  isCheckable=False, checked=False, 
@@ -499,7 +499,7 @@ class guiBottomWidgets(QGroupBox):
             combobox.setDisabled(True, applyToCheckbox=False)
 
 class guiTabControl(QTabWidget):
-    sigRunAnalysis = pyqtSignal(str, bool)
+    sigRunAnalysis = Signal(str, bool)
 
     def __init__(self, parent=None, logging_func=print):
         super().__init__(parent)
@@ -728,8 +728,8 @@ class AutoTuneGroupbox(QGroupBox):
         self.setFont(font)
 
 class AutoTuneTabWidget(QWidget):
-    sigStartAutoTune = pyqtSignal(object)
-    sigStopAutoTune = pyqtSignal(object)
+    sigStartAutoTune = Signal(object)
+    sigStopAutoTune = Signal(object)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -1018,8 +1018,8 @@ class analysisInputsQGBox(QGroupBox):
         print(self.sender().label.text())
 
 class spotStyleDock(QDockWidget):
-    sigOk = pyqtSignal(int)
-    sigCancel = pyqtSignal()
+    sigOk = Signal(int)
+    sigCancel = Signal()
 
     def __init__(self, title, parent=None):
         super().__init__(title, parent)
@@ -1072,7 +1072,7 @@ class spotStyleDock(QDockWidget):
 
         self.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.setFeatures(
-            QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable
+            QDockWidget.DockWidgetFeature.DockWidgetFloatable | QDockWidget.DockWidgetFeature.DockWidgetMovable
         )
 
     def ok_cb(self):
@@ -1587,9 +1587,9 @@ class QDialogListbox(QBaseDialog):
         listBox.setFont(font)
         listBox.addItems(items)
         if multiSelection:
-            listBox.setSelectionMode(QAbstractItemView.ExtendedSelection)
+            listBox.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         else:
-            listBox.setSelectionMode(QAbstractItemView.SingleSelection)
+            listBox.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         if currentItem is None:
             listBox.setCurrentRow(0)
         else:
@@ -1721,7 +1721,7 @@ class selectPathsSpotmax(QBaseDialog):
 
         pathSelector = QTreeWidget()
         self.pathSelector = pathSelector
-        pathSelector.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        pathSelector.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         pathSelector.setHeaderHidden(True)
         homePath = pathlib.Path(homePath)
         self.homePath = homePath
@@ -2122,10 +2122,10 @@ class DataFrameModel(QtCore.QAbstractTableModel):
     def dataFrame(self):
         return self._dataframe
 
-    dataFrame = QtCore.pyqtProperty(pd.DataFrame, fget=dataFrame,
+    dataFrame = QtCore.Property(pd.DataFrame, fget=dataFrame,
                                     fset=setDataFrame)
 
-    @QtCore.pyqtSlot(int, QtCore.Qt.Orientation, result=str)
+    @QtCore.Slot(int, QtCore.Qt.Orientation, result=str)
     def headerData(self, section: int,
                    orientation: QtCore.Qt.Orientation,
                    role: int = QtCore.Qt.DisplayRole):
@@ -2507,7 +2507,7 @@ def getSelectedExpPaths(utilityName, parent=None):
     return selectedExpPaths
 
 class SpotsItemPropertiesDialog(QBaseDialog):
-    sigDeleteSelecAnnot = pyqtSignal(object)
+    sigDeleteSelecAnnot = Signal(object)
 
     def __init__(self, h5files, parent=None, state=None):
         self.cancel = True

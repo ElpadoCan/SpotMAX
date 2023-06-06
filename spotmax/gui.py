@@ -7,11 +7,11 @@ from queue import Queue
 import numpy as np
 import pandas as pd
 
-from PyQt5.QtCore import (
+from qtpy.QtCore import (
     Qt, QTimer, QThreadPool, QThread, QMutex, QWaitCondition
 )
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
+from qtpy.QtGui import QIcon
+from qtpy.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
 
 from cellacdc import gui as acdc_gui
 from cellacdc import widgets as acdc_widgets
@@ -64,7 +64,7 @@ class spotMAX_Win(acdc_gui.guiWin):
 
         self.computeDockWidget.setWidget(computeTabControl)
         self.computeDockWidget.setFeatures(
-            QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable
+            QDockWidget.DockWidgetFeature.DockWidgetFloatable | QDockWidget.DockWidgetFeature.DockWidgetMovable
         )
         self.computeDockWidget.setAllowedAreas(
             Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea
@@ -287,7 +287,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def zSliceScrollBarActionTriggered(self, action):
         super().zSliceScrollBarActionTriggered(action)
-        if action != QAbstractSlider.SliderMove:
+        if action != QAbstractSlider.SliderAction.SliderMove:
             return
         posData = self.data[self.pos_i]
         self.spotsItems.setData(

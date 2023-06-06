@@ -6,23 +6,19 @@ import typing
 import webbrowser
 from pprint import pprint
 from functools import partial
-from PyQt5 import QtCore
+from qtpy import QtCore
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
-from PyQt5.QtCore import (
-    pyqtSignal, QTimer, Qt, QPoint, pyqtSlot, pyqtProperty,
-    QPropertyAnimation, QEasingCurve, QSequentialAnimationGroup,
-    QSize, QRectF, QPointF, QRect, QPoint, QEasingCurve, QRegExp,
-    QEvent, QEventLoop
+from qtpy.QtCore import (
+    Signal, QTimer, Qt, QRegExp, QEvent
 )
-from PyQt5.QtGui import (
-    QFont, QPalette, QColor, QPen, QPaintEvent, QBrush, QPainter,
-    QRegExpValidator, QIcon, QFontMetrics, QFocusEvent
+from qtpy.QtGui import (
+    QFont,  QPainter, QRegExpValidator, QIcon
 )
-from PyQt5.QtWidgets import (
+from qtpy.QtWidgets import (
     QTextEdit, QLabel, QProgressBar, QHBoxLayout, QToolButton, QCheckBox,
     QFormLayout, QWidget, QVBoxLayout, QMainWindow, QStyleFactory,
     QLineEdit, QSlider, QSpinBox, QGridLayout, QDockWidget,
@@ -170,7 +166,7 @@ class QSpinBoxOdd(QSpinBox):
             self.setValue(val+1)
 
 class AutoTuningButton(QPushButton):
-    sigToggled = pyqtSignal(object, bool)
+    sigToggled = Signal(object, bool)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -236,14 +232,14 @@ class StretchableEmptyWidget(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Expanding
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
 
 class VerticalSpacerEmptyWidget(QWidget):
     def __init__(self, parent=None, height=5) -> None:
         super().__init__(parent)
         self.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Minimum
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum
         )
         self.setFixedHeight(height)
 
@@ -277,7 +273,7 @@ class FeatureSelectorButton(QPushButton):
         self.setText(currentText)
 
 class FeatureSelectorDialog(acdc_apps.TreeSelectorDialog):
-    sigClose = pyqtSignal()
+    sigClose = Signal()
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -377,7 +373,7 @@ class GopFeaturesAndThresholdsGroupbox(QGroupBox):
         firstSelector = FeatureRangeSelector()
         self.addButton = acdc_widgets.addPushButton('  Add feature    ')
         self.addButton.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Expanding
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         for col, widget in enumerate(firstSelector.widgets):
             row, col = widget['pos']
@@ -400,7 +396,7 @@ class GopFeaturesAndThresholdsGroupbox(QGroupBox):
         selector = FeatureRangeSelector()
         delButton = acdc_widgets.delPushButton('Remove feature')
         delButton.setSizePolicy(
-            QSizePolicy.Expanding, QSizePolicy.Expanding
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         delButton.selector = selector
         for col, widget in enumerate(selector.widgets):
@@ -507,12 +503,12 @@ class _spotMinSizeLabels(QWidget):
         return ''
 
 class formWidget(QWidget):
-    sigApplyButtonClicked = pyqtSignal(object)
-    sigComputeButtonClicked = pyqtSignal(object)
-    sigBrowseButtonClicked = pyqtSignal(object)
-    sigAutoButtonClicked = pyqtSignal(object)
-    sigLinkClicked = pyqtSignal(str)
-    sigEditClicked = pyqtSignal(object)
+    sigApplyButtonClicked = Signal(object)
+    sigComputeButtonClicked = Signal(object)
+    sigBrowseButtonClicked = Signal(object)
+    sigAutoButtonClicked = Signal(object)
+    sigLinkClicked = Signal(str)
+    sigEditClicked = Signal(object)
 
     def __init__(
             self, widget,
@@ -742,7 +738,7 @@ class myFormLayout(QGridLayout):
         formWidget.row = row
             
 class myQScrollBar(QScrollBar):
-    sigActionTriggered = pyqtSignal(int)
+    sigActionTriggered = Signal(int)
 
     def __init__(self, *args, checkBox=None, label=None):
         QScrollBar.__init__(self, *args)
@@ -807,7 +803,7 @@ class myQComboBox(QComboBox):
 
     def eventFilter(self, object, event):
         # Disable wheel scroll on widgets to allow scroll only on scrollarea
-        if event.type() == QEvent.Wheel:
+        if event.type() == QEvent.Type.Wheel:
             event.ignore()
             return True
         return False
@@ -829,7 +825,7 @@ class myQComboBox(QComboBox):
             self.checkBox.setDisabled(disabled)
 
 class intLineEdit(QLineEdit):
-    valueChanged = pyqtSignal(int)
+    valueChanged = Signal(int)
 
     def __init__(self, *args, **kwargs):
         QLineEdit.__init__(self, *args, **kwargs)
@@ -874,7 +870,7 @@ class ReadOnlyDoubleSpinBox(acdc_widgets.DoubleSpinBox):
         self.setReadOnly(True)
 
 class floatLineEdit(QLineEdit):
-    valueChanged = pyqtSignal(float)
+    valueChanged = Signal(float)
 
     def __init__(
             self, *args, notAllowed=(0,), allowNegative=False, initial=None
@@ -941,8 +937,8 @@ def getOpenImageFileName(parent=None, mostRecentPath=''):
     return file_path
 
 class DblClickQToolButton(QToolButton):
-    sigDoubleClickEvent = pyqtSignal(object, object)
-    sigClickEvent = pyqtSignal(object, object)
+    sigDoubleClickEvent = Signal(object, object)
+    sigClickEvent = Signal(object, object)
 
     def __init__(self, *args, **kwargs):
         QToolButton.__init__(self, *args, **kwargs)
@@ -974,7 +970,7 @@ class DblClickQToolButton(QToolButton):
             self.sigClickEvent.emit(self, self.event)
 
 class ImageItem(pg.ImageItem):
-    sigHoverEvent = pyqtSignal(object, object)
+    sigHoverEvent = Signal(object, object)
 
     def __init__(self, *args, **kwargs):
         pg.ImageItem.__init__(self, *args, **kwargs)
@@ -983,7 +979,7 @@ class ImageItem(pg.ImageItem):
         self.sigHoverEvent.emit(self, event)
 
 class ScatterPlotItem(pg.ScatterPlotItem):
-    sigClicked = pyqtSignal(object, object, object)
+    sigClicked = Signal(object, object, object)
 
     def __init__(
             self, guiWin, side, what, clickedFunc,
@@ -1128,7 +1124,7 @@ class ScatterPlotItem(pg.ScatterPlotItem):
         pass
 
 class colorToolButton(QToolButton):
-    sigClicked = pyqtSignal()
+    sigClicked = Signal()
 
     def __init__(self, parent=None, color=(0,255,255)):
         super().__init__(parent)
@@ -1154,7 +1150,7 @@ class colorToolButton(QToolButton):
         pen = pg.mkPen(color=self.penColor, width=2)
         brush = pg.mkBrush(color=self.brushColor)
         try:
-            p.setRenderHint(QPainter.Antialiasing)
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
             p.setPen(pen)
             p.setBrush(brush)
             p.drawPath(symbol)
@@ -1207,7 +1203,7 @@ class mathTeXLabel(QWidget):
         self.setFixedSize(w,h)
 
 class SpotsItemToolButton(acdc_widgets.PointsLayerToolButton):
-    sigToggled = pyqtSignal(object, bool)
+    sigToggled = Signal(object, bool)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1217,7 +1213,7 @@ class SpotsItemToolButton(acdc_widgets.PointsLayerToolButton):
         self.sigToggled.emit(self, checked)
 
 class SpotsItems:
-    sigButtonToggled = pyqtSignal(object, bool)
+    sigButtonToggled = Signal(object, bool)
 
     def __init__(self):
         self.buttons = []
@@ -1381,7 +1377,7 @@ def ParamFormWidget(anchor, param, parent, use_tuned=False):
     )
 
 class SelectFeatureAutoTuneButton(acdc_widgets.editPushButton):
-    sigFeatureSelected = pyqtSignal(str)
+    sigFeatureSelected = Signal(str)
 
     def __init__(self, featureGroupbox, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1426,8 +1422,8 @@ class ReadOnlySelectedFeatureLabel(QLabel):
         txt = ' Click on edit button to select feature. '
         txt = html_func.span(f'<i>{txt}</i>', font_color='rgb(100,100,100)')
         self.setText(txt)
-        # self.setFrameShape(QFrame.StyledPanel)
-        # self.setFrameShadow(QFrame.Plain)
+        # self.setFrameShape(QFrame.Shape.StyledPanel)
+        # self.setFrameShadow(QFrame.Shadow.Plain)
     
     def setText(self, text):
         super().setText(text)

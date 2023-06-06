@@ -10,7 +10,7 @@ import h5py
 
 import skimage.io
 
-from PyQt5.QtCore import pyqtSignal, QObject, QRunnable
+from qtpy.QtCore import Signal, QObject, QRunnable
 
 from cellacdc.workers import worker_exception_handler, workerLogger
 
@@ -44,14 +44,14 @@ def loadDataWorkerFinished(self):
 """
 
 class signals(QObject):
-    finished = pyqtSignal(object)
-    finishedNextStep = pyqtSignal(object, str, str)
-    progress = pyqtSignal(str, object)
-    sigLoadedData = pyqtSignal(object, object, str, str)
-    initProgressBar = pyqtSignal(int)
-    progressBar = pyqtSignal(int)
-    critical = pyqtSignal(object)
-    sigLoadingNewChunk = pyqtSignal(object)
+    finished = Signal(object)
+    finishedNextStep = Signal(object, str, str)
+    progress = Signal(str, object)
+    sigLoadedData = Signal(object, object, str, str)
+    initProgressBar = Signal(int)
+    progressBar = Signal(int)
+    critical = Signal(object)
+    sigLoadingNewChunk = Signal(object)
 
 class analysisWorker(QRunnable):
     def __init__(self, ini_filepath, is_tempfile):
@@ -181,7 +181,7 @@ class loadDataWorker(QRunnable):
         self.signals.finished.emit(None)
 
 class LazyLoaderWorker(QObject):
-    sigLoadingFinished = pyqtSignal(object)
+    sigLoadingFinished = Signal(object)
 
     def __init__(self, mutex, waitCond, readH5mutex, waitReadH5cond):
         QObject.__init__(self)

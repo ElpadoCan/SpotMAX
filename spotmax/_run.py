@@ -5,7 +5,7 @@ from . import printl, spotmax_path
 
 def _setup_app():
     print('Loading application...')
-    from PyQt5 import QtGui, QtWidgets, QtCore
+    from qtpy import QtGui, QtWidgets, QtCore
 
     class SpotMaxSPlashScreen(QtWidgets.QSplashScreen):
         def __init__(self):

@@ -33,9 +33,9 @@ from . import GUI_INSTALLED
 
 if GUI_INSTALLED:
     import pyqtgraph as pg
-    from PyQt5.QtGui import QFont
-    from PyQt5.QtWidgets import QMessageBox
-    from PyQt5.QtCore import (
+    from qtpy.QtGui import QFont
+    from qtpy.QtWidgets import QMessageBox
+    from qtpy.QtCore import (
         QRect, QRectF, QThread, QMutex, QWaitCondition, QEventLoop
     )
 

@@ -8,7 +8,7 @@ from functools import wraps
 
 try:
     import cellacdc
-    from PyQt5.QtGui import QFont
+    from qtpy.QtGui import QFont
     font = QFont()
     font.setPixelSize(11)
     font_small = QFont()

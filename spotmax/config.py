@@ -12,8 +12,8 @@ import skimage.filters
 from . import GUI_INSTALLED
 
 if GUI_INSTALLED:
-    from PyQt5.QtGui import QFont
-    from PyQt5.QtCore import QObject, pyqtSignal, qInstallMessageHandler
+    from qtpy.QtGui import QFont
+    from qtpy.QtCore import QObject, Signal, qInstallMessageHandler
 
     from cellacdc import widgets as acdc_widgets
 
@@ -922,7 +922,7 @@ def skimageAutoThresholdMethods():
 
 if GUI_INSTALLED:
     class QtWarningHandler(QObject):
-        sigGeometryWarning = pyqtSignal(str)
+        sigGeometryWarning = Signal(str)
 
         def _resizeWarningHandler(self, msg_type, msg_log_context, msg_string):
             if msg_string.find('Unable to set geometry') != -1:

@@ -29,7 +29,7 @@ if GUI_INSTALLED:
     import matplotlib.colors
     import matplotlib.pyplot as plt
 
-    from PyQt5.QtCore import QTimer
+    from qtpy.QtCore import QTimer
 
     from cellacdc import apps as acdc_apps
     from cellacdc import widgets as acdc_widgets
@@ -368,7 +368,7 @@ def shiftWindow_axis0(
         Description of parameter `current_idx`.
     axis1_interval : tuple of (start, end) range or None
         This controls which elements need to be indexed on axis 1.
-    signals : pyqtSignals or None
+    signals : Signals or None
         Signals to emit if this function is called in a QThread.
 
     Returns

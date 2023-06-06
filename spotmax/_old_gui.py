@@ -427,7 +427,7 @@ class spotMAX_Win(QMainWindow):
                 side = 'left' if self.dataLoaded['left'] else 'right'
             bottomWidgets = self.bottomWidgets[side]
             navigateScrollbar = bottomWidgets['navigateScrollbar']
-            navigateScrollbar.triggerAction(QAbstractSlider.SliderSingleStepSub)
+            navigateScrollbar.triggerAction(QAbstractSlider.SliderAction.SliderSingleStepSub)
 
         elif ev.key() == Qt.Key_Right:
             if not self.dataLoaded['left'] and not self.dataLoaded['right']:
@@ -444,7 +444,7 @@ class spotMAX_Win(QMainWindow):
 
             bottomWidgets = self.bottomWidgets[side]
             navigateScrollbar = bottomWidgets['navigateScrollbar']
-            navigateScrollbar.triggerAction(QAbstractSlider.SliderSingleStepAdd)
+            navigateScrollbar.triggerAction(QAbstractSlider.SliderAction.SliderSingleStepAdd)
 
     def sideFromCursor(self):
         xCursor = QCursor.pos().x()
@@ -529,7 +529,7 @@ class spotMAX_Win(QMainWindow):
         expNameLabel = QLabel(self.expNameText)
         self.expNameLabelAction = fileToolBar.addWidget(expNameLabel)
         self.expNameCombobox = QComboBox(fileToolBar)
-        self.expNameCombobox.SizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.expNameCombobox.SizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.expNameAction = fileToolBar.addWidget(self.expNameCombobox)
         self.initiallyHiddenItems['top'].append(self.expNameAction)
         self.initiallyHiddenItems['top'].append(self.expNameLabelAction)
@@ -754,7 +754,7 @@ class spotMAX_Win(QMainWindow):
 
         self.computeDockWidget.setWidget(computeTabControl)
         self.computeDockWidget.setFeatures(
-            QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetMovable
+            QDockWidget.DockWidgetFeature.DockWidgetFloatable | QDockWidget.DockWidgetFeature.DockWidgetMovable
         )
         self.computeDockWidget.setAllowedAreas(
             Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea
@@ -2496,7 +2496,7 @@ class spotMAX_Win(QMainWindow):
             pass
         self.topFileToolBar.addWidget(QLabel('   Position: '))
         self.posNameCombobox = QComboBox(self.topFileToolBar)
-        self.posNameCombobox.SizeAdjustPolicy(QComboBox.AdjustToContents)
+        self.posNameCombobox.SizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         posFoldernames = [
             str(path.parents[1].name)
             for path in self.expPaths[expName]['channelDataPaths']
@@ -3037,7 +3037,7 @@ class spotMAX_Win(QMainWindow):
         self.updateLinkedScrollbar(side, 'navigateScrollbar', pos, txt)
 
         isSliderDrag = (
-            action == QAbstractSlider.SliderMove
+            action == QAbstractSlider.SliderAction.SliderMove
             and self.sender().isSliderDown()
         )
         if isSliderDrag:
@@ -3178,7 +3178,7 @@ class spotMAX_Win(QMainWindow):
         self.updateLinkedScrollbar(side, labelKey, pos, txt)
 
         isSliderDrag = (
-            action == QAbstractSlider.SliderMove
+            action == QAbstractSlider.SliderAction.SliderMove
             and self.sender().isSliderDown()
         )
         if isSliderDrag:
