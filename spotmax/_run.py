@@ -131,8 +131,41 @@ def _check_install_acdctools_gui(app):
         )
     _install_acdctools()
 
+def _check_install_qtpy():
+    try:
+        import qtpy
+    except ModuleNotFoundError as e:
+        while True:
+            txt = (
+                'Since version 1.3.1 Cell-ACDC requires the package `qtpy`.\n\n'
+                'You can let Cell-ACDC install it now, or you can abort '
+                'and install it manually with the command `pip install qtpy`.'
+            )
+            print('-'*60)
+            print(txt)
+            answer = input('Do you want to install it now ([y]/n)? ')
+            if answer.lower() == 'y' or not answer:
+                import subprocess
+                import sys
+                subprocess.check_call(
+                    [sys.executable, '-m', 'pip', 'install', '-U', 'qtpy']
+                )
+                break
+            elif answer.lower() == 'n':
+                raise e
+            else:
+                print(
+                    f'"{answer}" is not a valid answer. '
+                    'Type "y" for "yes", or "n" for "no".'
+                )
+    except ImportError as e:
+        # Ignore that qtpy is installed but there is no PyQt bindings --> this 
+        # is handled in the next block
+        pass
+
 def check_gui_requirements(app):
     from . import GUI_INSTALLED
+    _check_install_qtpy()
     if GUI_INSTALLED:
         app = _check_install_acdctools_gui(app)
     else:
