@@ -356,7 +356,7 @@ def readStoredParamsCSV(csv_path, params):
         params[SECTION][ANCHOR]['loadedVal'] = value
     return params
 
-def readStoredParamsINI(ini_path, params):
+def readStoredParamsINI(ini_path, params, cast_dtypes=True):
     sections = list(params.keys())
     section_params = list(params.values())
     configPars = config.ConfigParser()
@@ -377,9 +377,14 @@ def readStoredParamsINI(ini_path, params):
             if not configPars.has_option(section, option):
                 params[section][anchor]['loadedVal'] = None
                 continue
-
+            
             dtype = params[section][anchor].get('dtype')
-            if dtype == str:
+            
+            if not cast_dtypes:
+                config_value = configPars.get(section, option)
+            elif callable(dtype):
+                config_value = dtype(configPars.get(section, option))
+            elif dtype == str:
                 config_value = configPars.get(section, option)
             elif dtype == int:
                 try:

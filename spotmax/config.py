@@ -98,7 +98,31 @@ def get_bool(text):
         return True
     if text.lower() == 'false':
         return False
-    raise TypeError(f'The object "{text}" cannot be converted to a valid boolean object')
+    raise TypeError(f'The text "{text}" cannot be converted to a valid boolean object')
+
+def get_gauss_sigma(text):
+    if not text:
+        return 0.75
+    
+    try:
+        sigma = float(text)
+        return sigma
+    except Exception as e:
+        pass
+    
+    try:
+        if text.startswith('[') or text.startswith('('):
+            text = text[1:]
+        if text.endswith(']') or text.startswith(')'):
+            text = text[:-1]
+        sigma = [float(val) for val in text.split(',')]
+    except Exception as e:
+        raise TypeError(
+            f'{text} is not a valid value for the gaussian sigma. '
+            'Pass either a single number or one number per dimension '
+            'of the image data.'
+        )
+    return sigma
 
 class InvalidThresholdFunc:
     def __init__(self, func_name):
@@ -678,7 +702,7 @@ def _pre_processing_params():
             'addApplyButton': False,
             'formWidgetFunc': 'widgets.floatLineEdit',
             'actions': None,
-            'dtype': float
+            'dtype': get_gauss_sigma
         },
         'sharpenSpots': {
             'desc': 'Sharpen spots signal prior detection',
@@ -886,7 +910,7 @@ def _spots_ch_params():
     }
     return spots_ch_params
 
-def analysisInputsParams(params_path=default_ini_path):
+def analysisInputsParams(params_path=default_ini_path, cast_dtypes=True):
     # NOTE: if you change the anchors (i.e., the key of each second level
     # dictionary, e.g., 'spotsEndName') remember to change them also in
     # docs.paramsInfoText dictionary keys
@@ -903,7 +927,9 @@ def analysisInputsParams(params_path=default_ini_path):
         return params
     
     if params_path.endswith('.ini'):
-        params = io.readStoredParamsINI(params_path, params)
+        params = io.readStoredParamsINI(
+            params_path, params, cast_dtypes=cast_dtypes
+        )
     else:
         params = io.readStoredParamsCSV(params_path, params)
     return params

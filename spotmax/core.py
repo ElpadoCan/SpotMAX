@@ -655,7 +655,9 @@ class _ParamsParser(_DataLoader):
 
     @exception_handler_cli
     def init_params(self, params_path, metadata_csv_path=''):        
-        self._params = config.analysisInputsParams(params_path)
+        self._params = config.analysisInputsParams(
+            params_path, cast_dtypes=False
+        )
         
         if metadata_csv_path:
             self._params = io.add_metadata_from_csv(
@@ -1358,10 +1360,7 @@ class _ParamsParser(_DataLoader):
                 if value is None:
                     value = option['initialVal']
                 else:
-                    try:
-                        value = to_dtype(value)
-                    except Exception as e:
-                        value = None
+                    value = to_dtype(value)
                 self._params[section_name][anchor_name]['loadedVal'] = value
     
     def check_paths_exist(self):
@@ -2709,7 +2708,7 @@ class Kernel(_ParamsParser):
         options = self._params[SECTION][ANCHOR]
         sigma = options.get('loadedVal')
         if sigma is None:
-            return image_data
+            sigma = options.get('initalVal')
         
         if sigma == 0:
             return image_data

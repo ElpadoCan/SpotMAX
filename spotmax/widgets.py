@@ -13,10 +13,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 from qtpy.QtCore import (
-    Signal, QTimer, Qt, QRegExp, QEvent
+    Signal, QTimer, Qt, QRegularExpression, QEvent
 )
 from qtpy.QtGui import (
-    QFont,  QPainter, QRegExpValidator, QIcon
+    QFont,  QPainter, QRegularExpressionValidator, QIcon
 )
 from qtpy.QtWidgets import (
     QTextEdit, QLabel, QProgressBar, QHBoxLayout, QToolButton, QCheckBox,
@@ -830,8 +830,8 @@ class intLineEdit(QLineEdit):
     def __init__(self, *args, **kwargs):
         QLineEdit.__init__(self, *args, **kwargs)
 
-        regExp = QRegExp('\d+')
-        self.setValidator(QRegExpValidator(regExp))
+        regExp = QRegularExpression('\d+')
+        self.setValidator(QRegularExpressionValidator(regExp))
         self.setAlignment(Qt.AlignCenter)
 
         font = QFont()
@@ -884,8 +884,8 @@ class floatLineEdit(QLineEdit):
         if not allowNegative:
             self.isNumericRegExp = self.isNumericRegExp.replace('[-+]?', '')
 
-        regExp = QRegExp(self.isNumericRegExp)
-        self.setValidator(QRegExpValidator(regExp))
+        regExp = QRegularExpression(self.isNumericRegExp)
+        self.setValidator(QRegularExpressionValidator(regExp))
         self.setAlignment(Qt.AlignCenter)
 
         font = QFont()
