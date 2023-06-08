@@ -3655,10 +3655,21 @@ class Kernel(_ParamsParser):
             df.at[idx, _col_name] = func(arr)
         
     def _add_effect_sizes(self, pos_arr, neg_arr, df, idx, name='spot_vs_backgr'):
+        negative_name = name[8:]
         for eff_size_name, func in effect_size_func.items():
-            eff_size = features._try_metric_func(func, pos_arr, neg_arr)
+            eff_size, negative_mean, negative_std = features._try_metric_func(
+                func, pos_arr, neg_arr
+            )
             col_name = f'{name}_effect_size_{eff_size_name}'
             df.at[idx, col_name] = eff_size
+            negative_mean_colname = (
+                f'{negative_name}_effect_size_{eff_size_name}_negative_mean'
+            )
+            df.at[idx, negative_mean_colname] = negative_mean
+            negative_std_colname = (
+                f'{negative_name}_effect_size_{eff_size_name}_negative_std'
+            )
+            df.at[idx, negative_std_colname] = negative_std
 
     def _add_spot_vs_ref_location(self, ref_ch_mask, zyx_center, df, idx):
         is_spot_in_ref_ch = int(ref_ch_mask[zyx_center] > 0)

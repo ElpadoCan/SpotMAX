@@ -80,7 +80,7 @@ def glass_effect_size(positive_sample, negative_sample, n_bootstraps=0):
 
     eff_size = (positive_mean-negative_mean)/negative_std
 
-    return eff_size
+    return eff_size, negative_mean, negative_std
 
 def cohen_effect_size(positive_sample, negative_sample, n_bootstraps=0):
     pooled_std = np.std(np.concatenate((positive_sample, negative_sample)))
@@ -89,13 +89,17 @@ def cohen_effect_size(positive_sample, negative_sample, n_bootstraps=0):
     negative_mean = np.mean(negative_sample)
 
     eff_size = (positive_mean-negative_mean)/pooled_std
-    return eff_size
+    return eff_size, negative_mean, pooled_std
 
 def hedge_effect_size(positive_sample, negative_sample, n_bootstraps=0):
     n1 = len(positive_sample)
     n2 = len(negative_sample)
     correction_factor = 1 - (3/((4*(n1-n2))-9))
-    return cohen_effect_size(positive_sample, negative_sample)*correction_factor
+    eff_size_cohen, negative_mean, pooled_std = cohen_effect_size(
+        positive_sample, negative_sample
+    )
+    eff_size = eff_size_cohen*correction_factor
+    return eff_size, negative_mean, pooled_std
 
 def _try_combine_pvalues(*args, **kwargs):
     try:
