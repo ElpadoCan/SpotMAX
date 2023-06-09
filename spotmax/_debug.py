@@ -104,6 +104,25 @@ def _spots_detection(aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
     )
     import pdb; pdb.set_trace()
 
+def _compute_obj_spots_metrics(
+        sharp_spot_obj_z, backgr_mask_z_spot, spheroids_mask, yx_center, 
+        block=True
+    ):
+    from acdctools.plot import imshow
+    y, x = yx_center
+    points_coords = np.array([[y, x]])
+    win = imshow(
+        sharp_spot_obj_z, 
+        backgr_mask_z_spot,
+        spheroids_mask,
+        points_coords=points_coords,
+        block=block
+    )
+    if block:
+        import pdb; pdb.set_trace()
+    else:
+        return win
+
 def _spotfit_fit(
         gauss3Dmodel, spots_img, leastsq_result, num_spots_s, 
         num_coeffs, z, y, x, s_data, spots_centers, ID, fit_ids,
@@ -123,7 +142,9 @@ def _spotfit_fit(
     print(f'Cell ID = {ID}')
     print(f'{fit_ids = }')
     iterable = zip(lstsq_x, init_guess_s_2D, low_bounds_2D, high_bounds_2D)
+    points_coords = []
     for _x, _init, _l, _h in iterable:
+        points_coords.append(_x[:3])
         print('Centers solution: ', _x[:3])
         print('Centers init guess: ', _init[:3])
         print('Centers low bound: ', _l[:3])
@@ -141,6 +162,8 @@ def _spotfit_fit(
         print('')
         print('')
     img = spots_img
+    from acdctools.plot import imshow
+    imshow(spots_img, points_coords=np.array(points_coords))
     # 3D gaussian evaluated on the entire image
     V_fit = np.zeros_like(spots_img)
     zz, yy, xx = np.nonzero(V_fit==0)

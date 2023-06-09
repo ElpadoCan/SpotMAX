@@ -3331,7 +3331,7 @@ class Kernel(_ParamsParser):
 
         # if self.debug:
         #     from . import _debug
-        #     ID = 79
+        #     ID = 36
         #     _debug._spots_detection(
         #         aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
         #     )
@@ -3427,13 +3427,18 @@ class Kernel(_ParamsParser):
                     df_obj_spots_gop, local_ref_ch_mask, expanded_obj_coords
                 )
             
+            debug = False
             i = 0
             while True:     
                 num_spots_prev = len(df_obj_spots_gop)
                 if num_spots_prev == 0:
                     num_spots_filtered = 0
                     break
-			
+                
+                # if obj.label == 36:
+                #     debug = True
+                #     import pdb; pdb.set_trace()
+                
                 df_obj_spots_gop = self._compute_obj_spots_metrics(
                     local_spots_img, df_obj_spots_gop, obj_image, 
                     local_sharp_spots_img, 
@@ -3443,7 +3448,8 @@ class Kernel(_ParamsParser):
                     ref_ch_mask_obj=local_ref_ch_mask, 
                     ref_ch_img_obj=local_ref_ch_img,
                     do_filter_spots_vs_ref_ch=do_filter_spots_vs_ref_ch,
-                    zyx_resolution_limit_pxl=zyx_resolution_limit_pxl                  
+                    zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
+                    debug=debug
                 )
                 if i == 0:
                     # Store metrics at first iteration
@@ -3596,7 +3602,7 @@ class Kernel(_ParamsParser):
         
     def _get_obj_spheroids_mask(
             self, zyx_coords, mask_shape, min_size_spheroid_mask=None, 
-            zyx_radii_pxl=None
+            zyx_radii_pxl=None, debug=False
         ):
         mask = np.zeros(mask_shape, dtype=bool)
         if min_size_spheroid_mask is None:
@@ -3654,8 +3660,12 @@ class Kernel(_ParamsParser):
             _col_name = col_name.replace('*name', name)
             df.at[idx, _col_name] = func(arr)
         
-    def _add_effect_sizes(self, pos_arr, neg_arr, df, idx, name='spot_vs_backgr'):
+    def _add_effect_sizes(
+            self, pos_arr, neg_arr, df, idx, name='spot_vs_backgr', 
+            debug=False
+        ):
         negative_name = name[8:]
+        info = {}
         for eff_size_name, func in effect_size_func.items():
             eff_size, negative_mean, negative_std = features._try_metric_func(
                 func, pos_arr, neg_arr
@@ -3670,6 +3680,18 @@ class Kernel(_ParamsParser):
                 f'{negative_name}_effect_size_{eff_size_name}_negative_std'
             )
             df.at[idx, negative_std_colname] = negative_std
+            if debug:
+                info[eff_size_name] = (eff_size, np.mean(pos_arr), negative_mean, negative_std)
+        if debug:
+            print('')
+            for eff_size_name, values in info.items():
+                eff_size, pos_mean, negative_mean, negative_std = values
+                print(f'Effect size {eff_size_name} = {eff_size}')
+                print(f'Positive mean = {pos_mean}')
+                print(f'Negative mean = {negative_mean}')
+                print(f'Negative std = {negative_std}')
+                print('-'*60)
+            import pdb; pdb.set_trace()
 
     def _add_spot_vs_ref_location(self, ref_ch_mask, zyx_center, df, idx):
         is_spot_in_ref_ch = int(ref_ch_mask[zyx_center] > 0)
@@ -3717,6 +3739,7 @@ class Kernel(_ParamsParser):
             ref_ch_mask_obj=None, ref_ch_img_obj=None, 
             zyx_resolution_limit_pxl=None, 
             do_filter_spots_vs_ref_ch=False,
+            debug=False
         ):
         """_summary_
 
@@ -3775,12 +3798,20 @@ class Kernel(_ParamsParser):
             the boolean mask of the smallest spot expected.
         """ 
 
-        local_peaks_coords = df_obj_spots[ZYX_LOCAL_COLS].to_numpy()
+        local_peaks_coords = df_obj_spots[ZYX_LOCAL_EXPANDED_COLS].to_numpy()
         spheroids_mask, min_size_spheroid_mask = self._get_obj_spheroids_mask(
             local_peaks_coords, obj_mask.shape, 
             min_size_spheroid_mask=min_size_spheroid_mask, 
-            zyx_radii_pxl=zyx_resolution_limit_pxl
+            zyx_radii_pxl=zyx_resolution_limit_pxl,
+            debug=debug
         )
+        # if debug:
+        #     from acdctools.plot import imshow
+        #     imshow(
+        #         spheroids_mask, spots_img_obj, 
+        #         points_coords=local_peaks_coords
+        #     )
+        #     import pdb; pdb.set_trace()
 
         if dist_transform_spheroid is None:
             # Use all 1s --> do not correct with the distance transform
@@ -3828,6 +3859,24 @@ class Kernel(_ParamsParser):
             backgr_mask_z_spot = backgr_mask[zyx_center[0]]
             sharp_spot_obj_z = sharp_spots_img_obj[zyx_center[0]]
             backgr_vals_z_spot = sharp_spot_obj_z[backgr_mask_z_spot]
+            
+            if debug:
+                print('')
+                zyx_local = tuple(
+                    [getattr(row, col) for col in ZYX_LOCAL_COLS]
+                )
+                zyx_global = tuple(
+                    [getattr(row, col) for col in ZYX_GLOBAL_COLS]
+                )
+                print(f'Local coordinates = {zyx_local}')
+                print(f'Global coordinates = {zyx_global}')
+                print(f'Spot raw intensity at center = {raw_spots_img_obj[zyx_center]}')
+                from ._debug import _compute_obj_spots_metrics
+                win = _compute_obj_spots_metrics(
+                    sharp_spot_obj_z, backgr_mask_z_spot, 
+                    spheroids_mask[zyx_center[0]], 
+                    zyx_center[1:], block=False
+                )
 
             # Crop masks
             spheroid_mask = min_size_spheroid_mask[slice_crop_local]
@@ -3879,10 +3928,11 @@ class Kernel(_ParamsParser):
                 sharp_spot_intensities_z_edt, backgr_vals_z_spot, 
                 df_obj_spots, spot_id, name='spot_vs_backgr'
             )
-
+            
             self._add_effect_sizes(
                 sharp_spot_intensities_z_edt, backgr_vals_z_spot, 
-                df_obj_spots, spot_id, name='spot_vs_backgr'
+                df_obj_spots, spot_id, name='spot_vs_backgr',
+                debug=debug
             )
 
             if do_filter_spots_vs_ref_ch:
