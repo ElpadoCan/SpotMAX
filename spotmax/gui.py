@@ -249,7 +249,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             emWavelen = 500.0
         loadedValues = {
             'File paths and channels': [
-                {'anchor': 'filePathsToAnalyse', 'value': self.exp_path},
+                {'anchor': 'folderPathsToAnalyse', 'value': self.exp_path},
                 {'anchor': 'spotsEndName', 'value': self.user_ch_name},
                 {'anchor': 'segmEndName', 'value': segmEndName},
                 {'anchor': 'runNumber', 'value': runNum}

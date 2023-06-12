@@ -286,6 +286,38 @@ class FeatureSelectorDialog(acdc_apps.TreeSelectorDialog):
     def closeEvent(self, event):
         self.sigClose.emit()
 
+class myQComboBox(QComboBox):
+    def __init__(self, checkBox=None, parent=None):
+        super().__init__(parent)
+
+        # checkBox that controls if ComboBox can be enabled or not
+        self.checkBox = checkBox
+        self.activated.connect(self.clearFocus)
+        self.installEventFilter(self)
+
+    def eventFilter(self, object, event):
+        # Disable wheel scroll on widgets to allow scroll only on scrollarea
+        if event.type() == QEvent.Type.Wheel:
+            event.ignore()
+            return True
+        return False
+
+    def setEnabled(self, enabled, applyToCheckbox=True):
+        if self.checkBox is None or self.checkBox.isChecked():
+            QComboBox.setEnabled(self, enabled)
+        else:
+            QComboBox.setEnabled(self, False)
+        if applyToCheckbox and self.checkBox is not None:
+            self.checkBox.setEnabled(enabled)
+
+    def setDisabled(self, disabled, applyToCheckbox=True):
+        if self.checkBox is None or self.checkBox.isChecked():
+            QComboBox.setDisabled(self, disabled)
+        else:
+            QComboBox.setDisabled(self, True)
+        if applyToCheckbox and self.checkBox is not None:
+            self.checkBox.setDisabled(disabled)
+
 class CheckableSpinBoxWidgets:
     def __init__(self, isFloat=True):
         if isFloat:
@@ -464,21 +496,22 @@ def _spotThresholdFunc():
     widget.addItems(items)
     return widget
 
-def _spotDetectionMethod():
-    widget = myQComboBox()
-    items = ['Detect local peaks', 'Label prediction mask']
-    widget.addItems(items)
-    return widget
+class _spotDetectionMethod(myQComboBox):
+    def __init__(self, checkBox=None, parent=None):
+        super().__init__(checkBox=checkBox, parent=parent)
+        items = ['Detect local peaks', 'Label prediction mask']
+        self.addItems(items)
+    
+    def currentText(self):
+        text = super().currentText()
+        if text == 'Detect local peaks':
+            return 'peak_local_max'
+        elif text == 'Label prediction mask':
+            return 'label_prediction_mask'
 
 def _spotPredictionMethod():
     widget = myQComboBox()
     items = ['Thresholding', 'Neural network']
-    widget.addItems(items)
-    return widget
-
-def _gopMethod():
-    widget = myQComboBox()
-    items = ['Effect size', 't-test (p-value)']
     widget.addItems(items)
     return widget
 
@@ -730,13 +763,21 @@ class myFormLayout(QGridLayout):
             elif col==2:
                 alignment = Qt.AlignLeft
             else:
-                alignment = Qt.AlignmentFlag()
+                alignment = None
             try:
-                self.addWidget(item, row, col, 1, colspan, alignment=alignment)
+                if alignment is None:
+                    self.addWidget(item, row, col, 1, colspan)
+                else:
+                    self.addWidget(item, row, col, 1, colspan, alignment=alignment)
             except TypeError:
                 self.addLayout(item, row, col, 1, colspan)
         formWidget.row = row
-            
+
+class ReadOnlyElidingLineEdit(acdc_widgets.ElidingLineEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setReadOnly(True)
+
 class myQScrollBar(QScrollBar):
     sigActionTriggered = Signal(int)
 
@@ -791,38 +832,6 @@ class myQScrollBar(QScrollBar):
             self.label.setStyleSheet('color: gray')
         elif self.label is not None:
             self.label.setStyleSheet('color: black')
-
-class myQComboBox(QComboBox):
-    def __init__(self, checkBox=None, parent=None):
-        QComboBox.__init__(self, parent)
-
-        # checkBox that controls if ComboBox can be enabled or not
-        self.checkBox = checkBox
-        self.activated.connect(self.clearFocus)
-        self.installEventFilter(self)
-
-    def eventFilter(self, object, event):
-        # Disable wheel scroll on widgets to allow scroll only on scrollarea
-        if event.type() == QEvent.Type.Wheel:
-            event.ignore()
-            return True
-        return False
-
-    def setEnabled(self, enabled, applyToCheckbox=True):
-        if self.checkBox is None or self.checkBox.isChecked():
-            QComboBox.setEnabled(self, enabled)
-        else:
-            QComboBox.setEnabled(self, False)
-        if applyToCheckbox and self.checkBox is not None:
-            self.checkBox.setEnabled(enabled)
-
-    def setDisabled(self, disabled, applyToCheckbox=True):
-        if self.checkBox is None or self.checkBox.isChecked():
-            QComboBox.setDisabled(self, disabled)
-        else:
-            QComboBox.setDisabled(self, True)
-        if applyToCheckbox and self.checkBox is not None:
-            self.checkBox.setDisabled(disabled)
 
 class intLineEdit(QLineEdit):
     valueChanged = Signal(int)

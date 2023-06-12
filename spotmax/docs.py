@@ -12,7 +12,7 @@ def get_href_tags():
 
 def get_edit_button_file_paths_href():
     section = 'File paths and channels'
-    anchor = 'filePathsToAnalyse'
+    anchor = 'folderPathsToAnalyse'
     option = 'editButton'
     tag_info = f'a href="{section};{anchor};{option}"'
     text = '<code>Edit</code> button'
@@ -44,7 +44,7 @@ a name that identifies the channel, e.g. <code>experiment_1_GFP.tif</code>,
 def paramsInfoText():
     href_tags = get_href_tags()
     paramsInfoText = {
-        'filePathsToAnalyse': (f"""
+        'folderPathsToAnalyse': (f"""
         Click on the {get_edit_button_file_paths_href()} to start adding 
         experiment folders that you want to analyse.<br><br>
         Each folder path can be a specific Position folder, 

@@ -830,7 +830,7 @@ class _ParamsParser(_DataLoader):
     @exception_handler_cli
     def set_abs_exp_paths(self):
         SECTION = 'File paths and channels'
-        ANCHOR = 'filePathsToAnalyse'
+        ANCHOR = 'folderPathsToAnalyse'
         loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
         user_run_number = self._params[SECTION]['runNumber'].get('loadedVal')
         self.exp_paths_list = []
@@ -1365,7 +1365,7 @@ class _ParamsParser(_DataLoader):
     
     def check_paths_exist(self):
         SECTION = 'File paths and channels'
-        ANCHOR = 'filePathsToAnalyse'
+        ANCHOR = 'folderPathsToAnalyse'
         loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
         for exp_path in loaded_exp_paths:
             if not os.path.exists(exp_path):
@@ -4599,6 +4599,8 @@ class Kernel(_ParamsParser):
     def add_post_detection_features(self, dfs):
         zyx_voxel_size = self.metadata['zyxVoxelSize']
         for key, df in dfs.items():
+            if df is None:
+                continue
             if 'z' not in df.columns:
                 continue
             features.add_consecutive_spots_distance(df, zyx_voxel_size)

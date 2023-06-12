@@ -259,20 +259,20 @@ def get_gop_thresholds(gop_thresholds_to_parse):
 
 def _filepaths_params():
     filepaths_params = {
-        'filePathsToAnalyse': {
+        'folderPathsToAnalyse': {
             'desc': 'Experiment folder path(s) to analyse',
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'addBrowseButton': True,
+            'addBrowseButton': False,
             'addEditButton': True,
-            'formWidgetFunc': 'widgets._CenteredLineEdit',
+            'editSlot': 'addFoldersToAnalyse',
+            'formWidgetFunc': 'widgets.ReadOnlyElidingLineEdit',
             'actions': None,
             'dtype': get_exp_paths,
             'parser': parse_list_to_configpars,
-            'editButtonCallback': 'dock_params_callbacks.editFilePathsToAnalyse',
             'valueSetter': 'setText'
         },
         'spotsEndName': {

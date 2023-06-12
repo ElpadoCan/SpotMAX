@@ -21,9 +21,12 @@ def _setup_app():
         QtWidgets.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps, True)
 
     # Needed by pyqtgraph with display resolution scaling
-    QtWidgets.QApplication.setAttribute(
-        QtCore.Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
-    )
+    try:
+        QtWidgets.QApplication.setAttribute(
+            QtCore.Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+        )
+    except Exception as e:
+        pass
     
     # Create the application
     app = QtWidgets.QApplication([])
@@ -44,6 +47,10 @@ def _setup_app():
     splashScreen.raise_()
 
     app._splashScreen = splashScreen
+    
+    from cellacdc._palettes import getPaletteColorScheme
+    palette = getPaletteColorScheme(app.palette(), scheme='light')
+    app.setPalette(palette)
 
     return app
 

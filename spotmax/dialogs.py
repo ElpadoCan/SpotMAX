@@ -36,7 +36,7 @@ from cellacdc import myutils as acdc_utils
 from cellacdc import html_utils as acdc_html
 
 from . import html_func, io, widgets, utils, config
-from . import core, dock_params_callbacks
+from . import core
 
 # NOTE: Enable icons
 from . import qrc_resources, printl, font
@@ -268,235 +268,6 @@ class guiQuickSettingsGroupbox(QGroupBox):
     
     def changeFontSize(self):
         self.sigChangeFontSize.emit(self.fontSizeSpinBox.value())
-
-class guiBottomWidgets(QGroupBox):
-    sigAnnotOptionClicked = Signal(object)
-
-    def __init__(
-            self, side, zProjItems,  isCheckable=False, checked=False, 
-            parent=None, font=None
-        ):
-        if font is None:
-            self._font = QFont()
-            self._font.setPixelSize(11)
-        else:
-            self._font = font
-
-        QGroupBox.__init__(self, parent)
-
-        layout = QGridLayout()
-
-        bottomWidgets = {}
-
-        initialCol = 0
-        howToDrawCheckbox = None
-        navigateCheckbox = None
-        zSliceL0checkbox = None
-        zSliceL1checkbox = None
-        if isCheckable:
-            howToDrawCheckbox = QCheckBox()
-            bottomWidgets['howToDrawCheckbox'] = howToDrawCheckbox
-            howToDrawCheckbox.stateChanged.connect(self.setHowToDrawEnabled)
-            layout.addWidget(howToDrawCheckbox, 0, 0, alignment=Qt.AlignCenter)
-
-            navigateCheckbox = QCheckBox()
-            bottomWidgets['navigateCheckbox'] = navigateCheckbox
-            navigateCheckbox.stateChanged.connect(self.setNavigateEnabled)
-            layout.addWidget(navigateCheckbox, 1, 0, alignment=Qt.AlignCenter)
-
-            zSliceL0checkbox = QCheckBox()
-            bottomWidgets['zSliceL0checkbox'] = zSliceL0checkbox
-            zSliceL0checkbox.stateChanged.connect(self.setZsliceL0Enabled)
-            layout.addWidget(zSliceL0checkbox, 2, 0, alignment=Qt.AlignCenter)
-
-            zSliceL1checkbox = QCheckBox()
-            bottomWidgets['zSliceL1checkbox'] = zSliceL1checkbox
-            zSliceL1checkbox.stateChanged.connect(self.setZsliceL1Enabled)
-            layout.addWidget(zSliceL1checkbox, 3, 0, alignment=Qt.AlignCenter)
-            initialCol = 1
-
-        row = 0
-        col = initialCol +1
-        checkboxes_text = (
-            'IDs', 'Cell cycle info', 'Only mother-daughter line', '|', 
-            'Contours', 'Segm. masks', '|' , 'Do not annotate'
-        )
-        self.checkboxes = {}
-        checkboxesLayout = QHBoxLayout()
-        checkboxesLayout.addStretch(1)
-        checkboxesLayout.addWidget(QLabel(' | '))
-        for text in checkboxes_text:
-            if text == '|':
-                checkboxesLayout.addWidget(QLabel(' | '))
-                continue
-            checkbox = QCheckBox(text, self)
-            self.checkboxes[text] = checkbox
-            checkboxesLayout.addWidget(checkbox)
-            checkbox.clicked.connect(self.annotOptionClicked)
-        checkboxesLayout.addWidget(QLabel(' | '))
-        checkboxesLayout.addStretch(1)
-        layout.addLayout(checkboxesLayout, row, col)
-
-        row = 1
-        col = initialCol +0
-        navigateScrollbar_label = QLabel('frame n.  ')
-        navigateScrollbar_label.setFont(self._font)
-        layout.addWidget(
-            navigateScrollbar_label, row, col, alignment=Qt.AlignRight
-        )
-        bottomWidgets['navigateScrollbar_label'] = navigateScrollbar_label
-
-        row = 1
-        col = initialCol +1
-        navigateScrollbar = widgets.myQScrollBar(
-            Qt.Horizontal,
-            checkBox=navigateCheckbox,
-            label=navigateScrollbar_label
-        )
-        navigateScrollbar.setMinimum(1)
-        layout.addWidget(navigateScrollbar, row, col)
-        bottomWidgets['navigateScrollbar'] = navigateScrollbar
-
-        row = 2
-        col = initialCol +0
-        zSliceSbL0_label = QLabel('First layer z-slice  ')
-        zSliceSbL0_label.setFont(self._font)
-        layout.addWidget(
-            zSliceSbL0_label, row, col, alignment=Qt.AlignRight
-        )
-        bottomWidgets['zSliceSbL0_label'] = zSliceSbL0_label
-
-        row = 2
-        col = initialCol +1
-        zSliceScrollbarLayer0 = widgets.myQScrollBar(
-            Qt.Horizontal,
-            checkBox=zSliceL0checkbox,
-            label=zSliceSbL0_label
-        )
-        zSliceScrollbarLayer0.setMinimum(1)
-        zSliceScrollbarLayer0.layer = 0
-        zSliceScrollbarLayer0.side = side
-        layout.addWidget(zSliceScrollbarLayer0, row, col)
-        bottomWidgets['zSliceScrollbarLayer0'] = zSliceScrollbarLayer0
-
-        row = 2
-        col = initialCol +2
-        zProjComboboxLayer0 = widgets.myQComboBox(checkBox=zSliceL0checkbox)
-        zProjComboboxLayer0.layer = 0
-        zProjComboboxLayer0.side = side
-        zProjComboboxLayer0.addItems(zProjItems)
-        layout.addWidget(zProjComboboxLayer0, row, col, alignment=Qt.AlignLeft)
-        bottomWidgets['zProjComboboxLayer0'] = zProjComboboxLayer0
-
-        row = 3
-        col = initialCol +0
-        zSliceSbL1_label = QLabel('Second layer z-slice  ')
-        zSliceSbL1_label.setFont(self._font)
-        layout.addWidget(
-            zSliceSbL1_label, row, col, alignment=Qt.AlignRight
-        )
-        bottomWidgets['zSliceSbL1_label'] = zSliceSbL1_label
-
-        row = 3
-        col = initialCol +1
-        zSliceScrollbarLayer1 = widgets.myQScrollBar(
-            Qt.Horizontal,
-            checkBox=zSliceL1checkbox,
-            label=zSliceSbL1_label
-        )
-        zSliceScrollbarLayer1.setMinimum(1)
-        zSliceScrollbarLayer1.layer = 1
-        zSliceScrollbarLayer1.side = side
-        layout.addWidget(zSliceScrollbarLayer1, row, col)
-        bottomWidgets['zSliceScrollbarLayer1'] = zSliceScrollbarLayer1
-
-        row = 3
-        col = initialCol +2
-        zProjComboboxLayer1 = widgets.myQComboBox(checkBox=zSliceL1checkbox)
-        zProjComboboxLayer1.layer = 1
-        zProjComboboxLayer1.side = side
-        zProjComboboxLayer1.addItems(zProjItems)
-        zProjComboboxLayer1.addItems(['same as above'])
-        zProjComboboxLayer1.setCurrentIndex(1)
-        layout.addWidget(zProjComboboxLayer1, row, col, alignment=Qt.AlignLeft)
-        bottomWidgets['zProjComboboxLayer1'] = zProjComboboxLayer1
-
-        row = 4
-        col = initialCol +0
-        alphaScrollbar_label = QLabel('Overlay alpha  ')
-        alphaScrollbar_label.setFont(self._font)
-        layout.addWidget(
-            alphaScrollbar_label, row, col, alignment=Qt.AlignRight
-        )
-        bottomWidgets['alphaScrollbar_label'] = alphaScrollbar_label
-
-        row = 4
-        col = initialCol +1
-        alphaScrollbar = QScrollBar(Qt.Horizontal)
-        alphaScrollbar.setMinimum(0)
-        alphaScrollbar.setMaximum(40)
-        alphaScrollbar.setValue(20)
-        alphaScrollbar.setToolTip(
-            'Control the alpha value of the overlay.\n'
-            'alpha=0 results in NO overlay,\n'
-            'alpha=1 results in only fluorescent data visible'
-        )
-        layout.addWidget(alphaScrollbar, row, col)
-        bottomWidgets['alphaScrollbar'] = alphaScrollbar
-
-        layout.setColumnStretch(0,0)
-        layout.setColumnStretch(initialCol+0,0)
-        layout.setColumnStretch(initialCol+1,3)
-        layout.setColumnStretch(initialCol+2,0)
-        self.setLayout(layout)
-
-        self.bottomWidgets = bottomWidgets
-
-        if isCheckable:
-            howToDrawCheckbox.setChecked(~checked)
-            howToDrawCheckbox.setChecked(checked)
-
-            navigateCheckbox.setChecked(~checked)
-            navigateCheckbox.setChecked(checked)
-
-            zSliceL0checkbox.setChecked(~checked)
-            zSliceL0checkbox.setChecked(checked)
-
-            zSliceL1checkbox.setChecked(~checked)
-            zSliceL1checkbox.setChecked(checked)
-    
-    def annotOptionClicked(self):
-        self.sigAnnotOptionClicked.emit(self.sender())
-
-    def setNavigateEnabled(self, state):
-        bottomWidgets = self.bottomWidgets
-        scrollbar = bottomWidgets['navigateScrollbar']
-        if state:
-            scrollbar.setDisabled(False, applyToCheckbox=False)
-        else:
-            scrollbar.setDisabled(True, applyToCheckbox=False)
-
-    def setZsliceL0Enabled(self, state):
-        bottomWidgets = self.bottomWidgets
-        scrollbar = bottomWidgets['zSliceScrollbarLayer0']
-        combobox = bottomWidgets['zProjComboboxLayer0']
-        if state:
-            scrollbar.setDisabled(False, applyToCheckbox=False)
-            combobox.setDisabled(False, applyToCheckbox=False)
-        else:
-            scrollbar.setDisabled(True, applyToCheckbox=False)
-            combobox.setDisabled(True, applyToCheckbox=False)
-
-    def setZsliceL1Enabled(self, state):
-        bottomWidgets = self.bottomWidgets
-        scrollbar = bottomWidgets['zSliceScrollbarLayer1']
-        combobox = bottomWidgets['zProjComboboxLayer1']
-        if state:
-            scrollbar.setDisabled(False, applyToCheckbox=False)
-            combobox.setDisabled(False, applyToCheckbox=False)
-        else:
-            scrollbar.setDisabled(True, applyToCheckbox=False)
-            combobox.setDisabled(True, applyToCheckbox=False)
 
 class guiTabControl(QTabWidget):
     sigRunAnalysis = Signal(str, bool)
@@ -882,6 +653,10 @@ class analysisInputsQGBox(QGroupBox):
                 isGroupChecked = param.get('isSectionInConfig', True)
                 groupBox.setChecked(isGroupChecked)
 
+                if param.get('editSlot') is not None:
+                    editSlot = param.get('editSlot')
+                    slot = getattr(self, editSlot)
+                    formWidget.sigEditClicked.connect(slot)
                 actions = param.get('actions', None)
                 if actions is None:
                     continue
@@ -897,6 +672,18 @@ class analysisInputsQGBox(QGroupBox):
 
         self.setLayout(mainLayout)
         self.updateMinSpotSize()
+    
+    def addFoldersToAnalyse(self, formWidget):
+        preSelectedPaths = formWidget.widget.text().split('\n')
+        if not preSelectedPaths[0]:
+            preSelectedPaths = None
+        win = SelectFolderToAnalyse(preSelectedPaths=preSelectedPaths)
+        win.exec_()
+        if win.cancel:
+            return
+        selectedPathsList = win.paths
+        selectedPaths = '\n'.join(selectedPathsList)
+        formWidget.widget.setText(selectedPaths)
     
     def _getCallbackFunction(self, callbackFuncPath):
         moduleName, functionName = callbackFuncPath.split('.')
@@ -2730,3 +2517,85 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         self.cancel = True
         self.clickedButton = self.cancelButton
         self.close()
+
+class SelectFolderToAnalyse(QBaseDialog):
+    def __init__(self, parent=None, preSelectedPaths=None):
+        super().__init__(parent)
+        
+        self.cancel = False
+        
+        self.setWindowTitle('Select experiments to analyse')
+        
+        mainLayout = QVBoxLayout()
+        
+        instructionsText = html_func.paragraph(
+            'Click on <code>Browse</code> button to <b>add</b> as many <b>paths</b>'
+            'as needed.<br>', font_size='14px'
+        )
+        instructionsLabel = QLabel(instructionsText)
+        instructionsLabel.setAlignment(Qt.AlignCenter)
+        
+        infoText = html_func.paragraph(            
+            'A <b>valid folder</b> is either a <b>Position</b> folder, '
+            'or an <b>experiment folder</b> (containing Position_n folders),<br>'
+            'or any folder that contains <b>multiple experiment folders</b>.<br><br>'
+            
+            'In the last case, spotMAX will automatically scan the entire trees of '
+            'sub-directories<br>'
+            'and will analyse all experiments having the right folder structure.<br>',
+            font_size='12px'
+        )
+        infoLabel = QLabel(infoText)
+        infoLabel.setAlignment(Qt.AlignCenter)
+        
+        self.listWidget = acdc_widgets.listWidget()
+        self.listWidget.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection
+        )
+        if preSelectedPaths is not None:
+            self.listWidget.addItems(preSelectedPaths)
+        
+        buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
+
+        delButton = acdc_widgets.delPushButton('Remove selected path(s)')
+        browseButton = acdc_widgets.browseFileButton(
+            'Browse to add a path', openFolder=True, 
+            start_dir=utils.getMostRecentPath()
+        )
+        
+        buttonsLayout.insertWidget(3, delButton)
+        buttonsLayout.insertWidget(4, browseButton)
+        
+        buttonsLayout.okButton.clicked.connect(self.ok_cb)
+        browseButton.sigPathSelected.connect(self.addFolderPath)
+        delButton.clicked.connect(self.removePaths)
+        buttonsLayout.cancelButton.clicked.connect(self.close)
+        
+        mainLayout.addWidget(instructionsLabel)
+        mainLayout.addWidget(infoLabel)
+        mainLayout.addWidget(self.listWidget)
+        
+        mainLayout.addSpacing(20)
+        mainLayout.addLayout(buttonsLayout)
+        mainLayout.addStretch(1)
+        
+        self.setLayout(mainLayout)
+        
+        font = config.font()
+        self.setFont(font)
+    
+    def ok_cb(self):
+        self.cancel = False
+        self.paths = [
+            self.listWidget.item(i).text() 
+            for i in range(self.listWidget.count())
+        ]
+        self.close()
+    
+    def addFolderPath(self, path):
+        self.listWidget.addItem(path)
+    
+    def removePaths(self):
+        for item in self.listWidget.selectedItems():
+            row = self.listWidget.row(item)
+            self.listWidget.takeItem(row)
