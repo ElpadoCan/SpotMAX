@@ -473,7 +473,7 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
     
     def text(self):
         tooltip = self.toolTip()
-        start_idx = len('Features and ranges set:\n\n')
+        start_idx = len('Features and ranges set:\n')
         text = tooltip[start_idx:]
         return text.replace('  * ', '\t')
     
@@ -507,7 +507,6 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
         
         text = f'Features and ranges set:\n\n{paramsText}'
         self.setToolTip(text)
-        # self.selectedFeaturesWindow.setFeaturesGroupbox
 
 class _CenteredLineEdit(tooltipLineEdit):
     def __init__(self, parent=None):
