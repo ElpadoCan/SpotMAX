@@ -700,7 +700,7 @@ def _pre_processing_params():
             'addInfoButton': True,
             'addComputeButton': True,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
+            'formWidgetFunc': 'widgets.VectorLineEdit',
             'actions': None,
             'dtype': get_gauss_sigma
         },

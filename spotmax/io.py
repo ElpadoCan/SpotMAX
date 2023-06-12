@@ -383,6 +383,11 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
             else:
                 dtype = None
             
+            try:
+                str_val = configPars.get(section, option)
+            except Exception as e:
+                str_val = None
+                
             if callable(dtype):
                 config_value = dtype(configPars.get(section, option))
             elif isinstance(defaultVal, bool):
@@ -394,12 +399,12 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
                 try:
                     config_value = configPars.getfloat(section, option)
                 except Exception as e:
-                    config_value = None
+                    config_value = str_val
             elif isinstance(defaultVal, int):
                 try:
                     config_value = configPars.getint(section, option)
                 except Exception as e:
-                    config_value = None
+                    config_value = str_val
             elif isinstance(defaultVal, str) or defaultVal is None:
                 try:
                     config_value = configPars.get(section, option)

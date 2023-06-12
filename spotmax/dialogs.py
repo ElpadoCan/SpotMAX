@@ -393,6 +393,7 @@ class guiTabControl(QTabWidget):
                     groupbox.setChecked(True)
                 except Exception as e:
                     pass
+                # printl(section, anchor, val)
                 valueSetter = params[section][anchor].get('valueSetter')
                 formWidget.setValue(val, valueSetter=valueSetter)
     

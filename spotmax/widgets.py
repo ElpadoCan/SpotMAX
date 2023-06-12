@@ -32,6 +32,7 @@ import pyqtgraph as pg
 
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
+from cellacdc._palettes import lineedit_invalid_entry_stylesheet
 
 from . import is_mac, is_win, printl, font, font_small
 from . import utils, dialogs, config, html_func, docs
@@ -39,6 +40,8 @@ from . import features, io
 
 # NOTE: Enable icons
 from . import qrc_resources
+
+LINEEDIT_INVALID_ENTRY_STYLESHEET = lineedit_invalid_entry_stylesheet()
 
 def removeHSVcmaps():
     hsv_cmaps = []
@@ -940,14 +943,6 @@ class floatLineEdit(QLineEdit):
         if initial is None:
             self.setText('0.0')
 
-    def setNotAllowedStyleSheet(self):
-        self.setStyleSheet(
-            # 'background: #FEF9C3;'
-            'border-radius: 4px;'
-            'border: 1.5px solid red;'
-            'padding: 1px 0px 1px 0px'
-        )
-
     def setValue(self, value: float):
         self.setText(str(value))
 
@@ -966,11 +961,65 @@ class floatLineEdit(QLineEdit):
     def emitValueChanged(self, text):
         val = self.value()
         if self.notAllowed is not None and val in self.notAllowed:
-            self.setNotAllowedStyleSheet()
+            self.setStyleSheet(LINEEDIT_INVALID_ENTRY_STYLESHEET)
         else:
             self.setStyleSheet('')
             self.valueChanged.emit(self.value())
 
+class VectorLineEdit(QLineEdit):
+    valueChanged = Signal(object)
+    
+    def __init__(self, parent=None, initial=None):
+        super().__init__(parent)
+        
+        float_regex = (
+            r'[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?'
+        )
+        vector_regex = fr'\(?\[?{float_regex},\s?{float_regex},\s?{float_regex}\)?\]?'
+        regex = fr'^{vector_regex}$|^{float_regex}$'
+        self.validRegex = regex
+        
+        regExp = QRegularExpression(regex)
+        self.setValidator(QRegularExpressionValidator(regExp))
+        self.setAlignment(Qt.AlignCenter)
+        
+        self.textChanged.connect(self.emitValueChanged)
+        if initial is None:
+            self.setText('0.0')
+        
+        font = QFont()
+        font.setPixelSize(11)
+        self.setFont(font)
+    
+    def emitValueChanged(self, text):
+        val = self.value()
+        m = re.match(self.validRegex, self.text())
+        if m is None:
+            self.setStyleSheet(LINEEDIT_INVALID_ENTRY_STYLESHEET)
+        else:
+            self.setStyleSheet('')
+            self.valueChanged.emit(self.value())
+    
+    def setValue(self, value: float):
+        self.setText(str(value))
+    
+    def value(self):
+        m = re.match(self.validRegex, self.text())
+        if m is None:
+            return 0.0
+        else:
+            try: 
+                value = float(self.text())
+                return value
+            except Exception as e:
+                text = self.text()
+                text = text.replace('(', '')
+                text = text.replace(')', '')
+                text = text.replace('[', '')
+                text = text.replace(']', '')
+                values = text.split(',')
+                return [float(value) for value in values]
+        
 def getOpenImageFileName(parent=None, mostRecentPath=''):
     file_path = QFileDialog.getOpenFileName(
         parent, 'Select image file', mostRecentPath,
