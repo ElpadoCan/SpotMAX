@@ -1,4 +1,4 @@
-# <a href="https://github.com/ElpadoCan/spotMAX_v2/blob/main/spotmax/resources/logo_spotmax.svg"><img src="https://raw.githubusercontent.com/ElpadoCan/spotMAX_v2/main/spotmax/resources/logo.svg?token=GHSAT0AAAAAACBKBSCCI6NWGGFS36CZIOUCZBWUNIQ" width="80" height="80"></a> spotMAX
+# <a href="https://github.com/ElpadoCan/spotMAX/blob/main/spotmax/resources/spotMAX_logo.svg"><img src="https://raw.githubusercontent.com/ElpadoCan/spotMAX/main/spotmax/resources/spotMAX_logo.svg?token=GHSAT0AAAAAACDJOU3DDPPMA4RYWLAXDERQZEHL4SQ" width="80" height="80"></a> spotMAX
 
 ### A Python package for automatic **detection**, and **quantification** of fluorescent spot in microscopy data
 
