@@ -351,7 +351,7 @@ def _filepaths_params():
             'addApplyButton': False,
             'addBrowseButton': False,
             'addEditButton': False,
-            'formWidgetFunc': 'acdc_widgets.SpinBox',
+            'formWidgetFunc': 'widgets.SpinBox',
             'actions': None,
             'dtype': int,
             'valueSetter': 'setValue'
@@ -496,7 +496,7 @@ def _configuration_params():
             'addApplyButton': False,
             'addBrowseButton': False,
             'addAutoButton': False,
-            'formWidgetFunc': 'acdc_widgets.SpinBox',
+            'formWidgetFunc': 'widgets.SpinBox',
             'actions': None,
             'dtype': int, 
             'parser_arg': 'num_threads'

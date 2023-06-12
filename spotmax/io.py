@@ -378,19 +378,13 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
                 params[section][anchor]['loadedVal'] = None
                 continue
             
-            dtype = params[section][anchor].get('dtype')
+            if cast_dtypes:
+                dtype = params[section][anchor].get('dtype')
+            else:
+                dtype = None
             
-            if not cast_dtypes:
-                config_value = configPars.get(section, option)
-            elif callable(dtype):
+            if callable(dtype):
                 config_value = dtype(configPars.get(section, option))
-            elif dtype == str:
-                config_value = configPars.get(section, option)
-            elif dtype == int:
-                try:
-                    config_value = configPars.getint(section, option)
-                except Exception as e:
-                    config_value = None
             elif isinstance(defaultVal, bool):
                 try:
                     config_value = configPars.getboolean(section, option)

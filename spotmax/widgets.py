@@ -1546,4 +1546,16 @@ class SelectFeaturesAutoTune(QWidget):
         self._layout.removeWidget(delButton)
         del self.featureGroupboxes[row]
 
-        
+    
+class SpinBox(acdc_widgets.SpinBox):
+    def __init__(self, parent=None, disableKeyPress=False):
+        super().__init__(parent=parent, disableKeyPress=disableKeyPress)
+    
+    def setValue(self, value):
+        if isinstance(value, str):
+            value = int(value)
+        super().setValue(value)
+    
+    def setText(self, text):
+        value = int(text)
+        super().setValue(value)

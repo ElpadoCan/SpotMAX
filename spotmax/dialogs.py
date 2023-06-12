@@ -276,6 +276,8 @@ class guiTabControl(QTabWidget):
         super().__init__(parent)
 
         self.loadedFilename = ''
+        
+        self.lastSavedIniFilePath = ''
 
         self.parametersTab = QScrollArea(self)
         self.parametersQGBox = analysisInputsQGBox(self.parametersTab)
@@ -342,8 +344,19 @@ class guiTabControl(QTabWidget):
             ini_filename = f'{now}_spotmax_analysis_parameters.ini'
             ini_filepath = os.path.join(temp_dirpath, ini_filename)
             self.parametersQGBox.saveToIniFile(ini_filepath)
-            is_tempinifile = True
+            if self.lastSavedIniFilePath:
+                with open(self.lastSavedIniFilePath, 'r') as ini:
+                    saved_ini_text = ini.read()
+                with open(ini_filepath, 'r') as ini_temp:
+                    temp_ini_text = ini_temp.read()
+                if saved_ini_text == temp_ini_text:
+                    ini_filepath = self.lastSavedIniFilePath
+                    is_tempinifile = False
+                else:
+                    is_tempinifile = True   
         
+        ini_filepath = ini_filepath.replace('\\', os.sep)
+        ini_filepath = ini_filepath.replace('/', os.sep)
         txt = html_func.paragraph(f"""
             spotMAX analysis will now <b>run in the terminal</b>. All progress 
             will be displayed there. Have fun!<br><br>
@@ -379,13 +392,14 @@ class guiTabControl(QTabWidget):
                     groupbox.setChecked(True)
                 except Exception as e:
                     pass
-                formWidget.setValue(val)
+                valueSetter = params[section][anchor].get('valueSetter')
+                formWidget.setValue(val, valueSetter=valueSetter)
     
     def loadPreviousParams(self, filePath):
         self.logging_func(f'Loading analysis parameters from "{filePath}"...')
         io.addToRecentPaths(os.path.dirname(filePath))
         self.loadedFilename, ext = os.path.splitext(os.path.basename(filePath))
-        params = config.analysisInputsParams(filePath)
+        params = config.analysisInputsParams(filePath, cast_dtypes=False)
         self.setValuesFromParams(params)
         
     def saveParamsFile(self):
@@ -438,8 +452,18 @@ class guiTabControl(QTabWidget):
                 if msg.clickedButton == yesButton:
                     break
         self.parametersQGBox.saveToIniFile(filePath)
+        self.lastSavedIniFilePath = filePath
+        self.savingParamsFileDone(filePath)
         return filePath
 
+    def savingParamsFileDone(self, filePath):
+        txt = html_func.paragraph(
+            'Parameters file successfully <b>saved</b> at the following path:'
+        )
+        msg = acdc_widgets.myMessageBox()
+        msg.addShowInFileManagerButton(os.path.dirname(filePath))
+        msg.information(self, 'Saving done!', txt, commands=(filePath,))
+        
     def addInspectResultsTab(self, posData):
         self.inspectResultsTab = QScrollArea(self)
 
