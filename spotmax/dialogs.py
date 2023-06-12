@@ -72,6 +72,7 @@ class GopFeaturesAndThresholdsDialog(QBaseDialog):
 
         self.setFeaturesGroupbox = widgets.GopFeaturesAndThresholdsGroupbox()
         mainLayout.addWidget(self.setFeaturesGroupbox)
+        mainLayout.addStretch(1)
 
         buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
         buttonsLayout.cancelButton.clicked.connect(self.close)
@@ -810,7 +811,10 @@ class analysisInputsQGBox(QGroupBox):
                         value = widget.text()
                 elif isinstance(initalVal, float) or isinstance(initalVal, int):
                     value = widget.value()
+                else:
+                    value = widget.value()
                 
+                print(section, anchor, value)
                 if not value:
                     continue
                 ini_params[section][anchor] = {
@@ -896,7 +900,7 @@ class spotStyleDock(QDockWidget):
     def show(self):
         QDockWidget.show(self)
         self.resize(int(self.width()*1.5), self.height())
-        self.setFocus(True)
+        self.setFocus()
         self.activateWindow()
 
 
@@ -1429,7 +1433,7 @@ class QDialogListbox(QBaseDialog):
         elif moreButtonFuncText.lower().find('browse') != -1:
             moreButton.clicked.connect(self.browse)
 
-        listBox.setFocus(True)
+        listBox.setFocus()
         self.setMyStyleSheet()
 
     def setMyStyleSheet(self):
@@ -1575,7 +1579,7 @@ class selectPathsSpotmax(QBaseDialog):
         if app is not None:
             app.focusChanged.connect(self.on_focusChanged)
 
-        self.pathSelector.setFocus(True)
+        self.pathSelector.setFocus()
 
         self.setFont(font)
 
@@ -2228,7 +2232,7 @@ class selectSpotsH5FileLayout(QVBoxLayout):
         self.addWidget(treeSelector)
         treeSelector.itemClicked.connect(self.expandTopLevel)
 
-        treeSelector.setFocus(True)
+        treeSelector.setFocus()
 
     def populateSelector(self):
         for run, files in self.runsInfo.items():
@@ -2464,7 +2468,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         cancelButton.clicked.connect(self.cancelCallBack)
         self.cancelButton = cancelButton
         self.okButton.clicked.connect(self.ok_cb)
-        self.okButton.setFocus(True)
+        self.okButton.setFocus()
 
         mainLayout = QVBoxLayout()
 

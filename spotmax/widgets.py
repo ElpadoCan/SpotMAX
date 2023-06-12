@@ -452,11 +452,15 @@ class GopFeaturesAndThresholdsGroupbox(QGroupBox):
 class _GopFeaturesAndThresholdsButton(QPushButton):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setText(' Set features or view the selected ones... ')
+        super().setText(' Set features or view the selected ones... ')
         self.selectedFeaturesWindow = dialogs.GopFeaturesAndThresholdsDialog(
             parent=self.parent()
         )
         self.clicked.connect(self.setFeatures)
+        self.col_to_feature_mapper = {
+            value:key for key, value 
+            in features.feature_names_to_col_names_mapper().items()
+        }
         self.selectedFeaturesWindow.hide()
     
     def setFeatures(self):
@@ -472,6 +476,38 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
         start_idx = len('Features and ranges set:\n\n')
         text = tooltip[start_idx:]
         return text.replace('  * ', '\t')
+    
+    def value(self):
+        return self.text()
+    
+    def setText(self, text):
+        text = text.lstrip('\n')
+        if not text:
+            super().setText(' Set features or view the selected ones... ')
+            return
+        paramsText = ''
+        gop_thresholds = config.get_gop_thresholds(text)
+        featuresGroupBox = self.selectedFeaturesWindow.setFeaturesGroupbox
+        for i, (col_name, values) in enumerate(gop_thresholds.items()):
+            low_val, high_val = values
+            paramsText = f'{paramsText}  * {col_name}, {low_val}, {high_val}\n'
+            if i > 0:
+                featuresGroupBox.addFeatureField()
+            selector = featuresGroupBox.selectors[i]
+            if low_val is not None:
+                selector.lowRangeWidgets.checkbox.setChecked(True)
+                selector.lowRangeWidgets.spinbox.setValue(low_val)
+            if high_val is not None:
+                selector.highRangeWidgets.checkbox.setChecked(True)
+                selector.highRangeWidgets.spinbox.setValue(high_val)
+            feature_name = self.col_to_feature_mapper[col_name]
+            selector.selectButton.setFlat(True)
+            selector.selectButton.setFeatureText(feature_name)
+            selector.selectButton.setToolTip(col_name)
+        
+        text = f'Features and ranges set:\n\n{paramsText}'
+        self.setToolTip(text)
+        # self.selectedFeaturesWindow.setFeaturesGroupbox
 
 class _CenteredLineEdit(tooltipLineEdit):
     def __init__(self, parent=None):
