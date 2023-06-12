@@ -64,7 +64,7 @@ class analysisWorker(QRunnable):
     @worker_exception_handler
     def run(self):
         from . import _process
-        command = f'spotmax, -p, {self._ini_filepath}'
+        command = f'spotmax -p {self._ini_filepath}'
         # command = r'python, spotmax\test.py'
         
         self.logger.log(f'spotMAX analysis started with command `{command}`')

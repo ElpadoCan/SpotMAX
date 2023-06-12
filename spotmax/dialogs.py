@@ -305,11 +305,11 @@ class guiTabControl(QTabWidget):
         buttonsLayout.addWidget(self.runSpotMaxButton)
 
         containerLayout.addLayout(buttonsLayout)
-
-        containerLayout.addWidget(self.parametersQGBox)
+        
+        self.parametersTab.setWidget(self.parametersQGBox)
+        containerLayout.addWidget(self.parametersTab)
+        
         containerWidget.setLayout(containerLayout)
-
-        self.parametersTab.setWidget(containerWidget)
 
         self.loadPreviousParamsButton.sigPathSelected.connect(
             self.loadPreviousParams
@@ -317,7 +317,7 @@ class guiTabControl(QTabWidget):
         self.saveParamsButton.clicked.connect(self.saveParamsFile)
         self.runSpotMaxButton.clicked.connect(self.runAnalysis)
 
-        self.addTab(self.parametersTab, 'Analysis paramenters')
+        self.addTab(containerWidget, 'Analysis paramenters')
     
     def runAnalysis(self):
         txt = html_func.paragraph("""
@@ -814,9 +814,6 @@ class analysisInputsQGBox(QGroupBox):
                 else:
                     value = widget.value()
                 
-                print(section, anchor, value)
-                if not value:
-                    continue
                 ini_params[section][anchor] = {
                     'desc': options['desc'], 'loadedVal': value
                 }

@@ -475,7 +475,7 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
         tooltip = self.toolTip()
         start_idx = len('Features and ranges set:\n')
         text = tooltip[start_idx:]
-        return text.replace('  * ', '\t')
+        return text.replace('  * ', '')
     
     def value(self):
         return self.text()
@@ -942,7 +942,7 @@ class floatLineEdit(QLineEdit):
 
     def setNotAllowedStyleSheet(self):
         self.setStyleSheet(
-            'background: #FEF9C3;'
+            # 'background: #FEF9C3;'
             'border-radius: 4px;'
             'border: 1.5px solid red;'
             'padding: 1px 0px 1px 0px'
@@ -968,7 +968,7 @@ class floatLineEdit(QLineEdit):
         if self.notAllowed is not None and val in self.notAllowed:
             self.setNotAllowedStyleSheet()
         else:
-            self.setStyleSheet('background: #ffffff;')
+            self.setStyleSheet('')
             self.valueChanged.emit(self.value())
 
 def getOpenImageFileName(parent=None, mostRecentPath=''):
