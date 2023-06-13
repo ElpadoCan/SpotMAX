@@ -2,6 +2,8 @@ import sys
 import os
 import time
 import subprocess
+
+from importlib import import_module
 from functools import wraps
 
 import numpy as np
@@ -28,7 +30,6 @@ example of usage:
     self.startLoadDataWorker()
 
 def startLoadDataWorker(self):
-    self.funcDescription = 'loading data'
     worker = qtworkers.loadDataWorker(self)
     worker.signals.finished.connect(self.loadDataWorkerFinished)
     worker.signals.progress.connect(self.workerProgress)
@@ -70,6 +71,23 @@ class analysisWorker(QRunnable):
         self.logger.log(f'spotMAX analysis started with command `{command_format}`')
         subprocess.run([sys.executable, _process.__file__, '-c', command])
         self.signals.finished.emit((self._ini_filepath, self._is_tempfile))
+
+class ComputeAnalysisStepWorker(QRunnable):
+    def __init__(self, module_func, **kwargs):
+        QRunnable.__init__(self)
+        self.signals = signals()
+        self.logger = workerLogger(self.signals.progress)
+        
+        module_name, func_name = module_func.rsplit('.', 1)
+        module = import_module(f'spotmax.{module_name}')
+        self.func = getattr(module, func_name)
+        self.kwargs = kwargs
+        self.kwargs['logger_func'] = self.logger.log
+    
+    @worker_exception_handler
+    def run(self):
+        result = self.func(**self.kwargs)
+        self.signals.finished.emit(result)
 
 class pathScannerWorker(QRunnable):
     def __init__(self, selectedPath):

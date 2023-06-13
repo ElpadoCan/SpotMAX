@@ -281,7 +281,7 @@ class guiTabControl(QTabWidget):
         self.lastSavedIniFilePath = ''
 
         self.parametersTab = QScrollArea(self)
-        self.parametersQGBox = analysisInputsQGBox(self.parametersTab)
+        self.parametersQGBox = ParamsGroupBox(self.parametersTab)
         self.logging_func = logging_func
         containerWidget = QWidget()
         containerLayout = QVBoxLayout()
@@ -641,7 +641,7 @@ class inspectResults(QGroupBox):
         )
         self.setMinimumWidth(w)
 
-class analysisInputsQGBox(QGroupBox):
+class ParamsGroupBox(QGroupBox):
     def __init__(self, *args):
         QGroupBox.__init__(self, *args)
 

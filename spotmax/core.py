@@ -29,6 +29,7 @@ import acdctools.measure
 
 from . import GUI_INSTALLED, error_up_str, error_down_str
 from . import exception_handler_cli, handle_log_exception_cli
+from . import filters
 
 if GUI_INSTALLED:
     from acdctools.plot import imshow
@@ -44,36 +45,14 @@ except Exception as e:
     from .utils import njit_replacement as njit
     prange = range
 
-try:
-    from cupyx.scipy.ndimage import gaussian_filter as gpu_gaussian_filter
-    import cupy as cp
-    CUPY_INSTALLED = True
-except Exception as e:
-    CUPY_INSTALLED = False
-
 from . import utils, rng, base_lineage_table_values
 from . import issues_url, printl, io, features, config
 from . import transformations
 
-np.seterr(divide='warn', invalid='raise')
+import math
+SQRT_2 = math.sqrt(2)
 
-def gaussian_filter(image, sigma, use_gpu=False, logger_func=print):
-    if CUPY_INSTALLED and use_gpu:
-        try:
-            image = cp.array(image)
-            filtered = gpu_gaussian_filter(image, sigma)
-            filtered = cp.asnumpy(filtered)
-        except Exception as err:
-            logger_func('*'*50)
-            logger_func(err)
-            logger_func(
-                '[WARNING]: GPU acceleration of the gaussian filter failed. '
-                f'Using CPU...{error_up_str}'
-            )
-            filtered = skimage.filters.gaussian(image, sigma=sigma)
-    else:
-        filtered = skimage.filters.gaussian(image, sigma=sigma)
-    return filtered
+np.seterr(divide='warn', invalid='raise')
 
 distribution_metrics_func = features.get_distribution_metrics_func()
 effect_size_func = features.get_effect_size_func()
@@ -2015,7 +1994,7 @@ class _spotFIT(spheroid):
 
     def spotSIZE(self):
         df_spots_ID = self.df_spots_ID
-        spots_img_denoise = gaussian_filter(
+        spots_img_denoise = filters.gaussian(
             self.spots_img_local, 0.8, use_gpu=self.use_gpu,
             logger_func=self.logger.info
         )
@@ -2688,7 +2667,7 @@ class Kernel(_ParamsParser):
         self.is_cli = is_cli
         self._force_close_on_critical = False
         self._SpotFit = _spotFIT(debug=debug)
-
+    
     def _preprocess(self, image_data, verbose=True):
         SECTION = 'Pre-processing'
         ANCHOR = 'removeHotPixels'
@@ -2698,11 +2677,7 @@ class Kernel(_ParamsParser):
             print('')
             self.logger.info(f'Removing hot pixels...')
         if do_remove_hot_pixels:
-            pbar = tqdm(total=len(image_data), ncols=100)
-            for z, image in enumerate(image_data):
-                image_data[z] = skimage.morphology.opening(image)
-                pbar.update()
-            pbar.close()
+            image_data = filters.remove_hot_pixels(image_data)
         
         ANCHOR = 'gaussSigma'
         options = self._params[SECTION][ANCHOR]
@@ -2725,9 +2700,8 @@ class Kernel(_ParamsParser):
         #     )
 
         use_gpu = self._get_use_gpu()
-        filtered_data = gaussian_filter(
-            image_data, sigma, use_gpu=use_gpu,
-            logger_func=self.logger.info
+        filtered_data = filters.gaussian(
+            image_data, sigma, use_gpu=use_gpu, logger_func=self.logger.info
         )
 
         return filtered_data
@@ -2741,7 +2715,23 @@ class Kernel(_ParamsParser):
             use_gpu = False
         return use_gpu 
     
-    def _sharpen_spots(self, spots_img, metadata):
+    def _sharpen_spots(self, raw_spots_img, metadata):
+        """Difference of Gaussians (DoG) detector. The same as TrackMate DoG 
+        detector. Source: https://imagej.net/plugins/trackmate/detectors/difference-of-gaussian
+
+        Parameters
+        ----------
+        raw_spots_img : (Z, Y, X) ndarray
+            Raw spots' signal 3D z-stack image.
+        metadata : dict
+            Dictionary with 'zyxResolutionLimitPxl' key.
+
+        Returns
+        -------
+        (Z, Y, X) ndarray
+            Filtered image.
+        """   
+             
         print('')
         self.logger.info(f'Applying sharpening filter...')
 
@@ -2751,15 +2741,22 @@ class Kernel(_ParamsParser):
         #         r'\spotMAX_v2\data\test_simone_pos\2_test_missed_spots_edges_worm'
         #         r'\Position_2\Images\20909_SampleD_Gonad1_fused_sharpened.npy'
         #     )
-    
-        sigmas = metadata['zyxResolutionLimitPxl']
         use_gpu = self._get_use_gpu()
-        blurred = gaussian_filter(
-            spots_img, sigmas, use_gpu=use_gpu,
-            logger_func=self.logger.info
+        
+        resolution_limit_radii = np.array(metadata['zyxResolutionLimitPxl'])
+        sigma1 = 2*resolution_limit_radii/(1+SQRT_2)
+        
+        blurred1 = filters.gaussian(
+            raw_spots_img, sigma1, use_gpu=use_gpu, logger_func=self.logger.info
         )
-        sharpened = spots_img - blurred
-        out_range = (spots_img.min(), spots_img.max())
+        
+        sigma2 = SQRT_2*sigma1
+        blurred2 = filters.gaussian(
+            raw_spots_img, sigma2, use_gpu=use_gpu, logger_func=self.logger.info
+        )
+        
+        sharpened = blurred1 - blurred2
+        out_range = (raw_spots_img.min(), raw_spots_img.max())
         sharp_rescaled = skimage.exposure.rescale_intensity(
             sharpened, out_range=out_range
         )
@@ -3088,7 +3085,7 @@ class Kernel(_ParamsParser):
     def spots_detection(
             self, spots_img, zyx_resolution_limit_pxl, sharp_spots_img=None,
             raw_spots_img=None, ref_ch_img=None, ref_ch_mask_or_labels=None, 
-            frame_i=0, lab=None, rp=None, do_filter_spots_vs_ref_ch=False, 
+            frame_i=0, lab=None, rp=None, backgr_is_outside_ref_ch_mask=False, 
             df_agg=None, do_keep_spots_in_ref_ch=False, 
             gop_filtering_thresholds=None, dist_transform_spheroid=None,
             detection_method='peak_local_max', prediction_method='Thresholding',
@@ -3148,7 +3145,7 @@ class Kernel(_ParamsParser):
             sharp_spots_img, 
             ref_ch_img, 
             ref_ch_mask_or_labels, 
-            do_filter_spots_vs_ref_ch, 
+            backgr_is_outside_ref_ch_mask, 
             lab, rp, frame_i, 
             zyx_resolution_limit_pxl,
             min_size_spheroid_mask=min_size_spheroid_mask,
@@ -3348,7 +3345,7 @@ class Kernel(_ParamsParser):
         
     def _spots_filter(
             self, df_spots_coords, spots_img, sharp_spots_img, 
-            ref_ch_img, ref_ch_mask_or_labels,  do_filter_spots_vs_ref_ch, 
+            ref_ch_img, ref_ch_mask_or_labels,  backgr_is_outside_ref_ch_mask, 
             lab, rp, frame_i, zyx_resolution_limit_pxl, 
             dfs_lists=None,
             threshold_val=None, 
@@ -3447,7 +3444,7 @@ class Kernel(_ParamsParser):
                     dist_transform_spheroid=dist_transform_spheroid,
                     ref_ch_mask_obj=local_ref_ch_mask, 
                     ref_ch_img_obj=local_ref_ch_img,
-                    do_filter_spots_vs_ref_ch=do_filter_spots_vs_ref_ch,
+                    backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
                     zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
                     debug=debug
                 )
@@ -3738,7 +3735,7 @@ class Kernel(_ParamsParser):
             min_size_spheroid_mask=None, dist_transform_spheroid=None,
             ref_ch_mask_obj=None, ref_ch_img_obj=None, 
             zyx_resolution_limit_pxl=None, 
-            do_filter_spots_vs_ref_ch=False,
+            backgr_is_outside_ref_ch_mask=False,
             debug=False
         ):
         """_summary_
@@ -3790,8 +3787,9 @@ class Kernel(_ParamsParser):
             The first dimension must be the number of z-slices.
             If None, the features from the reference channel signal will not 
             be computed.
-        do_filter_spots_vs_ref_ch : bool, optional by default False
-            Filter spots by comparing to the reference channel
+        backgr_is_outside_ref_ch_mask : bool, optional by default False
+            If True, the background mask are made of the pixels that are inside 
+            the segmented object but outside of the reference channel mask.
         zyx_resolution_limit_pxl : (z, y, x) tuple or None, optional
             Resolution limit in (z, y, x) direction in pixels, by default None. 
             If `min_size_spheroid_mask` is None, this will be used to computed 
@@ -3818,7 +3816,7 @@ class Kernel(_ParamsParser):
             dist_transform_spheroid = min_size_spheroid_mask.astype(np.uint8)
 
         # Check if spots_img needs to be normalised
-        if do_filter_spots_vs_ref_ch:
+        if backgr_is_outside_ref_ch_mask:
             backgr_mask = np.logical_and(ref_ch_mask_obj, ~spheroids_mask)
             normalised_ref_ch_img_obj, ref_ch_norm_value = self._normalise_img(
                 ref_ch_img_obj, backgr_mask, raise_if_norm_zero=False
@@ -3830,6 +3828,8 @@ class Kernel(_ParamsParser):
             df_obj_spots.loc[:, 'spots_normalising_value'] = spots_norm_value
         else:
             backgr_mask = np.logical_and(obj_mask, ~spheroids_mask)
+            normalised_spots_img_obj = spots_img_obj
+            normalised_ref_ch_img_obj = ref_ch_img_obj
 
         # Calculate background metrics
         backgr_vals = sharp_spots_img_obj[backgr_mask]
@@ -3934,32 +3934,29 @@ class Kernel(_ParamsParser):
                 df_obj_spots, spot_id, name='spot_vs_backgr',
                 debug=debug
             )
-
-            if do_filter_spots_vs_ref_ch:
-                normalised_spot_intensities, normalised_ref_ch_intensities = (
-                    self._get_normalised_spot_ref_ch_intensities(
-                        normalised_spots_img_obj, normalised_ref_ch_img_obj,
-                        spheroid_mask, slice_global_to_local
-                    )
-                )
-                self._add_ttest_values(
-                    normalised_spot_intensities, normalised_ref_ch_intensities, 
-                    df_obj_spots, spot_id, name='spot_vs_ref_ch'
-                )
-                self._add_effect_sizes(
-                    normalised_spot_intensities, normalised_ref_ch_intensities, 
-                    df_obj_spots, spot_id, name='spot_vs_ref_ch'
-                )
-
-            if ref_ch_mask_obj is not None:
-                self._add_spot_vs_ref_location(
-                    ref_ch_mask_obj, zyx_center, df_obj_spots, spot_id
-                )
-
+            
             if ref_ch_img_obj is None:
                 # Raw reference channel not present --> continue
                 pbar.update()
                 continue
+
+            normalised_spot_intensities, normalised_ref_ch_intensities = (
+                self._get_normalised_spot_ref_ch_intensities(
+                    normalised_spots_img_obj, normalised_ref_ch_img_obj,
+                    spheroid_mask, slice_global_to_local
+                )
+            )
+            self._add_ttest_values(
+                normalised_spot_intensities, normalised_ref_ch_intensities, 
+                df_obj_spots, spot_id, name='spot_vs_ref_ch'
+            )
+            self._add_effect_sizes(
+                normalised_spot_intensities, normalised_ref_ch_intensities, 
+                df_obj_spots, spot_id, name='spot_vs_ref_ch'
+            )
+            self._add_spot_vs_ref_location(
+                ref_ch_mask_obj, zyx_center, df_obj_spots, spot_id
+            )                
             
             value = ref_ch_img_obj[zyx_center]
             df_obj_spots.at[spot_id, 'ref_ch_raw_intensity_at_center'] = value
@@ -4332,8 +4329,8 @@ class Kernel(_ParamsParser):
             self._params['Pre-processing']['sharpenSpots']['loadedVal']
         )
         SECTION = 'Reference channel'
-        do_filter_spots_vs_ref_ch = (
-            self._params[SECTION]['filterPeaksInsideRef']['loadedVal']
+        backgr_is_outside_ref_ch_mask = (
+            self._params[SECTION]['bkgrMaskOutsideRef']['loadedVal']
         )
         do_keep_spots_in_ref_ch = (
             self._params[SECTION]['keepPeaksInsideRef']['loadedVal']
@@ -4373,7 +4370,7 @@ class Kernel(_ParamsParser):
             preproc_spots_img = self._preprocess(raw_spots_img)
             if do_sharpen_spots:
                 sharp_spots_img = self._sharpen_spots(
-                    preproc_spots_img, self.metadata
+                    raw_spots_img, self.metadata
                 )
             lab = segm_data[frame_i]
             rp = segm_rp[frame_i]
@@ -4403,7 +4400,7 @@ class Kernel(_ParamsParser):
                 min_size_spheroid_mask=min_size_spheroid_mask,
                 dist_transform_spheroid=edt_spheroid,
                 spot_footprint=spot_footprint,
-                do_filter_spots_vs_ref_ch=do_filter_spots_vs_ref_ch,
+                backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
                 do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch,
                 gop_filtering_thresholds=gop_filtering_thresholds,
                 prediction_method=prediction_method,
@@ -4797,6 +4794,23 @@ def calcMinSpotSize(
         emWavelen, NA, physicalSizeX, physicalSizeY, physicalSizeZ,
         zResolutionLimit_um, yxResolMultiplier
     ):
+    # NOTE: The Abbe diffraction limit formula often uses the letter `d` because
+    # it is the "diameter of the aperture in meters" or simply the "minumum 
+    # resolvable distance". This should not be confused with the diameter of 
+    # the spot. The diameter of the spot can be determined using the Rayleigh 
+    # criterion, which says "two point sources are regarded as just resolved 
+    # when the principal diffraction maximum (center) of the Airy disk of one 
+    # image coincides with the first minimum of the Airy disk of the other". 
+    # In other words, `d` from the Abbe formula is the distance from the center
+    # of the Airy disk to the first minimum, hence the RADIUS of the spot.
+    # However, when computing the peaks location with `peak_local_max` we 
+    # provide a spot footprint with diameter = `d` since we cannot allow 
+    # overlapping between spots in contrast to the Rayleigh criterion.
+    
+    # Sources:
+    # - https://en.wikipedia.org/wiki/Angular_resolution
+    # - https://en.wikipedia.org/wiki/Airy_disk
+    # - https://en.wikipedia.org/wiki/Diffraction-limited_system
     try:
         airyRadius_nm = (1.22 * emWavelen)/(2*NA)
         airyRadius_um = airyRadius_nm*1E-3

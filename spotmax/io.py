@@ -273,7 +273,7 @@ def readStoredParamsCSV(csv_path, params):
         'emission wavelength (nm):':
             ('METADATA', 'emWavelen'),
         'Filter spots by reference channel?':
-            ('Reference channel', 'filterPeaksInsideRef'),
+            ('Reference channel', 'bkgrMaskOutsideRef'),
         'Fit 3D Gaussians?':
             ('Spots channel', 'doSpotFit'),
         'Gaussian filter sigma:':

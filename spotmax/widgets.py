@@ -560,8 +560,10 @@ class _spotMinSizeLabels(QWidget):
         layout = QVBoxLayout()
         self.umLabel = QLabel()
         self.umLabel.setFont(font)
+        self.umLabel.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.pixelLabel = QLabel()
         self.pixelLabel.setFont(font)
+        self.pixelLabel.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(self.umLabel)
         layout.addWidget(self.pixelLabel)
         self.setLayout(layout)
@@ -596,7 +598,7 @@ class formWidget(QWidget):
             addAutoButton=False,
             addEditButton=False,
             addLabel=True,
-            disableComputeButtons=True,
+            disableComputeButtons=False,
             key='',
             parent=None,
             valueSetter=None,
@@ -607,6 +609,7 @@ class formWidget(QWidget):
         self.key = key
         self.addLabel = addLabel
         self.labelTextLeft = labelTextLeft
+        self._isComputeButtonConnected = False
 
         widget.setParent(self)
         widget.parentFormWidget = self
@@ -669,6 +672,8 @@ class formWidget(QWidget):
             self.editButton = editButton
             self.items.append(editButton)
 
+        self.computeButtons = []
+        
         if addApplyButton:
             applyButton = applyPushButton(self)
             applyButton.setCursor(Qt.PointingHandCursor)
@@ -677,8 +682,7 @@ class formWidget(QWidget):
             applyButton.clicked.connect(self.applyButtonClicked)
             self.applyButton = applyButton
             self.items.append(applyButton)
-            if disableComputeButtons:
-                applyButton.setDisabled(True)
+            self.computeButtons.append(applyButton)
 
         if addAutoButton:
             autoButton = acdc_widgets.autoPushButton(self)
@@ -687,8 +691,7 @@ class formWidget(QWidget):
             autoButton.clicked.connect(self.autoButtonClicked)
             self.autoButton = autoButton
             self.items.append(autoButton)
-            if disableComputeButtons:
-                autoButton.setDisabled(True)
+            self.computeButtons.append(autoButton)
 
         if addComputeButton:
             computeButton = computePushButton(self)
@@ -696,12 +699,14 @@ class formWidget(QWidget):
             computeButton.clicked.connect(self.computeButtonClicked)
             self.computeButton = computeButton
             self.items.append(computeButton)
-            if disableComputeButtons:
-                computeButton.setDisabled(True)
+            self.computeButtons.append(computeButton)
 
         if addLabel:
             self.labelLeft.clicked.connect(self.tryChecking)
         self.labelRight.clicked.connect(self.tryChecking)
+    
+    def setComputeButtonConnected(self, connected):
+        self._isComputeButtonConnected = connected
     
     def text(self):
         return self.labelTextLeft
@@ -753,7 +758,19 @@ class formWidget(QWidget):
         self.sigApplyButtonClicked.emit(self)
 
     def computeButtonClicked(self):
+        if not self._isComputeButtonConnected:
+            self.warnComputeButtonNotConnected()
         self.sigComputeButtonClicked.emit(self)
+    
+    def warnComputeButtonNotConnected(self):
+        txt = html_func.paragraph("""
+            Before computing any of the analysis steps you need to <b>load some 
+            image data</b>.<br><br>
+            To do so, click on the <code>Open folder</code> button on the left of 
+            the top toolbar (Ctrl+O) and choose an experiment folder to load. 
+        """)
+        msg = acdc_widgets.myMessageBox()
+        msg.warning(self, 'Data not loaded', txt)
 
     def linkActivatedCallBack(self, link):
         if utils.is_valid_url(link):

@@ -96,7 +96,7 @@ def paramsInfoText():
 
             '<b>Comparing the spots signal to the reference channel</b> and'
             'keep only the spots that fulfill a specific criteria'
-            f'(see the {href_tags["filterPeaksInsideRef"]}'
+            f'(see the {href_tags["bkgrMaskOutsideRef"]}'
             f'and {href_tags["gopThresholds"]} parameters)<br>'
         )}
         {dataStructInfoText()}<br><br>
@@ -243,7 +243,7 @@ def paramsInfoText():
         'spotMAX will then <b>remove the spots that are detected outside '
         'of the reference channel mask</b>.'
     ),
-    'filterPeaksInsideRef': (
+    'bkgrMaskOutsideRef': (
         """"""
     ),
     'refChSingleObj': (

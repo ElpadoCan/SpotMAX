@@ -1,7 +1,7 @@
 import os
 import shutil
 import datetime
-import subprocess
+import traceback
 from queue import Queue
 
 import numpy as np
@@ -23,6 +23,14 @@ from . import logs_path, html_path, html_func
 from . import widgets, config
 
 from . import qrc_resources
+
+ANALYSIS_STEP_RESULT_SLOTS = {
+    'Computing gaussian filter': '_displayGaussSigmaResult'
+}
+
+PARAMS_SLOTS = {
+    'gaussSigma': ('sigComputeButtonClicked', '_computeGaussSigma')
+}
 
 class spotMAX_Win(acdc_gui.guiWin):
     def __init__(
@@ -127,8 +135,13 @@ class spotMAX_Win(acdc_gui.guiWin):
             action.setVisible(False)
             action.setDisabled(True)
     
-    def reinitGui(self):
-        super().reinitGui()
+    def reInitGui(self):
+        super().reInitGui()
+        try:
+            self.disconnectParamsGroupBoxSignals()
+        except Exception as e:
+            # printl(traceback.format_exc())
+            pass
         self.showParamsDockButton.setDisabled(False)
 
     def initGui(self):
@@ -146,6 +159,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.computeDockWidget.setEnabled(True)
 
     def _loadFromExperimentFolder(self, selectedPath):
+        # Replaces cellacdc.gui._loadFromExperimentFolder
         self.funcDescription = 'scanning experiment paths'
         self.progressWin = acdc_apps.QDialogWorkerProgress(
             title='Path scanner progress', parent=self,
@@ -225,6 +239,93 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.setRunNumbers()
         
         self.setAnalysisParameters()
+        self.connectParamsGroupBoxSignals()
+    
+    def disconnectParamsGroupBoxSignals(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        for section, params in ParamsGroupBox.params.items():
+            for anchor, param in params.items():
+                formWidget = param['formWidget']
+                signal_slot = PARAMS_SLOTS.get(anchor)
+                if signal_slot is None:
+                    continue
+                formWidget.setComputeButtonConnected(False)
+                signal, slot = signal_slot
+                signal = getattr(formWidget, signal)
+                signal.disconnect()
+    
+    def _computeGaussSigma(self, formWidget):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        self.funcDescription = 'Computing gaussian filter'
+        module_func = 'filters.gaussian'
+        
+        posData = self.data[self.pos_i]
+        image = posData.img_data[posData.frame_i]
+        sigma = formWidget.widget.value()
+        configParams = ParamsGroupBox.params['Configuration']
+        use_gpu = configParams['useGpu']['widget'].isChecked()
+        
+        kwargs = {
+            'image': image, 'sigma': sigma, 'use_gpu': use_gpu
+        }
+        
+        self.startComputeAnalysisStepWorker(module_func, **kwargs)
+    
+    def _displayGaussSigmaResult(self, result):
+        from acdctools.plot import imshow
+        posData = self.data[self.pos_i]
+        image = posData.img_data[posData.frame_i]
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        preprocessParams = ParamsGroupBox.params['Pre-processing']
+        sigma = preprocessParams['gaussSigma']['widget'].value()
+        titles = ['Raw image', f'Filtered image (sigma = {sigma})']
+        imshow(
+            image, result, axis_titles=titles, parent=self, 
+            window_title='Pre-processing - Gaussian filter'
+        )
+    
+    def startComputeAnalysisStepWorker(self, module_func, **kwargs):
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
+            title=self.funcDescription, parent=self,
+            pbarDesc=self.funcDescription
+        )
+        self.progressWin.mainPbar.setMaximum(0)
+        self.progressWin.show(self.app)
+        
+        worker = qtworkers.ComputeAnalysisStepWorker(module_func, **kwargs)
+        worker.signals.finished.connect(self.computeAnalysisStepWorkerFinished)
+        worker.signals.progress.connect(self.workerProgress)
+        worker.signals.initProgressBar.connect(self.workerInitProgressbar)
+        worker.signals.progressBar.connect(self.workerUpdateProgressbar)
+        worker.signals.critical.connect(self.workerCritical)
+        self.threadPool.start(worker)
+    
+    def computeAnalysisStepWorkerFinished(self, result):
+        if self.progressWin is not None:
+            self.progressWin.workerFinished = True
+            self.progressWin.close()
+            self.progressWin = None
+        self.logger.info(f'{self.funcDescription} process ended.')
+        displayFunc = ANALYSIS_STEP_RESULT_SLOTS[self.funcDescription]
+        displayFunc = getattr(self, displayFunc)
+        displayFunc(result)
+    
+    def connectParamsGroupBoxSignals(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        for section, params in ParamsGroupBox.params.items():
+            for anchor, param in params.items():
+                formWidget = param['formWidget']
+                signal_slot = PARAMS_SLOTS.get(anchor)
+                if signal_slot is None:
+                    continue
+                formWidget.setComputeButtonConnected(True)
+                signal, slot = signal_slot
+                signal = getattr(formWidget, signal)
+                slot = getattr(self, slot)
+                signal.connect(slot)
     
     def setRunNumbers(self):
         posData = self.data[self.pos_i]
