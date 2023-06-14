@@ -15,6 +15,7 @@ if GUI_INSTALLED:
     from qtpy.QtGui import QFont
     from qtpy.QtCore import QObject, Signal, qInstallMessageHandler
 
+    from cellacdc import apps as acdc_apps
     from cellacdc import widgets as acdc_widgets
 
     from . import widgets

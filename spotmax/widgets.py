@@ -37,7 +37,8 @@ from cellacdc import myutils as acdc_myutils
 from acdctools.regex import float_regex
 
 from . import is_mac, is_win, printl, font, font_small
-from . import utils, dialogs, config, html_func, docs
+from . import dialogs, config, html_func, docs
+from . import utils
 from . import features, io
 
 # NOTE: Enable icons

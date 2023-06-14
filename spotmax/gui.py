@@ -29,13 +29,15 @@ from . import qrc_resources
 ANALYSIS_STEP_RESULT_SLOTS = {
     'gaussSigma': '_displayGaussSigmaResult',
     'removeHotPixels': '_displayRemoveHotPixelsResult',
-    'sharpenSpots': '_displaySharpenSpotsResult'
+    'sharpenSpots': '_displaySharpenSpotsResult',
+    'spotPredictionMethod': '_displayspotPredictionResult'
 }
 
 PARAMS_SLOTS = {
     'gaussSigma': ('sigComputeButtonClicked', '_computeGaussSigma'),
     'removeHotPixels': ('sigComputeButtonClicked', '_computeRemoveHotPixels'),
-    'sharpenSpots': ('sigComputeButtonClicked', '_computeSharpenSpots')
+    'sharpenSpots': ('sigComputeButtonClicked', '_computeSharpenSpots'),
+    'spotPredictionMethod': ('sigComputeButtonClicked', '_computeSpotPrediction')
 }
 
 class spotMAX_Win(acdc_gui.guiWin):
@@ -315,6 +317,37 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
     
+    def _computeSpotPrediction(self, formWidget):
+        self.funcDescription = 'Spots location semantic segmentation'
+        module_func = 'pipe.spots_instance_segmentation'
+        anchor = 'spotPredictionMethod'
+        
+        posData = self.data[self.pos_i]
+        raw_image = posData.img_data[posData.frame_i]
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        preprocessParams = ParamsGroupBox.params['Pre-processing']
+        initial_sigma = preprocessParams['gaussSigma']['widget'].value()
+        
+        metadataParams = ParamsGroupBox.params['METADATA']
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii = spotMinSizeLabels.pixelValues()
+        
+        preprocessParams = ParamsGroupBox.params['Pre-processing']
+        do_sharpen = preprocessParams['sharpenSpots']['widget'].isChecked()
+        
+        configParams = ParamsGroupBox.params['Configuration']
+        use_gpu = configParams['useGpu']['widget'].isChecked()
+        
+        kwargs = {
+            'raw_image': raw_image, 'initial_sigma': initial_sigma, 
+            'spots_zyx_radii': spots_zyx_radii, 'do_sharpen': do_sharpen, 
+            'use_gpu': use_gpu
+        }
+        
+        self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+    
     def _displayGaussSigmaResult(self, result):
         from acdctools.plot import imshow
         posData = self.data[self.pos_i]
@@ -352,6 +385,19 @@ class spotMAX_Win(acdc_gui.guiWin):
         window_title = 'Pre-processing - Sharpening (DoG filter)'
         imshow(
             image, result, axis_titles=titles, parent=self, 
+            window_title=window_title
+        )
+    
+    def _displayspotPredictionResult(self, result):
+        from acdctools.plot import imshow
+        posData = self.data[self.pos_i]
+        image = posData.img_data[posData.frame_i]
+        
+        titles = ['Raw image', *list(result.keys())]
+        thresholded_images = list(result.values())
+        window_title = 'Spots channel - Spots segmentation method'
+        imshow(
+            image, *thresholded_images, axis_titles=titles, parent=self, 
             window_title=window_title
         )
     
