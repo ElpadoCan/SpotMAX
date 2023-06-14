@@ -33,6 +33,8 @@ import pyqtgraph as pg
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc._palettes import lineedit_invalid_entry_stylesheet
+from cellacdc import myutils as acdc_myutils
+from acdctools.regex import float_regex
 
 from . import is_mac, is_win, printl, font, font_small
 from . import utils, dialogs, config, html_func, docs
@@ -574,6 +576,16 @@ class _spotMinSizeLabels(QWidget):
     
     def text(self):
         return ''
+    
+    def pixelValues(self):
+        text = self.pixelLabel.text()
+        all_floats_re = re.findall(float_regex(), text)
+        return [float(val) for val in all_floats_re]
+
+    def umValues(self):
+        text = self.umLabel.text()
+        all_floats_re = re.findall(float_regex(), text)
+        return [float(val) for val in all_floats_re]
 
 class formWidget(QWidget):
     sigApplyButtonClicked = Signal(object)
@@ -740,7 +752,7 @@ class formWidget(QWidget):
 
     def browseButtonClicked(self):
         file_path = getOpenImageFileName(
-            parent=self, mostRecentPath=utils.getMostRecentPath()
+            parent=self, mostRecentPath=acdc_myutils.getMostRecentPath()
         )
         if file_path == '':
             return
@@ -942,11 +954,7 @@ class floatLineEdit(QLineEdit):
         QLineEdit.__init__(self, *args)
         self.notAllowed = notAllowed
 
-        self.isNumericRegExp = (
-            r'^[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?$'
-        )
-        if not allowNegative:
-            self.isNumericRegExp = self.isNumericRegExp.replace('[-+]?', '')
+        self.isNumericRegExp = rf'^{float_regex(allow_negative=allowNegative)}$'
 
         regExp = QRegularExpression(self.isNumericRegExp)
         self.setValidator(QRegularExpressionValidator(regExp))
@@ -989,11 +997,9 @@ class VectorLineEdit(QLineEdit):
     def __init__(self, parent=None, initial=None):
         super().__init__(parent)
         
-        float_regex = (
-            r'[-+]?[0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?'
-        )
-        vector_regex = fr'\(?\[?{float_regex},\s?{float_regex},\s?{float_regex}\)?\]?'
-        regex = fr'^{vector_regex}$|^{float_regex}$'
+        float_re = float_regex()
+        vector_regex = fr'\(?\[?{float_re},\s?{float_re},\s?{float_re}\)?\]?'
+        regex = fr'^{vector_regex}$|^{float_re}$'
         self.validRegex = regex
         
         regExp = QRegularExpression(regex)

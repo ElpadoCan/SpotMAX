@@ -2,6 +2,7 @@ import os
 import shutil
 import datetime
 import traceback
+import re
 from queue import Queue
 
 import numpy as np
@@ -17,6 +18,7 @@ from cellacdc import gui as acdc_gui
 from cellacdc import widgets as acdc_widgets
 from cellacdc import exception_handler
 from cellacdc import apps as acdc_apps
+from acdctools.regex import float_regex
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
@@ -26,12 +28,14 @@ from . import qrc_resources
 
 ANALYSIS_STEP_RESULT_SLOTS = {
     'gaussSigma': '_displayGaussSigmaResult',
-    'removeHotPixels': '_displayRemoveHotPixelsResult'
+    'removeHotPixels': '_displayRemoveHotPixelsResult',
+    'sharpenSpots': '_displaySharpenSpotsResult'
 }
 
 PARAMS_SLOTS = {
     'gaussSigma': ('sigComputeButtonClicked', '_computeGaussSigma'),
-    'removeHotPixels': ('sigComputeButtonClicked', '_computeRemoveHotPixels')
+    'removeHotPixels': ('sigComputeButtonClicked', '_computeRemoveHotPixels'),
+    'sharpenSpots': ('sigComputeButtonClicked', '_computeSharpenSpots')
 }
 
 class spotMAX_Win(acdc_gui.guiWin):
@@ -288,6 +292,29 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
     
+    def _computeSharpenSpots(self, formWidget):
+        self.funcDescription = 'Sharpen spots (DoG filter)'
+        module_func = 'filters.DoG_spots'
+        anchor = 'sharpenSpots'
+        
+        posData = self.data[self.pos_i]
+        image = posData.img_data[posData.frame_i]
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii = spotMinSizeLabels.pixelValues()
+        
+        configParams = ParamsGroupBox.params['Configuration']
+        use_gpu = configParams['useGpu']['widget'].isChecked()
+        
+        kwargs = {
+            'image': image, 'spots_zyx_radii': spots_zyx_radii, 
+            'use_gpu': use_gpu
+        }
+        
+        self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+    
     def _displayGaussSigmaResult(self, result):
         from acdctools.plot import imshow
         posData = self.data[self.pos_i]
@@ -311,6 +338,18 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         titles = ['Raw image', f'Hot pixels removed']
         window_title = 'Pre-processing - Remove hot pixels'
+        imshow(
+            image, result, axis_titles=titles, parent=self, 
+            window_title=window_title
+        )
+    
+    def _displaySharpenSpotsResult(self, result):
+        from acdctools.plot import imshow
+        posData = self.data[self.pos_i]
+        image = posData.img_data[posData.frame_i]
+        
+        titles = ['Raw image', f'Sharpened (DoG filter)']
+        window_title = 'Pre-processing - Sharpening (DoG filter)'
         imshow(
             image, result, axis_titles=titles, parent=self, 
             window_title=window_title

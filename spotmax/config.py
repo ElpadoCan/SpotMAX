@@ -102,7 +102,7 @@ def get_bool(text):
 
 def get_gauss_sigma(text):
     if not text:
-        return 0.75
+        return 0.0
     
     try:
         sigma = float(text)
@@ -658,7 +658,7 @@ def _metadata_params():
             'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
         },
         'spotMinSizeLabels': {
-            'desc': 'Spot (z,y,x) minimum dimensions',
+            'desc': 'Spot (z, y, x) minimum dimensions (radius)',
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,

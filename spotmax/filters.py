@@ -1,5 +1,7 @@
 from tqdm import tqdm
 
+import numpy as np
+
 try:
     from cupyx.scipy.ndimage import gaussian_filter as gpu_gaussian_filter
     import cupy as cp
@@ -12,6 +14,9 @@ import skimage.filters
 
 from . import error_up_str, printl
 
+import math
+SQRT_2 = math.sqrt(2)
+
 def remove_hot_pixels(image, logger_func=print):
     pbar = tqdm(total=len(image), ncols=100)
     for z, img in enumerate(image):
@@ -23,7 +28,7 @@ def remove_hot_pixels(image, logger_func=print):
 def gaussian(image, sigma, use_gpu=False, logger_func=print):
     if CUPY_INSTALLED and use_gpu:
         try:
-            image = cp.array(image)
+            image = cp.array(image, dtype=float)
             filtered = gpu_gaussian_filter(image, sigma)
             filtered = cp.asnumpy(filtered)
         except Exception as err:
@@ -37,3 +42,25 @@ def gaussian(image, sigma, use_gpu=False, logger_func=print):
     else:
         filtered = skimage.filters.gaussian(image, sigma=sigma)
     return filtered
+
+def DoG_spots(image, spots_zyx_radii, use_gpu=False, logger_func=print):
+    spots_zyx_radii = np.array(spots_zyx_radii)
+    
+    sigma1 = 2*spots_zyx_radii/(1+SQRT_2)
+        
+    blurred1 = gaussian(
+        image, sigma1, use_gpu=use_gpu, logger_func=logger_func
+    )
+    
+    sigma2 = SQRT_2*sigma1
+    blurred2 = gaussian(
+        image, sigma2, use_gpu=use_gpu, logger_func=logger_func
+    )
+    
+    sharpened = blurred1 - blurred2
+    
+    out_range = (image.min(), image.max())
+    sharp_rescaled = skimage.exposure.rescale_intensity(
+        sharpened, out_range=out_range
+    )
+    return sharp_rescaled

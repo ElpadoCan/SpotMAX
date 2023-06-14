@@ -2715,7 +2715,7 @@ class Kernel(_ParamsParser):
             use_gpu = False
         return use_gpu 
     
-    def _sharpen_spots(self, raw_spots_img, metadata):
+    def sharpen_spots(self, raw_spots_img, metadata):
         """Difference of Gaussians (DoG) detector. The same as TrackMate DoG 
         detector. Source: https://imagej.net/plugins/trackmate/detectors/difference-of-gaussian
 
@@ -2743,24 +2743,13 @@ class Kernel(_ParamsParser):
         #     )
         use_gpu = self._get_use_gpu()
         
-        resolution_limit_radii = np.array(metadata['zyxResolutionLimitPxl'])
-        sigma1 = 2*resolution_limit_radii/(1+SQRT_2)
+        resolution_limit_radii = metadata['zyxResolutionLimitPxl']
         
-        blurred1 = filters.gaussian(
-            raw_spots_img, sigma1, use_gpu=use_gpu, logger_func=self.logger.info
+        filtered = filters.DoG_spots(
+            raw_spots_img, resolution_limit_radii, use_gpu=use_gpu, 
+            logger_func=self.logger.info
         )
-        
-        sigma2 = SQRT_2*sigma1
-        blurred2 = filters.gaussian(
-            raw_spots_img, sigma2, use_gpu=use_gpu, logger_func=self.logger.info
-        )
-        
-        sharpened = blurred1 - blurred2
-        out_range = (raw_spots_img.min(), raw_spots_img.max())
-        sharp_rescaled = skimage.exposure.rescale_intensity(
-            sharpened, out_range=out_range
-        )
-        return sharp_rescaled
+        return filtered
     
     def _get_obj_mask(self, lab, obj, lineage_table):
         lab_obj_image = lab == obj.label
@@ -4369,7 +4358,7 @@ class Kernel(_ParamsParser):
             raw_spots_img = spots_data[frame_i]
             preproc_spots_img = self._preprocess(raw_spots_img)
             if do_sharpen_spots:
-                sharp_spots_img = self._sharpen_spots(
+                sharp_spots_img = self.sharpen_spots(
                     raw_spots_img, self.metadata
                 )
             lab = segm_data[frame_i]

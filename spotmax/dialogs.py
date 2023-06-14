@@ -32,7 +32,7 @@ from qtpy.QtWidgets import (
 
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
-from cellacdc import myutils as acdc_utils
+from cellacdc import myutils as acdc_myutils
 from cellacdc import html_utils as acdc_html
 
 from . import html_func, io, widgets, utils, config
@@ -294,7 +294,7 @@ class guiTabControl(QTabWidget):
         self.loadPreviousParamsButton = acdc_widgets.browseFileButton(
             'Load from previous analysis', 
             ext={'Configuration files': ['.ini', '.csv']},
-            start_dir=utils.getMostRecentPath(), 
+            start_dir=acdc_myutils.getMostRecentPath(), 
             title='Select analysis parameters file'
         )
         buttonsLayout.addWidget(self.loadPreviousParamsButton)
@@ -399,7 +399,7 @@ class guiTabControl(QTabWidget):
     
     def loadPreviousParams(self, filePath):
         self.logging_func(f'Loading analysis parameters from "{filePath}"...')
-        io.addToRecentPaths(os.path.dirname(filePath))
+        acdc_myutils.addToRecentPaths(os.path.dirname(filePath))
         self.loadedFilename, ext = os.path.splitext(os.path.basename(filePath))
         params = config.analysisInputsParams(filePath, cast_dtypes=False)
         self.setValuesFromParams(params)
@@ -425,9 +425,9 @@ class guiTabControl(QTabWidget):
                 return ''
             
             folder_path = QFileDialog.getExistingDirectory(
-                    self, 'Select folder where to save the parameters file', 
-                    utils.getMostRecentPath()
-                )
+                self, 'Select folder where to save the parameters file', 
+                acdc_myutils.getMostRecentPath()
+            )
             if not folder_path:
                 return ''
             
@@ -1607,11 +1607,7 @@ class selectPathsSpotmax(QBaseDialog):
         relPath = pathlib.Path(relPath)
         relPath = pathlib.Path(*relPath.parts[2:])
         absPath = self.homePath / relPath / posFoldername
-        acdc_utils.showInExplorer(str(absPath))
-
-
-                
-                
+        acdc_myutils.showInExplorer(str(absPath))
 
     def on_focusChanged(self):
         self.isCtrlDown = False
@@ -2277,7 +2273,7 @@ def getSelectedExpPaths(utilityName, parent=None):
         return
 
     expPaths = {}
-    mostRecentPath = utils.getMostRecentPath()
+    mostRecentPath = acdc_myutils.getMostRecentPath()
     while True:
         exp_path = QFileDialog.getExistingDirectory(
             parent, 'Select experiment folder containing Position_n folders',
@@ -2285,7 +2281,7 @@ def getSelectedExpPaths(utilityName, parent=None):
         )
         if not exp_path:
             break
-        io.addToRecentPaths(exp_path)
+        acdc_myutils.addToRecentPaths(exp_path)
         pathScanner = io.expFolderScanner(homePath=exp_path)
         _exp_paths = pathScanner.getExpPathsWithPosFoldernames()
         
@@ -2586,7 +2582,7 @@ class SelectFolderToAnalyse(QBaseDialog):
         delButton = acdc_widgets.delPushButton('Remove selected path(s)')
         browseButton = acdc_widgets.browseFileButton(
             'Browse to add a path', openFolder=True, 
-            start_dir=utils.getMostRecentPath()
+            start_dir=acdc_myutils.getMostRecentPath()
         )
         
         buttonsLayout.insertWidget(3, delButton)
