@@ -10,15 +10,15 @@ except Exception as e:
 import skimage.morphology
 import skimage.filters
 
-from . import error_up_str
+from . import error_up_str, printl
 
-def remove_hot_pixels(image_data):
-    pbar = tqdm(total=len(image_data), ncols=100)
-    for z, image in enumerate(image_data):
-        image_data[z] = skimage.morphology.opening(image)
+def remove_hot_pixels(image, logger_func=print):
+    pbar = tqdm(total=len(image), ncols=100)
+    for z, img in enumerate(image):
+        image[z] = skimage.morphology.opening(img)
         pbar.update()
     pbar.close()
-    return image_data
+    return image
 
 def gaussian(image, sigma, use_gpu=False, logger_func=print):
     if CUPY_INSTALLED and use_gpu:

@@ -73,10 +73,11 @@ class analysisWorker(QRunnable):
         self.signals.finished.emit((self._ini_filepath, self._is_tempfile))
 
 class ComputeAnalysisStepWorker(QRunnable):
-    def __init__(self, module_func, **kwargs):
+    def __init__(self, module_func, anchor, **kwargs):
         QRunnable.__init__(self)
         self.signals = signals()
         self.logger = workerLogger(self.signals.progress)
+        self.anchor = anchor
         
         module_name, func_name = module_func.rsplit('.', 1)
         module = import_module(f'spotmax.{module_name}')
@@ -87,7 +88,7 @@ class ComputeAnalysisStepWorker(QRunnable):
     @worker_exception_handler
     def run(self):
         result = self.func(**self.kwargs)
-        self.signals.finished.emit(result)
+        self.signals.finished.emit((result, self.anchor))
 
 class pathScannerWorker(QRunnable):
     def __init__(self, selectedPath):

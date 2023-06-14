@@ -48,9 +48,10 @@ def _setup_app():
 
     app._splashScreen = splashScreen
     
-    from cellacdc._palettes import getPaletteColorScheme
+    from cellacdc._palettes import getPaletteColorScheme, setToolTipStyleSheet
     palette = getPaletteColorScheme(app.palette(), scheme='light')
     app.setPalette(palette)
+    setToolTipStyleSheet(app, scheme='light')
 
     return app
 

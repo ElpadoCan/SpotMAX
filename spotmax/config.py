@@ -687,7 +687,7 @@ def _pre_processing_params():
             'initialVal': True,
             'stretchWidget': False,
             'addInfoButton': True,
-            'addComputeButton': False,
+            'addComputeButton': True,
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
