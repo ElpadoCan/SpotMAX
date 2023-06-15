@@ -49,7 +49,7 @@ def DoG_spots(image, spots_zyx_radii, use_gpu=False, logger_func=print):
     if image.ndim == 2 and len(spots_zyx_radii) == 3:
         spots_zyx_radii = spots_zyx_radii[1:]
     
-    sigma1 = 2*spots_zyx_radii/(1+SQRT_2)
+    sigma1 = spots_zyx_radii/(1+SQRT_2)
         
     blurred1 = gaussian(
         image, sigma1, use_gpu=use_gpu, logger_func=logger_func
