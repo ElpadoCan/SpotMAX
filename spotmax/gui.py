@@ -24,7 +24,7 @@ from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
 from . import widgets, config
 
-from . import qrc_resources
+from . import qrc_resources_spotmax
 
 ANALYSIS_STEP_RESULT_SLOTS = {
     'gaussSigma': '_displayGaussSigmaResult',
@@ -51,6 +51,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
 
         self._version = version
+        self._appName = 'spotMAX'
     
     def run(self, module='spotmax_gui', logs_path=logs_path):
         super().run(module=module, logs_path=logs_path)

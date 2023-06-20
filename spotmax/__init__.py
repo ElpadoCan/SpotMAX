@@ -1,4 +1,5 @@
 print('Importing modules...')
+import os
 import sys
 import traceback
 import warnings
@@ -16,9 +17,21 @@ try:
     GUI_INSTALLED = True
 except ModuleNotFoundError:
     GUI_INSTALLED = False
+    
+spotmax_path = os.path.dirname(os.path.abspath(__file__))
+qrc_resources_path = os.path.join(spotmax_path, 'qrc_resources_spotmax.py')
+
+# Replace 'from PyQt5' with 'from qtpy' in qrc_resources.py file
+try:
+    with open(qrc_resources_path, 'r') as qrc_py:
+        text = qrc_py.read()
+        text = text.replace('from PyQt5', 'from qtpy')
+    with open(qrc_resources_path, 'w') as qrc_py:
+        qrc_py.write(text)
+except Exception as err:
+    raise err
 
 
-import os
 import inspect
 from datetime import datetime
 from pprint import pprint
@@ -27,7 +40,6 @@ import numpy as np
 
 rng = np.random.default_rng(seed=6490)
 
-spotmax_path = os.path.dirname(os.path.abspath(__file__))
 spotMAX_path = os.path.dirname(spotmax_path)
 html_path = os.path.join(spotmax_path, 'html_files')
 

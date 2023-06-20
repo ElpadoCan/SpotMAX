@@ -48,10 +48,20 @@ def _setup_app():
 
     app._splashScreen = splashScreen
     
+    from cellacdc import is_OS_dark_mode, settings_csv_path
+    import pandas as pd
+    df_settings = pd.read_csv(settings_csv_path, index_col='setting')
+    isUserColorScheme = 'colorScheme' in df_settings.index
+    if isUserColorScheme:
+        scheme = df_settings.at['colorScheme', 'value']
+    elif is_OS_dark_mode:
+        scheme = 'dark'
+    else:
+        scheme = 'light'
     from cellacdc._palettes import getPaletteColorScheme, setToolTipStyleSheet
-    palette = getPaletteColorScheme(app.palette(), scheme='light')
+    palette = getPaletteColorScheme(app.palette(), scheme=scheme)
     app.setPalette(palette)
-    setToolTipStyleSheet(app, scheme='light')
+    setToolTipStyleSheet(app, scheme=scheme)
 
     return app
 

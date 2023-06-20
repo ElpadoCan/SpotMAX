@@ -39,7 +39,7 @@ from . import html_func, io, widgets, utils, config
 from . import core
 
 # NOTE: Enable icons
-from . import qrc_resources, printl, font
+from . import printl, font
 from . import is_mac, is_win, is_linux
 from . import gui_settings_csv_path as settings_csv_path
 

@@ -41,9 +41,6 @@ from . import dialogs, config, html_func, docs
 from . import utils
 from . import features, io
 
-# NOTE: Enable icons
-from . import qrc_resources
-
 LINEEDIT_INVALID_ENTRY_STYLESHEET = lineedit_invalid_entry_stylesheet()
 
 def removeHSVcmaps():
