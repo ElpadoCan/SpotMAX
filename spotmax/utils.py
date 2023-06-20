@@ -3,7 +3,6 @@ import sys
 import pandas as pd
 import datetime
 import time
-import math
 import cv2
 import logging
 import traceback
@@ -22,6 +21,8 @@ from tifffile.tifffile import TiffWriter, TiffFile
 
 import skimage.color
 import colorsys
+
+from math import log, pow, floor, sqrt
 
 from . import GUI_INSTALLED
 
@@ -261,8 +262,8 @@ def logger_file_handler(log_filepath, mode='w'):
     return output_file_handler
 
 def _bytes_to_MB(size_bytes):
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
+    i = int(floor(log(size_bytes, 1024)))
+    p = pow(1024, i)
     s = round(size_bytes / p, 2)
     return s
 
@@ -960,6 +961,28 @@ def get_sizes_path(start_path, return_df=False):
         df['size_MB'] = df['size_bytes']*1e-6
         df['size_GB'] = df['size_bytes']*1e-9
         return df
+
+def is_perfect_square(start_num):
+    if (sqrt(start_num) - floor(sqrt(start_num)) != 0):
+        return False
+    return True
+
+def get_closest_square(start_num, direction='ceil'):
+    if is_perfect_square(start_num):
+        return start_num
     
+    if direction == 'ceil':
+        num = start_num + 1
+        while True:
+            if is_perfect_square(num):
+                return num
+            num += 1
+    elif direction == 'floor':
+        num = start_num - 1
+        while True:
+            if is_perfect_square(num):
+                return num
+            num -= 1
+
 if __name__ == '__main__':
     df = get_sizes_path(r'C:\Users\Frank', return_df=True)

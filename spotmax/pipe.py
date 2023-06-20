@@ -1,18 +1,30 @@
 import numpy as np
 
-import skimage.filters
+from . import filters, transformations, config
 
-from . import filters
-
-def spots_instance_segmentation(
+def spots_semantic_segmentation(
         raw_image, 
+        lab=None,
         initial_sigma=0.0,
         spots_zyx_radii=None, 
         do_sharpen=False, 
+        lineage_table=None,
+        do_aggregate=True,
         use_gpu=False,
         logger_func=print,
-        thresholding_method=''
-    ):   
+        thresholding_method=None,
+        keep_input_shape=True
+    ):  
+    if lab is None:
+        lab = np.ones(raw_image.shape, dtype=np.uint8) 
+    
+    if raw_image.ndim == 2:
+        raw_image = raw_image[np.newaxis]
+        
+    if lab.ndim == 2 and raw_image.ndim == 3:
+        # Stack 2D lab into 3D z-stack
+        lab = np.array([lab]*len(raw_image))
+        
     if do_sharpen:
         image = filters.DoG_spots(
             raw_image, spots_zyx_radii, use_gpu=use_gpu, 
@@ -25,10 +37,17 @@ def spots_instance_segmentation(
     else:
         image = raw_image
     
-    if thresholding_method:
-        result = filters.threshold(
-            image, thresholding_method, logger_func=logger_func
+    if do_aggregate:
+        result = filters.global_semantic_segmentation(
+            image, lab, lineage_table=lineage_table, 
+            zyx_tolerance=spots_zyx_radii, 
+            thresholding_method=thresholding_method, 
+            logger_func=logger_func, return_image=True,
+            keep_input_shape=keep_input_shape
         )
     else:
-        result = filters.try_all_thresholds(image, logger_func=print)
+        result = filters.local_semantic_segmentation(
+            image, lab, threshold_func=thresholding_method, 
+            lineage_table=lineage_table, return_image=True
+        )
     return result

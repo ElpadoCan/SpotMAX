@@ -225,47 +225,14 @@ class _DataLoader:
         segm_data = data['segm']
         if not np.any(segm_data):
             return data
-        segm_time_proj = np.any(segm_data, axis=0).astype(np.uint8)
-        segm_time_proj_obj = skimage.measure.regionprops(segm_time_proj)[0]
-
-        zyxResolutionLimitPxl = self.metadata['zyxResolutionLimitPxl']
-        delta_tolerance = self.metadata['deltaTolerance']
-
-        T, Z, Y, X = segm_data.shape
-
-        # Store cropping coordinates to save correct spots coordinates
-        crop_to_global_coords = np.array([
-            s.start for s in segm_time_proj_obj.slice
-        ]) 
-        crop_to_global_coords = crop_to_global_coords - delta_tolerance
-        crop_to_global_coords = np.clip(crop_to_global_coords, 0, None)
-        data['crop_to_global_coords'] = crop_to_global_coords
-
-        crop_stop_coords = np.array([
-            s.stop for s in segm_time_proj_obj.slice
-        ]) 
-        crop_stop_coords = crop_stop_coords + delta_tolerance
-        crop_stop_coords = np.clip(crop_stop_coords, None, (Z, Y, X))
-
-        # Build (z,y,x) cropping slices
-        z_start, y_start, x_start = crop_to_global_coords        
-        z_stop, y_stop, x_stop = crop_stop_coords  
-        segm_slice = (
-            slice(None), slice(z_start, z_stop), 
-            slice(y_start, y_stop), slice(x_start, x_stop)
+        
+        crop_info = transformations.crop_from_segm_data_info(
+            segm_data, self.metadata['deltaTolerance']
         )
-
-        pad_widths = []
-        for _slice, D in zip(segm_slice, (T, Z, Y, X)):
-            _pad_width = [0, 0]
-            if _slice.start is not None:
-                _pad_width[0] = _slice.start
-            if _slice.stop is not None:
-                _pad_width[1] = D - _slice.stop
-            pad_widths.append(tuple(_pad_width))
-
+        segm_slice, pad_widths, crop_to_global_coords = crop_info
+        data['crop_to_global_coords'] = crop_to_global_coords
         data['pad_width'] = pad_widths
-
+        
         # Crop images
         arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm', 'segm')
         for key in arr_keys:
@@ -2751,22 +2718,6 @@ class Kernel(_ParamsParser):
         )
         return filtered
     
-    def _get_obj_mask(self, lab, obj, lineage_table):
-        lab_obj_image = lab == obj.label
-        
-        if lineage_table is None:
-            return lab_obj_image, -1
-        
-        cc_stage = lineage_table.at[obj.label, 'cell_cycle_stage']
-        if cc_stage == 'G1':
-            return lab_obj_image, -1
-        
-        # Merge mother and daughter when in S phase
-        rel_ID = lineage_table.at[obj.label, 'relative_ID']
-        lab_obj_image = np.logical_or(lab == obj.label, lab == rel_ID)
-        
-        return lab_obj_image, rel_ID
-    
     def _filter_largest_obj(self, mask_or_labels):
         lab = skimage.measure.label(mask_or_labels)
         positive_mask = lab > 0
@@ -2778,30 +2729,8 @@ class Kernel(_ParamsParser):
         return lab
     
     def _extract_img_from_segm_obj(self, image, lab, obj, lineage_table):
-        lab_mask, bud_ID = self._get_obj_mask(lab, obj, lineage_table)
-        lab_mask_rp = skimage.measure.regionprops(lab_mask.astype(np.uint8))
-        lab_mask_obj = lab_mask_rp[0]
-        img_local = image[lab_mask_obj.slice]
-        backgr_vals = img_local[~lab_mask_obj.image]
-        if backgr_vals.size == 0:
-            return img_local, lab_mask_obj.image, bud_ID
-        
-        backgr_mean = backgr_vals.mean()
-        backgr_mean = backgr_mean if backgr_mean>=0 else 0
-        backgr_std = backgr_vals.std()/3
-        # gamma_shape = np.square(backgr_mean/backgr_std)
-        # gamma_scale = np.square(backgr_std)/backgr_mean
-        # img_backgr = rng.gamma(
-        #     gamma_shape, gamma_scale, size=lab_mask_obj.image.shape
-        # )
-        img_backgr = rng.normal(
-            backgr_mean, backgr_std, size=lab_mask_obj.image.shape
-        )
-        np.clip(img_backgr, 0, 1, out=img_backgr)
-
-        img_backgr[lab_mask_obj.image] = img_local[lab_mask_obj.image]
-
-        return img_backgr, lab_mask_obj.image, bud_ID
+        slicer = transformations.SliceImageFromSegmObject(lab, lineage_table)
+        return slicer.slice(image, obj)
     
     def _add_aggregated_ref_ch_features(
             self, df_agg, frame_i, ID, ref_ch_mask_local, vox_to_um3=None
@@ -2933,7 +2862,7 @@ class Kernel(_ParamsParser):
             threshold_func = threshold_method
 
         if do_aggregate:
-            aggr_ref_ch_img, _ = self.aggregate_objs(
+            aggr_ref_ch_img, _ = transformations.aggregate_objs(
                 ref_ch_img, lab, lineage_table=lineage_table, 
                 zyx_tolerance=zyx_tolerance
             )
@@ -2948,66 +2877,6 @@ class Kernel(_ParamsParser):
         )
 
         return ref_ch_segm, df_agg
-    
-    def _merge_moth_bud(self, lineage_table, lab, return_bud_images=False):
-        if lineage_table is None:
-            if return_bud_images:
-                return lab, {}
-            else:
-                return lab
-
-        df_buds = lineage_table[lineage_table.relationship == 'bud']
-        moth_IDs = df_buds['relative_ID'].unique()
-        df_buds = df_buds.reset_index().set_index('relative_ID')
-        if len(moth_IDs) == 0:
-            if return_bud_images:
-                return lab, {}
-            else:
-                return lab
-        
-        lab_merged = lab.copy()
-        if return_bud_images:
-            bud_images = {}
-        for mothID in moth_IDs:
-            budID = df_buds.at[mothID, 'Cell_ID']
-            lab_merged[lab==budID] = mothID
-            if return_bud_images:
-                moth_bud_image = np.zeros(lab_merged.shape, dtype=np.uint8)
-                moth_bud_image[lab==budID] = 1
-                moth_bud_image[lab==mothID] = 1
-                moth_bud_obj = skimage.measure.regionprops(moth_bud_image)[0]
-                moth_bud_image[lab==mothID] = 0
-                bud_image = moth_bud_image[moth_bud_obj.slice] > 0
-                bud_images[mothID] = {
-                    'image': bud_image, 'budID': budID
-                }
-        if return_bud_images:
-            return lab_merged, bud_images
-        else:
-            return lab_merged
-    
-    def _separate_moth_buds(self, lab_merged, bud_images):
-        rp = skimage.measure.regionprops(lab_merged)
-        for obj in rp:
-            if obj.label not in bud_images:
-                continue
-            bud_info = bud_images.get(obj.label)
-            budID = bud_info['budID']
-            bud_image = bud_info['image']
-            lab_merged[obj.slice][bud_image] = budID
-        return lab_merged
-    
-    def aggregate_objs(
-            self, img_data, lab, zyx_tolerance=None, lineage_table=None
-        ):
-        lab_merged, bud_images = self._merge_moth_bud(
-            lineage_table, lab, return_bud_images=True
-        )
-        aggregated_img, aggregated_lab = transformations.aggregate_objs(
-            img_data, lab_merged, zyx_tolerance=zyx_tolerance
-        )
-        aggregated_lab = self._separate_moth_buds(aggregated_lab, bud_images)
-        return aggregated_img, aggregated_lab
     
     def _get_local_spheroid_mask(self, zyx_radii_pxl):
         zr, yr, xr = zyx_radii_pxl
@@ -3167,38 +3036,11 @@ class Kernel(_ParamsParser):
             # import pdb; pdb.set_trace()
             return labels
 
-        # Get prediction mask by thresholding objects separately
-        aggr_rp = skimage.measure.regionprops(aggregated_lab)
-        IDs = [obj.label for obj in aggr_rp]
-        labels = np.zeros_like(aggregated_lab)
-        for obj in aggr_rp:
-            if lineage_table is not None:
-                if lineage_table.at[obj.label, 'relationship'] == 'bud':
-                    # Skip buds since they are aggregated with mother
-                    continue
-            
-            spots_img_obj, obj_mask, budID = self._extract_img_from_segm_obj(
-                aggr_spots_img, aggregated_lab, obj, lineage_table
-            )
-
-            # Threshold
-            threshold_val = threshold_func(spots_img_obj.max(axis=0))
-            predict_mask_merged = spots_img_obj > threshold_val
-            # predict_mask_merged[~obj_mask] = False
-
-            if budID > 0:
-                bud_obj = aggr_rp[IDs.index(budID)]
-                objs = [obj, bud_obj]
-            else:
-                objs = [obj]
-
-            # Iterate eventually merged (mother-bud) objects
-            for obj in objs:
-                predict_mask_obj = np.zeros_like(obj.image)
-                obj_slice = tuple([slice(0,d) for d in obj.image.shape])
-                predict_mask_obj[obj_slice] = predict_mask_merged[obj_slice]
-                labels[obj.slice][predict_mask_obj] = obj.label
-        return labels.astype(np.int32)
+        labels = filters.local_semantic_segmentation(
+            aggr_spots_img, aggregated_lab, threshold_func, 
+            lineage_table=lineage_table
+        )
+        return labels
 
     def _init_df_obj_spots(self, df_spots_coords, obj, crop_obj_start):
         if obj.label not in df_spots_coords.index:
@@ -3278,11 +3120,10 @@ class Kernel(_ParamsParser):
             print('')
             self.logger.info('Detecting spots...')
 
-        aggr_spots_img, aggregated_lab = self.aggregate_objs(
+        aggr_spots_img, aggregated_lab = transformations.aggregate_objs(
             sharp_spots_img, lab, lineage_table=lineage_table, 
             zyx_tolerance=zyx_resolution_limit_pxl
         )
-        
         if prediction_method == 'Thresholding':
             if isinstance(threshold_method, str):
                 threshold_func = getattr(skimage.filters, threshold_method)

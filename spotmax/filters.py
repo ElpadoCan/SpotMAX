@@ -13,7 +13,7 @@ import skimage.morphology
 import skimage.filters
 
 from . import error_up_str, printl
-from . import config
+from . import config, transformations
 
 import math
 SQRT_2 = math.sqrt(2)
@@ -99,3 +99,112 @@ def threshold(image, thresholding_method: str, logger_func=print):
         logger_func(f'{e} ({thresholding_method})')
         thresh_val = np.inf
     return image > thresh_val
+
+def local_semantic_segmentation(
+        image, lab, threshold_func=None, lineage_table=None, return_image=False
+    ):
+    # Get prediction mask by thresholding objects separately
+    if threshold_func is None:
+        threshold_funcs = {
+            method:getattr(skimage.filters, method) for 
+            method in config.skimageAutoThresholdMethods()
+        }
+    elif isinstance(threshold_func, str):
+        threshold_funcs = {'custom': getattr(skimage.filters, threshold_func)}
+    else:
+        threshold_funcs = {'custom': threshold_func}
+    
+    slicer = transformations.SliceImageFromSegmObject(
+        lab, lineage_table=lineage_table
+    )
+    aggr_rp = skimage.measure.regionprops(lab)
+    IDs = [obj.label for obj in aggr_rp]
+    result = {}
+    if return_image:
+        result['input_image'] = image
+    
+    if threshold_func is None:
+        pbar = tqdm(total=len(threshold_funcs), ncols=100)
+    for method, thresh_func in threshold_funcs.items():
+        labels = np.zeros_like(lab)
+        for obj in aggr_rp:
+            if lineage_table is not None:
+                if lineage_table.at[obj.label, 'relationship'] == 'bud':
+                    # Skip buds since they are aggregated with mother
+                    continue
+            
+            spots_img_obj, obj_mask, budID = slicer.slice(image, obj)
+
+            # Threshold
+            threshold_val = thresh_func(spots_img_obj.max(axis=0))
+            predict_mask_merged = spots_img_obj > threshold_val
+            # predict_mask_merged[~obj_mask] = False
+
+            if budID > 0:
+                bud_obj = aggr_rp[IDs.index(budID)]
+                objs = [obj, bud_obj]
+            else:
+                objs = [obj]
+
+            # Iterate eventually merged (mother-bud) objects
+            for obj in objs:
+                predict_mask_obj = np.zeros_like(obj.image)
+                obj_slice = tuple([slice(0,d) for d in obj.image.shape])
+                predict_mask_obj[obj_slice] = predict_mask_merged[obj_slice]
+                labels[obj.slice][predict_mask_obj] = obj.label
+        result[method] = labels.astype(np.int32)
+        if threshold_func is None:
+            pbar.update()
+    if threshold_func is None:
+        pbar.close()
+    
+    if threshold_func is None:
+        return result['custom']
+    else:
+        return result
+
+def global_semantic_segmentation(
+        image, lab, lineage_table=None, zyx_tolerance=None, 
+        thresholding_method='', logger_func=print, return_image=False,
+        keep_input_shape=True
+    ):
+    if image.ndim == 2:
+        image = image[np.newaxis]
+    
+    if lab.ndim == 2 and image.ndim == 3:
+        # Stack 2D lab into 3D z-stack
+        lab = np.array([lab]*len(image))
+    
+    if image.ndim != 3:
+        ndim = image.ndim
+        raise TypeError(
+            f'Input image has {ndim} dimensions. Only 2D and 3D is supported.'
+        )
+    
+    aggr_spots_img, aggregated_lab = transformations.aggregate_objs(
+        image, lab, lineage_table=lineage_table, zyx_tolerance=zyx_tolerance
+    )
+    if thresholding_method is not None:
+        thresholded = threshold(
+            aggr_spots_img, thresholding_method, logger_func=logger_func
+        )
+        result = {thresholding_method: thresholded}
+    else:
+        result = try_all_thresholds(aggr_spots_img, logger_func=print)
+    
+    if keep_input_shape:
+        reindexed_result = {}
+        for method, aggr_img in result.items():
+            reindexed_result[method] = (
+                transformations.index_aggregated_segm_into_input_image(
+                    image, lab, aggr_img, aggregated_lab
+            ))
+        result = reindexed_result
+        if return_image:
+            input_image_dict = {'input_image': image}
+            result = {**input_image_dict, **result}
+    elif return_image:
+        input_image_dict = {'input_image': aggr_spots_img}
+        result = {**input_image_dict, **result}
+        
+    return result

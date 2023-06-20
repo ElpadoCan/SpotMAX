@@ -18,11 +18,11 @@ from cellacdc import gui as acdc_gui
 from cellacdc import widgets as acdc_widgets
 from cellacdc import exception_handler
 from cellacdc import apps as acdc_apps
-from acdctools.regex import float_regex
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
 from . import widgets, config
+from . import transformations
 
 from . import qrc_resources_spotmax
 
@@ -67,6 +67,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.threadCount = 0
         self.threadQueue = Queue()
         self.threadPool = QThreadPool.globalInstance()
+    
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Q:
+            posData = self.data[self.pos_i]
+            return
+        super().keyPressEvent(event)
     
     def gui_createRegionPropsDockWidget(self):
         super().gui_createRegionPropsDockWidget(side=Qt.RightDockWidgetArea)
@@ -283,13 +289,35 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
     
+    def getCroppedImageBasedOnSegmData(self, image=None):
+        posData = self.data[self.pos_i]
+        if image is None:
+            image = posData.img_data
+        
+        if posData.segm_data is None:
+            return image
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii = spotMinSizeLabels.pixelValues()
+        
+        deltaTolerance = np.array(spots_zyx_radii)
+        delta_tolerance = np.ceil(deltaTolerance).astype(int)
+        
+        crop_info = transformations.crop_from_segm_data_info(
+            posData.segm_data, delta_tolerance
+        )
+        segm_slice, pad_widths, crop_to_global_coords = crop_info
+        return image[segm_slice][posData.frame_i]
+    
     def _computeRemoveHotPixels(self, formWidget):
         self.funcDescription = 'Remove hot pixels'
         module_func = 'filters.remove_hot_pixels'
         anchor = 'removeHotPixels'
         
         posData = self.data[self.pos_i]
-        image = posData.img_data[posData.frame_i]
+        image = self.getCroppedImageBasedOnSegmData()
         
         kwargs = {'image': image}
         
@@ -301,7 +329,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'sharpenSpots'
         
         posData = self.data[self.pos_i]
-        image = posData.img_data[posData.frame_i]
+        image = self.getCroppedImageBasedOnSegmData()
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         metadataParams = ParamsGroupBox.params['METADATA']
@@ -320,11 +348,15 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def _computeSpotPrediction(self, formWidget):
         self.funcDescription = 'Spots location semantic segmentation'
-        module_func = 'pipe.spots_instance_segmentation'
+        module_func = 'pipe.spots_semantic_segmentation'
         anchor = 'spotPredictionMethod'
         
         posData = self.data[self.pos_i]
-        raw_image = posData.img_data[posData.frame_i]
+        raw_image = self.getCroppedImageBasedOnSegmData()
+        lineage_table = None
+        if posData.acdc_df is not None:
+            lineage_table = posData.acdc_df.loc[posData.frame_i]
+        lab = self.getCroppedImageBasedOnSegmData(image=posData.segm_data)
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
@@ -338,12 +370,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         preprocessParams = ParamsGroupBox.params['Pre-processing']
         do_sharpen = preprocessParams['sharpenSpots']['widget'].isChecked()
         
+        do_aggregate = preprocessParams['aggregate']['widget'].isChecked()
+        
         configParams = ParamsGroupBox.params['Configuration']
         use_gpu = configParams['useGpu']['widget'].isChecked()
         
         kwargs = {
-            'raw_image': raw_image, 'initial_sigma': initial_sigma, 
+            'raw_image': raw_image, 'lab': lab, 'initial_sigma': initial_sigma, 
             'spots_zyx_radii': spots_zyx_radii, 'do_sharpen': do_sharpen, 
+            'lineage_table': lineage_table, 'do_aggregate': do_aggregate, 
             'use_gpu': use_gpu
         }
         
@@ -362,7 +397,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         titles = ['Raw image', f'Filtered image (sigma = {sigma})']
         imshow(
             image, result, axis_titles=titles, parent=self, 
-            window_title='Pre-processing - Gaussian filter'
+            window_title='Pre-processing - Gaussian filter',
+            color_scheme=self._colorScheme
         )
     
     def _displayRemoveHotPixelsResult(self, result):
@@ -374,7 +410,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         window_title = 'Pre-processing - Remove hot pixels'
         imshow(
             image, result, axis_titles=titles, parent=self, 
-            window_title=window_title
+            window_title=window_title, color_scheme=self._colorScheme
         )
     
     def _displaySharpenSpotsResult(self, result):
@@ -386,7 +422,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         window_title = 'Pre-processing - Sharpening (DoG filter)'
         imshow(
             image, result, axis_titles=titles, parent=self, 
-            window_title=window_title
+            window_title=window_title, color_scheme=self._colorScheme
         )
     
     def _displayspotPredictionResult(self, result):
@@ -394,12 +430,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         posData = self.data[self.pos_i]
         image = posData.img_data[posData.frame_i]
         
-        titles = ['Raw image', *list(result.keys())]
-        thresholded_images = list(result.values())
+        titles = list(result.keys())
+        titles[0] = 'Input image'
+        prediction_images = list(result.values())
+        
         window_title = 'Spots channel - Spots segmentation method'
         imshow(
-            image, *thresholded_images, axis_titles=titles, parent=self, 
-            window_title=window_title
+            *prediction_images, axis_titles=titles, parent=self, 
+            window_title=window_title, color_scheme=self._colorScheme
         )
     
     def startComputeAnalysisStepWorker(self, module_func, anchor, **kwargs):

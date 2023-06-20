@@ -619,13 +619,13 @@ class inspectResults(QGroupBox):
     def setMyStyleSheet(self):
         self.setStyleSheet("""
             QTreeWidget::item:hover {background-color:#E6E6E6;}
+            QTreeWidget::item:hover {color:black;}
             QTreeWidget::item:selected {
                 background-color:#CFEB9B;
                 color:black;
             }
             QTreeView {
                 selection-background-color: #CFEB9B;
-                selection-color: white;
                 show-decoration-selected: 1;
                 outline: 0;
             }
@@ -1437,6 +1437,7 @@ class QDialogListbox(QBaseDialog):
     def setMyStyleSheet(self):
         self.setStyleSheet("""
             QListWidget::item:hover {background-color:#E6E6E6;}
+            QListWidget::item:hover {color:black;}
             QListWidget::item:selected {
                 background-color:#CFEB9B;
                 color:black;
@@ -1448,7 +1449,6 @@ class QDialogListbox(QBaseDialog):
             QListWidget::item {padding: 5px;}
             QListView  {
                 selection-background-color: #CFEB9B;
-                selection-color: white;
                 show-decoration-selected: 1;
                 outline: 0;
             }
@@ -1580,8 +1580,23 @@ class selectPathsSpotmax(QBaseDialog):
         self.pathSelector.setFocus()
 
         self.setFont(font)
-
-        self.setMyStyleSheet()
+        # self.setMyStyleSheet(
+        #     'QTreeWidget::item:selected {background-color:#CFEB9B;}'
+        # )
+    
+    def setMyStyleSheet(self):
+        self.setStyleSheet("""
+            QTreeWidget::item:hover {color:black;}
+        """)
+        #     QTreeWidget::item:selected {background-color:#CFEB9B;}
+        #     QTreeWidget::item:selected {color:black;}
+        #     QTreeView {
+        #         selection-background-color: #CFEB9B;
+        #         show-decoration-selected: 1;
+        #     }
+        #     QTreeWidget::item {padding: 5px;}
+        # """)
+        printl(self.styleSheet())
     
     def showInFileManager(self):
         selectedItems = self.pathSelector.selectedItems()
@@ -1813,20 +1828,6 @@ class selectPathsSpotmax(QBaseDialog):
             self, 'Analysis inputs not found!',
             html_func.paragraph(text)
         )
-
-    def setMyStyleSheet(self):
-        self.setStyleSheet("""
-            QTreeWidget::item:hover {background-color:#E6E6E6;}
-            QTreeWidget::item:selected {background-color:#CFEB9B;}
-            QTreeWidget::item:selected {color:black;}
-            QTreeView {
-                selection-background-color: #CFEB9B;
-                selection-color: white;
-                show-decoration-selected: 1;
-                outline: 0;
-            }
-            QTreeWidget::item {padding: 5px;}
-        """)
 
     def ok_cb(self, checked=True):
         selectedItems = self.pathSelector.selectedItems()
@@ -2147,13 +2148,13 @@ class selectSpotsH5FileDialog(QBaseDialog):
     def setMyStyleSheet(self):
         self.setStyleSheet("""
             QTreeWidget::item:hover {background-color:#E6E6E6;}
+            QTreeWidget::item:hover {color:black;}
             QTreeWidget::item:selected {
                 background-color:#CFEB9B;
                 color:black;
             }
             QTreeView {
                 selection-background-color: #CFEB9B;
-                selection-color: white;
                 show-decoration-selected: 1;
                 outline: 0;
             }
