@@ -269,6 +269,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 signal = getattr(formWidget, signal)
                 signal.disconnect()
     
+    @exception_handler
     def _computeGaussSigma(self, formWidget):
         self.funcDescription = 'Initial gaussian filter'
         module_func = 'filters.gaussian'
@@ -297,6 +298,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         if posData.segm_data is None:
             return image
         
+        if not np.any(posData.segm_data):
+            return image
+        
+        segm_data = posData.segm_data
+        if posData.SizeZ == 1:
+            image = image[:, np.newaxis]
+            segm_data = segm_data[:, np.newaxis]
+        
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         metadataParams = ParamsGroupBox.params['METADATA']
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
@@ -306,11 +315,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         delta_tolerance = np.ceil(deltaTolerance).astype(int)
         
         crop_info = transformations.crop_from_segm_data_info(
-            posData.segm_data, delta_tolerance
+            segm_data, delta_tolerance
         )
         segm_slice, pad_widths, crop_to_global_coords = crop_info
         return image[segm_slice][posData.frame_i]
     
+    @exception_handler
     def _computeRemoveHotPixels(self, formWidget):
         self.funcDescription = 'Remove hot pixels'
         module_func = 'filters.remove_hot_pixels'
@@ -323,6 +333,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
     
+    @exception_handler
     def _computeSharpenSpots(self, formWidget):
         self.funcDescription = 'Sharpen spots (DoG filter)'
         module_func = 'filters.DoG_spots'
@@ -346,6 +357,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
     
+    @exception_handler
     def _computeSpotPrediction(self, formWidget):
         self.funcDescription = 'Spots location semantic segmentation'
         module_func = 'pipe.spots_semantic_segmentation'
@@ -369,7 +381,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         preprocessParams = ParamsGroupBox.params['Pre-processing']
         do_sharpen = preprocessParams['sharpenSpots']['widget'].isChecked()
-        
+        do_remove_hot_pixels = (
+            preprocessParams['removeHotPixels']['widget'].isChecked()
+        )
         do_aggregate = preprocessParams['aggregate']['widget'].isChecked()
         
         configParams = ParamsGroupBox.params['Configuration']
@@ -378,6 +392,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs = {
             'raw_image': raw_image, 'lab': lab, 'initial_sigma': initial_sigma, 
             'spots_zyx_radii': spots_zyx_radii, 'do_sharpen': do_sharpen, 
+            'do_remove_hot_pixels': do_remove_hot_pixels,
             'lineage_table': lineage_table, 'do_aggregate': do_aggregate, 
             'use_gpu': use_gpu
         }
@@ -435,6 +450,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         prediction_images = list(result.values())
         
         window_title = 'Spots channel - Spots segmentation method'
+        
         imshow(
             *prediction_images, axis_titles=titles, parent=self, 
             window_title=window_title, color_scheme=self._colorScheme

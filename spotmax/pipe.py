@@ -8,6 +8,7 @@ def spots_semantic_segmentation(
         initial_sigma=0.0,
         spots_zyx_radii=None, 
         do_sharpen=False, 
+        do_remove_hot_pixels=False,
         lineage_table=None,
         do_aggregate=True,
         use_gpu=False,
@@ -15,7 +16,7 @@ def spots_semantic_segmentation(
         thresholding_method=None,
         keep_input_shape=True
     ):  
-    if lab is None:
+    if lab is None or not np.any(lab):
         lab = np.ones(raw_image.shape, dtype=np.uint8) 
     
     if raw_image.ndim == 2:
@@ -24,18 +25,23 @@ def spots_semantic_segmentation(
     if lab.ndim == 2 and raw_image.ndim == 3:
         # Stack 2D lab into 3D z-stack
         lab = np.array([lab]*len(raw_image))
+    
+    if do_remove_hot_pixels:
+        image = filters.remove_hot_pixels(raw_image)
+    else:
+        image = raw_image
         
     if do_sharpen:
         image = filters.DoG_spots(
-            raw_image, spots_zyx_radii, use_gpu=use_gpu, 
+            image, spots_zyx_radii, use_gpu=use_gpu, 
             logger_func=logger_func
         )
     elif initial_sigma>0:
         image = filters.gaussian(
-            raw_image, initial_sigma, use_gpu=use_gpu, logger_func=logger_func
+            image, initial_sigma, use_gpu=use_gpu, logger_func=logger_func
         )
     else:
-        image = raw_image
+        image = image
     
     if do_aggregate:
         result = filters.global_semantic_segmentation(

@@ -158,7 +158,7 @@ def local_semantic_segmentation(
     if threshold_func is None:
         pbar.close()
     
-    if threshold_func is None:
+    if threshold_func is not None:
         return result['custom']
     else:
         return result
@@ -206,5 +206,6 @@ def global_semantic_segmentation(
     elif return_image:
         input_image_dict = {'input_image': aggr_spots_img}
         result = {**input_image_dict, **result}
-        
+    
+    result = {key:np.squeeze(img) for key, img in result.items()}
     return result

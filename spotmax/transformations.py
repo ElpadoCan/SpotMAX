@@ -273,6 +273,12 @@ def crop_from_segm_data_info(segm_data, delta_tolerance):
             'Make sure to reshape your input data to shape `(Time, Z-slices, Y, X)`.'
         )
     
+    if not np.any(segm_data):
+        segm_slice = (slice(None), slice(None), slice(None), slice(None))
+        crop_to_global_coords = np.array([0, 0, 0, 0])
+        pad_widths = [(0, 0), (0, 0), (0, 0), (0, 0)]
+        return segm_slice, pad_widths, crop_to_global_coords
+        
     T, Z, Y, X = segm_data.shape
     
     segm_time_proj = np.any(segm_data, axis=0).astype(np.uint8)
