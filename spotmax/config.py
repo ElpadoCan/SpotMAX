@@ -809,7 +809,7 @@ def _spots_ch_params():
             'initialVal': 'peak_local_max', # or 'label_prediction_mask'
             'stretchWidget': True,
             'addInfoButton': True,
-            'addComputeButton': True,
+            'addComputeButton': False,
             'addApplyButton': False,
             'formWidgetFunc': 'widgets._spotDetectionMethod',
             'actions': None
@@ -858,7 +858,7 @@ def _spots_ch_params():
             'initialVal': True,
             'stretchWidget': False,
             'addInfoButton': True,
-            'addComputeButton': True,
+            'addComputeButton': False,
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
@@ -869,7 +869,7 @@ def _spots_ch_params():
             'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,
-            'addComputeButton': True,
+            'addComputeButton': False,
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,

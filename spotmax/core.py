@@ -2718,16 +2718,6 @@ class Kernel(_ParamsParser):
         )
         return filtered
     
-    def _filter_largest_obj(self, mask_or_labels):
-        lab = skimage.measure.label(mask_or_labels)
-        positive_mask = lab > 0
-        counts = np.bincount(positive_mask)
-        largest_obj_id = np.argmax(counts)
-        lab[lab != largest_obj_id] = 0
-        if mask_or_labels.dtype == bool:
-            return lab > 0
-        return lab
-    
     def _extract_img_from_segm_obj(self, image, lab, obj, lineage_table):
         slicer = transformations.SliceImageFromSegmObject(lab, lineage_table)
         return slicer.slice(image, obj)
@@ -2801,7 +2791,7 @@ class Kernel(_ParamsParser):
                 ref_ch_mask[local_slice] = ref_mask_local[local_slice]
                 ref_ch_mask[~obj.image] = False
                 if keep_only_largest_obj:
-                    ref_ch_mask = self._filter_largest_obj(ref_ch_mask)
+                    ref_ch_mask = filters.filter_largest_obj(ref_ch_mask)
 
                 # Add numerical features
                 df_agg = self._add_aggregated_ref_ch_features(

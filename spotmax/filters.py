@@ -11,6 +11,7 @@ except Exception as e:
 
 import skimage.morphology
 import skimage.filters
+import skimage.measure
 
 from . import error_up_str, printl
 from . import config, transformations
@@ -209,3 +210,24 @@ def global_semantic_segmentation(
     
     result = {key:np.squeeze(img) for key, img in result.items()}
     return result
+
+def filter_largest_obj(mask_or_labels):
+    lab = skimage.measure.label(mask_or_labels)
+    positive_mask = lab > 0
+    counts = np.bincount(positive_mask)
+    largest_obj_id = np.argmax(counts)
+    lab[lab != largest_obj_id] = 0
+    if mask_or_labels.dtype == bool:
+        return lab > 0
+    return lab
+
+def filter_largest_sub_obj_per_obj(mask_or_labels, lab):
+    rp = skimage.measure.regionprops(lab)
+    filtered = np.zeros_like(mask_or_labels)
+    for obj in lab:
+        obj_mask_to_filter = np.zeros_like(obj.image)
+        mask_obj_sub_obj = np.logical_and(obj.image, mask_or_labels[obj.slice])
+        obj_mask_to_filter[mask_obj_sub_obj] = True
+        filtered_obj = filter_largest_obj(obj_mask_to_filter)
+        filtered[obj.slice] = filtered_obj
+    return filtered

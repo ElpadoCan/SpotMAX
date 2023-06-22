@@ -15,9 +15,10 @@ from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
 
 from cellacdc import gui as acdc_gui
+from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc import exception_handler
-from cellacdc import apps as acdc_apps
+from cellacdc import load as acdc_load
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
@@ -30,14 +31,16 @@ ANALYSIS_STEP_RESULT_SLOTS = {
     'gaussSigma': '_displayGaussSigmaResult',
     'removeHotPixels': '_displayRemoveHotPixelsResult',
     'sharpenSpots': '_displaySharpenSpotsResult',
-    'spotPredictionMethod': '_displayspotPredictionResult'
+    'spotPredictionMethod': '_displayspotPredictionResult',
+    'refChThresholdFunc': '_displayspotSegmRefChannelResult'
 }
 
 PARAMS_SLOTS = {
     'gaussSigma': ('sigComputeButtonClicked', '_computeGaussSigma'),
     'removeHotPixels': ('sigComputeButtonClicked', '_computeRemoveHotPixels'),
     'sharpenSpots': ('sigComputeButtonClicked', '_computeSharpenSpots'),
-    'spotPredictionMethod': ('sigComputeButtonClicked', '_computeSpotPrediction')
+    'spotPredictionMethod': ('sigComputeButtonClicked', '_computeSpotPrediction'),
+    'refChThresholdFunc': ('sigComputeButtonClicked', '_computeSegmentRefChannel')
 }
 
 class spotMAX_Win(acdc_gui.guiWin):
@@ -301,10 +304,16 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not np.any(posData.segm_data):
             return image
         
+        # Add axis for Z if missing (2D image data or 2D segm data)
         segm_data = posData.segm_data
-        if posData.SizeZ == 1:
+        if image.ndim == 3:
             image = image[:, np.newaxis]
-            segm_data = segm_data[:, np.newaxis]
+        if segm_data.ndim == 3:
+            if posData.SizeZ == 1:
+                segm_data = segm_data[:, np.newaxis]
+            else:
+                reps = (1, posData.SizeZ, 1, 1)
+                segm_data = np.tile(segm_data, reps)
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         metadataParams = ParamsGroupBox.params['METADATA']
@@ -318,7 +327,10 @@ class spotMAX_Win(acdc_gui.guiWin):
             segm_data, delta_tolerance
         )
         segm_slice, pad_widths, crop_to_global_coords = crop_info
-        return image[segm_slice][posData.frame_i]
+        return (
+            image[segm_slice][posData.frame_i], 
+            segm_data[segm_slice][posData.frame_i]
+        )
     
     @exception_handler
     def _computeRemoveHotPixels(self, formWidget):
@@ -327,7 +339,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'removeHotPixels'
         
         posData = self.data[self.pos_i]
-        image = self.getCroppedImageBasedOnSegmData()
+        image, _ = self.getCroppedImageBasedOnSegmData()
         
         kwargs = {'image': image}
         
@@ -340,7 +352,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'sharpenSpots'
         
         posData = self.data[self.pos_i]
-        image = self.getCroppedImageBasedOnSegmData()
+        image, _ = self.getCroppedImageBasedOnSegmData()
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         metadataParams = ParamsGroupBox.params['METADATA']
@@ -364,11 +376,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'spotPredictionMethod'
         
         posData = self.data[self.pos_i]
-        raw_image = self.getCroppedImageBasedOnSegmData()
+        raw_image, lab = self.getCroppedImageBasedOnSegmData()
         lineage_table = None
         if posData.acdc_df is not None:
             lineage_table = posData.acdc_df.loc[posData.frame_i]
-        lab = self.getCroppedImageBasedOnSegmData(image=posData.segm_data)
+        
+        if not np.any(lab):
+            # Without segm data we evaluate the entire image
+            lab = None
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
@@ -392,6 +407,83 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs = {
             'raw_image': raw_image, 'lab': lab, 'initial_sigma': initial_sigma, 
             'spots_zyx_radii': spots_zyx_radii, 'do_sharpen': do_sharpen, 
+            'do_remove_hot_pixels': do_remove_hot_pixels,
+            'lineage_table': lineage_table, 'do_aggregate': do_aggregate, 
+            'use_gpu': use_gpu
+        }
+        
+        self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+    
+    def askReferenceChannelEndname(self):
+        posData = self.data[self.pos_i]
+        selectChannelWin = acdc_widgets.QDialogListbox(
+            'Select channel to load',
+            'Selec <b>reference channel</b> name:\n',
+            posData.chNames, multiSelection=False, parent=self
+        )
+        selectChannelWin.exec_()
+        if selectChannelWin.cancel:
+            return
+        return selectChannelWin.selectedItemsText[0]
+    
+    def loadImageDataFromChannelName(self, channel):
+        posData = self.data[self.pos_i]
+        images_path = posData.images_path
+        filepath = acdc_load.get_filename_from_channel(images_path, channel)
+        if not filepath:
+            raise FileNotFoundError(f'{channel} channel not found in {images_path}')
+        filename_ext = os.path.basename(filepath)
+        filename, ext = os.path.splitext(filename_ext)
+        imgData = posData.fluo_data_dict.get(filename)
+        if imgData is None:
+            imgData = acdc_load.load_image_file(filepath)
+            if posData.SizeT == 1:
+                imgData = imgData[np.newaxis]
+        return imgData
+    
+    @exception_handler
+    def _computeSegmentRefChannel(self, formWidget):
+        self.funcDescription = 'Reference channel semantic segmentation'
+        module_func = 'pipe.reference_channel_semantic_segm'
+        anchor = 'refChThresholdFunc'
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        refChEndName = filePathParams['refChEndName']['widget'].text()
+        if not refChEndName:
+            refChEndName = self.askReferenceChannelEndname()
+            if refChEndName is None:
+                self.logger.info('Segmenting reference channel cancelled.')
+        
+        refChannelData = self.loadImageDataFromChannelName(refChEndName)
+        
+        posData = self.data[self.pos_i]
+        raw_image, lab = self.getCroppedImageBasedOnSegmData(image=refChannelData)
+        lineage_table = None
+        if posData.acdc_df is not None:
+            lineage_table = posData.acdc_df.loc[posData.frame_i]
+        if not np.any(lab):
+            # Without segm data we evaluate the entire image
+            lab = None
+        
+        preprocessParams = ParamsGroupBox.params['Pre-processing']
+        initial_sigma = preprocessParams['gaussSigma']['widget'].value()
+        
+        metadataParams = ParamsGroupBox.params['METADATA']
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        
+        preprocessParams = ParamsGroupBox.params['Pre-processing']
+        do_remove_hot_pixels = (
+            preprocessParams['removeHotPixels']['widget'].isChecked()
+        )
+        do_aggregate = preprocessParams['aggregate']['widget'].isChecked()
+        
+        configParams = ParamsGroupBox.params['Configuration']
+        use_gpu = configParams['useGpu']['widget'].isChecked()
+        
+        kwargs = {
+            'raw_image': raw_image, 'lab': lab, 'initial_sigma': initial_sigma, 
             'do_remove_hot_pixels': do_remove_hot_pixels,
             'lineage_table': lineage_table, 'do_aggregate': do_aggregate, 
             'use_gpu': use_gpu
@@ -450,6 +542,22 @@ class spotMAX_Win(acdc_gui.guiWin):
         prediction_images = list(result.values())
         
         window_title = 'Spots channel - Spots segmentation method'
+        
+        imshow(
+            *prediction_images, axis_titles=titles, parent=self, 
+            window_title=window_title, color_scheme=self._colorScheme
+        )
+    
+    def _displayspotSegmRefChannelResult(self, result):
+        from acdctools.plot import imshow
+        posData = self.data[self.pos_i]
+        image = posData.img_data[posData.frame_i]
+        
+        titles = list(result.keys())
+        titles[0] = 'Input image'
+        prediction_images = list(result.values())
+        
+        window_title = 'Reference channel - Semantic segmentation'
         
         imshow(
             *prediction_images, axis_titles=titles, parent=self, 
