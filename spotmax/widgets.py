@@ -13,10 +13,11 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 from qtpy.QtCore import (
-    Signal, QTimer, Qt, QRegularExpression, QEvent
+    Signal, QTimer, Qt, QRegularExpression, QEvent, QPropertyAnimation,
+    Property
 )
 from qtpy.QtGui import (
-    QFont,  QPainter, QRegularExpressionValidator, QIcon
+    QFont,  QPainter, QRegularExpressionValidator, QIcon, QPixmap
 )
 from qtpy.QtWidgets import (
     QTextEdit, QLabel, QProgressBar, QHBoxLayout, QToolButton, QCheckBox,
@@ -34,7 +35,7 @@ from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc._palettes import lineedit_invalid_entry_stylesheet
 from cellacdc import myutils as acdc_myutils
-from acdctools.regex import float_regex
+from cellacdc.regex import float_regex
 
 from . import is_mac, is_win, printl, font, font_small
 from . import dialogs, config, html_func, docs
@@ -1545,7 +1546,7 @@ class ReadOnlySelectedFeatureLabel(QLabel):
 class SelectedFeatureAutoTuneGroupbox(QGroupBox):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._txt = ' Click on edit button to select feature. '
+        self._txt = ' Click on edit button to select feature to tune. '
         
         layout = QFormLayout()
         

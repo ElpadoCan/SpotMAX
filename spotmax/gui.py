@@ -9,10 +9,13 @@ import numpy as np
 import pandas as pd
 
 from qtpy.QtCore import (
-    Qt, QTimer, QThreadPool, QThread, QMutex, QWaitCondition
+    Qt, QTimer, QThreadPool, QMutex, QWaitCondition, QEvent
 )
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
+
+import cellacdc
+cellacdc.GUI_INSTALLED = True
 
 from cellacdc import gui as acdc_gui
 from cellacdc import apps as acdc_apps
@@ -77,6 +80,41 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         super().keyPressEvent(event)
     
+    def gui_setCursor(self, modifiers, event):
+        cursorsInfo = super().gui_setCursor(modifiers, event)
+        noModifier = modifiers == Qt.NoModifier
+        shift = modifiers == Qt.ShiftModifier
+        ctrl = modifiers == Qt.ControlModifier
+        alt = modifiers == Qt.AltModifier
+        
+        setAutoTuneCursor = (
+            self.isAutoTuneRunning and not event.isExit()
+            and noModifier
+        )
+        cursorsInfo['setAutoTuneCursor'] = setAutoTuneCursor
+        overrideCursor = self.app.overrideCursor()
+        if setAutoTuneCursor and overrideCursor is None:
+            self.app.setOverrideCursor(self.addPointsCursor)
+        return cursorsInfo
+        
+    
+    def gui_hoverEventImg1(self, event, isHoverImg1=True):
+        cursorsInfo = super().gui_hoverEventImg1(event, isHoverImg1=isHoverImg1)
+        if cursorsInfo is None:
+            return
+        
+        if event.isExit():
+            return
+        
+        x, y = event.pos()
+        xdata, ydata = int(x), int(y)
+        if cursorsInfo['setAutoTuneCursor']:
+            self.setHoverCircleAutoTune(x, y)
+        else:
+            self.setHoverToolSymbolData(
+                [], [], (self.ax2_BrushCircle, self.ax1_BrushCircle),
+            )
+        
     def gui_createRegionPropsDockWidget(self):
         super().gui_createRegionPropsDockWidget(side=Qt.RightDockWidgetArea)
         self.gui_createParamsDockWidget()
@@ -87,16 +125,23 @@ class spotMAX_Win(acdc_gui.guiWin):
             parent=self.computeDockWidget, logging_func=self.logger.info
         )
         computeTabControl.addAutoTuneTab()
+        computeTabControl.initState(False)
 
         self.computeDockWidget.setWidget(computeTabControl)
         self.computeDockWidget.setFeatures(
-            QDockWidget.DockWidgetFeature.DockWidgetFloatable | QDockWidget.DockWidgetFeature.DockWidgetMovable
+            QDockWidget.DockWidgetFeature.DockWidgetFloatable 
+            | QDockWidget.DockWidgetFeature.DockWidgetMovable
         )
         self.computeDockWidget.setAllowedAreas(
             Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea
         )
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.computeDockWidget)
+        
+        self.connectAutoTuneSlots()
+        
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        self.LeftClickButtons.append(autoTuneTabWidget.autoTuningButton)
     
     def gui_createShowPropsButton(self):
         super().gui_createShowPropsButton(side='right') 
@@ -161,6 +206,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             # printl(traceback.format_exc())
             pass
         self.showParamsDockButton.setDisabled(False)
+        self.computeDockWidget.widget().initState(False)
+        
 
     def initGui(self):
         self._setWelcomeText()
@@ -252,7 +299,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         posData = self.data[self.pos_i]
         self.setWindowTitle(f'spotMAX - GUI - "{posData.exp_path}"')
         self.spotmaxToolbar.setVisible(True)
-        self.computeDockWidget.widget().autoTuneTabWidget.setDisabled(False)
+        self.computeDockWidget.widget().initState(True)
         
         self.setRunNumbers()
         
@@ -344,6 +391,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs = {'image': image}
         
         self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+    
+    def setHoverCircleAutoTune(self, x, y):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii = spotMinSizeLabels.pixelValues()
+        size = round(spots_zyx_radii[-1])
+        self.setHoverToolSymbolData(
+            [x], [y], (self.ax2_BrushCircle, self.ax1_BrushCircle),
+            size=size
+        )
     
     @exception_handler
     def _computeSharpenSpots(self, formWidget):
@@ -492,7 +550,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
     
     def _displayGaussSigmaResult(self, result):
-        from acdctools.plot import imshow
+        from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
         image = posData.img_data[posData.frame_i]
         
@@ -509,7 +567,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def _displayRemoveHotPixelsResult(self, result):
-        from acdctools.plot import imshow
+        from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
         image = posData.img_data[posData.frame_i]
         
@@ -521,7 +579,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def _displaySharpenSpotsResult(self, result):
-        from acdctools.plot import imshow
+        from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
         image = posData.img_data[posData.frame_i]
         
@@ -533,7 +591,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def _displayspotPredictionResult(self, result):
-        from acdctools.plot import imshow
+        from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
         image = posData.img_data[posData.frame_i]
         
@@ -549,7 +607,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def _displayspotSegmRefChannelResult(self, result):
-        from acdctools.plot import imshow
+        from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
         image = posData.img_data[posData.frame_i]
         
@@ -604,6 +662,28 @@ class spotMAX_Win(acdc_gui.guiWin):
                 signal = getattr(formWidget, signal)
                 slot = getattr(self, slot)
                 signal.connect(slot)
+    
+    def connectAutoTuneSlots(self):
+        self.isAutoTuneRunning = False
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.sigStartAutoTune.connect(self.startAutoTuning)
+        autoTuneTabWidget.sigStopAutoTune.connect(self.stopAutoTuning)
+    
+    def connectLeftClickButtons(self):
+        super().connectLeftClickButtons()
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        button = autoTuneTabWidget.autoTuningButton
+        button.toggled.connect(button.onToggled)
+    
+    def startAutoTuning(self):
+        if not self.computeDockWidget.widget().isDataLoaded:
+            return
+        self.isAutoTuneRunning = True
+    
+    def stopAutoTuning(self):
+        if not self.computeDockWidget.widget().isDataLoaded:
+            return
+        self.isAutoTuneRunning = False
     
     def setRunNumbers(self):
         posData = self.data[self.pos_i]

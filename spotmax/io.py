@@ -45,8 +45,8 @@ if GUI_INSTALLED:
 
     from . import dialogs, html_func, qtworkers
 
-import acdctools.utils
-import acdctools.features
+import cellacdc.myutils
+import cellacdc.features
 
 from . import utils, config
 from . import core, printl, error_up_str
@@ -257,7 +257,7 @@ def load_image_data(path: os.PathLike, to_float=False, return_dtype=False):
             image_data = _load_video(path)
     _dtype = image_data.dtype
     if to_float:
-        image_data = acdctools.utils.img_to_float(image_data)
+        image_data = cellacdc.myutils.img_to_float(image_data)
     if return_dtype:
         return image_data, _dtype
     else:
@@ -1402,14 +1402,14 @@ class loadData:
                 newIDs = [ID for ID in currentIDs if ID not in prevIDs]
                 self._IDs.append(currentIDs)
                 self.newIDs.append(newIDs)
-                rp = acdctools.features.add_rotational_volume_regionprops(rp)
+                rp = cellacdc.features.add_rotational_volume_regionprops(rp)
                 rpDict = {obj.label:obj for obj in rp}
                 self.rpDict.append(rpDict)
         else:
             self.rp = skimage.measure.regionprops(self.segm_data)
             self._IDs = [obj.label for obj in self.rp]
             self.rpDict = {obj.label:obj for obj in self.rp}
-            acdctools.features.add_rotational_volume_regionprops(self.rp)
+            cellacdc.features.add_rotational_volume_regionprops(self.rp)
 
     def getNewIDs(self, frame_i):
         if frame_i == 0:

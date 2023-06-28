@@ -44,7 +44,7 @@ def _peak_local_max(
         points_coords = None
         points_data = None
 
-    from acdctools.plot import imshow
+    from cellacdc.plot import imshow
     printl(threshold_val, cell_ID)
     imshow(
         local_sharp_spots_img, 
@@ -57,7 +57,7 @@ def _peak_local_max(
 
 def _spots_filtering(local_spots_img, df_obj_spots_gop, obj, obj_image):
     print(f'Cell ID = {obj.label}')
-    from acdctools.plot import imshow
+    from cellacdc.plot import imshow
     zyx_cols = ['z_local_expanded', 'y_local_expanded', 'x_local_expanded']
     points_coords = df_obj_spots_gop[zyx_cols].to_numpy()
     data_cols = [
@@ -84,7 +84,7 @@ def _spots_filtering(local_spots_img, df_obj_spots_gop, obj, obj_image):
     import pdb; pdb.set_trace()
 
 def _spots_detection(aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords):
-    from acdctools.plot import imshow
+    from cellacdc.plot import imshow
     zz, yy, xx = np.nonzero(aggregated_lab == ID)
     zmin, ymin, xmin = zz.min(), yy.min(), xx.min()
     zmax, ymax, xmax = zz.max(), yy.max(), xx.max()
@@ -108,7 +108,7 @@ def _compute_obj_spots_metrics(
         sharp_spot_obj_z, backgr_mask_z_spot, spheroids_mask, yx_center, 
         block=True
     ):
-    from acdctools.plot import imshow
+    from cellacdc.plot import imshow
     y, x = yx_center
     points_coords = np.array([[y, x]])
     win = imshow(
@@ -162,7 +162,7 @@ def _spotfit_fit(
         print('')
         print('')
     img = spots_img
-    from acdctools.plot import imshow
+    from cellacdc.plot import imshow
     imshow(spots_img, points_coords=np.array(points_coords))
     # 3D gaussian evaluated on the entire image
     V_fit = np.zeros_like(spots_img)
@@ -224,7 +224,7 @@ def _spotfit_quality_control(QC_limit, all_gof_metrics):
 
 def _threshold_spots_img(spots_img):
     import skimage.filters
-    from acdctools.plot import imshow
+    from cellacdc.plot import imshow
     threshold_func_names = (
         'threshold_li', 
         'threshold_otsu', 

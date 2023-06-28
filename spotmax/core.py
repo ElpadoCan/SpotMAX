@@ -23,16 +23,16 @@ import skimage.filters
 import skimage.feature
 from scipy.special import erf
 
-import acdctools.io
-import acdctools.utils
-import acdctools.measure
+import cellacdc.io
+import cellacdc.myutils
+import cellacdc.measure
 
 from . import GUI_INSTALLED, error_up_str, error_down_str
 from . import exception_handler_cli, handle_log_exception_cli
 from . import filters
 
 if GUI_INSTALLED:
-    from acdctools.plot import imshow
+    from cellacdc.plot import imshow
     import matplotlib.pyplot as plt
     import matplotlib
 
@@ -126,7 +126,7 @@ class _DataLoader:
         for channel, key in channels.items():
             if not channel:
                 continue
-            ch_path = acdctools.io.get_filepath_from_channel_name(
+            ch_path = cellacdc.io.get_filepath_from_channel_name(
                 images_path, os.path.basename(channel)
             )
             if not os.path.exists(ch_path):
@@ -165,7 +165,7 @@ class _DataLoader:
             return data
 
         # Load lineage table
-        table_path = acdctools.io.get_filepath_from_endname(
+        table_path = cellacdc.io.get_filepath_from_endname(
             images_path, os.path.basename(lineage_table_endname), ext='.csv'
         )
         self.log(
@@ -346,7 +346,7 @@ class _ParamsParser(_DataLoader):
         if answer == 'Do not save report':
             return 'do_not_save'
         
-        report_folderpath = acdctools.io.get_filename_cli(
+        report_folderpath = cellacdc.io.get_filename_cli(
             question='Insert the folder path where to save the report',
             check_exists=True, is_path=True
         )
@@ -366,7 +366,7 @@ class _ParamsParser(_DataLoader):
         if not os.path.exists(report_filepath) or force_default:
             return report_default_filepath
         
-        new_report_filepath, txt = acdctools.path.newfilepath(report_filepath)
+        new_report_filepath, txt = cellacdc.path.newfilepath(report_filepath)
         new_report_filename = os.path.basename(new_report_filepath)
 
         default_option = f'Save with new, default filename "{report_default_filename}"'
@@ -393,7 +393,7 @@ class _ParamsParser(_DataLoader):
         if answer == 'Do not save report':
             return 'do_not_save'
         
-        new_report_filename = acdctools.io.get_filename_cli(
+        new_report_filename = cellacdc.io.get_filename_cli(
             question='Write a filename for the report file',
             check_exists=False, is_path=False
         )
@@ -679,7 +679,7 @@ class _ParamsParser(_DataLoader):
         elif answer == 'Append number to the end':
             return True
         elif answer == 'Save with a new name..':
-            new_filename = acdctools.io.get_filename_cli(
+            new_filename = cellacdc.io.get_filename_cli(
                 question='Insert a new filename for the .ini parameters file'
             )
             if new_filename is None:
@@ -3021,7 +3021,7 @@ class Kernel(_ParamsParser):
             labels = prediction_mask.astype(np.uint8)
             # from . import _debug
             # _debug._threshold_spots_img(aggr_spots_img)
-            # from acdctools.plot import imshow
+            # from cellacdc.plot import imshow
             # imshow(aggr_spots_img, labels)
             # import pdb; pdb.set_trace()
             return labels
@@ -3548,7 +3548,7 @@ class Kernel(_ParamsParser):
             norm_spot_slice_z = spot_slice_z
         return norm_spot_slice_z
 
-    # @acdctools.utils.exec_time
+    # @cellacdc.myutils.exec_time
     def _compute_obj_spots_metrics(
             self, spots_img_obj, df_obj_spots, obj_mask, 
             sharp_spots_img_obj, raw_spots_img_obj=None, 
@@ -3624,7 +3624,7 @@ class Kernel(_ParamsParser):
             debug=debug
         )
         # if debug:
-        #     from acdctools.plot import imshow
+        #     from cellacdc.plot import imshow
         #     imshow(
         #         spheroids_mask, spots_img_obj, 
         #         points_coords=local_peaks_coords
@@ -3884,7 +3884,7 @@ class Kernel(_ParamsParser):
             idx = (frame_i, obj.label)
             cell_area_pxl = obj.area
             cell_area_um2 = cell_area_pxl*pxl_to_um2
-            cell_vol_vox, cell_vol_fl = acdctools.measure.rotational_volume(
+            cell_vol_vox, cell_vol_fl = cellacdc.measure.rotational_volume(
                 obj, vox_to_fl=vox_to_fl_rot
             )
             df_agg.at[idx, 'cell_area_pxl'] = cell_area_pxl

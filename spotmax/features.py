@@ -56,7 +56,10 @@ def normalise_by_dist_transform_range(
     dist_transf_range = 1 - dist_transf
     dist_transf_correction = np.abs(dist_from_expected_perc*dist_transf_range)
     dist_tranf_required = 1-np.sqrt(dist_transf_correction)
-    norm_spot_slice_z = spot_slice_z*dist_tranf_required
+    try:
+        norm_spot_slice_z = spot_slice_z*dist_tranf_required
+    except Exception as e:
+        import pdb; pdb.set_trace()
     norm_spot_slice_z[norm_spot_slice_z<backgr_median] = backgr_median
     return norm_spot_slice_z
     

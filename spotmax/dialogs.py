@@ -380,6 +380,27 @@ class guiTabControl(QTabWidget):
 
         self.sigRunAnalysis.emit(ini_filepath, is_tempinifile)
     
+    def initState(self, isDataLoaded):
+        self.isDataLoaded = isDataLoaded
+        self.autoTuneTabWidget.autoTuneGroupbox.setDisabled(not isDataLoaded)
+        if isDataLoaded:
+            self.autoTuneTabWidget.autoTuningButton.clicked.disconnect()
+        else:
+            self.autoTuneTabWidget.autoTuningButton.clicked.connect(
+                self.warnDataNotLoadedYet
+            )
+
+    def warnDataNotLoadedYet(self):
+        txt = html_func.paragraph("""
+            Before computing any of the analysis steps you need to <b>load some 
+            image data</b>.<br><br>
+            To do so, click on the <code>Open folder</code> button on the left of 
+            the top toolbar (Ctrl+O) and choose an experiment folder to load. 
+        """)
+        msg = acdc_widgets.myMessageBox()
+        msg.warning(self, 'Data not loaded', txt)
+        self.sender().setChecked(False)
+    
     def setValuesFromParams(self, params):
         for section, anchorOptions in self.parametersQGBox.params.items():
             for anchor, options in anchorOptions.items():
@@ -484,6 +505,7 @@ class guiTabControl(QTabWidget):
         # self.autoTuneTabWidget.setDisabled(True)
         self.addTab(self.autoTuneTabWidget, 'Tune parameters')
 
+        
 class AutoTuneGroupbox(QGroupBox):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -538,6 +560,9 @@ class AutoTuneTabWidget(QWidget):
         autoTuningButton = widgets.AutoTuningButton()
         buttonsLayout.addWidget(helpButton)
         buttonsLayout.addStretch(1)
+        self.loadingCircle = acdc_widgets.LoadingCircleAnimation(size=16)
+        self.loadingCircle.setVisible(False)
+        buttonsLayout.addWidget(self.loadingCircle)
         buttonsLayout.addWidget(autoTuningButton)
         self.autoTuningButton = autoTuningButton
 
@@ -556,7 +581,8 @@ class AutoTuneTabWidget(QWidget):
         autoTuningButton.sigToggled.connect(self.emitAutoTuningSignal)
         helpButton.clicked.connect(self.showHelp)
     
-    def emitAutoTuningSignal(self, started):
+    def emitAutoTuningSignal(self, button, started):
+        self.loadingCircle.setVisible(started)
         if started:
             self.sigStartAutoTune.emit(self)
         else:

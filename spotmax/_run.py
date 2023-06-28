@@ -31,6 +31,8 @@ def _setup_app():
     # Create the application
     app = QtWidgets.QApplication([])
     app.setStyle(QtWidgets.QStyleFactory.create('Fusion'))
+    hsl_window = app.palette().color(QtGui.QPalette.Window).getHsl()
+    is_OS_dark_mode = hsl_window[2] < 100
     app.setPalette(app.style().standardPalette())
 
     app.setWindowIcon(QtGui.QIcon(":icon_spotmax.ico"))
@@ -48,7 +50,7 @@ def _setup_app():
 
     app._splashScreen = splashScreen
     
-    from cellacdc import is_OS_dark_mode, settings_csv_path
+    from cellacdc import settings_csv_path
     import pandas as pd
     df_settings = pd.read_csv(settings_csv_path, index_col='setting')
     isUserColorScheme = 'colorScheme' in df_settings.index
@@ -65,135 +67,10 @@ def _setup_app():
 
     return app
 
-def _install_acdctools():
-    import subprocess
-    subprocess.check_call(
-        [sys.executable, '-m', 'pip', 'install', '-U',
-        'git+https://github.com/SchmollerLab/acdc_tools']
-    )
-
-def _ask_install_acdc_tools_cli():
-    try:
-        while True:
-            answer = input(
-                '>>> spotMAX detected the missing library `acdctools`. '
-                'Do you want to proceed with its installation ([y]/n)? ',
-            )
-            if answer.lower() == 'n':
-                raise ModuleNotFoundError(
-                    'User aborted `acdctools` installation.'
-                )
-            elif answer.lower() == 'y':
-                break
-            else:
-                print(
-                    f'"{answer}" is not a valid answer. '
-                    'Type "y" for yes, or "n" for no.'
-                )
-    except EOFError as e:
-        print(
-            '[ERROR]: The library `acdctools` is missing. '
-            'Please install it with `pip install acdctools`'
-        )
-
-def check_cli_requirements():
-    try:
-        import acdctools
-        return
-    except Exception as e:
-        pass
-
-    _ask_install_acdc_tools_cli()
-    _install_acdctools()
-
-def _ask_install_gui_cli():
-    err_msg = (
-        'GUI modules are not installed. Please, install them with the '
-        'command `pip install cellacdc`, or go to this link for more '
-        'information: https://github.com/SchmollerLab/Cell_ACDC'
-    )
-    sep = '='*60
-    warn_msg = (
-        f'{sep}\n'
-        'GUI modules are not installed. '
-        'To run spotMAX GUI you need to install the package called `cellacdc`.\n'
-        'To do so, run the command `pip install cellacdc`.\n\n'
-        'Alternatively, you can use spotMAX in the command line interface.\n'
-        'Type `spotmax -h` for help on how to do that.\n\n'
-        'Do you want to install GUI modules now ([Y]/n)? '
-    )
-    answer = input(warn_msg)
-    if answer.lower() == 'n':
-        raise ModuleNotFoundError(f'{err_msg}')
-
-def _install_gui_cli():
-    import subprocess
-    subprocess.check_call(
-        [sys.executable, '-m', 'pip', 'install', '-U', 'cellacdc']
-    )
-
-def _check_install_acdctools_gui(app):
-    try:
-        import acdctools
-        return
-    except Exception as e:
-        pass
-
-    if app is None:
-        app = _setup_app()
-    from cellacdc.myutils import _install_package_msg
-    cancel = _install_package_msg('acdctools', caller_name='spotMAX')
-    if cancel:
-        raise ModuleNotFoundError(
-            f'User aborted `acdctools` installation.'
-        )
-    _install_acdctools()
-
-def _check_install_qtpy():
-    try:
-        import qtpy
-    except ModuleNotFoundError as e:
-        while True:
-            txt = (
-                'Since version 1.3.1 Cell-ACDC requires the package `qtpy`.\n\n'
-                'You can let Cell-ACDC install it now, or you can abort '
-                'and install it manually with the command `pip install qtpy`.'
-            )
-            print('-'*60)
-            print(txt)
-            answer = input('Do you want to install it now ([y]/n)? ')
-            if answer.lower() == 'y' or not answer:
-                import subprocess
-                import sys
-                subprocess.check_call(
-                    [sys.executable, '-m', 'pip', 'install', '-U', 'qtpy']
-                )
-                break
-            elif answer.lower() == 'n':
-                raise e
-            else:
-                print(
-                    f'"{answer}" is not a valid answer. '
-                    'Type "y" for "yes", or "n" for "no".'
-                )
-    except ImportError as e:
-        # Ignore that qtpy is installed but there is no PyQt bindings --> this 
-        # is handled in the next block
-        pass
-
-def check_gui_requirements(app):
-    from . import GUI_INSTALLED
-    _check_install_qtpy()
-    if GUI_INSTALLED:
-        app = _check_install_acdctools_gui(app)
-    else:
-        _ask_install_gui_cli()
-        _install_gui_cli()
-        app = _check_install_acdctools_gui(app)
-    return app
-
 def run_gui(debug=False, app=None):
-    check_gui_requirements(app)
+    from cellacdc._run import _setup_gui
+    
+    _setup_gui()
 
     from . import read_version
     from . import gui
@@ -230,8 +107,6 @@ def run_gui(debug=False, app=None):
         return win
 
 def run_cli(parser_args, debug=False):
-    check_cli_requirements()
-
     from . import core
     
     kernel = core.Kernel(debug=debug)
