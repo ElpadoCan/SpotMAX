@@ -3631,10 +3631,6 @@ class Kernel(_ParamsParser):
         #     )
         #     import pdb; pdb.set_trace()
 
-        if dist_transform_spheroid is None:
-            # Use all 1s --> do not correct with the distance transform
-            dist_transform_spheroid = min_size_spheroid_mask.astype(np.uint8)
-
         # Check if spots_img needs to be normalised
         if backgr_is_outside_ref_ch_mask:
             backgr_mask = np.logical_and(ref_ch_mask_obj, ~spheroids_mask)
@@ -3704,6 +3700,7 @@ class Kernel(_ParamsParser):
 
             # Get the sharp spot sliced
             sharp_spot_slice_z = sharp_spot_obj_z[slice_global_to_local[-2:]]
+            
             if dist_transform_spheroid is None:
                 # Do not optimise for high spot density
                 sharp_spot_slice_z_transf = sharp_spot_slice_z
@@ -4138,7 +4135,7 @@ class Kernel(_ParamsParser):
             edt_spheroid = self._distance_transform_edt(min_size_spheroid_mask)
         else:
             edt_spheroid = None
-
+        
         # Get footprint passed to peak_local_max --> use half the radius
         # since spots can overlap by the radius according to resol limit
         spot_footprint = self._get_local_spheroid_mask(
@@ -4208,6 +4205,7 @@ class Kernel(_ParamsParser):
                 lineage_table = acdc_df.loc[frame_i]
             else:
                 lineage_table = None
+            
             self.spots_detection(
                 preproc_spots_img, zyx_resolution_limit_pxl, 
                 sharp_spots_img=sharp_spots_img,
