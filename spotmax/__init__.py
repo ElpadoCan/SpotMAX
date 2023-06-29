@@ -20,6 +20,7 @@ except ModuleNotFoundError:
     
 spotmax_path = os.path.dirname(os.path.abspath(__file__))
 qrc_resources_path = os.path.join(spotmax_path, 'qrc_resources_spotmax.py')
+resources_folderpath = os.path.join(spotmax_path, 'resources')
 
 # Replace 'from PyQt5' with 'from qtpy' in qrc_resources.py file
 try:
