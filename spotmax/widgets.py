@@ -248,14 +248,18 @@ class VerticalSpacerEmptyWidget(QWidget):
         self.setFixedHeight(height)
 
 class FeatureSelectorButton(QPushButton):
-    def __init__(self, text, parent=None):
+    def __init__(self, text, parent=None, alignment=''):
         super().__init__(text, parent=parent)
         self._isFeatureSet = False
+        self._alignment = alignment
+        self.setCursor(Qt.PointingHandCursor)
     
     def setFeatureText(self, text):
         self.setText(text)
         self.setFlat(True)
         self._isFeatureSet = True
+        if self._alignment:
+            self.setStyleSheet(f'text-align:{self._alignment};')
     
     def enterEvent(self, event) -> None:
         if self._isFeatureSet:
@@ -1578,7 +1582,7 @@ class SelectedFeatureAutoTuneGroupbox(QGroupBox):
         self.maxLineEdit.setDisabled(False)
         self.layout().labelForField(self.maxLineEdit).setDisabled(False)
         super().setTitle(title)
-
+        
 class SelectFeaturesAutoTune(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)

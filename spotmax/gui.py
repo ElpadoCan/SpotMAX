@@ -11,8 +11,23 @@ import pandas as pd
 from qtpy.QtCore import (
     Qt, QTimer, QThreadPool, QMutex, QWaitCondition, QEvent
 )
-from qtpy.QtGui import QIcon
+from qtpy.QtGui import QIcon, QGuiApplication
 from qtpy.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
+
+# Interpret image data as row-major instead of col-major
+import pyqtgraph as pg
+pg.setConfigOption('imageAxisOrder', 'row-major')
+try:
+    import numba
+    pg.setConfigOption("useNumba", True)
+except Exception as e:
+    pass
+
+try:
+    import cupy as cp
+    pg.setConfigOption("useCupy", True)
+except Exception as e:
+    pass
 
 import cellacdc
 cellacdc.GUI_INSTALLED = True
@@ -94,10 +109,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         cursorsInfo['setAutoTuneCursor'] = setAutoTuneCursor
         overrideCursor = self.app.overrideCursor()
         if setAutoTuneCursor and overrideCursor is None:
-            self.app.setOverrideCursor(self.addPointsCursor)
+            self.app.setOverrideCursor(Qt.CrossCursor)
         return cursorsInfo
         
-    
     def gui_hoverEventImg1(self, event, isHoverImg1=True):
         cursorsInfo = super().gui_hoverEventImg1(event, isHoverImg1=isHoverImg1)
         if cursorsInfo is None:
@@ -107,13 +121,42 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         
         x, y = event.pos()
-        xdata, ydata = int(x), int(y)
         if cursorsInfo['setAutoTuneCursor']:
             self.setHoverCircleAutoTune(x, y)
         else:
             self.setHoverToolSymbolData(
                 [], [], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             )
+    
+    def getIDfromXYPos(self, x, y):
+        posData = self.data[self.pos_i]
+        xdata, ydata = int(x), int(y)
+        Y, X = self.get_2Dlab(posData.lab).shape
+        if xdata >= 0 and xdata < X and ydata >= 0 and ydata < Y:
+            ID = self.get_2Dlab(posData.lab)[ydata, xdata]
+            return ID
+        else:
+            return
+    
+    @exception_handler
+    def gui_mousePressEventImg1(self, event):
+        super().gui_mousePressEventImg1(event)
+        modifiers = QGuiApplication.keyboardModifiers()
+        ctrl = modifiers == Qt.ControlModifier
+        alt = modifiers == Qt.AltModifier
+        posData = self.data[self.pos_i]
+        left_click = event.button() == Qt.MouseButton.LeftButton and not alt
+        
+        canAddPointAutoTune = self.isAutoTuneRunning and left_click
+        
+        x, y = event.pos().x(), event.pos().y()
+        ID = self.getIDfromXYPos(x, y)
+        if ID is None:
+            return
+        
+        if canAddPointAutoTune:
+            self.addAutoTunePoint(x, y)
+        
         
     def gui_createRegionPropsDockWidget(self):
         super().gui_createRegionPropsDockWidget(side=Qt.RightDockWidgetArea)
@@ -126,6 +169,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         computeTabControl.addAutoTuneTab()
         computeTabControl.initState(False)
+        computeTabControl.currentChanged.connect(self.tabControlPageChanged)
 
         self.computeDockWidget.setWidget(computeTabControl)
         self.computeDockWidget.setFeatures(
@@ -139,6 +183,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.addDockWidget(Qt.LeftDockWidgetArea, self.computeDockWidget)
         
         self.connectAutoTuneSlots()
+        self.initAutoTuneColors()
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         self.LeftClickButtons.append(autoTuneTabWidget.autoTuningButton)
@@ -305,6 +350,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.setAnalysisParameters()
         self.connectParamsGroupBoxSignals()
+        self.autoTuningAddItems()
     
     def disconnectParamsGroupBoxSignals(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -402,6 +448,22 @@ class spotMAX_Win(acdc_gui.guiWin):
             [x], [y], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             size=size
         )
+    
+    def tabControlPageChanged(self, index):
+        if index == 1:
+            self.setAutoTunePointSize()
+    
+    
+    def setAutoTunePointSize(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii = spotMinSizeLabels.pixelValues()
+        size = round(spots_zyx_radii[-1])
+        
+        printl(size)
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.setAutoTunePointSize(size)
     
     @exception_handler
     def _computeSharpenSpots(self, formWidget):
@@ -665,10 +727,91 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def connectAutoTuneSlots(self):
         self.isAutoTuneRunning = False
+        self.isAutoTuningForegr = True
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.sigStartAutoTune.connect(self.startAutoTuning)
         autoTuneTabWidget.sigStopAutoTune.connect(self.stopAutoTuning)
+        
+        autoTuneTabWidget.sigTrueFalseToggled.connect(
+            self.autoTuningTrueFalseToggled
+        )
+        autoTuneTabWidget.sigColorChanged.connect(
+            self.autoTuningColorChanged
+        )
     
+    def addAutoTunePoint(self, x, y):
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.addAutoTunePoint(x, y)
+    
+    def initAutoTuneColors(self):
+        setting_name = 'autoTuningTrueSpotsColor'
+        default_color = '255-0-0-255'
+        try:
+            rgba = self.df_settings.at[setting_name, 'value']
+        except Exception as e:
+            rgba = default_color 
+        trueColor = [float(val) for val in rgba.split('-')][:3]
+        
+        setting_name = 'autoTuningFalseSpotsColor'
+        default_color = '0-255-255-255'
+        try:
+            rgba = self.df_settings.at[setting_name, 'value']
+        except Exception as e:
+            rgba = default_color 
+        falseColor = [float(val) for val in rgba.split('-')][:3]        
+        
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget    
+        autoTuneTabWidget.initAutoTuneColors(trueColor, falseColor)
+    
+    def autoTuningTrueFalseToggled(self, checked):
+        self.isAutoTuningForegr = checked
+    
+    def setScatterItemsBrushPen(self, items, rgba):
+        if isinstance(items, pg.ScatterPlotItem):
+            items = [items]
+        
+        r, g, b = rgba[:3]
+        for item in items:
+            item.setPen(r,g,b, width=2)
+            item.setBrush(r,g,b, 50)
+    
+    def autoTuningSetItemsColor(self, true_spots: bool):
+        if true_spots:
+            setting_name = 'autoTuningTrueSpotsColor'
+            default_color = '255-0-0-255'
+        else:
+            setting_name = 'autoTuningFalseSpotsColor'
+            default_color = '0-255-255-255'
+        try:
+            rgba = self.df_settings.at[setting_name, 'value']
+        except Exception as e:
+            rgba = default_color 
+        
+        items = [
+            self.ax2_BrushCircle, 
+            self.ax1_BrushCircle
+        ]
+        
+        r, g, b, a = [int(val) for val in rgba.split('-')]
+        self.setScatterItemsBrushPen(items, (r,g,b,a))
+    
+    def autoTuningColorChanged(self, rgba, true_spots: bool):
+        if true_spots:
+            setting_name = 'autoTuningTrueSpotsColor'
+        else:
+            setting_name = 'autoTuningFalseSpotsColor'
+        value = '-'.join([str(v) for v in rgba])
+        self.df_settings.at[setting_name, 'value'] = value
+        self.df_settings.to_csv(self.settings_csv_path)
+        self.autoTuningSetItemsColor(true_spots)
+    
+    def autoTuningAddItems(self):
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+        self.ax1.addItem(autoTuneGroupbox.trueItem)
+        self.ax1.addItem(autoTuneGroupbox.falseItem)
+        self.autoTuningSetItemsColor(True)
+        
     def connectLeftClickButtons(self):
         super().connectLeftClickButtons()
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
@@ -735,12 +878,14 @@ class spotMAX_Win(acdc_gui.guiWin):
                 setterFunc(value)
     
     def resizeComputeDockWidget(self):
-        paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
-        paramsScrollArea = self.computeDockWidget.widget().parametersTab
+        guiTabControl = self.computeDockWidget.widget()
+        paramsGroupbox = guiTabControl.parametersQGBox
+        paramsScrollArea = guiTabControl.parametersTab
+        autotuneScrollArea = guiTabControl.autoTuneTabWidget
         verticalScrollbar = paramsScrollArea.verticalScrollBar()
-        groupboxWidth = paramsGroupbox.size().width()
+        groupboxWidth = autotuneScrollArea.size().width()
         scrollbarWidth = verticalScrollbar.size().width()
-        minWidth = groupboxWidth + scrollbarWidth + 20
+        minWidth = groupboxWidth + scrollbarWidth + 30
         self.resizeDocks([self.computeDockWidget], [minWidth], Qt.Horizontal)
         self.showParamsDockButton.click()
     

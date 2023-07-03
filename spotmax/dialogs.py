@@ -30,13 +30,15 @@ from qtpy.QtWidgets import (
     QFileDialog, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
+import pyqtgraph as pg
+
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc import myutils as acdc_myutils
 from cellacdc import html_utils as acdc_html
 
 from . import html_func, io, widgets, utils, config
-from . import core
+from . import core, features
 
 # NOTE: Enable icons
 from . import printl, font
@@ -281,6 +283,7 @@ class guiTabControl(QTabWidget):
         self.lastSavedIniFilePath = ''
 
         self.parametersTab = QScrollArea(self)
+        self.parametersTab.setWidgetResizable(True)
         self.parametersQGBox = ParamsGroupBox(self.parametersTab)
         self.logging_func = logging_func
         containerWidget = QWidget()
@@ -507,6 +510,8 @@ class guiTabControl(QTabWidget):
 
         
 class AutoTuneGroupbox(QGroupBox):
+    sigColorChanged = Signal(object, bool)
+    
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -542,13 +547,211 @@ class AutoTuneGroupbox(QGroupBox):
             groupBox.setLayout(formLayout)
             mainLayout.addWidget(groupBox)
         
+        autoTuneSpotProperties = AutoTuneSpotProperties() 
+        self.trueFalseToggle = autoTuneSpotProperties.trueFalseToggle
+        self.trueColorButton= autoTuneSpotProperties.trueColorButton
+        self.falseColorButton = autoTuneSpotProperties.falseColorButton
+        
+        self.falseColorButton.sigColorChanging.connect(self.setFalseColor)
+        
+        self.trueItem = autoTuneSpotProperties.trueItem
+        self.falseItem = autoTuneSpotProperties.falseItem
+        
+        self.viewFeaturesGroupbox = AutoTuneViewSpotFeatures()
+        
+        mainLayout.addWidget(autoTuneSpotProperties)
+        mainLayout.addWidget(self.viewFeaturesGroupbox)
         mainLayout.addStretch(1)
         self.setLayout(mainLayout)
         self.setFont(font)
+    
+    def setFalseColor(self, colorButton):
+        r, g, b, a = colorButton.color().getRgb()
+        self.falseItem.setBrush(r, g, b, 50)
+        self.falseItem.setPen(r, g, b, width=2)
+        self.sigColorChanged.emit((r, g, b, a), False)
+    
+    def setTrueColor(self, colorButton):
+        r, g, b, a = colorButton.color().getRgb()
+        self.trueItem.setBrush(r, g, b, 50)
+        self.trueItem.setPen(r, g, b, width=2)
+        self.sigColorChanged.emit((r, g, b, a), True)
+
+class AutoTuneSpotProperties(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.setTitle('Spots properties')
+        
+        trueFalseToggleLayout = QHBoxLayout()
+                
+        trueFalseToggleLayout.addWidget(
+            QLabel('True spots color'), alignment=Qt.AlignRight
+        )
+        self.trueColorButton = acdc_widgets.myColorButton(
+            color=(255, 0, 0)
+        )
+        trueFalseToggleLayout.addWidget(
+            self.trueColorButton, alignment=Qt.AlignCenter
+        )
+        trueFalseToggleLayout.addStretch(1)        
+        
+        trueFalseToggleLayout.addWidget(
+            QLabel('False spots color'), alignment=Qt.AlignRight
+        )
+        self.falseColorButton = acdc_widgets.myColorButton(
+            color=(0, 255, 255)
+        )
+        trueFalseToggleLayout.addWidget(
+            self.falseColorButton, alignment=Qt.AlignCenter
+        )
+        trueFalseToggleLayout.addStretch(1) 
+        
+        trueFalseToggleLayout.addWidget(
+            QLabel('Clicking on true spots'), alignment=Qt.AlignRight
+        )
+        self.trueFalseToggle = acdc_widgets.Toggle()
+        self.trueFalseToggle.setChecked(True)
+        trueFalseToggleLayout.addWidget(
+            self.trueFalseToggle, alignment=Qt.AlignCenter
+        )
+        # trueFalseToggleLayout.addStretch(1)
+        
+        self.trueColorButton.sigColorChanging.connect(self.setTrueColor)
+        self.falseColorButton.sigColorChanging.connect(self.setFalseColor)
+        
+        self.trueItem = pg.ScatterPlotItem(
+            symbol='o', size=3, pxMode=False,
+            brush=pg.mkBrush((255,0,0,50)),
+            pen=pg.mkPen((255,0,0), width=2),
+            hoverable=True, hoverPen=pg.mkPen((255,0,0), width=3),
+            hoverBrush=pg.mkBrush((255,0,0)), tip=None
+        )
+        
+        self.falseItem = pg.ScatterPlotItem(
+            symbol='o', size=3, pxMode=False,
+            brush=pg.mkBrush((0,255,255,50)),
+            pen=pg.mkPen((0,255,255), width=2),
+            hoverable=True, hoverPen=pg.mkPen((0,255,255), width=3),
+            hoverBrush=pg.mkBrush((0,255,255)), tip=None
+        )
+        self.setLayout(trueFalseToggleLayout)
+    
+    def setFalseColor(self, colorButton):
+        r, g, b, a = colorButton.color().getRgb()
+        self.falseItem.setBrush(r, g, b, 50)
+        self.falseItem.setPen(r, g, b, width=2)
+        self.sigColorChanged.emit((r, g, b, a), False)
+    
+    def setTrueColor(self, colorButton):
+        r, g, b, a = colorButton.color().getRgb()
+        self.trueItem.setBrush(r, g, b, 50)
+        self.trueItem.setPen(r, g, b, width=2)
+        self.sigColorChanged.emit((r, g, b, a), True)
+
+class AutoTuneViewSpotFeatures(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.setTitle('Spot features')
+        
+        layout = QGridLayout()
+        self.setLayout(layout)
+        
+        col = 0
+        row = 0
+        layout.addWidget(QLabel('x coordinate'), row, col, alignment=Qt.AlignRight)
+        self.xLineEntry = widgets.ReadOnlyLineEdit()
+        layout.addWidget(self.xLineEntry, row, col+1)
+        
+        row += 1
+        layout.addWidget(QLabel('y coordinate'), row, col, alignment=Qt.AlignRight)
+        self.yLineEntry = widgets.ReadOnlyLineEdit()
+        layout.addWidget(self.yLineEntry, row, col+1)
+        
+        row += 1
+        layout.addWidget(QLabel('z coordinate'), row, col, alignment=Qt.AlignRight)
+        self.zLineEntry = widgets.ReadOnlyLineEdit()
+        layout.addWidget(self.zLineEntry, row, col+1)
+        
+        row += 1
+        self.selectButton = widgets.FeatureSelectorButton(
+            'Click to select feature to view...  ', alignment='right'
+        )
+        self.selectButton.setSizeLongestText(
+            'Spotfit intens. metric, Foregr. integral gauss. peak'
+        )
+        self.selectButton.clicked.connect(self.selectFeature)
+        self.selectButton.entry = widgets.ReadOnlyLineEdit()
+        self.addFeatureButton = acdc_widgets.addPushButton()
+        layout.addWidget(self.selectButton, row, col)
+        layout.addWidget(self.selectButton.entry, row, col+1)
+        layout.addWidget(
+            self.addFeatureButton, row, col+2, alignment=Qt.AlignLeft
+        )
+        self.featureButtons = [self.selectButton]
+        self.addFeatureButton.clicked.connect(self.addFeatureEntry)
+        
+        self.nextRow = row + 1
+    
+    def addFeatureEntry(self):
+        selectButton = widgets.FeatureSelectorButton(
+            'Click to select feature to view...  ', alignment='right'
+        )
+        selectButton.setSizeLongestText(
+            'Spotfit intens. metric, Foregr. integral gauss. peak'
+        )
+        selectButton.clicked.connect(self.selectFeature)
+        selectButton.entry = widgets.ReadOnlyLineEdit()
+        delButton = acdc_widgets.delPushButton()
+        delButton.widgets = [selectButton, selectButton.entry]
+        delButton.selector = selectButton
+        
+        self.layout().addWidget(self.selectButton, self.nextRow, 0)
+        self.layout().addWidget(self.selectButton.entry, self.nextRow, 1)
+        self.layout().addWidget(
+            self.addFeatureButton, self.nextRow, 2, alignment=Qt.AlignLeft
+        )
+        self.nextRow += 1
+        
+        self.featureButtons.append(selectButton)
+        
+    def removeFeatureField(self):
+        delButton = self.sender()
+        for widget in delButton.selector.widgets:
+            self.layout().removeWidget(widget)
+        self.layout().removeWidget(delButton)
+        self.featureButtons.remove(delButton.selector)
+    
+    def selectFeature(self):
+        self.selectFeatureDialog = widgets.FeatureSelectorDialog(
+            parent=self.sender(), multiSelection=False, 
+            expandOnDoubleClick=True, isTopLevelSelectable=False, 
+            infoTxt='Select feature', allItemsExpanded=False
+        )
+        self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
+        # self.selectFeatureDialog.resizeVertical()
+        self.selectFeatureDialog.sigClose.connect(self.setFeatureText)
+        self.selectFeatureDialog.show()
+    
+    def setFeatureText(self):
+        if self.selectFeatureDialog.cancel:
+            return
+        selectButton = self.selectFeatureDialog.parent()
+        selectButton.setFlat(True)
+        selection = self.selectFeatureDialog.selectedItems()
+        group_name = list(selection.keys())[0]
+        feature_name = selection[group_name][0]
+        featureText = f'{group_name}, {feature_name}'
+        selectButton.setFeatureText(featureText)
+        column_name = features.feature_names_to_col_names_mapper()[featureText]
+        selectButton.setToolTip(f'{column_name}')
 
 class AutoTuneTabWidget(QWidget):
     sigStartAutoTune = Signal(object)
     sigStopAutoTune = Signal(object)
+    sigTrueFalseToggled = Signal(object)
+    sigColorChanged = Signal(object, bool)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -579,7 +782,16 @@ class AutoTuneTabWidget(QWidget):
         self.setLayout(layout)
 
         autoTuningButton.sigToggled.connect(self.emitAutoTuningSignal)
+        self.autoTuneGroupbox.trueFalseToggle.toggled.connect(
+            self.emitForegrBackrToggledSignal
+        )
+        self.autoTuneGroupbox.sigColorChanged.connect(
+            self.emitColorChanged
+        )
         helpButton.clicked.connect(self.showHelp)
+    
+    def emitColorChanged(self, color: tuple, true_spots: bool):
+        self.sigColorChanged.emit(color, true_spots)
     
     def emitAutoTuningSignal(self, button, started):
         self.loadingCircle.setVisible(started)
@@ -587,6 +799,23 @@ class AutoTuneTabWidget(QWidget):
             self.sigStartAutoTune.emit(self)
         else:
             self.sigStopAutoTune.emit(self)
+    
+    def emitForegrBackrToggledSignal(self, checked):
+        self.sigTrueFalseToggled.emit(checked)
+    
+    def initAutoTuneColors(self, trueColor, falseColor):
+        self.autoTuneGroupbox.trueColorButton.setColor(trueColor)
+        self.autoTuneGroupbox.falseColorButton.setColor(falseColor)
+    
+    def addAutoTunePoint(self, x, y):
+        if self.autoTuneGroupbox.trueFalseToggle.isChecked():
+            self.autoTuneGroupbox.trueItem.addPoints([x], [y])
+        else:
+            self.autoTuneGroupbox.falseItem.addPoints([x], [y])
+    
+    def setAutoTunePointSize(self, size):
+        self.autoTuneGroupbox.trueItem.setSize((size))
+        self.autoTuneGroupbox.falseItem.setSize(size)
     
     def showHelp(self):
         msg = acdc_widgets.myMessageBox()
