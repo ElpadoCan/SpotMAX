@@ -202,6 +202,8 @@ class _DataLoader:
 
         if 'lineage_table' in data:
             table = data['lineage_table']
+            if 'frame_i' not in table.columns:
+                table['frame_i'] = 0
             table = table.set_index(['frame_i', 'Cell_ID'])
             data['lineage_table'] = table
         
@@ -214,10 +216,6 @@ class _DataLoader:
             if key not in data:
                 continue
             data[key] = data[key][np.newaxis]
-        
-        if 'lineage_table' in data:
-            if 'frame_i' not in table.columns:
-                table['frame_i'] = 0
             
         return data
 
