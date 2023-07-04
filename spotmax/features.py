@@ -55,6 +55,7 @@ def normalise_by_dist_transform_range(
     dist_from_expected_perc = (spot_slice_z-expected_values)/spot_slice_z
     dist_transf_range = 1 - dist_transf
     dist_transf_correction = np.abs(dist_from_expected_perc*dist_transf_range)
+    dist_transf_correction[dist_transf_correction==np.inf] = 1
     dist_tranf_required = 1-np.sqrt(dist_transf_correction)
     try:
         norm_spot_slice_z = spot_slice_z*dist_tranf_required
