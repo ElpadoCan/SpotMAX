@@ -329,7 +329,7 @@ class myQComboBox(QComboBox):
 class CheckableSpinBoxWidgets:
     def __init__(self, isFloat=True):
         if isFloat:
-            self.spinbox = acdc_widgets.DoubleSpinBox()
+            self.spinbox = floatLineEdit()
         else:
             self.spinbox = acdc_widgets.SpinBox()
         self.checkbox = QCheckBox('Activate')
@@ -952,7 +952,7 @@ class floatLineEdit(QLineEdit):
     valueChanged = Signal(float)
 
     def __init__(
-            self, *args, notAllowed=(0,), allowNegative=False, initial=None
+            self, *args, notAllowed=None, allowNegative=True, initial=None
         ):
         QLineEdit.__init__(self, *args)
         self.notAllowed = notAllowed
@@ -1453,7 +1453,7 @@ class SpotsItems:
                 data = data.loc[[z]]
             except Exception as e:
                 return
-        yy, xx = data['y'].values, data['x'].values
+        yy, xx = data['y'].values + 0.5, data['x'].values + 0.5
         scatterItem.setData(xx, yy)
         scatterItem.z = z
         scatterItem.frame_i = frame_i

@@ -172,6 +172,8 @@ class _DataLoader:
             f'Loading "{lineage_table_endname}" channel from "{table_path}"...'
         )
         data['lineage_table'] = pd.read_csv(table_path)
+        
+        data = self._crop_to_last_annotated_frame(data)
 
         return data
     
@@ -240,6 +242,20 @@ class _DataLoader:
                 continue
             data[key] = data[key][segm_slice].copy()
 
+        return data
+
+    def _crop_to_last_annotated_frame(self, data):
+        lineage_table = data['lineage_table']
+        ccs_values = lineage_table['cell_cycle_stage'].dropna()
+        stop_frame_i = ccs_values.frame_i.max()
+        stop_frame_num = stop_frame_i + 1
+        self.metadata['stopFrameNum'] = stop_frame_num
+        # Crop images
+        arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm', 'segm')
+        for key in arr_keys:
+            if key not in data:
+                continue
+            data[key] = data[key][:stop_frame_num].copy()
         return data
     
     def _initialize_df_agg(self, data):

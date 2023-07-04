@@ -17,6 +17,8 @@ from qtpy.QtCore import Signal, QObject, QRunnable
 from cellacdc.workers import worker_exception_handler, workerLogger
 
 from . import io, utils
+from . import transformations
+from . import printl
 
 """
 QRunnables or QObjects that run in QThreadPool or QThread in a PyQT app
@@ -52,6 +54,7 @@ class signals(QObject):
     initProgressBar = Signal(int)
     progressBar = Signal(int)
     critical = Signal(object)
+    debug = Signal(object)
     sigLoadingNewChunk = Signal(object)
 
 class analysisWorker(QRunnable):
@@ -77,18 +80,69 @@ class ComputeAnalysisStepWorker(QRunnable):
         QRunnable.__init__(self)
         self.signals = signals()
         self.logger = workerLogger(self.signals.progress)
-        self.anchor = anchor
-        
-        module_name, func_name = module_func.rsplit('.', 1)
-        module = import_module(f'spotmax.{module_name}')
-        self.func = getattr(module, func_name)
         self.kwargs = kwargs
-        self.kwargs['logger_func'] = self.logger.log
+        self.anchor = anchor
+        self.module_func = module_func
     
     @worker_exception_handler
     def run(self):
-        result = self.func(**self.kwargs)
-        self.signals.finished.emit((result, self.anchor))
+        module_name, func_name = self.module_func.rsplit('.', 1)
+        module = import_module(f'spotmax.{module_name}')
+        func = getattr(module, func_name)
+        self.kwargs['logger_func'] = self.logger.log
+        
+        result = func(**self.kwargs)
+        self.signals.finished.emit((result, self.kwargs['image'], self.anchor))
+
+class CropImageBasedOnSegmDataWorker(QRunnable):
+    def __init__(
+            self, image_data, segm_data, delta_tolerance, SizeZ, 
+            on_finished_callback
+        ):
+        QRunnable.__init__(self)
+        self.signals = signals()
+        self.logger = workerLogger(self.signals.progress)
+        self.image_data = image_data
+        self.segm_data = segm_data
+        self.delta_tolerance = delta_tolerance
+        self.SizeZ = SizeZ
+        self.on_finished_callback = on_finished_callback
+    
+    def _add_missing_axis(self):
+        # Add axis for Z if missing (2D image data or 2D segm data)
+        self.logger.log('Cropping based on segm data...')
+        segm_data = self.segm_data
+        image_data = self.image_data
+        if image_data.ndim == 3:
+            image_data = self.image_data[:, np.newaxis]
+        if segm_data.ndim == 3:
+            if self.SizeZ == 1:
+                segm_data = segm_data[:, np.newaxis]
+            else:
+                T, Y, X = self.segm_data.shape
+                new_shape = (T, self.SizeZ, Y, X)
+                tiled_segm_data = np.zeros(new_shape, dtype=segm_data.dtype)
+                for frame_i, lab in enumerate(segm_data):
+                    tiled_segm_data[frame_i, :] = lab
+                segm_data = tiled_segm_data
+        return segm_data, image_data
+    
+    @worker_exception_handler
+    def run(self):
+        if not np.any(self.segm_data):
+            result = (image_cropped, segm_data_cropped)
+            self.signals.finished.emit(result)
+            return
+        segm_data, image_data = self._add_missing_axis()
+        
+        crop_info = transformations.crop_from_segm_data_info(
+            segm_data, self.delta_tolerance
+        )
+        segm_slice, pad_widths, crop_to_global_coords = crop_info
+        image_cropped = image_data[segm_slice]
+        segm_data_cropped = segm_data[segm_slice]
+        result = (image_cropped, segm_data_cropped, self.on_finished_callback)
+        self.signals.finished.emit(result)
 
 class pathScannerWorker(QRunnable):
     def __init__(self, selectedPath):

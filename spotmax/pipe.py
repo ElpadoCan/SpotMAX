@@ -3,7 +3,7 @@ import numpy as np
 from . import filters, transformations, config, printl
 
 def spots_semantic_segmentation(
-        raw_image, 
+        image, 
         lab=None,
         initial_sigma=0.0,
         spots_zyx_radii=None, 
@@ -17,19 +17,19 @@ def spots_semantic_segmentation(
         keep_input_shape=True
     ):  
     if lab is None:
-        lab = np.ones(raw_image.shape, dtype=np.uint8) 
+        lab = np.ones(image.shape, dtype=np.uint8) 
     
-    if raw_image.ndim == 2:
-        raw_image = raw_image[np.newaxis]
+    if image.ndim == 2:
+        image = image[np.newaxis]
         
-    if lab.ndim == 2 and raw_image.ndim == 3:
+    if lab.ndim == 2 and image.ndim == 3:
         # Stack 2D lab into 3D z-stack
-        lab = np.array([lab]*len(raw_image))
+        lab = np.array([lab]*len(image))
     
     if do_remove_hot_pixels:
-        image = filters.remove_hot_pixels(raw_image)
+        image = filters.remove_hot_pixels(image)
     else:
-        image = raw_image
+        image = image
         
     if do_sharpen and spots_zyx_radii is not None:
         image = filters.DoG_spots(
@@ -66,7 +66,7 @@ def spots_semantic_segmentation(
     return result
 
 def reference_channel_semantic_segm(
-        raw_image, 
+        image, 
         lab=None,
         initial_sigma=0.0,
         keep_only_largest_obj=False,
@@ -79,7 +79,7 @@ def reference_channel_semantic_segm(
         keep_input_shape=True
     ):
     result = spots_semantic_segmentation(
-        raw_image, 
+        image, 
         lab=lab,
         initial_sigma=initial_sigma,
         spots_zyx_radii=None, 
@@ -99,11 +99,11 @@ def reference_channel_semantic_segm(
         return result
     
     if lab is None:
-        lab = np.ones(raw_image.shape, dtype=np.uint8) 
+        lab = np.ones(image.shape, dtype=np.uint8) 
         
-    if lab.ndim == 2 and raw_image.ndim == 3:
+    if lab.ndim == 2 and image.ndim == 3:
         # Stack 2D lab into 3D z-stack
-        lab = np.array([lab]*len(raw_image))
+        lab = np.array([lab]*len(image))
     
     input_image = result.pop('input_image')
     result = {

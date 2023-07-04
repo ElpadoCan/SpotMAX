@@ -1,3 +1,4 @@
+from functools import partial
 import os
 import shutil
 import datetime
@@ -386,44 +387,53 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
     
-    def getCroppedImageBasedOnSegmData(self, image=None):
+    def startCropImageBasedOnSegmDataWorkder(
+            self, image_data, segm_data, on_finished_callback
+        ):
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
+            title=self.funcDescription, parent=self,
+            pbarDesc=self.funcDescription
+        )
+        self.progressWin.mainPbar.setMaximum(0)
+        self.progressWin.show(self.app)
+            
         posData = self.data[self.pos_i]
-        if image is None:
-            image = posData.img_data
-        
-        if posData.segm_data is None:
-            return image
-        
-        if not np.any(posData.segm_data):
-            return image
-        
-        # Add axis for Z if missing (2D image data or 2D segm data)
-        segm_data = posData.segm_data
-        if image.ndim == 3:
-            image = image[:, np.newaxis]
-        if segm_data.ndim == 3:
-            if posData.SizeZ == 1:
-                segm_data = segm_data[:, np.newaxis]
-            else:
-                reps = (1, posData.SizeZ, 1, 1)
-                segm_data = np.tile(segm_data, reps)
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         metadataParams = ParamsGroupBox.params['METADATA']
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
         spots_zyx_radii = spotMinSizeLabels.pixelValues()
-        
         deltaTolerance = np.array(spots_zyx_radii)
         delta_tolerance = np.ceil(deltaTolerance).astype(int)
         
-        crop_info = transformations.crop_from_segm_data_info(
-            segm_data, delta_tolerance
+        worker = qtworkers.CropImageBasedOnSegmDataWorker(
+            image_data, segm_data, delta_tolerance, posData.SizeZ,
+            on_finished_callback
         )
-        segm_slice, pad_widths, crop_to_global_coords = crop_info
-        return (
-            image[segm_slice][posData.frame_i], 
-            segm_data[segm_slice][posData.frame_i]
-        )
+        worker.signals.finished.connect(self.cropImageWorkerFinished)
+        worker.signals.progress.connect(self.workerProgress)
+        worker.signals.initProgressBar.connect(self.workerInitProgressbar)
+        worker.signals.progressBar.connect(self.workerUpdateProgressbar)
+        worker.signals.critical.connect(self.workerCritical)
+        self.threadPool.start(worker)
+    
+    def cropImageWorkerFinished(self, result):
+        image_cropped, segm_data_cropped, on_finished_callback = result
+        
+        if on_finished_callback is None:
+            return
+        
+        posData = self.data[self.pos_i]
+        image = image_cropped[posData.frame_i]
+        func, args, kwargs = on_finished_callback
+        kwargs['image'] = image
+        if 'lab' in kwargs:
+            lab = segm_data_cropped[posData.frame_i]
+            if not np.any(lab):
+                # Without segm data we evaluate the entire image
+                lab = None
+            kwargs['lab'] = lab
+        func(*args, **kwargs)
     
     @exception_handler
     def _computeRemoveHotPixels(self, formWidget):
@@ -432,11 +442,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'removeHotPixels'
         
         posData = self.data[self.pos_i]
-        image, _ = self.getCroppedImageBasedOnSegmData()
-        
-        kwargs = {'image': image}
-        
-        self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+        args = [module_func, anchor]
+        kwargs = {}
+        on_finished_callback = (
+            self.startComputeAnalysisStepWorker, args, kwargs
+        )
+        self.startCropImageBasedOnSegmDataWorkder(
+            posData.img_data, posData.segm_data, 
+            on_finished_callback=on_finished_callback
+        )
     
     def setHoverCircleAutoTune(self, x, y):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -450,6 +464,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def tabControlPageChanged(self, index):
+        if not self.dataIsLoaded:
+            return
         if index == 1:
             self.setAutoTunePointSize()
     
@@ -461,7 +477,6 @@ class spotMAX_Win(acdc_gui.guiWin):
         spots_zyx_radii = spotMinSizeLabels.pixelValues()
         size = round(spots_zyx_radii[-1])
         
-        printl(size)
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.setAutoTunePointSize(size)
     
@@ -472,8 +487,6 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'sharpenSpots'
         
         posData = self.data[self.pos_i]
-        image, _ = self.getCroppedImageBasedOnSegmData()
-        
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         metadataParams = ParamsGroupBox.params['METADATA']
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
@@ -481,13 +494,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         configParams = ParamsGroupBox.params['Configuration']
         use_gpu = configParams['useGpu']['widget'].isChecked()
-        
+        args = [module_func, anchor]
         kwargs = {
-            'image': image, 'spots_zyx_radii': spots_zyx_radii, 
-            'use_gpu': use_gpu
+            'spots_zyx_radii': spots_zyx_radii, 'use_gpu': use_gpu
         }
-        
-        self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+        on_finished_callback = (
+            self.startComputeAnalysisStepWorker, args, kwargs
+        )
+        self.startCropImageBasedOnSegmDataWorkder(
+            posData.img_data, posData.segm_data, 
+            on_finished_callback=on_finished_callback
+        )
     
     @exception_handler
     def _computeSpotPrediction(self, formWidget):
@@ -496,14 +513,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'spotPredictionMethod'
         
         posData = self.data[self.pos_i]
-        raw_image, lab = self.getCroppedImageBasedOnSegmData()
         lineage_table = None
         if posData.acdc_df is not None:
             lineage_table = posData.acdc_df.loc[posData.frame_i]
-        
-        if not np.any(lab):
-            # Without segm data we evaluate the entire image
-            lab = None
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
@@ -524,15 +536,22 @@ class spotMAX_Win(acdc_gui.guiWin):
         configParams = ParamsGroupBox.params['Configuration']
         use_gpu = configParams['useGpu']['widget'].isChecked()
         
+        args = [module_func, anchor]
         kwargs = {
-            'raw_image': raw_image, 'lab': lab, 'initial_sigma': initial_sigma, 
+            'lab': None, 'initial_sigma': initial_sigma, 
             'spots_zyx_radii': spots_zyx_radii, 'do_sharpen': do_sharpen, 
             'do_remove_hot_pixels': do_remove_hot_pixels,
             'lineage_table': lineage_table, 'do_aggregate': do_aggregate, 
             'use_gpu': use_gpu
         }
         
-        self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+        on_finished_callback = (
+            self.startComputeAnalysisStepWorker, args, kwargs
+        )
+        self.startCropImageBasedOnSegmDataWorkder(
+            posData.img_data, posData.segm_data, 
+            on_finished_callback=on_finished_callback
+        )
     
     def askReferenceChannelEndname(self):
         posData = self.data[self.pos_i]
@@ -550,6 +569,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         posData = self.data[self.pos_i]
         images_path = posData.images_path
         filepath = acdc_load.get_filename_from_channel(images_path, channel)
+        printl(filepath)
         if not filepath:
             raise FileNotFoundError(f'{channel} channel not found in {images_path}')
         filename_ext = os.path.basename(filepath)
@@ -563,6 +583,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     @exception_handler
     def _computeSegmentRefChannel(self, formWidget):
+        posData = self.data[self.pos_i]
+        
         self.funcDescription = 'Reference channel semantic segmentation'
         module_func = 'pipe.reference_channel_semantic_segm'
         anchor = 'refChThresholdFunc'
@@ -576,22 +598,15 @@ class spotMAX_Win(acdc_gui.guiWin):
             if refChEndName is None:
                 self.logger.info('Segmenting reference channel cancelled.')
         
-        refChannelData = self.loadImageDataFromChannelName(refChEndName)
+        self.logger.info(f'Loading "{refChEndName}" reference channel data...')
+        refChannelData = self.loadImageDataFromChannelName(refChEndName)        
         
-        posData = self.data[self.pos_i]
-        raw_image, lab = self.getCroppedImageBasedOnSegmData(image=refChannelData)
         lineage_table = None
         if posData.acdc_df is not None:
             lineage_table = posData.acdc_df.loc[posData.frame_i]
-        if not np.any(lab):
-            # Without segm data we evaluate the entire image
-            lab = None
         
         preprocessParams = ParamsGroupBox.params['Pre-processing']
         initial_sigma = preprocessParams['gaussSigma']['widget'].value()
-        
-        metadataParams = ParamsGroupBox.params['METADATA']
-        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
         
         preprocessParams = ParamsGroupBox.params['Pre-processing']
         do_remove_hot_pixels = (
@@ -602,19 +617,25 @@ class spotMAX_Win(acdc_gui.guiWin):
         configParams = ParamsGroupBox.params['Configuration']
         use_gpu = configParams['useGpu']['widget'].isChecked()
         
+        args = [module_func, anchor]
         kwargs = {
-            'raw_image': raw_image, 'lab': lab, 'initial_sigma': initial_sigma, 
+            'lab': None, 'initial_sigma': initial_sigma, 
             'do_remove_hot_pixels': do_remove_hot_pixels,
             'lineage_table': lineage_table, 'do_aggregate': do_aggregate, 
             'use_gpu': use_gpu
         }
         
-        self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+        on_finished_callback = (
+            self.startComputeAnalysisStepWorker, args, kwargs
+        )
+        self.startCropImageBasedOnSegmDataWorkder(
+            refChannelData, posData.segm_data, 
+            on_finished_callback=on_finished_callback
+        )
     
-    def _displayGaussSigmaResult(self, result):
+    def _displayGaussSigmaResult(self, result, image):
         from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
-        image = posData.img_data[posData.frame_i]
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
@@ -628,10 +649,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             color_scheme=self._colorScheme
         )
     
-    def _displayRemoveHotPixelsResult(self, result):
+    def _displayRemoveHotPixelsResult(self, result, image):
         from cellacdc.plot import imshow
-        posData = self.data[self.pos_i]
-        image = posData.img_data[posData.frame_i]
         
         titles = ['Raw image', f'Hot pixels removed']
         window_title = 'Pre-processing - Remove hot pixels'
@@ -640,10 +659,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             window_title=window_title, color_scheme=self._colorScheme
         )
     
-    def _displaySharpenSpotsResult(self, result):
+    def _displaySharpenSpotsResult(self, result, image):
         from cellacdc.plot import imshow
-        posData = self.data[self.pos_i]
-        image = posData.img_data[posData.frame_i]
         
         titles = ['Raw image', f'Sharpened (DoG filter)']
         window_title = 'Pre-processing - Sharpening (DoG filter)'
@@ -652,10 +669,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             window_title=window_title, color_scheme=self._colorScheme
         )
     
-    def _displayspotPredictionResult(self, result):
+    def _displayspotPredictionResult(self, result, image):
         from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
-        image = posData.img_data[posData.frame_i]
         
         titles = list(result.keys())
         titles[0] = 'Input image'
@@ -668,10 +684,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             window_title=window_title, color_scheme=self._colorScheme
         )
     
-    def _displayspotSegmRefChannelResult(self, result):
+    def _displayspotSegmRefChannelResult(self, result, image):
         from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
-        image = posData.img_data[posData.frame_i]
         
         titles = list(result.keys())
         titles[0] = 'Input image'
@@ -685,12 +700,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def startComputeAnalysisStepWorker(self, module_func, anchor, **kwargs):
-        self.progressWin = acdc_apps.QDialogWorkerProgress(
-            title=self.funcDescription, parent=self,
-            pbarDesc=self.funcDescription
-        )
-        self.progressWin.mainPbar.setMaximum(0)
-        self.progressWin.show(self.app)
+        if self.progressWin is None:
+            self.progressWin = acdc_apps.QDialogWorkerProgress(
+                title=self.funcDescription, parent=self,
+                pbarDesc=self.funcDescription
+            )
+            self.progressWin.mainPbar.setMaximum(0)
+            self.progressWin.show(self.app)
         
         worker = qtworkers.ComputeAnalysisStepWorker(module_func, anchor, **kwargs)
         worker.signals.finished.connect(self.computeAnalysisStepWorkerFinished)
@@ -698,18 +714,22 @@ class spotMAX_Win(acdc_gui.guiWin):
         worker.signals.initProgressBar.connect(self.workerInitProgressbar)
         worker.signals.progressBar.connect(self.workerUpdateProgressbar)
         worker.signals.critical.connect(self.workerCritical)
+        worker.signals.debug.connect(self.workerDebug)
         self.threadPool.start(worker)
+    
+    def workerDebug(self, to_debug):
+        pass
     
     def computeAnalysisStepWorkerFinished(self, output: tuple):
         if self.progressWin is not None:
             self.progressWin.workerFinished = True
             self.progressWin.close()
             self.progressWin = None
-        result, anchor = output
+        result, image, anchor = output
         self.logger.info(f'{self.funcDescription} process ended.')
         displayFunc = ANALYSIS_STEP_RESULT_SLOTS[anchor]
         displayFunc = getattr(self, displayFunc)
-        displayFunc(result)
+        displayFunc(result, image)
     
     def connectParamsGroupBoxSignals(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -741,7 +761,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def addAutoTunePoint(self, x, y):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        autoTuneTabWidget.addAutoTunePoint(x, y)
+        autoTuneTabWidget.addAutoTunePoint(round(x)+0.5, round(y)+0.5)
     
     def initAutoTuneColors(self):
         setting_name = 'autoTuningTrueSpotsColor'
@@ -765,6 +785,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def autoTuningTrueFalseToggled(self, checked):
         self.isAutoTuningForegr = checked
+        self.autoTuningSetItemsColor(checked)
     
     def setScatterItemsBrushPen(self, items, rgba):
         if isinstance(items, pg.ScatterPlotItem):
@@ -851,7 +872,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             emWavelen = 500.0
         loadedValues = {
             'File paths and channels': [
-                {'anchor': 'folderPathsToAnalyse', 'value': self.exp_path},
+                {'anchor': 'folderPathsToAnalyse', 'value': posData.pos_path},
                 {'anchor': 'spotsEndName', 'value': self.user_ch_name},
                 {'anchor': 'segmEndName', 'value': segmEndName},
                 {'anchor': 'runNumber', 'value': runNum}

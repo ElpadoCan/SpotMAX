@@ -265,7 +265,7 @@ def feature_names_to_col_names_mapper():
         if group_name.find('backgr') != -1:
             prefix = 'spot_vs_backgr_'
             suffix = ''
-        elif group_name.find('ref. channel') != -1:
+        elif group_name.find('ref. ch.') != -1:
             prefix = 'spot_vs_ref_ch_'
             suffix = ''
         elif group_name.find('Preprocessed') != -1:

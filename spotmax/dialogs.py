@@ -557,6 +557,9 @@ class AutoTuneGroupbox(QGroupBox):
         self.trueItem = autoTuneSpotProperties.trueItem
         self.falseItem = autoTuneSpotProperties.falseItem
         
+        self.trueItem.sigClicked.connect(self.truePointsClicked)
+        self.falseItem.sigClicked.connect(self.falsePointsClicked)
+        
         self.viewFeaturesGroupbox = AutoTuneViewSpotFeatures()
         
         mainLayout.addWidget(autoTuneSpotProperties)
@@ -564,6 +567,13 @@ class AutoTuneGroupbox(QGroupBox):
         mainLayout.addStretch(1)
         self.setLayout(mainLayout)
         self.setFont(font)
+    
+    def falsePointsClicked(self, item, points, event):
+        pass
+    
+    def truePointsClicked(self, item, points, event):
+        for point in points:
+            printl(point)
     
     def setFalseColor(self, colorButton):
         r, g, b, a = colorButton.color().getRgb()
@@ -2800,7 +2810,7 @@ class SelectFolderToAnalyse(QBaseDialog):
     def __init__(self, parent=None, preSelectedPaths=None):
         super().__init__(parent)
         
-        self.cancel = False
+        self.cancel = True
         
         self.setWindowTitle('Select experiments to analyse')
         

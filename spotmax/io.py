@@ -1,3 +1,4 @@
+from distutils.fancy_getopt import wrap_text
 import os
 import sys
 import re
@@ -998,8 +999,23 @@ class expFolderScanner:
 
         return isPosSpotCounted, isPosSpotSized
 
-    def input(self, app=None):
-        win = dialogs.selectPathsSpotmax(self.paths, self.homePath, app=app)
+    def warnNoValidExperimentsFound(self, homePath, parent):
+        txt = html_func.paragraph(f"""
+            The following folder does not contain any valid experiment:<br><br>
+            <code>{homePath}<\code><br>
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.addShowInFileManagerButton(str(homePath))
+        msg.warning(parent, 'No valid experiments found!', txt)
+    
+    def input(self, parent=None, app=None):
+        if len(self.paths) == 0:
+            self.warnNoValidExperimentsFound(self.homePath, parent)
+            self.selectedPaths = []
+            return
+        win = dialogs.selectPathsSpotmax(
+            self.paths, self.homePath, parent=parent, app=app
+        )
         win.exec_()
         self.selectedPaths = win.selectedPaths
 
@@ -2131,6 +2147,6 @@ class PathScanner:
     def pathScannerWorkerFinished(self, pathScanner):
         self.progressWin.workerFinished = True
         self.progressWin.close()
-        pathScanner.input(app=self.guiWin.app)
+        pathScanner.input(app=self.guiWin.app, parent=self.guiWin)
         self.images_paths = pathScanner.selectedPaths
         self._loop.exit()

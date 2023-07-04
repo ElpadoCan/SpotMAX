@@ -21,11 +21,12 @@ SQRT_2 = math.sqrt(2)
 
 def remove_hot_pixels(image, logger_func=print):
     pbar = tqdm(total=len(image), ncols=100)
+    filtered = image.copy()
     for z, img in enumerate(image):
-        image[z] = skimage.morphology.opening(img)
+        filtered[z] = skimage.morphology.opening(img)
         pbar.update()
     pbar.close()
-    return image
+    return filtered
 
 def gaussian(image, sigma, use_gpu=False, logger_func=print):
     if CUPY_INSTALLED and use_gpu:
