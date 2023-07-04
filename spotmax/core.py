@@ -200,6 +200,11 @@ class _DataLoader:
                 # Data is 3D timelpase. Add axis for z-slice
                 data[key] = data[key][:, np.newaxis]
 
+        if 'lineage_table' in data:
+            table = data['lineage_table']
+            table = table.set_index(['frame_i', 'Cell_ID'])
+            data['lineage_table'] = table
+        
         SizeT = metadata['SizeT']
         if SizeT > 1:
             # Data is already time-lapse --> do not reshape
@@ -210,15 +215,10 @@ class _DataLoader:
                 continue
             data[key] = data[key][np.newaxis]
         
-        if 'lineage_table' not in data:
-            return data
-        
-        table = data['lineage_table']
-        if 'frame_i' not in table.columns:
-            table['frame_i'] = 0
-        
-        table = table.set_index(['frame_i', 'Cell_ID'])
-        data['lineage_table'] = table
+        if 'lineage_table' in data:
+            if 'frame_i' not in table.columns:
+                table['frame_i'] = 0
+            
         return data
 
     def _crop_based_on_segm_data(self, data):
@@ -4042,11 +4042,15 @@ class Kernel(_ParamsParser):
         df_agg = data.get('df_agg')
         ref_ch_segm_data = data.get('ref_ch_segm')
         acdc_df = data.get('lineage_table')
+        
         zyx_resolution_limit_pxl = self.metadata['zyxResolutionLimitPxl']
 
         verbose = not self._params['Configuration']['reduceVerbosity']['loadedVal']
 
         stopFrameNum = self.metadata['stopFrameNum']
+        if stopFrameNum > len(segm_data):
+            stopFrameNum = len(segm_data)
+            self.metadata['stopFrameNum'] = stopFrameNum
 
         desc = 'Adding segmentation objects features'
         pbar = tqdm(

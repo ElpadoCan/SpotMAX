@@ -281,8 +281,8 @@ def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):
         
     T, Z, Y, X = segm_data.shape
     if lineage_table is not None:
-        frames_ccs_values = lineage_table[['frame_i', 'cell_cycle_stage']].dropna()
-        stop_frame_i = frames_ccs_values.frame_i.max()
+        frames_ccs_values = lineage_table[['cell_cycle_stage']].dropna()
+        stop_frame_i = frames_ccs_values.index.get_level_values(0).max()
         stop_frame_num = stop_frame_i + 1
     else:
         stop_frame_num = T
