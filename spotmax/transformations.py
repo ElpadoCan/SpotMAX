@@ -265,7 +265,7 @@ class SliceImageFromSegmObject:
 
         return img_backgr, lab_mask_obj.image, bud_ID
 
-def crop_from_segm_data_info(segm_data, delta_tolerance):
+def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):
     if segm_data.ndim != 4:
         ndim = segm_data.ndim
         raise TypeError(
@@ -280,6 +280,14 @@ def crop_from_segm_data_info(segm_data, delta_tolerance):
         return segm_slice, pad_widths, crop_to_global_coords
         
     T, Z, Y, X = segm_data.shape
+    if lineage_table is not None:
+        frames_ccs_values = lineage_table[['frame_i', 'cell_cycle_stage']].dropna()
+        stop_frame_i = frames_ccs_values.frame_i.max()
+        stop_frame_num = stop_frame_i + 1
+    else:
+        stop_frame_num = T
+    
+    segm_data = segm_data[:stop_frame_num]
     
     segm_time_proj = np.any(segm_data, axis=0).astype(np.uint8)
     segm_time_proj_obj = skimage.measure.regionprops(segm_time_proj)[0]
@@ -301,12 +309,12 @@ def crop_from_segm_data_info(segm_data, delta_tolerance):
     z_start, y_start, x_start = crop_to_global_coords        
     z_stop, y_stop, x_stop = crop_stop_coords  
     segm_slice = (
-        slice(None), slice(z_start, z_stop), 
+        slice(0, stop_frame_num), slice(z_start, z_stop), 
         slice(y_start, y_stop), slice(x_start, x_stop)
     )
 
     pad_widths = []
-    for _slice, D in zip(segm_slice, (T, Z, Y, X)):
+    for _slice, D in zip(segm_slice, (stop_frame_num, Z, Y, X)):
         _pad_width = [0, 0]
         if _slice.start is not None:
             _pad_width[0] = _slice.start
