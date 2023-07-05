@@ -392,6 +392,12 @@ class guiTabControl(QTabWidget):
             self.autoTuneTabWidget.autoTuningButton.clicked.connect(
                 self.warnDataNotLoadedYet
             )
+        if isDataLoaded:
+            self.autoTuneTabWidget.addAutoTunePointsButton.clicked.disconnect()
+        else:
+            self.autoTuneTabWidget.addAutoTunePointsButton.clicked.connect(
+                self.warnDataNotLoadedYet
+            )
 
     def warnDataNotLoadedYet(self):
         txt = html_func.paragraph("""
@@ -796,6 +802,7 @@ class AutoTuneTabWidget(QWidget):
     sigStopAutoTune = Signal(object)
     sigTrueFalseToggled = Signal(object)
     sigColorChanged = Signal(object, bool)
+    sigAddAutoTunePointsToggle = Signal(bool)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -804,14 +811,18 @@ class AutoTuneTabWidget(QWidget):
 
         buttonsLayout = QHBoxLayout()
         helpButton = acdc_widgets.helpPushButton('Help...')
-        autoTuningButton = widgets.AutoTuningButton()
         buttonsLayout.addWidget(helpButton)
         buttonsLayout.addStretch(1)
+        
+        autoTuningButton = widgets.AutoTuningButton()
         self.loadingCircle = acdc_widgets.LoadingCircleAnimation(size=16)
         self.loadingCircle.setVisible(False)
         buttonsLayout.addWidget(self.loadingCircle)
         buttonsLayout.addWidget(autoTuningButton)
         self.autoTuningButton = autoTuningButton
+        
+        self.addAutoTunePointsButton = widgets.AddAutoTunePointsButton()
+        buttonsLayout.addWidget(self.addAutoTunePointsButton)
 
         autoTuneScrollArea = QScrollArea(self)
         autoTuneScrollArea.setWidgetResizable(True)
@@ -826,6 +837,9 @@ class AutoTuneTabWidget(QWidget):
         self.setLayout(layout)
 
         autoTuningButton.sigToggled.connect(self.emitAutoTuningSignal)
+        self.addAutoTunePointsButton.sigToggled.connect(
+            self.emitAddAutoTunePointsToggle
+        )
         self.autoTuneGroupbox.trueFalseToggle.toggled.connect(
             self.emitForegrBackrToggledSignal
         )
@@ -833,6 +847,9 @@ class AutoTuneTabWidget(QWidget):
             self.emitColorChanged
         )
         helpButton.clicked.connect(self.showHelp)
+    
+    def emitAddAutoTunePointsToggle(self, button, checked):
+        self.sigAddAutoTunePointsToggle.emit(checked)
     
     def emitColorChanged(self, color: tuple, true_spots: bool):
         self.sigColorChanged.emit(color, true_spots)

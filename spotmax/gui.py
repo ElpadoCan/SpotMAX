@@ -104,7 +104,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         alt = modifiers == Qt.AltModifier
         
         setAutoTuneCursor = (
-            self.isAutoTuneRunning and not event.isExit()
+            self.isAddAutoTunePoints and not event.isExit()
             and noModifier
         )
         cursorsInfo['setAutoTuneCursor'] = setAutoTuneCursor
@@ -148,7 +148,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         posData = self.data[self.pos_i]
         left_click = event.button() == Qt.MouseButton.LeftButton and not alt
         
-        canAddPointAutoTune = self.isAutoTuneRunning and left_click
+        canAddPointAutoTune = self.isAddAutoTunePoints and left_click
         
         x, y = event.pos().x(), event.pos().y()
         ID = self.getIDfromXYPos(x, y)
@@ -157,7 +157,6 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         if canAddPointAutoTune:
             self.addAutoTunePoint(x, y)
-            self.doAutoTune()
         
     def gui_createRegionPropsDockWidget(self):
         super().gui_createRegionPropsDockWidget(side=Qt.RightDockWidgetArea)
@@ -187,7 +186,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.initAutoTuneColors()
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        self.LeftClickButtons.append(autoTuneTabWidget.autoTuningButton)
+        self.LeftClickButtons.append(autoTuneTabWidget.addAutoTunePointsButton)
     
     def gui_createShowPropsButton(self):
         super().gui_createShowPropsButton(side='right') 
@@ -470,7 +469,6 @@ class spotMAX_Win(acdc_gui.guiWin):
             # Autotune tab toggled
             self.setAutoTunePointSize()
     
-    
     def setAutoTunePointSize(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         metadataParams = ParamsGroupBox.params['METADATA']
@@ -748,10 +746,14 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def connectAutoTuneSlots(self):
         self.isAutoTuneRunning = False
+        self.isAddAutoTunePoints = False
         self.isAutoTuningForegr = True
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.sigStartAutoTune.connect(self.startAutoTuning)
         autoTuneTabWidget.sigStopAutoTune.connect(self.stopAutoTuning)
+        autoTuneTabWidget.sigAddAutoTunePointsToggle.connect(
+            self.addAutoTunePointsToggled
+        )
         
         autoTuneTabWidget.sigTrueFalseToggled.connect(
             self.autoTuningTrueFalseToggled
@@ -841,16 +843,21 @@ class spotMAX_Win(acdc_gui.guiWin):
         
     def connectLeftClickButtons(self):
         super().connectLeftClickButtons()
+        
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        button = autoTuneTabWidget.autoTuningButton
+        button = autoTuneTabWidget.addAutoTunePointsButton
         button.toggled.connect(button.onToggled)
+    
+    def addAutoTunePointsToggled(self, checked):
+        self.isAddAutoTunePoints = checked
+        if checked:
+            self.setAutoTunePointSize()
     
     def startAutoTuning(self):
         if not self.dataIsLoaded:
             return
         self.isAutoTuneRunning = True
-        self.setAutoTunePointSize()
-    
+        
     def stopAutoTuning(self):
         if not self.dataIsLoaded:
             return

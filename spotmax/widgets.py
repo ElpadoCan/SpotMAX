@@ -188,6 +188,38 @@ class AutoTuningButton(QPushButton):
             self.setIcon(QIcon(':tune.svg'))
         self.sigToggled.emit(self, checked)
 
+class AddAutoTunePointsButton(acdc_widgets.CrossCursorPointButton):
+    sigToggled = Signal(object, bool)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setCheckable(True)
+        self.setText(' Start adding points ')
+        self.toggled.connect(self.onToggled)
+        self._animationTimer = QTimer()
+        self._animationTimer.setInterval(750)
+        self._animationTimer.timeout.connect(self.toggledAnimation)
+        self._counter = 1
+        self.setMinimumWidth(self.sizeHint().width())
+    
+    def onToggled(self, checked):
+        if checked:
+            self.setText('   Adding points...   ')
+            self._animationTimer.start()
+        else:
+            self._animationTimer.stop()
+            self._counter = 1
+            self.setText(' Start adding points ')
+        self.sigToggled.emit(self, checked)
+    
+    def toggledAnimation(self):
+        if self._counter == 4:
+            self._counter = 1
+        dots = '.'*self._counter
+        spaces = ' '*(3-self._counter)
+        self.setText(f'   Adding points{dots}{spaces}    ')
+        self._counter += 1
+
 class measurementsQGroupBox(QGroupBox):
     def __init__(self, names, parent=None):
         QGroupBox.__init__(self, 'Single cell measurements', parent)
