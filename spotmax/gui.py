@@ -157,7 +157,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         if canAddPointAutoTune:
             self.addAutoTunePoint(x, y)
-        
+            self.doAutoTune()
         
     def gui_createRegionPropsDockWidget(self):
         super().gui_createRegionPropsDockWidget(side=Qt.RightDockWidgetArea)
@@ -763,6 +763,9 @@ class spotMAX_Win(acdc_gui.guiWin):
     def addAutoTunePoint(self, x, y):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.addAutoTunePoint(x, y)
+    
+    def doAutoTune(self):
+        pass
     
     def initAutoTuneColors(self):
         setting_name = 'autoTuningTrueSpotsColor'

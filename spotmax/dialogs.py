@@ -600,6 +600,7 @@ class AutoTuneSpotProperties(QGroupBox):
         super().__init__(parent)
         
         self.setTitle('Spots properties')
+        layout = QVBoxLayout()
         
         trueFalseToggleLayout = QHBoxLayout()
                 
@@ -633,7 +634,22 @@ class AutoTuneSpotProperties(QGroupBox):
         trueFalseToggleLayout.addWidget(
             self.trueFalseToggle, alignment=Qt.AlignCenter
         )
-        # trueFalseToggleLayout.addStretch(1)
+        layout.addLayout(trueFalseToggleLayout)
+        
+        clearPointsButtonsLayout = QHBoxLayout()
+        clearPointsButtonsLayout.addStretch(1)
+        
+        clearFalsePointsButton = acdc_widgets.eraserPushButton('Clear false points')
+        clearTruePointsButton = acdc_widgets.eraserPushButton('Clear true points')
+        clearAllPointsButton = acdc_widgets.eraserPushButton('Clear all points')
+        clearPointsButtonsLayout.addWidget(clearFalsePointsButton)
+        clearPointsButtonsLayout.addWidget(clearTruePointsButton)
+        clearPointsButtonsLayout.addWidget(clearAllPointsButton)
+        layout.addLayout(clearPointsButtonsLayout)
+        
+        clearFalsePointsButton.clicked.connect(self.clearFalsePoints)
+        clearTruePointsButton.clicked.connect(self.clearTruePoints)
+        clearAllPointsButton.clicked.connect(self.clearAllPoints)
         
         self.trueColorButton.sigColorChanging.connect(self.setTrueColor)
         self.falseColorButton.sigColorChanging.connect(self.setFalseColor)
@@ -653,7 +669,7 @@ class AutoTuneSpotProperties(QGroupBox):
             hoverable=True, hoverPen=pg.mkPen((0,255,255), width=3),
             hoverBrush=pg.mkBrush((0,255,255)), tip=None
         )
-        self.setLayout(trueFalseToggleLayout)
+        self.setLayout(layout)
     
     def setFalseColor(self, colorButton):
         r, g, b, a = colorButton.color().getRgb()
@@ -666,6 +682,16 @@ class AutoTuneSpotProperties(QGroupBox):
         self.trueItem.setBrush(r, g, b, 50)
         self.trueItem.setPen(r, g, b, width=2)
         self.sigColorChanged.emit((r, g, b, a), True)
+    
+    def clearFalsePoints(self):
+        self.trueItem.clear()
+    
+    def clearTruePoints(self):
+        self.falseItem.clear()
+
+    def clearAllPoints(self):
+        self.trueItem.clear()
+        self.falseItem.clear()
 
 class AutoTuneViewSpotFeatures(QGroupBox):
     def __init__(self, parent=None):
