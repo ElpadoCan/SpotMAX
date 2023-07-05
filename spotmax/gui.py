@@ -467,6 +467,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not self.dataIsLoaded:
             return
         if index == 1:
+            # Autotune tab toggled
             self.setAutoTunePointSize()
     
     
@@ -761,7 +762,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def addAutoTunePoint(self, x, y):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        autoTuneTabWidget.addAutoTunePoint(round(x)+0.5, round(y)+0.5)
+        autoTuneTabWidget.addAutoTunePoint(x, y)
     
     def initAutoTuneColors(self):
         setting_name = 'autoTuningTrueSpotsColor'
@@ -784,6 +785,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget.initAutoTuneColors(trueColor, falseColor)
     
     def autoTuningTrueFalseToggled(self, checked):
+        if not self.dataIsLoaded:
+            return
         self.isAutoTuningForegr = checked
         self.autoTuningSetItemsColor(checked)
     
@@ -840,12 +843,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         button.toggled.connect(button.onToggled)
     
     def startAutoTuning(self):
-        if not self.computeDockWidget.widget().isDataLoaded:
+        if not self.dataIsLoaded:
             return
         self.isAutoTuneRunning = True
+        self.setAutoTunePointSize()
     
     def stopAutoTuning(self):
-        if not self.computeDockWidget.widget().isDataLoaded:
+        if not self.dataIsLoaded:
             return
         self.isAutoTuneRunning = False
     

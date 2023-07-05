@@ -16,7 +16,7 @@ from natsort import natsorted
 from collections import defaultdict
 
 from qtpy import QtCore
-from qtpy.QtCore import Qt, Signal, QEventLoop
+from qtpy.QtCore import Qt, Signal, QEventLoop, QPointF
 from qtpy.QtGui import (
     QFont, QFontMetrics, QTextDocument, QPalette, QColor,
     QIcon
@@ -560,6 +560,9 @@ class AutoTuneGroupbox(QGroupBox):
         self.trueItem.sigClicked.connect(self.truePointsClicked)
         self.falseItem.sigClicked.connect(self.falsePointsClicked)
         
+        self.trueItem.sigHovered.connect(self.truePointsHovered)
+        self.falseItem.sigHovered.connect(self.falsePointsHovered)
+        
         self.viewFeaturesGroupbox = AutoTuneViewSpotFeatures()
         
         mainLayout.addWidget(autoTuneSpotProperties)
@@ -571,9 +574,14 @@ class AutoTuneGroupbox(QGroupBox):
     def falsePointsClicked(self, item, points, event):
         pass
     
+    def falsePointsHovered(self, item, points, event):
+        pass
+    
     def truePointsClicked(self, item, points, event):
-        for point in points:
-            printl(point)
+        pass
+    
+    def truePointsHovered(self, item, points, event):
+        pass
     
     def setFalseColor(self, colorButton):
         r, g, b, a = colorButton.color().getRgb()
@@ -630,7 +638,7 @@ class AutoTuneSpotProperties(QGroupBox):
         self.trueColorButton.sigColorChanging.connect(self.setTrueColor)
         self.falseColorButton.sigColorChanging.connect(self.setFalseColor)
         
-        self.trueItem = pg.ScatterPlotItem(
+        self.trueItem = acdc_widgets.ScatterPlotItem(
             symbol='o', size=3, pxMode=False,
             brush=pg.mkBrush((255,0,0,50)),
             pen=pg.mkPen((255,0,0), width=2),
@@ -638,7 +646,7 @@ class AutoTuneSpotProperties(QGroupBox):
             hoverBrush=pg.mkBrush((255,0,0)), tip=None
         )
         
-        self.falseItem = pg.ScatterPlotItem(
+        self.falseItem = acdc_widgets.ScatterPlotItem(
             symbol='o', size=3, pxMode=False,
             brush=pg.mkBrush((0,255,255,50)),
             pen=pg.mkPen((0,255,255), width=2),
@@ -819,9 +827,16 @@ class AutoTuneTabWidget(QWidget):
     
     def addAutoTunePoint(self, x, y):
         if self.autoTuneGroupbox.trueFalseToggle.isChecked():
-            self.autoTuneGroupbox.trueItem.addPoints([x], [y])
+            item = self.autoTuneGroupbox.trueItem
         else:
-            self.autoTuneGroupbox.falseItem.addPoints([x], [y])
+            item = self.autoTuneGroupbox.falseItem
+        hoveredMask = item._maskAt(QPointF(x, y))
+        points = item.points()[hoveredMask][::-1]
+        if points:
+            point = points[0]
+            item.removePoint(point._index)
+        else:
+            item.addPoints([x], [y])
     
     def setAutoTunePointSize(self, size):
         self.autoTuneGroupbox.trueItem.setSize((size))
