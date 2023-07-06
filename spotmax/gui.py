@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from qtpy.QtCore import (
-    Qt, QTimer, QThreadPool, QMutex, QWaitCondition, QEvent
+    Qt, QTimer, QThreadPool, QMutex, QWaitCondition, QEventLoop
 )
 from qtpy.QtGui import QIcon, QGuiApplication
 from qtpy.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
@@ -42,7 +42,7 @@ from cellacdc import load as acdc_load
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
 from . import widgets, config
-from . import transformations
+from . import autotune
 
 from . import qrc_resources_spotmax
 
@@ -351,6 +351,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.setAnalysisParameters()
         self.connectParamsGroupBoxSignals()
         self.autoTuningAddItems()
+        self.initAutoTuneKernel()
     
     def disconnectParamsGroupBoxSignals(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -564,18 +565,56 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         return selectChannelWin.selectedItemsText[0]
     
-    def loadImageDataFromChannelName(self, channel):
+    def startLoadImageDataWorker(
+            self, filepath='', channel='', images_path='', 
+            loop_to_exist_on_finished=None
+        ):
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
+            title='Loading image data', parent=self,
+            pbarDesc='Loading image data'
+        )
+        self.progressWin.mainPbar.setMaximum(0)
+        self.progressWin.show(self.app)
+        
+        worker = qtworkers.LoadImageWorker(
+            filepath=filepath, channel=channel, images_path=images_path,
+            loop_to_exist_on_finished=loop_to_exist_on_finished
+        )
+        self.connectDefaultWorkerSlots(worker)
+        worker.signals.finished.connect(self.loadImageDataWorkerFinished)
+        self.threadPool.start(worker)
+        return worker
+
+    def loadImageDataWorkerFinished(self, output):
+        if self.progressWin is not None:
+            self.progressWin.workerFinished = True
+            self.progressWin.close()
+            self.progressWin = None
+        
+        worker, filepath, channel, image_data, loop = output
+        worker.image_data = image_data
+        if loop is not None:
+            loop.exit()
+    
+    def loadImageDataFromChannelName(self, channel, get_image_data=True):
         posData = self.data[self.pos_i]
         images_path = posData.images_path
         filepath = acdc_load.get_filename_from_channel(images_path, channel)
-        printl(filepath)
         if not filepath:
             raise FileNotFoundError(f'{channel} channel not found in {images_path}')
         filename_ext = os.path.basename(filepath)
         filename, ext = os.path.splitext(filename_ext)
         imgData = posData.fluo_data_dict.get(filename)
         if imgData is None:
-            imgData = acdc_load.load_image_file(filepath)
+            if get_image_data:
+                loop = QEventLoop()
+            worker = self.startLoadImageDataWorker(
+                filepath=filepath, loop_to_exist_on_finished=loop
+            )
+            if get_image_data:
+                loop.exec_()
+            
+            imgData = worker.image_data
             if posData.SizeT == 1:
                 imgData = imgData[np.newaxis]
         return imgData
@@ -596,6 +635,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             refChEndName = self.askReferenceChannelEndname()
             if refChEndName is None:
                 self.logger.info('Segmenting reference channel cancelled.')
+                return
+            filePathParams['refChEndName']['widget'].setText(refChEndName)
         
         self.logger.info(f'Loading "{refChEndName}" reference channel data...')
         refChannelData = self.loadImageDataFromChannelName(refChEndName)        
@@ -698,6 +739,14 @@ class spotMAX_Win(acdc_gui.guiWin):
             window_title=window_title, color_scheme=self._colorScheme
         )
     
+    def connectDefaultWorkerSlots(self, worker):
+        worker.signals.progress.connect(self.workerProgress)
+        worker.signals.initProgressBar.connect(self.workerInitProgressbar)
+        worker.signals.progressBar.connect(self.workerUpdateProgressbar)
+        worker.signals.critical.connect(self.workerCritical)
+        worker.signals.debug.connect(self.workerDebug)
+        return worker
+    
     def startComputeAnalysisStepWorker(self, module_func, anchor, **kwargs):
         if self.progressWin is None:
             self.progressWin = acdc_apps.QDialogWorkerProgress(
@@ -760,6 +809,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         autoTuneTabWidget.sigColorChanged.connect(
             self.autoTuningColorChanged
+        )
+        autoTuneTabWidget.sigFeatureSelected.connect(
+            self.autoTuningFeatureSelected
         )
     
     def addAutoTunePoint(self, x, y):
@@ -834,12 +886,36 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.df_settings.to_csv(self.settings_csv_path)
         self.autoTuningSetItemsColor(true_spots)
     
+    def autoTuningFeatureSelected(self, editFeatureButton, featureText, colName):
+        if colName.find('vs_ref_ch') != -1:
+            ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+            filePathParams = ParamsGroupBox.params['File paths and channels']
+            refChEndName = filePathParams['refChEndName']['widget'].text()
+            if refChEndName:
+                return
+            refChEndName = self.askReferenceChannelEndname()
+            if refChEndName is None:
+                self.logger.info('Loading reference channel cancelled.')
+                editFeatureButton.clearSelectedFeature()
+                return
+            filePathParams['refChEndName']['widget'].setText(refChEndName)
+            
+            self.logger.info(f'Loading "{refChEndName}" reference channel data...')
+    
     def autoTuningAddItems(self):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
         self.ax1.addItem(autoTuneGroupbox.trueItem)
         self.ax1.addItem(autoTuneGroupbox.falseItem)
         self.autoTuningSetItemsColor(True)
+    
+    def updatePos(self):
+        super().updatePos()
+        self.initAutoTuneKernel()
+        
+    def initAutoTuneKernel(self):
+        posData = self.data[self.pos_i]
+        posData.autoTuneKernel = autotune.AutoTuneKernel()
         
     def connectLeftClickButtons(self):
         super().connectLeftClickButtons()

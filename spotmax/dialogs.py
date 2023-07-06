@@ -517,6 +517,7 @@ class guiTabControl(QTabWidget):
         
 class AutoTuneGroupbox(QGroupBox):
     sigColorChanged = Signal(object, bool)
+    sigFeatureSelected = Signal(object, str, str)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -547,6 +548,10 @@ class AutoTuneGroupbox(QGroupBox):
                 self.params[section][anchor]['widget'] = formWidget.widget
                 self.params[section][anchor]['formWidget'] = formWidget
                 self.params[section][anchor]['groupBox'] = groupBox
+                if anchor == 'gopThresholds':
+                    formWidget.widget.sigFeatureSelected.connect(
+                        self.emitFeatureSelected
+                    )
                 row += 1
             if groupBox is None:
                 continue
@@ -576,6 +581,9 @@ class AutoTuneGroupbox(QGroupBox):
         mainLayout.addStretch(1)
         self.setLayout(mainLayout)
         self.setFont(font)
+    
+    def emitFeatureSelected(self, button, featureText, colName):
+        self.sigFeatureSelected.emit(button, featureText, colName)
     
     def falsePointsClicked(self, item, points, event):
         pass
@@ -643,7 +651,6 @@ class AutoTuneSpotProperties(QGroupBox):
         layout.addLayout(trueFalseToggleLayout)
         
         clearPointsButtonsLayout = QHBoxLayout()
-        clearPointsButtonsLayout.addStretch(1)
         
         clearFalsePointsButton = acdc_widgets.eraserPushButton('Clear false points')
         clearTruePointsButton = acdc_widgets.eraserPushButton('Clear true points')
@@ -651,6 +658,7 @@ class AutoTuneSpotProperties(QGroupBox):
         clearPointsButtonsLayout.addWidget(clearFalsePointsButton)
         clearPointsButtonsLayout.addWidget(clearTruePointsButton)
         clearPointsButtonsLayout.addWidget(clearAllPointsButton)
+        layout.addSpacing(10)
         layout.addLayout(clearPointsButtonsLayout)
         
         clearFalsePointsButton.clicked.connect(self.clearFalsePoints)
@@ -703,7 +711,7 @@ class AutoTuneViewSpotFeatures(QGroupBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        self.setTitle('Spot features')
+        self.setTitle('Features of the spot under mouse cursor')
         
         layout = QGridLayout()
         self.setLayout(layout)
@@ -802,6 +810,7 @@ class AutoTuneTabWidget(QWidget):
     sigStopAutoTune = Signal(object)
     sigTrueFalseToggled = Signal(object)
     sigColorChanged = Signal(object, bool)
+    sigFeatureSelected = Signal(object, str, str)
     sigAddAutoTunePointsToggle = Signal(bool)
 
     def __init__(self, parent=None) -> None:
@@ -846,7 +855,13 @@ class AutoTuneTabWidget(QWidget):
         self.autoTuneGroupbox.sigColorChanged.connect(
             self.emitColorChanged
         )
+        self.autoTuneGroupbox.sigFeatureSelected.connect(
+            self.emitFeatureSelected
+        )
         helpButton.clicked.connect(self.showHelp)
+    
+    def emitFeatureSelected(self, button, featureText, colName):
+        self.sigFeatureSelected.emit(button, featureText, colName)
     
     def emitAddAutoTunePointsToggle(self, button, checked):
         self.sigAddAutoTunePointsToggle.emit(checked)
@@ -1806,8 +1821,6 @@ class selectPathsSpotmax(QBaseDialog):
         self.paths = paths
         runs = sorted(list(self.paths.keys()))
         self.runs = runs
-        self.isCtrlDown = False
-        self.isShiftDown = False
 
         self.setWindowTitle('Select experiments to load/analyse')
 
@@ -1855,9 +1868,8 @@ class selectPathsSpotmax(QBaseDialog):
         self.hideSpotCountCheckbox = hideSpotCountCheckbox
         self.hideSpotSizeCheckbox = hideSpotSizeCheckbox
 
-        pathSelector = QTreeWidget()
+        pathSelector = acdc_widgets.TreeWidget()
         self.pathSelector = pathSelector
-        pathSelector.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         pathSelector.setHeaderHidden(True)
         homePath = pathlib.Path(homePath)
         self.homePath = homePath
@@ -1889,7 +1901,6 @@ class selectPathsSpotmax(QBaseDialog):
         mainLayout.addLayout(buttonsLayout)
         self.setLayout(mainLayout)
 
-        pathSelector.itemSelectionChanged.connect(self.selectAllChildren)
         hideSpotCountCheckbox.stateChanged.connect(self.hideSpotCounted)
         hideSpotSizeCheckbox.stateChanged.connect(self.hideSpotSized)
         runNumberCombobox.currentIndexChanged.connect(self.updateRun)
@@ -1897,29 +1908,9 @@ class selectPathsSpotmax(QBaseDialog):
         okButton.clicked.connect(self.ok_cb)
         cancelButton.clicked.connect(self.cancel_cb)
 
-        if app is not None:
-            app.focusChanged.connect(self.on_focusChanged)
-
         self.pathSelector.setFocus()
 
         self.setFont(font)
-        # self.setMyStyleSheet(
-        #     'QTreeWidget::item:selected {background-color:#CFEB9B;}'
-        # )
-    
-    def setMyStyleSheet(self):
-        self.setStyleSheet("""
-            QTreeWidget::item:hover {color:black;}
-        """)
-        #     QTreeWidget::item:selected {background-color:#CFEB9B;}
-        #     QTreeWidget::item:selected {color:black;}
-        #     QTreeView {
-        #         selection-background-color: #CFEB9B;
-        #         show-decoration-selected: 1;
-        #     }
-        #     QTreeWidget::item {padding: 5px;}
-        # """)
-        printl(self.styleSheet())
     
     def showInFileManager(self):
         selectedItems = self.pathSelector.selectedItems()
@@ -1946,49 +1937,6 @@ class selectPathsSpotmax(QBaseDialog):
         relPath = pathlib.Path(*relPath.parts[2:])
         absPath = self.homePath / relPath / posFoldername
         acdc_myutils.showInExplorer(str(absPath))
-
-    def on_focusChanged(self):
-        self.isCtrlDown = False
-        self.isShiftDown = False
-
-    def keyPressEvent(self, ev):
-        if ev.key() == Qt.Key_Escape:
-            self.pathSelector.clearSelection()
-        elif ev.key() == Qt.Key_Control:
-            self.isCtrlDown = True
-        elif ev.key() == Qt.Key_Shift:
-            self.isShiftDown = True
-
-    def keyReleaseEvent(self, ev):
-        if ev.key() == Qt.Key_Control:
-            self.isCtrlDown = False
-        elif ev.key() == Qt.Key_Shift:
-            self.isShiftDown = False
-
-    def selectAllChildren(self, label=None):
-        self.pathSelector.itemSelectionChanged.disconnect()
-        if label is not None:
-            if not self.isCtrlDown and not self.isShiftDown:
-                self.pathSelector.clearSelection()
-            label.item.setSelected(True)
-            if self.isShiftDown:
-                selectionStarted = False
-                it = QTreeWidgetItemIterator(self.pathSelector)
-                while it:
-                    item = it.value()
-                    if item is None:
-                        break
-                    if item.isSelected():
-                        selectionStarted = not selectionStarted
-                    if selectionStarted:
-                        item.setSelected(True)
-                    it += 1
-
-        for item in self.pathSelector.selectedItems():
-            if item.parent() is None:
-                for i in range(item.childCount()):
-                    item.child(i).setSelected(True)
-        self.pathSelector.itemSelectionChanged.connect(self.selectAllChildren)
 
     def showAnalysisInputsTable(self):
         idx = self.runNumberCombobox.currentIndex()
@@ -2110,7 +2058,7 @@ class selectPathsSpotmax(QBaseDialog):
             relPathLabel.item = relPathItem
             relPathLabel.clicked.connect(self.selectAllChildren)
             relPathText = f'{relPath} (<i>{nPSCtext}, {nPSStext}</i>)'
-            relPathLabel.setText(html_func.paragraph(relPathText))
+            relPathLabel.setText(relPathText)
             pathSelector.setItemWidget(relPathItem, 0, relPathLabel)
 
             for pos in posFoldernames:
@@ -2132,12 +2080,15 @@ class selectPathsSpotmax(QBaseDialog):
                 posLabel = acdc_widgets.QClickableLabel()
                 posLabel.item = posItem
                 posLabel.clicked.connect(self.selectAllChildren)
-                posLabel.setText(html_func.paragraph(posText))
+                posLabel.setText(posText)
                 relPathItem.addChild(posItem)
                 pathSelector.setItemWidget(posItem, 0, posLabel)
         if relPathItem is not None and len(selectedRunPaths) == 1:
             relPathItem.setExpanded(True)
 
+    def selectAllChildren(self, label=None):
+        self.pathSelector.selectAllChildren(label)
+    
     def warnAnalysisInputsNone(self, exp_path, run):
         text = (
             f'The selected experiment "{exp_path}" '

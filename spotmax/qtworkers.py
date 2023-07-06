@@ -15,6 +15,7 @@ import skimage.io
 from qtpy.QtCore import Signal, QObject, QRunnable
 
 from cellacdc.workers import worker_exception_handler, workerLogger
+from cellacdc import load as acdc_load
 
 from . import io, utils
 from . import transformations
@@ -93,6 +94,40 @@ class ComputeAnalysisStepWorker(QRunnable):
         
         result = func(**self.kwargs)
         self.signals.finished.emit((result, self.kwargs['image'], self.anchor))
+
+class LoadImageWorker(QRunnable):
+    def __init__(
+            self, filepath='', channel='', images_path='', 
+            loop_to_exist_on_finished=None
+        ):
+        QRunnable.__init__(self)
+        self.signals = signals()
+        self.logger = workerLogger(self.signals.progress)
+        self._filepath = filepath
+        self._channel = channel
+        self._images_path = images_path
+        self._loop = loop_to_exist_on_finished
+    
+    @worker_exception_handler
+    def run(self):
+        if not self._filepath and not self._channel:
+            raise FileNotFoundError(
+                'Neither a file path or a channel name was provided '
+                'to the worker.'
+            )
+        
+        if self._filepath:
+            filepath = self._filepath
+            channel = ''
+        else:
+            images_path = self._images_path
+            channel = self._channel
+            filepath = acdc_load.get_filename_from_channel(images_path, channel)
+        
+        image_data = acdc_load.load_image_file(filepath)
+        self.signals.finished.emit(
+            (self, filepath, channel, image_data, self._loop)
+        )
 
 class CropImageBasedOnSegmDataWorker(QRunnable):
     def __init__(

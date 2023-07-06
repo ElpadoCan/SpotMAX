@@ -1528,7 +1528,7 @@ def ParamFormWidget(anchor, param, parent, use_tuned=False):
     )
 
 class SelectFeatureAutoTuneButton(acdc_widgets.editPushButton):
-    sigFeatureSelected = Signal(str)
+    sigFeatureSelected = Signal(object, str, str)
 
     def __init__(self, featureGroupbox, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1542,6 +1542,9 @@ class SelectFeatureAutoTuneButton(acdc_widgets.editPushButton):
         title = self.featureGroupbox.title()
         topLevelText, childText = title.split(', ')
         return {topLevelText: childText}
+
+    def clearSelectedFeature(self):
+        self.featureGroupbox.clear()
     
     def selectFeature(self):
         self.selectFeatureDialog = FeatureSelectorDialog(
@@ -1566,6 +1569,7 @@ class SelectFeatureAutoTuneButton(acdc_widgets.editPushButton):
         column_name = features.feature_names_to_col_names_mapper()[featureText]
         self.featureGroupbox.setTitle(featureText)
         self.featureGroupbox.column_name = column_name
+        self.sigFeatureSelected.emit(self, featureText, column_name)
 
 class ReadOnlySelectedFeatureLabel(QLabel):
     def __init__(self, *args):
@@ -1579,7 +1583,7 @@ class ReadOnlySelectedFeatureLabel(QLabel):
     def setText(self, text):
         super().setText(text)
 
-class SelectedFeatureAutoTuneGroupbox(QGroupBox):
+class SelectedFeatureAutoTuneGroupbox(QGroupBox):    
     def __init__(self, parent=None):
         super().__init__(parent)
         self._txt = ' Click on edit button to select feature to tune. '
@@ -1616,6 +1620,8 @@ class SelectedFeatureAutoTuneGroupbox(QGroupBox):
         super().setTitle(title)
         
 class SelectFeaturesAutoTune(QWidget):
+    sigFeatureSelected = Signal(object, str, str)
+    
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
@@ -1642,11 +1648,15 @@ class SelectFeaturesAutoTune(QWidget):
         layout.setColumnStretch(0, 1)
         layout.setColumnStretch(1, 0)
 
+        selectFeatureButton.sigFeatureSelected.connect(self.emitFeatureSelected)
         addFeatureButton.clicked.connect(self.addFeatureField)
         clearPushButton.clicked.connect(self.clearTopFeatureField)
 
         self.setLayout(layout)
         self._layout = layout
+    
+    def emitFeatureSelected(self, button, featureText, colName):
+        self.sigFeatureSelected.emit(button, featureText, colName)
     
     def clearTopFeatureField(self):
         self.featureGroupboxes[0].clear()
