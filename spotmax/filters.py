@@ -19,13 +19,20 @@ from . import config, transformations
 import math
 SQRT_2 = math.sqrt(2)
 
-def remove_hot_pixels(image, logger_func=print):
-    pbar = tqdm(total=len(image), ncols=100)
-    filtered = image.copy()
-    for z, img in enumerate(image):
+def remove_hot_pixels(image, logger_func=print, progress=True):
+    is_3D = image.ndim == 3
+    if is_3D:
+        if progress:
+            pbar = tqdm(total=len(image), ncols=100)
+        filtered = image.copy()
+        for z, img in enumerate(image):
+            filtered[z] = skimage.morphology.opening(img)
+            if progress:
+                pbar.update()
+        if progress:
+            pbar.close()
+    else:
         filtered[z] = skimage.morphology.opening(img)
-        pbar.update()
-    pbar.close()
     return filtered
 
 def gaussian(image, sigma, use_gpu=False, logger_func=print):
@@ -77,7 +84,7 @@ def try_all_thresholds(image, logger_func=print):
         input_image = image.max(axis=0)
     else:
         input_image = image
-    for method in tqdm(methods, ncols=100):
+    for method in tqdm(methods, desc='Thresholding', ncols=100):
         threshold_func = getattr(skimage.filters, method)
         try:
             thresh_val = threshold_func(input_image)

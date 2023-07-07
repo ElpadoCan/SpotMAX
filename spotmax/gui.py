@@ -375,24 +375,47 @@ class spotMAX_Win(acdc_gui.guiWin):
         posData = self.data[self.pos_i]
         image = posData.img_data[posData.frame_i]
         
-        sigma = formWidget.widget.value()
-        
-        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
-        configParams = ParamsGroupBox.params['Configuration']
-        use_gpu = configParams['useGpu']['widget'].isChecked()
-        
-        kwargs = {
-            'image': image, 'sigma': sigma, 'use_gpu': use_gpu
-        }
+        keys = ['lab', 'sigma', 'use_gpu']
+        all_kwargs = self.paramsToKwargs()
+        kwargs = {key:all_kwargs[key] for key in keys}
+        kwargs['image'] = image
         
         self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+    
+    def storeCroppedDataAndStartAutoTuneKernel(self, *args, **kwargs):
+        kernel = args[0]
+        image_data_cropped = kwargs['image_data_cropped']
+        segm_data_cropped = kwargs['segm_data_cropped']
+        
+        kernel.set_image_data(image_data_cropped)
+        kernel.set_segm_data(segm_data_cropped)
+        
+        self.startAutoTuneKernelWorker(kernel)
+        
+    def storeCroppedRefChDataAndStartAutoTuneKernel(self, *args, **kwargs):
+        kernel = args[0]
+        ref_ch_data_cropped = kwargs['image_data_cropped']
+        segm_data_cropped = kwargs['segm_data_cropped']
+        
+        kernel.set_ref_ch_data(ref_ch_data_cropped)
+        kernel.set_segm_data(segm_data_cropped)
+        
+        if kernel.image_data() is None:
+            posData = self.data[self.pos_i]
+            on_finished_callback = (
+                self.storeCroppedDataAndStartAutoTuneKernel, args, kwargs
+            )
+            self.startCropImageBasedOnSegmDataWorkder(
+                posData.img_data, posData.segm_data, 
+                on_finished_callback=on_finished_callback
+            )
     
     def startCropImageBasedOnSegmDataWorkder(
             self, image_data, segm_data, on_finished_callback
         ):
         self.progressWin = acdc_apps.QDialogWorkerProgress(
-            title=self.funcDescription, parent=self,
-            pbarDesc=self.funcDescription
+            title='Cropping based on segm data', parent=self,
+            pbarDesc='Cropping based on segm data'
         )
         self.progressWin.mainPbar.setMaximum(0)
         self.progressWin.show(self.app)
@@ -410,22 +433,26 @@ class spotMAX_Win(acdc_gui.guiWin):
             image_data, segm_data, delta_tolerance, posData.SizeZ,
             on_finished_callback
         )
+        worker = self.connectDefaultWorkerSlots(worker)
         worker.signals.finished.connect(self.cropImageWorkerFinished)
-        worker.signals.progress.connect(self.workerProgress)
-        worker.signals.initProgressBar.connect(self.workerInitProgressbar)
-        worker.signals.progressBar.connect(self.workerUpdateProgressbar)
-        worker.signals.critical.connect(self.workerCritical)
         self.threadPool.start(worker)
     
     def cropImageWorkerFinished(self, result):
-        image_cropped, segm_data_cropped, on_finished_callback = result
+        image_data_cropped, segm_data_cropped, on_finished_callback = result
         
         if on_finished_callback is None:
             return
         
-        posData = self.data[self.pos_i]
-        image = image_cropped[posData.frame_i]
         func, args, kwargs = on_finished_callback
+        
+        if 'image_data_cropped' in kwargs:
+            kwargs['image_data_cropped'] = image_data_cropped
+        
+        if 'image_data_cropped' in kwargs:
+            kwargs['segm_data_cropped'] = segm_data_cropped
+        
+        posData = self.data[self.pos_i]
+        image = image_data_cropped[posData.frame_i]
         kwargs['image'] = image
         if 'lab' in kwargs:
             lab = segm_data_cropped[posData.frame_i]
@@ -467,8 +494,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not self.dataIsLoaded:
             return
         if index == 1:
-            # Autotune tab toggled
+            # AutoTune tab toggled
             self.setAutoTunePointSize()
+            self.initAutoTuneKernel()
     
     def setAutoTunePointSize(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -487,17 +515,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'sharpenSpots'
         
         posData = self.data[self.pos_i]
-        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
-        metadataParams = ParamsGroupBox.params['METADATA']
-        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
-        spots_zyx_radii = spotMinSizeLabels.pixelValues()
         
-        configParams = ParamsGroupBox.params['Configuration']
-        use_gpu = configParams['useGpu']['widget'].isChecked()
+        keys = ['spots_zyx_radii', 'use_gpu']
+        all_kwargs = self.paramsToKwargs()
+        kwargs = {key:all_kwargs[key] for key in keys}
+        
         args = [module_func, anchor]
-        kwargs = {
-            'spots_zyx_radii': spots_zyx_radii, 'use_gpu': use_gpu
-        }
+
         on_finished_callback = (
             self.startComputeAnalysisStepWorker, args, kwargs
         )
@@ -506,21 +530,19 @@ class spotMAX_Win(acdc_gui.guiWin):
             on_finished_callback=on_finished_callback
         )
     
-    @exception_handler
-    def _computeSpotPrediction(self, formWidget):
-        self.funcDescription = 'Spots location semantic segmentation'
-        module_func = 'pipe.spots_semantic_segmentation'
-        anchor = 'spotPredictionMethod'
-        
+    def paramsToKwargs(self):
         posData = self.data[self.pos_i]
         lineage_table = None
         if posData.acdc_df is not None:
             lineage_table = posData.acdc_df.loc[posData.frame_i]
-        
+            
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        refChEndName = filePathParams['refChEndName']['widget'].text()
+        
         preprocessParams = ParamsGroupBox.params['Pre-processing']
-        initial_sigma = preprocessParams['gaussSigma']['widget'].value()
+        gauss_sigma = preprocessParams['gaussSigma']['widget'].value()
         
         metadataParams = ParamsGroupBox.params['METADATA']
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
@@ -536,14 +558,32 @@ class spotMAX_Win(acdc_gui.guiWin):
         configParams = ParamsGroupBox.params['Configuration']
         use_gpu = configParams['useGpu']['widget'].isChecked()
         
-        args = [module_func, anchor]
         kwargs = {
-            'lab': None, 'initial_sigma': initial_sigma, 
+            'lab': None, 'gauss_sigma': gauss_sigma, 
             'spots_zyx_radii': spots_zyx_radii, 'do_sharpen': do_sharpen, 
             'do_remove_hot_pixels': do_remove_hot_pixels,
             'lineage_table': lineage_table, 'do_aggregate': do_aggregate, 
-            'use_gpu': use_gpu
+            'use_gpu': use_gpu, 'sigma': gauss_sigma, 
+            'ref_ch_endname': refChEndName
         }
+        
+        return kwargs
+    
+    @exception_handler
+    def _computeSpotPrediction(self, formWidget):
+        self.funcDescription = 'Spots location semantic segmentation'
+        module_func = 'pipe.spots_semantic_segmentation'
+        anchor = 'spotPredictionMethod'
+        
+        posData = self.data[self.pos_i]        
+        args = [module_func, anchor]
+        keys = [
+            'lab', 'gauss_sigma', 'spots_zyx_radii', 'do_sharpen',
+            'do_remove_hot_pixes', 'lineage_table', 'do_aggregate', 
+            'use_gpu'
+        ]
+        all_kwargs = self.paramsToKwargs()
+        kwargs = {key:all_kwargs[key] for key in keys}
         
         on_finished_callback = (
             self.startComputeAnalysisStepWorker, args, kwargs
@@ -641,29 +681,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.logger.info(f'Loading "{refChEndName}" reference channel data...')
         refChannelData = self.loadImageDataFromChannelName(refChEndName)        
         
-        lineage_table = None
-        if posData.acdc_df is not None:
-            lineage_table = posData.acdc_df.loc[posData.frame_i]
-        
-        preprocessParams = ParamsGroupBox.params['Pre-processing']
-        initial_sigma = preprocessParams['gaussSigma']['widget'].value()
-        
-        preprocessParams = ParamsGroupBox.params['Pre-processing']
-        do_remove_hot_pixels = (
-            preprocessParams['removeHotPixels']['widget'].isChecked()
-        )
-        do_aggregate = preprocessParams['aggregate']['widget'].isChecked()
-        
-        configParams = ParamsGroupBox.params['Configuration']
-        use_gpu = configParams['useGpu']['widget'].isChecked()
+        keys = [
+            'lab', 'gauss_sigma', 'do_remove_hot_pixels', 'lineage_table',
+            'do_aggregate', 'use_gpu'
+        ]
+        all_kwargs = self.paramsToKwargs()
+        kwargs = {key:all_kwargs[key] for key in keys}
         
         args = [module_func, anchor]
-        kwargs = {
-            'lab': None, 'initial_sigma': initial_sigma, 
-            'do_remove_hot_pixels': do_remove_hot_pixels,
-            'lineage_table': lineage_table, 'do_aggregate': do_aggregate, 
-            'use_gpu': use_gpu
-        }
         
         on_finished_callback = (
             self.startComputeAnalysisStepWorker, args, kwargs
@@ -819,8 +844,61 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget.addAutoTunePoint(x, y)
     
     def doAutoTune(self):
-        pass
-    
+        posData = self.data[self.pos_i]
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.autoTuneGroupbox.setDisabled(True)
+        
+        all_kwargs = self.paramsToKwargs()
+        kernel = posData.autoTuneKernel
+        kernel.set_kwargs(all_kwargs)
+        
+        args = [kernel]
+        kwargs = {
+            'lab': None, 'image_data_cropped': None, 
+            'segm_data_cropped': None
+        }
+        
+        if kernel.ref_ch_endname() and kernel.ref_ch_data() is None:
+            ref_ch_data = self.loadImageDataFromChannelName(
+                kernel.ref_ch_endname()
+            )
+            
+            on_finished_callback = (
+                self.storeCroppedRefChDataAndStartAutoTuneKernel, args, kwargs
+            )
+            
+            self.startCropImageBasedOnSegmDataWorkder(
+                ref_ch_data, posData.segm_data, 
+                on_finished_callback=on_finished_callback
+            )
+        
+        elif kernel.image_data() is None:
+            on_finished_callback = (
+                self.storeCroppedDataAndStartAutoTuneKernel, args, kwargs
+            )
+            self.startCropImageBasedOnSegmDataWorkder(
+                posData.img_data, posData.segm_data, 
+                on_finished_callback=on_finished_callback
+            )
+        else:
+            self.startAutoTuneKernelWorker(kernel)
+        
+    def startAutoTuneKernelWorker(self, kernel):
+        worker = qtworkers.AutoTuneKernelWorker()
+        self.connectDefaultWorkerSlots(worker)
+        worker.signals.finished.connect(self.autoTuneKernelWorkerFinished)
+        self.threadPool.start(worker)
+        return worker
+
+    def autoTuneKernelWorkerFinished(self):
+        if self.progressWin is not None:
+            self.progressWin.workerFinished = True
+            self.progressWin.close()
+            self.progressWin = None
+        
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.autoTuningButton.setChecked(False)
+        
     def initAutoTuneColors(self):
         setting_name = 'autoTuningTrueSpotsColor'
         default_color = '255-0-0-255'
@@ -933,6 +1011,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not self.dataIsLoaded:
             return
         self.isAutoTuneRunning = True
+        self.doAutoTune()
         
     def stopAutoTuning(self):
         if not self.dataIsLoaded:
@@ -992,9 +1071,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         guiTabControl = self.computeDockWidget.widget()
         paramsGroupbox = guiTabControl.parametersQGBox
         paramsScrollArea = guiTabControl.parametersTab
-        autotuneScrollArea = guiTabControl.autoTuneTabWidget
+        autoTuneScrollArea = guiTabControl.autoTuneTabWidget
         verticalScrollbar = paramsScrollArea.verticalScrollBar()
-        groupboxWidth = autotuneScrollArea.size().width()
+        groupboxWidth = autoTuneScrollArea.size().width()
         scrollbarWidth = verticalScrollbar.size().width()
         minWidth = groupboxWidth + scrollbarWidth + 30
         self.resizeDocks([self.computeDockWidget], [minWidth], Qt.Horizontal)

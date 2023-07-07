@@ -4,15 +4,15 @@ import scipy.stats
 from . import printl
 
 def normalise_by_dist_transform_simple(
-        spot_slice_z, dist_transf, bakgr_vals_z_spots
+        spot_slice_z, dist_transf, backgr_vals_z_spot
     ):
     norm_spot_slice_z = spot_slice_z*dist_transf
-    backgr_median = np.median(bakgr_vals_z_spots)
+    backgr_median = np.median(backgr_vals_z_spot)
     norm_spot_slice_z[norm_spot_slice_z<backgr_median] = backgr_median
     return norm_spot_slice_z
 
 def normalise_by_dist_transform_range(
-        spot_slice_z, dist_transf, bakgr_vals_z_spots
+        spot_slice_z, dist_transf, backgr_vals_z_spot
     ):
     """Normalise the distance transform based on the distance from expected 
     value. 
@@ -30,7 +30,7 @@ def normalise_by_dist_transform_range(
         2D spot intensities image. This is the z-slice at spot's center
     dist_transf : np.ndarray, same shape as `spot_slice_z`
         2D distance transform image. Must be 1 in the center and <1 elsewhere.
-    bakgr_vals_z_spots : np.ndarray
+    backgr_vals_z_spot : np.ndarray
         Bacgrkound values
     
     Returns
@@ -42,15 +42,15 @@ def normalise_by_dist_transform_range(
     --------
     >>> import numpy as np
     >>> from spotmax import features
-    >>> bakgr_vals_z_spots = np.array([0.4, 0.4, 0.4, 0.4])
+    >>> backgr_vals_z_spot = np.array([0.4, 0.4, 0.4, 0.4])
     >>> dist_transf = np.array([0.25, 0.5, 0.75, 1.0])
     >>> spot_slice_z = np.array([2.5,0.5,3.4,0.7])
     >>> norm_spot_slice_z_range = features.normalise_by_dist_transform_range(
-    ...    spot_slice_z, dist_transf, bakgr_vals_z_spots)
+    ...    spot_slice_z, dist_transf, backgr_vals_z_spot)
     >>> norm_spot_slice_z_range
     [0.51568652 0.5        1.85727514 0.7       ]
     """    
-    backgr_median = np.median(bakgr_vals_z_spots)
+    backgr_median = np.median(backgr_vals_z_spot)
     expected_values = (1 + (dist_transf-dist_transf.min()))*backgr_median
     spot_slice_z_nonzero = spot_slice_z.copy()
     spot_slice_z_nonzero[spot_slice_z==0] = 1E-15
@@ -58,10 +58,7 @@ def normalise_by_dist_transform_range(
     dist_transf_range = 1 - dist_transf
     dist_transf_correction = np.abs(dist_from_expected_perc*dist_transf_range)
     dist_tranf_required = 1-np.sqrt(dist_transf_correction)
-    try:
-        norm_spot_slice_z = spot_slice_z*dist_tranf_required
-    except Exception as e:
-        import pdb; pdb.set_trace()
+    norm_spot_slice_z = spot_slice_z*dist_tranf_required
     norm_spot_slice_z[norm_spot_slice_z<backgr_median] = backgr_median
     return norm_spot_slice_z
     

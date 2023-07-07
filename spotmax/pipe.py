@@ -5,7 +5,7 @@ from . import filters, transformations, config, printl
 def spots_semantic_segmentation(
         image, 
         lab=None,
-        initial_sigma=0.0,
+        gauss_sigma=0.0,
         spots_zyx_radii=None, 
         do_sharpen=False, 
         do_remove_hot_pixels=False,
@@ -36,9 +36,9 @@ def spots_semantic_segmentation(
             image, spots_zyx_radii, use_gpu=use_gpu, 
             logger_func=logger_func
         )
-    elif initial_sigma>0:
+    elif gauss_sigma>0:
         image = filters.gaussian(
-            image, initial_sigma, use_gpu=use_gpu, logger_func=logger_func
+            image, gauss_sigma, use_gpu=use_gpu, logger_func=logger_func
         )
     else:
         image = image
@@ -68,7 +68,7 @@ def spots_semantic_segmentation(
 def reference_channel_semantic_segm(
         image, 
         lab=None,
-        initial_sigma=0.0,
+        gauss_sigma=0.0,
         keep_only_largest_obj=False,
         do_remove_hot_pixels=False,
         lineage_table=None,
@@ -81,7 +81,7 @@ def reference_channel_semantic_segm(
     result = spots_semantic_segmentation(
         image, 
         lab=lab,
-        initial_sigma=initial_sigma,
+        gauss_sigma=gauss_sigma,
         spots_zyx_radii=None, 
         do_sharpen=False, 
         do_remove_hot_pixels=do_remove_hot_pixels,

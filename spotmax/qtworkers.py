@@ -87,6 +87,7 @@ class ComputeAnalysisStepWorker(QRunnable):
     
     @worker_exception_handler
     def run(self):
+        self.logger.log(f'Computing analysis step...')
         module_name, func_name = self.module_func.rsplit('.', 1)
         module = import_module(f'spotmax.{module_name}')
         func = getattr(module, func_name)
@@ -124,10 +125,23 @@ class LoadImageWorker(QRunnable):
             channel = self._channel
             filepath = acdc_load.get_filename_from_channel(images_path, channel)
         
+        self.logger.log(f'Loading image data from {filepath}...')
         image_data = acdc_load.load_image_file(filepath)
         self.signals.finished.emit(
             (self, filepath, channel, image_data, self._loop)
         )
+
+class AutoTuneKernelWorker(QRunnable):
+    def __init__(self, kernel):
+        QRunnable.__init__(self)
+        self.signals = signals()
+        self._kernel = kernel
+    
+    @worker_exception_handler
+    def run(self):
+        self.logger.log(f'Running auto-tuning process...')
+        self._kernel.run(logger_func=self.logger.log)
+        self.signals.finished.emit(self._kernel)
 
 class CropImageBasedOnSegmDataWorker(QRunnable):
     def __init__(

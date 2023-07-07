@@ -29,7 +29,6 @@ import cellacdc.measure
 
 from . import GUI_INSTALLED, error_up_str, error_down_str
 from . import exception_handler_cli, handle_log_exception_cli
-from . import filters
 
 if GUI_INSTALLED:
     from cellacdc.plot import imshow
@@ -48,6 +47,7 @@ except Exception as e:
 from . import utils, rng, base_lineage_table_values
 from . import issues_url, printl, io, features, config
 from . import transformations
+from . import filters
 
 import math
 SQRT_2 = math.sqrt(2)
@@ -94,7 +94,7 @@ class _DataLoader:
     
     def _critical_channel_not_found(self, channel, channel_path):
         self.logger.info(
-            f'{error_down_str}'
+            f'{error_down_str}\n'
             f'The channel {channel} was not found. If you are trying to load '
             'a channel without an extension make sure that one of the following '
             'channels exists:\n\n'
@@ -168,8 +168,11 @@ class _DataLoader:
         table_path = cellacdc.io.get_filepath_from_endname(
             images_path, os.path.basename(lineage_table_endname), ext='.csv'
         )
+        if table_path is None:
+            self._critical_channel_not_found(channel, ch_path)
+            return
         self.log(
-            f'Loading "{lineage_table_endname}" channel from "{table_path}"...'
+            f'Loading "{lineage_table_endname}" lineage table from "{table_path}"...'
         )
         data['lineage_table'] = pd.read_csv(table_path)
 
@@ -2518,9 +2521,11 @@ class _spotFIT(spheroid):
 
             # Fit with constants
             s_data = img[z_s, y_s, x_s]
-            model.pbar = tqdm(desc=f'Fitting spot {s} ({count+1}/{num_spots})',
-                                  total=100*len(z_s), unit=' fev',
-                                  position=4, leave=False, ncols=100)
+            desc = f'Fitting spot {s} ({count+1}/{num_spots})'
+            model.pbar = tqdm(
+                desc=desc, total=100*len(z_s), unit=' fev',
+                position=4, leave=False, ncols=100
+            )
             leastsq_result = scipy.optimize.least_squares(
                 model.residuals, init_guess_s,
                 args=(s_data, z_s, y_s, x_s, num_spots_s, num_coeffs),
@@ -2633,6 +2638,9 @@ class Kernel(_ParamsParser):
         self.is_cli = is_cli
         self._force_close_on_critical = False
         self._SpotFit = _spotFIT(debug=debug)
+        self._current_frame_i = -1
+        self._current_step = 'Kernel initialization'
+        self._current_pos_path = 'Not determined yet'
     
     def _preprocess(self, image_data, verbose=True):
         SECTION = 'Pre-processing'
@@ -2643,7 +2651,7 @@ class Kernel(_ParamsParser):
             print('')
             self.logger.info(f'Removing hot pixels...')
         if do_remove_hot_pixels:
-            image_data = filters.remove_hot_pixels(image_data)
+            image_data = filters.remove_hot_pixels(image_data, progress=False)
         
         ANCHOR = 'gaussSigma'
         options = self._params[SECTION][ANCHOR]
@@ -3483,9 +3491,11 @@ class Kernel(_ParamsParser):
         negative_name = name[8:]
         info = {}
         for eff_size_name, func in effect_size_func.items():
-            eff_size, negative_mean, negative_std = features._try_metric_func(
-                func, pos_arr, neg_arr
-            )
+            result = features._try_metric_func(func, pos_arr, neg_arr)
+            if result is not np.nan:
+                eff_size, negative_mean, negative_std = result
+            else:
+                eff_size, negative_mean, negative_std = np.nan, np.nan, np.nan
             col_name = f'{name}_effect_size_{eff_size_name}'
             df.at[idx, col_name] = eff_size
             negative_mean_colname = (
@@ -3497,7 +3507,9 @@ class Kernel(_ParamsParser):
             )
             df.at[idx, negative_std_colname] = negative_std
             if debug:
-                info[eff_size_name] = (eff_size, np.mean(pos_arr), negative_mean, negative_std)
+                info[eff_size_name] = (
+                    eff_size, np.mean(pos_arr), negative_mean, negative_std
+                )
         if debug:
             print('')
             for eff_size_name, values in info.items():
@@ -3659,6 +3671,7 @@ class Kernel(_ParamsParser):
             total=len(df_obj_spots), ncols=100, desc=pbar_desc, position=3, 
             leave=False
         )
+        spot_ids_to_drop = []
         for row in df_obj_spots.itertuples():
             spot_id = row.Index
             zyx_center = tuple(
@@ -3674,6 +3687,10 @@ class Kernel(_ParamsParser):
             backgr_mask_z_spot = backgr_mask[zyx_center[0]]
             sharp_spot_obj_z = sharp_spots_img_obj[zyx_center[0]]
             backgr_vals_z_spot = sharp_spot_obj_z[backgr_mask_z_spot]
+            
+            if len(backgr_vals_z_spot) == 0:
+                spot_ids_to_drop.append(spot_id)
+                continue
             
             if debug:
                 print('')
@@ -3786,6 +3803,8 @@ class Kernel(_ParamsParser):
             )
             pbar.update()
         pbar.close()
+        if spot_ids_to_drop:
+            df_obj_spots = df_obj_spots.drop(index=df_obj_spots)
         return df_obj_spots
     
     @exception_handler_cli
@@ -4005,6 +4024,14 @@ class Kernel(_ParamsParser):
 
     def log_exception_report(self, error, traceback_str=''):
         if self._force_close_on_critical:
+            print('')
+            print('-'*60)
+            self.logger.info(
+                f'  - Error at frame index {self._current_frame_i}\n'
+                f'  - Analysis step "{self._current_step}"\n'
+                f'  - Folder path "{self._current_pos_path}"'
+            )
+            print('-'*60)
             self.quit(error)
         else:
             self.logger.exception(traceback_str)
@@ -4024,6 +4051,7 @@ class Kernel(_ParamsParser):
             segm_endname: str='', ref_ch_segm_endname: str='', 
             lineage_table_endname: str='', text_to_append: str=''
         ):
+        self._current_step = 'Loading data from images path'
         data = self.get_data_from_images_path(
             images_path, spots_ch_endname, ref_ch_endname, segm_endname, 
             ref_ch_segm_endname, lineage_table_endname
@@ -4051,10 +4079,12 @@ class Kernel(_ParamsParser):
             self.metadata['stopFrameNum'] = stopFrameNum
 
         desc = 'Adding segmentation objects features'
+        self._current_step = desc
         pbar = tqdm(
             total=stopFrameNum, ncols=100, desc=desc, position=2, leave=False
         )
         for frame_i in range(stopFrameNum):
+            self._current_frame_i = frame_i
             lab = segm_data[frame_i]
             rp = segm_rp[frame_i]
             if acdc_df is not None:
@@ -4071,6 +4101,7 @@ class Kernel(_ParamsParser):
         if ref_ch_data is not None and do_segment_ref_ch:
             print('')
             self.logger.info('Segmenting reference channel...')
+            self._current_step = 'Segmenting reference channel'
             SECTION = 'Reference channel'
             ref_ch_threshold_method = (
                 self._params[SECTION]['refChThresholdFunc']['loadedVal']
@@ -4127,6 +4158,7 @@ class Kernel(_ParamsParser):
             dfs = {'agg_detection': data['df_agg']}
             return dfs
         
+        self._current_step = 'Detecting spots'
         spots_data = data.get('spots_ch')
         min_size_spheroid_mask = self._get_local_spheroid_mask(
             zyx_resolution_limit_pxl
@@ -4186,6 +4218,7 @@ class Kernel(_ParamsParser):
             leave=stopFrameNum>1
         )
         for frame_i in range(stopFrameNum):
+            self._current_frame_i = frame_i
             raw_spots_img = spots_data[frame_i]
             preproc_spots_img = self._preprocess(raw_spots_img)
             if do_sharpen_spots:
