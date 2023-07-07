@@ -546,6 +546,13 @@ class _ParamsParser(_DataLoader):
                 report_folderpath, params_path, force_default=force_default,
                 report_filename=parser_args['report_filename']
             )
+            if report_filepath is None:
+                self.logger.info(
+                    'spotMAX execution stopped by the user. '
+                    'Report filepath was not provided.'
+                )
+                self.quit()
+                return
             report_filepath = self._check_exists_report_file(
                 report_filepath, params_path, force_default=force_default
             )
