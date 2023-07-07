@@ -654,6 +654,9 @@ class _ParamsParser(_DataLoader):
             return False, None
         self.set_abs_exp_paths()
         self.set_metadata()
+        proceed = self.check_contradicting_params()
+        if not proceed:
+            return False, None
         return True, missing_params
     
     def _ask_user_save_ini_from_csv(self, ini_filepath):
@@ -1303,6 +1306,49 @@ class _ParamsParser(_DataLoader):
             
         return True, missing_params
 
+    def _ask_loaded_ref_ch_segm_and_segm_ref_ch(self):
+        default_option = 'Do not segment the ref. channel'
+        options = ('Do not load the ref. ch. segm. data', default_option)
+        question = 'What do you want to do'
+        txt = (
+            f'[WARNING]: You requested to load the ref. channel segmentation data '
+            f'but ALSO to segment the ref. channel.'
+        )
+        if self._force_default:
+            self.logger.info('*'*50)
+            self.logger.info(txt)
+            io._log_forced_default(default_option, self.logger.info)
+            return 'do_not_segment_ref_ch'
+        answer = io.get_user_input(
+            question, options=options, info_txt=txt, logger=self.logger.info
+        )
+        if answer is None:
+            return
+        elif answer == options[0]:
+            return 'do_not_load_ref_ch_segm'
+    
+    @exception_handler_cli
+    def check_contradicting_params(self):
+        SECTION = 'File paths and channels'
+        section_params = self._params[SECTION]
+        ref_ch_segm_endname = section_params['refChSegmEndName'].get('loadedVal')
+        
+        SECTION = 'Reference channel'
+        section_params = self._params[SECTION]
+        do_segment_ref_ch = section_params['segmRefCh'].get('loadedVal')
+        
+        if do_segment_ref_ch and ref_ch_segm_endname:
+            answer = self._ask_loaded_ref_ch_segm_and_segm_ref_ch()
+            if answer is None:
+                return False
+            if answer == 'do_not_segment_ref_ch':
+                SECTION = 'Reference channel'
+                self._params[SECTION]['segmRefCh']['loadedVal'] = False
+            elif answer == 'do_not_load_ref_ch_segm':
+                SECTION = 'File paths and channels'
+                self._params[SECTION]['refChSegmEndName']['loadedVal'] = ''
+        return True
+    
     def cast_loaded_values_dtypes(self):
         for section_name in list(self._params.keys()):
             anchor_names = list(self._params[section_name].keys())
@@ -3696,6 +3742,11 @@ class Kernel(_ParamsParser):
             backgr_vals_z_spot = sharp_spot_obj_z[backgr_mask_z_spot]
             
             if len(backgr_vals_z_spot) == 0:
+                # This is most likely because the reference channel mask at 
+                # center z-slice is smaller than the spot resulting 
+                # in no background mask (since the background is outside of 
+                # the spot but inside the ref. ch. mask) --> there is not 
+                # enough ref. channel to consider this a valid spot.
                 spot_ids_to_drop.append(spot_id)
                 continue
             
@@ -4105,7 +4156,11 @@ class Kernel(_ParamsParser):
             pbar.update()
         pbar.close()
         
-        if ref_ch_data is not None and do_segment_ref_ch:
+        segment_ref_ch = (
+            ref_ch_data is not None and do_segment_ref_ch
+            and ref_ch_segm_data is None
+        )
+        if segment_ref_ch:
             print('')
             self.logger.info('Segmenting reference channel...')
             self._current_step = 'Segmenting reference channel'
