@@ -3811,7 +3811,7 @@ class Kernel(_ParamsParser):
             pbar.update()
         pbar.close()
         if spot_ids_to_drop:
-            df_obj_spots = df_obj_spots.drop(index=df_obj_spots)
+            df_obj_spots = df_obj_spots.drop(index=spot_ids_to_drop)
         return df_obj_spots
     
     @exception_handler_cli
