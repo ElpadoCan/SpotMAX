@@ -92,18 +92,29 @@ class _DataLoader:
         data = self._initialize_df_agg(data)
         return data
     
-    def _critical_channel_not_found(self, channel, channel_path):
+    def _critical_channel_not_found(
+            self, channel, channel_path, searched_ext=None
+        ):
+        ext = os.path.splitext(channel)[-1]
+        if ext:
+            searched_files = f'   * _{channel}\n'
+        elif searched_ext is not None:
+            searched_files = f'   * _{channel}{searched_ext}\n'
+        else:
+            searched_files = (
+                f'   * _{channel}.tif\n'
+                f'   * _{channel}.h5\n'
+                f'   * _{channel}_aligned.h5\n'
+                f'   * _{channel}_aligned.npz\n'
+                f'   * _{channel}.npy\n'
+                f'   * _{channel}.npz\n'
+            )
         self.logger.info(
             f'{error_down_str}\n'
-            f'The channel {channel} was not found. If you are trying to load '
+            f'The channel/file {channel} was not found. If you are trying to load '
             'a channel without an extension make sure that one of the following '
             'channels exists:\n\n'
-            f'   * {channel}.tif\n'
-            f'   * {channel}.h5\n'
-            f'   * {channel}_aligned.h5\n'
-            f'   * {channel}_aligned.npz\n'
-            f'   * {channel}.npy\n'
-            f'   * {channel}.npz\n\n'
+            f'{searched_files}\n'
             'Alternatively, provide the extension to the channel name in the '
             '.ini configuration file.\n'
         )
@@ -169,7 +180,9 @@ class _DataLoader:
             images_path, os.path.basename(lineage_table_endname), ext='.csv'
         )
         if table_path is None:
-            self._critical_channel_not_found(channel, ch_path)
+            self._critical_channel_not_found(
+                lineage_table_endname, table_path, searched_ext='.csv'
+            )
             return
         self.log(
             f'Loading "{lineage_table_endname}" lineage table from "{table_path}"...'
@@ -1308,10 +1321,10 @@ class _ParamsParser(_DataLoader):
 
     def _ask_loaded_ref_ch_segm_and_segm_ref_ch(self):
         default_option = 'Do not segment the ref. channel'
-        options = ('Do not load the ref. channel segm. data', default_option)
+        options = ('Do not load the ref. ch. segm. data', default_option)
         question = 'What do you want to do'
         txt = (
-            f'[WARNING]: You requested to load the reference channel segmentation data '
+            f'[WARNING]: You requested to load the ref. channel segmentation data '
             f'but ALSO to segment the ref. channel.'
         )
         if self._force_default:
@@ -1326,7 +1339,7 @@ class _ParamsParser(_DataLoader):
             return
         elif answer == options[0]:
             return 'do_not_load_ref_ch_segm'
-        else: 
+        elif answer == options[1]:
             return 'do_not_segment_ref_ch'
     
     @exception_handler_cli
