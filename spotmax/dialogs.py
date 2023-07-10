@@ -348,6 +348,7 @@ class guiTabControl(QTabWidget):
             ini_filename = f'{now}_spotmax_analysis_parameters.ini'
             ini_filepath = os.path.join(temp_dirpath, ini_filename)
             self.parametersQGBox.saveToIniFile(ini_filepath)
+            is_tempinifile = True
             if self.lastSavedIniFilePath:
                 with open(self.lastSavedIniFilePath, 'r') as ini:
                     saved_ini_text = ini.read()
@@ -355,15 +356,15 @@ class guiTabControl(QTabWidget):
                     temp_ini_text = ini_temp.read()
                 if saved_ini_text == temp_ini_text:
                     ini_filepath = self.lastSavedIniFilePath
-                    is_tempinifile = False
-                else:
-                    is_tempinifile = True   
+                    is_tempinifile = False 
         
         ini_filepath = ini_filepath.replace('\\', os.sep)
         ini_filepath = ini_filepath.replace('/', os.sep)
         txt = html_func.paragraph(f"""
             spotMAX analysis will now <b>run in the terminal</b>. All progress 
-            will be displayed there. Have fun!<br><br>
+            will be displayed there.<br><br>
+            Make sure to <b>keep an eye on the terminal</b> since it might require 
+            your attention.<br><br>
             
             NOTE: If you prefer to run this analysis manually in any terminal of 
             your choice run the following command:<br>

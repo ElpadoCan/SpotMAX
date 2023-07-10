@@ -24,7 +24,7 @@ import skimage.feature
 from scipy.special import erf
 
 import cellacdc.io
-import cellacdc.myutils
+import cellacdc.myutils as acdc_myutils
 import cellacdc.measure
 
 from . import GUI_INSTALLED, error_up_str, error_down_str
@@ -807,6 +807,7 @@ class _ParamsParser(_DataLoader):
         self.exp_paths_list = []
         run_num_log = []
         for exp_path in loaded_exp_paths:
+            acdc_myutils.addToRecentPaths(exp_path, logger=self.logger.info)
             if io.is_pos_path(exp_path):
                 pos_path = exp_path
                 pos_foldername = os.path.basename(exp_path)
@@ -3627,7 +3628,7 @@ class Kernel(_ParamsParser):
             norm_spot_slice_z = spot_slice_z
         return norm_spot_slice_z
 
-    # @cellacdc.myutils.exec_time
+    # @acdc_myutils.exec_time
     def _compute_obj_spots_metrics(
             self, spots_img_obj, df_obj_spots, obj_mask, 
             sharp_spots_img_obj, raw_spots_img_obj=None, 
