@@ -1308,10 +1308,10 @@ class _ParamsParser(_DataLoader):
 
     def _ask_loaded_ref_ch_segm_and_segm_ref_ch(self):
         default_option = 'Do not segment the ref. channel'
-        options = ('Do not load the ref. ch. segm. data', default_option)
+        options = ('Do not load the ref. channel segm. data', default_option)
         question = 'What do you want to do'
         txt = (
-            f'[WARNING]: You requested to load the ref. channel segmentation data '
+            f'[WARNING]: You requested to load the reference channel segmentation data '
             f'but ALSO to segment the ref. channel.'
         )
         if self._force_default:
@@ -1326,6 +1326,8 @@ class _ParamsParser(_DataLoader):
             return
         elif answer == options[0]:
             return 'do_not_load_ref_ch_segm'
+        else: 
+            return 'do_not_segment_ref_ch'
     
     @exception_handler_cli
     def check_contradicting_params(self):
