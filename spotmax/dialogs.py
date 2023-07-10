@@ -518,6 +518,7 @@ class guiTabControl(QTabWidget):
 class AutoTuneGroupbox(QGroupBox):
     sigColorChanged = Signal(object, bool)
     sigFeatureSelected = Signal(object, str, str)
+    sigYXresolMultiplChanged = Signal(float)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -552,6 +553,10 @@ class AutoTuneGroupbox(QGroupBox):
                     formWidget.widget.sigFeatureSelected.connect(
                         self.emitFeatureSelected
                     )
+                elif anchor == 'yxResolLimitMultiplier':
+                    formWidget.widget.valueChanged.connect(
+                        self.emitYXresolMultiplSigChanged
+                    )
                 row += 1
             if groupBox is None:
                 continue
@@ -581,6 +586,9 @@ class AutoTuneGroupbox(QGroupBox):
         mainLayout.addStretch(1)
         self.setLayout(mainLayout)
         self.setFont(font)
+    
+    def emitYXresolMultiplSigChanged(self, value):
+        self.sigYXresolMultiplChanged.emit(value)
     
     def emitFeatureSelected(self, button, featureText, colName):
         self.sigFeatureSelected.emit(button, featureText, colName)
@@ -812,6 +820,7 @@ class AutoTuneTabWidget(QWidget):
     sigColorChanged = Signal(object, bool)
     sigFeatureSelected = Signal(object, str, str)
     sigAddAutoTunePointsToggle = Signal(bool)
+    sigYXresolMultiplChanged = Signal(float)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -858,7 +867,13 @@ class AutoTuneTabWidget(QWidget):
         self.autoTuneGroupbox.sigFeatureSelected.connect(
             self.emitFeatureSelected
         )
+        self.autoTuneGroupbox.sigYXresolMultiplChanged.connect(
+            self.emitYXresolMultiplSigChanged
+        )
         helpButton.clicked.connect(self.showHelp)
+    
+    def emitYXresolMultiplSigChanged(self, value):
+        self.sigYXresolMultiplChanged.emit(value)
     
     def emitFeatureSelected(self, button, featureText, colName):
         self.sigFeatureSelected.emit(button, featureText, colName)

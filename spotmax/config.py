@@ -567,7 +567,7 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
+            'formWidgetFunc': 'widgets.FloatLineEdit',
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
@@ -581,7 +581,7 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
+            'formWidgetFunc': 'widgets.FloatLineEdit',
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
@@ -595,7 +595,7 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
+            'formWidgetFunc': 'widgets.FloatLineEdit',
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
@@ -609,7 +609,7 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
+            'formWidgetFunc': 'widgets.FloatLineEdit',
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
@@ -623,7 +623,7 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
+            'formWidgetFunc': 'widgets.FloatLineEdit',
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
@@ -637,12 +637,12 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
+            'formWidgetFunc': 'widgets.FloatLineEdit',
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
             'dtype': float,
-            'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
+            # 'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
         },
         'yxResolLimitMultiplier': {
             'desc': 'Resolution multiplier in y- and x- direction',
@@ -651,12 +651,12 @@ def _metadata_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.floatLineEdit',
+            'formWidgetFunc': 'widgets.FloatLineEdit',
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
             ),
             'dtype': float,
-            'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
+            'autoTuneWidget': 'widgets.YXresolutMultiplierAutoTuneWidget'
         },
         'spotMinSizeLabels': {
             'desc': 'Spot (z, y, x) minimum dimensions (radius)',
@@ -893,7 +893,7 @@ def _spots_ch_params():
         #     'addInfoButton': True,
         #     'addComputeButton': False,
         #     'addApplyButton': False,
-        #     'formWidgetFunc': 'widgets.floatLineEdit',
+        #     'formWidgetFunc': 'widgets.FloatLineEdit',
         #     'actions': None,
         #     'dtype': float
         # },
@@ -904,7 +904,7 @@ def _spots_ch_params():
         #     'addInfoButton': True,
         #     'addComputeButton': False,
         #     'addApplyButton': False,
-        #     'formWidgetFunc': 'widgets.floatLineEdit',
+        #     'formWidgetFunc': 'widgets.FloatLineEdit',
         #     'actions': None,
         #     'dtype': float
         # }

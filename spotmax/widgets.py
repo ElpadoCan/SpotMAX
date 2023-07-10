@@ -6,6 +6,8 @@ import typing
 import webbrowser
 from pprint import pprint
 from functools import partial
+from PyQt6 import QtCore, QtGui
+from PyQt6.QtWidgets import QWidget
 from qtpy import QtCore
 
 from matplotlib.figure import Figure
@@ -361,7 +363,7 @@ class myQComboBox(QComboBox):
 class CheckableSpinBoxWidgets:
     def __init__(self, isFloat=True):
         if isFloat:
-            self.spinbox = floatLineEdit()
+            self.spinbox = FloatLineEdit()
         else:
             self.spinbox = acdc_widgets.SpinBox()
         self.checkbox = QCheckBox('Activate')
@@ -980,11 +982,11 @@ class ReadOnlyDoubleSpinBox(acdc_widgets.DoubleSpinBox):
         super().__init__(*args, **kwargs)
         self.setReadOnly(True)
 
-class floatLineEdit(QLineEdit):
+class FloatLineEdit(QLineEdit):
     valueChanged = Signal(float)
 
     def __init__(
-            self, *args, notAllowed=None, allowNegative=True, initial=None
+            self, *args, notAllowed=None, allowNegative=True, initial=None,
         ):
         QLineEdit.__init__(self, *args)
         self.notAllowed = notAllowed
@@ -1025,6 +1027,73 @@ class floatLineEdit(QLineEdit):
         else:
             self.setStyleSheet('')
             self.valueChanged.emit(self.value())
+
+class FloatLineEditWithStepButtons(QWidget):
+    valueChanged = Signal(float)
+    
+    def __init__(self, parent=None, **kwargs) -> None:
+        super().__init__(parent)
+        
+        self.setStep(kwargs.get('step', 0.1))
+        
+        layout = QHBoxLayout()
+        
+        self._lineEdit = FloatLineEdit(**kwargs)
+        self._stepUpButton = acdc_widgets.addPushButton()
+        self._stepDownButton = acdc_widgets.subtractPushButton()
+        
+        layout.addWidget(self._lineEdit)
+        layout.addWidget(self._stepDownButton)
+        layout.addWidget(self._stepUpButton)
+        layout.setStretch(0, 1)
+        layout.setStretch(1, 0)
+        layout.setStretch(2, 0)
+        
+        self.setLayout(layout)
+        
+        self._stepUpButton.clicked.connect(self.stepUp)
+        self._stepDownButton.clicked.connect(self.stepDown)
+        
+        self._lineEdit.textChanged.connect(self.emitValueChanged)
+    
+    def emitValueChanged(self, text):
+        val = self.value()
+        notAllowed = self._lineEdit.notAllowed
+        if notAllowed is not None and val in notAllowed:
+            self.setStyleSheet(LINEEDIT_INVALID_ENTRY_STYLESHEET)
+        else:
+            self.setStyleSheet('')
+            self.valueChanged.emit(self.value())
+        # self._lineEdit.emitValueChanged(text)
+    
+    def stepUp(self):
+        newValue = self.value() + self.step()
+        self.setValue(round(newValue, self._decimals))
+    
+    def stepDown(self):
+        newValue = self.value() - self.step()
+        self.setValue(round(newValue, self._decimals))
+    
+    def setStep(self, step: float):
+        self._step = step
+        decimals_str = str(step).split('.')[1]
+        self._decimals = len(decimals_str)
+    
+    def step(self):
+        return self._step
+    
+    def setValue(self, value: float):
+        self._lineEdit.setText(str(value))
+
+    def value(self):
+        return self._lineEdit.value()
+
+class YXresolutMultiplierAutoTuneWidget(FloatLineEditWithStepButtons):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setStep(0.5)
+        self._stepUpButton.setShortcut('Up')
+        self._stepDownButton.setShortcut('Down')
 
 class VectorLineEdit(QLineEdit):
     valueChanged = Signal(object)

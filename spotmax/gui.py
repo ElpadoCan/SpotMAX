@@ -352,6 +352,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.connectParamsGroupBoxSignals()
         self.autoTuningAddItems()
         self.initAutoTuneKernel()
+        
+        self.setFocusGraphics()
+        self.setFocusMain()
     
     def disconnectParamsGroupBoxSignals(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -484,7 +487,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         metadataParams = ParamsGroupBox.params['METADATA']
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
         spots_zyx_radii = spotMinSizeLabels.pixelValues()
-        size = round(spots_zyx_radii[-1])
+        size = spots_zyx_radii[-1]*2
         self.setHoverToolSymbolData(
             [x], [y], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             size=size
@@ -503,7 +506,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         metadataParams = ParamsGroupBox.params['METADATA']
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
         spots_zyx_radii = spotMinSizeLabels.pixelValues()
-        size = round(spots_zyx_radii[-1])
+        size = spots_zyx_radii[-1]*2
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.setAutoTunePointSize(size)
@@ -838,6 +841,20 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget.sigFeatureSelected.connect(
             self.autoTuningFeatureSelected
         )
+        
+        autoTuneTabWidget.sigYXresolMultiplChanged.connect(
+            self.autoTuningYXresolMultiplChanged
+        )
+    
+    def autoTuningYXresolMultiplChanged(self, value):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        metadataParams['yxResolLimitMultiplier']['widget'].setValue(value)
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii = spotMinSizeLabels.pixelValues()
+        size = spots_zyx_radii[-1]*2
+        self.ax2_BrushCircle.setSize(size)
+        self.ax1_BrushCircle.setSize(size)
     
     def addAutoTunePoint(self, x, y):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
