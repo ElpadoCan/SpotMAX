@@ -906,7 +906,7 @@ class AutoTuneTabWidget(QWidget):
             item = self.autoTuneGroupbox.falseItem
         hoveredMask = item._maskAt(QPointF(x, y))
         points = item.points()[hoveredMask][::-1]
-        if points:
+        if len(points) > 0:
             point = points[0]
             item.removePoint(point._index)
         else:
