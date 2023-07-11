@@ -1551,10 +1551,14 @@ class SpotsItems:
         data = toolbutton.df.loc[frame_i]
         if z is not None:
             try:
-                data = data.loc[[z]]
+                data_z = data.loc[[z]]
+                yy, xx = data_z['y'].values + 0.5, data_z['x'].values + 0.5
             except Exception as e:
-                return
-        yy, xx = data['y'].values + 0.5, data['x'].values + 0.5
+                yy, xx = [], []
+        else:
+            data_z = data
+            yy, xx = data_z['y'].values + 0.5, data_z['x'].values + 0.5
+        
         scatterItem.setData(xx, yy)
         scatterItem.z = z
         scatterItem.frame_i = frame_i
