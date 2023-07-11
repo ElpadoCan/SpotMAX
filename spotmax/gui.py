@@ -372,18 +372,24 @@ class spotMAX_Win(acdc_gui.guiWin):
     @exception_handler
     def _computeGaussSigma(self, formWidget):
         self.funcDescription = 'Initial gaussian filter'
-        module_func = 'filters.gaussian'
+        module_func = 'pipe.initial_gaussian_filter'
         anchor = 'gaussSigma'
         
         posData = self.data[self.pos_i]
-        image = posData.img_data[posData.frame_i]
         
-        keys = ['lab', 'sigma', 'use_gpu']
+        args = [module_func, anchor]
         all_kwargs = self.paramsToKwargs()
+        keys = ['do_remove_hot_pixels', 'gauss_sigma', 'use_gpu']
         kwargs = {key:all_kwargs[key] for key in keys}
-        kwargs['image'] = image
+        on_finished_callback = (
+            self.startComputeAnalysisStepWorker, args, kwargs
+        )
+        self.startCropImageBasedOnSegmDataWorkder(
+            posData.img_data, posData.segm_data, 
+            on_finished_callback=on_finished_callback
+        )
         
-        self.startComputeAnalysisStepWorker(module_func, anchor, **kwargs)
+        image = posData.img_data[posData.frame_i]
     
     def storeCroppedDataAndStartAutoTuneKernel(self, *args, **kwargs):
         kernel = args[0]
@@ -582,7 +588,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         args = [module_func, anchor]
         keys = [
             'lab', 'gauss_sigma', 'spots_zyx_radii', 'do_sharpen',
-            'do_remove_hot_pixes', 'lineage_table', 'do_aggregate', 
+            'do_remove_hot_pixels', 'lineage_table', 'do_aggregate', 
             'use_gpu'
         ]
         all_kwargs = self.paramsToKwargs()

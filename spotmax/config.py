@@ -462,7 +462,7 @@ def _configuration_params():
         },
         'raiseOnCritical': {
             'desc': 'Stop analysis on critical error',
-            'initialVal': False,
+            'initialVal': True,
             'stretchWidget': False,
             'addInfoButton': True,
             'addComputeButton': False,
@@ -476,7 +476,7 @@ def _configuration_params():
         },
         'useGpu': {
             'desc': 'Use CUDA-compatible GPU',
-            'initialVal': True,
+            'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,
             'addComputeButton': False,

@@ -2,6 +2,24 @@ import numpy as np
 
 from . import filters, transformations, config, printl
 
+def initial_gaussian_filter(
+        image, lab=None, do_remove_hot_pixels=False, gauss_sigma=0.0,
+        use_gpu=True, logger_func=print
+    ):
+    if do_remove_hot_pixels:
+        image = filters.remove_hot_pixels(image)
+    else:
+        image = image
+    
+    if gauss_sigma>0:
+        image = filters.gaussian(
+            image, gauss_sigma, use_gpu=use_gpu, logger_func=logger_func
+        )
+    else:
+        image = image
+    return image
+    
+
 def spots_semantic_segmentation(
         image, 
         lab=None,

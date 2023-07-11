@@ -87,6 +87,7 @@ class ComputeAnalysisStepWorker(QRunnable):
     
     @worker_exception_handler
     def run(self):
+        self.logger.log('')
         self.logger.log(f'Computing analysis step...')
         module_name, func_name = self.module_func.rsplit('.', 1)
         module = import_module(f'spotmax.{module_name}')
