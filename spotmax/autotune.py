@@ -1,3 +1,5 @@
+import numpy as np
+
 from . import pipe
 from . import printl
 
@@ -9,6 +11,18 @@ class AutoTuneKernel:
     
     def set_kwargs(self, kwargs):
         self._kwargs = kwargs
+    
+    def set_zyx_true_spots_coords(self, zyx_coords: np.ndarray):
+        self._zyx_true_spots_coords = zyx_coords
+    
+    def zyx_true_spots_coords(self):
+        return self._zyx_true_spots_coords
+
+    def set_zyx_false_spots_coords(self, zyx_coords: np.ndarray):
+        self._zyx_false_spots_coords = zyx_coords
+    
+    def zyx_false_spots_coords(self):
+        return self._zyx_false_spots_coords
     
     def ref_ch_endname(self):
         return self._kwargs.get('ref_ch_endname', '')
@@ -32,9 +46,17 @@ class AutoTuneKernel:
         return self._image_data
     
     def _find_best_threshold_method(self):
+        keys = [
+            'lab', 'gauss_sigma', 'spots_zyx_radii', 'do_sharpen',
+            'do_remove_hot_pixels', 'lineage_table', 'do_aggregate', 
+            'use_gpu'
+        ]
+        kwargs = {key:self._kwargs[key] for key in keys}
         result = pipe.spots_semantic_segmentation(
-            self._image
+            self._image, keep_input_shape=False, return_image=True, **kwargs
         )
+        
     
     def run(self, logger_func=printl):
-        pass
+        logger_func('Determining optimal thresholding method...')
+        

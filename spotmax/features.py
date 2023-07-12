@@ -53,6 +53,7 @@ def normalise_by_dist_transform_range(
     backgr_median = np.median(backgr_vals_z_spot)
     expected_values = (1 + (dist_transf-dist_transf.min()))*backgr_median
     spot_slice_z_nonzero = spot_slice_z.copy()
+    # Ensure that we don't divide by zeros
     spot_slice_z_nonzero[spot_slice_z==0] = 1E-15
     dist_from_expected_perc = (spot_slice_z-expected_values)/spot_slice_z_nonzero
     dist_transf_range = 1 - dist_transf
@@ -280,6 +281,17 @@ def feature_names_to_col_names_mapper():
             endname = types_to_col_endname_mapper[feature_name]
             colname = f'{prefix}{endname}{suffix}'
             mapper[f'{group_name}, {feature_name}'] = colname
+    return mapper
+
+def true_positive_feauture_inequality_direction_mapper():
+    mapper = {}
+    for group_name, feature_names in get_features_groups().items():
+        if group_name.find('p-value') != -1:
+            direction = 'less_than'
+        else:
+            direction = 'greater_than'
+        for feature_name in feature_names:
+            mapper[f'{group_name}, {feature_name}'] = direction
     return mapper
 
 def add_consecutive_spots_distance(df, zyx_voxel_size, suffix=''):

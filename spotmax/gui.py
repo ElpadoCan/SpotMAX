@@ -93,7 +93,6 @@ class spotMAX_Win(acdc_gui.guiWin):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
             posData = self.data[self.pos_i]
-            return
         super().keyPressEvent(event)
     
     def gui_setCursor(self, modifiers, event):
@@ -156,7 +155,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         
         if canAddPointAutoTune:
-            self.addAutoTunePoint(x, y)
+            z = self.currentZ()
+            self.addAutoTunePoint(z, y, x)
         
     def gui_createRegionPropsDockWidget(self):
         super().gui_createRegionPropsDockWidget(side=Qt.RightDockWidgetArea)
@@ -227,6 +227,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def currentZ(self, checkIfProj=True):
+        posData = self.data[self.pos_i]
+        if posData.SizeZ == 1:
+            return 0
+        
         if checkIfProj and self.zProjComboBox.currentText() != 'single z-slice':
             return
         
@@ -862,9 +866,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.ax2_BrushCircle.setSize(size)
         self.ax1_BrushCircle.setSize(size)
     
-    def addAutoTunePoint(self, x, y):
+    def addAutoTunePoint(self, z, y, x):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        autoTuneTabWidget.addAutoTunePoint(x, y)
+        autoTuneTabWidget.addAutoTunePoint(z, x, y)
     
     def doAutoTune(self):
         posData = self.data[self.pos_i]
@@ -874,6 +878,16 @@ class spotMAX_Win(acdc_gui.guiWin):
         all_kwargs = self.paramsToKwargs()
         kernel = posData.autoTuneKernel
         kernel.set_kwargs(all_kwargs)
+        
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+        
+        trueItem = autoTuneGroupbox.trueItem
+        coords = trueItem.coordsToNumpy(includeData=True)
+        kernel.set_zyx_true_spots_coords(coords)
+        
+        falseItem = autoTuneGroupbox.falseItem
+        coords = falseItem.coordsToNumpy(includeData=True)
+        kernel.set_zyx_false_spots_coords(coords)
         
         args = [kernel]
         kwargs = {
@@ -907,7 +921,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.startAutoTuneKernelWorker(kernel)
         
     def startAutoTuneKernelWorker(self, kernel):
-        worker = qtworkers.AutoTuneKernelWorker()
+        all_kwargs = self.paramsToKwargs()
+        worker = qtworkers.AutoTuneKernelWorker(kernel)
         self.connectDefaultWorkerSlots(worker)
         worker.signals.finished.connect(self.autoTuneKernelWorkerFinished)
         self.threadPool.start(worker)
@@ -1027,6 +1042,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def addAutoTunePointsToggled(self, checked):
         self.isAddAutoTunePoints = checked
+        self.zProjComboBox.setDisabled(checked)
         if checked:
             self.setAutoTunePointSize()
     
@@ -1110,6 +1126,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.spotsItems.setData(
             posData.frame_i, z=self.currentZ(checkIfProj=True)
         )
+    
+    def updateZproj(self, how):
+        super().updateZproj(how)
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        addAutoTunePointsButton = autoTuneTabWidget.addAutoTunePointsButton
+        addAutoTunePointsButton.setDisabled(how != 'single z-slice')            
     
     def updateAllImages(self, *args, **kwargs):
         posData = self.data[self.pos_i]

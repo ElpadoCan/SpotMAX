@@ -899,7 +899,7 @@ class AutoTuneTabWidget(QWidget):
         self.autoTuneGroupbox.trueColorButton.setColor(trueColor)
         self.autoTuneGroupbox.falseColorButton.setColor(falseColor)
     
-    def addAutoTunePoint(self, x, y):
+    def addAutoTunePoint(self, z, x, y):
         if self.autoTuneGroupbox.trueFalseToggle.isChecked():
             item = self.autoTuneGroupbox.trueItem
         else:
@@ -907,11 +907,17 @@ class AutoTuneTabWidget(QWidget):
         hoveredMask = item._maskAt(QPointF(x, y))
         points = item.points()[hoveredMask][::-1]
         if len(points) > 0:
-            point = points[0]
-            item.removePoint(point._index)
+            for point in points:
+                if point.data() != z:
+                    continue 
+                item.removePoint(point._index)
         else:
-            item.addPoints([x], [y])
-    
+            item.addPoints([x], [y], data=[z])
+
+            # Debug
+            hoveredMask = item._maskAt(QPointF(x, y))
+            points = item.points()[hoveredMask][::-1]
+            
     def setAutoTunePointSize(self, size):
         self.autoTuneGroupbox.trueItem.setSize((size))
         self.autoTuneGroupbox.falseItem.setSize(size)
