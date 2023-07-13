@@ -42,7 +42,7 @@ from cellacdc import load as acdc_load
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
 from . import widgets, config
-from . import autotune
+from . import tune
 
 from . import qrc_resources_spotmax
 
@@ -93,6 +93,13 @@ class spotMAX_Win(acdc_gui.guiWin):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
             posData = self.data[self.pos_i]
+            # autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+            # autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+            
+            # trueItem = autoTuneGroupbox.trueItem
+            # coords = trueItem.coordsToNumpy(includeData=True)
+            
+            # printl(coords)
         super().keyPressEvent(event)
     
     def gui_setCursor(self, modifiers, event):
@@ -111,7 +118,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         if setAutoTuneCursor and overrideCursor is None:
             self.app.setOverrideCursor(Qt.CrossCursor)
         return cursorsInfo
-        
+    
     def gui_hoverEventImg1(self, event, isHoverImg1=True):
         cursorsInfo = super().gui_hoverEventImg1(event, isHoverImg1=isHoverImg1)
         if cursorsInfo is None:
@@ -127,6 +134,18 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.setHoverToolSymbolData(
                 [], [], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             )
+        
+        self.checkHoverAutoTunePoints(x, y)
+    
+    def checkHoverAutoTunePoints(self, x, y):
+        if not self.isAutoTuneTabActive:
+            return
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        z = self.currentZ()
+        frame_i = self.data[self.pos_i].frame_i
+        hoveredPoints = autoTuneTabWidget.getHoveredPoints(frame_i, z, y, x)
+        if not hoveredPoints:
+            return
     
     def getIDfromXYPos(self, x, y):
         posData = self.data[self.pos_i]
@@ -156,7 +175,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         if canAddPointAutoTune:
             z = self.currentZ()
-            self.addAutoTunePoint(z, y, x)
+            self.addAutoTunePoint(posData.frame_i, z, y, x)
         
     def gui_createRegionPropsDockWidget(self):
         super().gui_createRegionPropsDockWidget(side=Qt.RightDockWidgetArea)
@@ -257,7 +276,6 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.showParamsDockButton.setDisabled(False)
         self.computeDockWidget.widget().initState(False)
         
-
     def initGui(self):
         self._setWelcomeText()
         self._disableAcdcActions(
@@ -350,12 +368,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.spotmaxToolbar.setVisible(True)
         self.computeDockWidget.widget().initState(True)
         
+        self.isAutoTuneTabActive = False
+        
         self.setRunNumbers()
         
         self.setAnalysisParameters()
         self.connectParamsGroupBoxSignals()
         self.autoTuningAddItems()
-        self.initAutoTuneKernel()
+        self.initTuneKernel()
         
         self.setFocusGraphics()
         self.setFocusMain()
@@ -395,17 +415,43 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         image = posData.img_data[posData.frame_i]
     
-    def storeCroppedDataAndStartAutoTuneKernel(self, *args, **kwargs):
+    def warnTrueSpotsAutoTuneNotAdded(self):
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph("""
+            You did not add any points for true spots!<br><br>
+            To perform auto-tuning, you need to add points that will be used 
+            as true positives.<br><br>
+            Press the <code>Start adding points</code> button and click on 
+            valid spots before starting autotuning. Thanks! 
+        """)
+        msg.critical(self, 'True spots not added!', txt)
+        
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.autoTuningButton.setChecked(False)
+    
+    def storeCroppedDataAndStartTuneKernel(self, *args, **kwargs):
         kernel = args[0]
         image_data_cropped = kwargs['image_data_cropped']
         segm_data_cropped = kwargs['segm_data_cropped']
+        crop_to_global_coords = kwargs['crop_to_global_coords']
         
         kernel.set_image_data(image_data_cropped)
         kernel.set_segm_data(segm_data_cropped)
         
-        self.startAutoTuneKernelWorker(kernel)
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
         
-    def storeCroppedRefChDataAndStartAutoTuneKernel(self, *args, **kwargs):
+        trueItem = autoTuneGroupbox.trueItem
+        coords = trueItem.coordsToNumpy(includeData=True)
+        kernel.set_tzyx_true_spots_coords(coords, crop_to_global_coords)
+        
+        falseItem = autoTuneGroupbox.falseItem
+        coords = falseItem.coordsToNumpy(includeData=True)
+        kernel.set_tzyx_false_spots_coords(coords, crop_to_global_coords)
+        
+        self.startTuneKernelWorker(kernel)
+        
+    def storeCroppedRefChDataAndStartTuneKernel(self, *args, **kwargs):
         kernel = args[0]
         ref_ch_data_cropped = kwargs['image_data_cropped']
         segm_data_cropped = kwargs['segm_data_cropped']
@@ -416,7 +462,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         if kernel.image_data() is None:
             posData = self.data[self.pos_i]
             on_finished_callback = (
-                self.storeCroppedDataAndStartAutoTuneKernel, args, kwargs
+                self.storeCroppedDataAndStartTuneKernel, args, kwargs
             )
             self.startCropImageBasedOnSegmDataWorkder(
                 posData.img_data, posData.segm_data, 
@@ -451,7 +497,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.threadPool.start(worker)
     
     def cropImageWorkerFinished(self, result):
-        image_data_cropped, segm_data_cropped, on_finished_callback = result
+        (image_data_cropped, segm_data_cropped, crop_to_global_coords, 
+         on_finished_callback) = result
         
         if on_finished_callback is None:
             return
@@ -463,6 +510,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         if 'image_data_cropped' in kwargs:
             kwargs['segm_data_cropped'] = segm_data_cropped
+        
+        if 'crop_to_global_coords' in kwargs:
+            kwargs['crop_to_global_coords'] = crop_to_global_coords
         
         posData = self.data[self.pos_i]
         image = image_data_cropped[posData.frame_i]
@@ -506,10 +556,13 @@ class spotMAX_Win(acdc_gui.guiWin):
     def tabControlPageChanged(self, index):
         if not self.dataIsLoaded:
             return
+        
+        self.isAutoTuneTabActive = False
         if index == 1:
             # AutoTune tab toggled
             self.setAutoTunePointSize()
-            self.initAutoTuneKernel()
+            self.initTuneKernel()
+            self.isAutoTuneTabActive = True
     
     def setAutoTunePointSize(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -866,33 +919,32 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.ax2_BrushCircle.setSize(size)
         self.ax1_BrushCircle.setSize(size)
     
-    def addAutoTunePoint(self, z, y, x):
+    def addAutoTunePoint(self, frame_i, z, y, x):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        autoTuneTabWidget.addAutoTunePoint(z, x, y)
+        autoTuneTabWidget.addAutoTunePoint(frame_i, z, x, y)
     
     def doAutoTune(self):
         posData = self.data[self.pos_i]
+        
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.autoTuneGroupbox.setDisabled(True)
-        
-        all_kwargs = self.paramsToKwargs()
-        kernel = posData.autoTuneKernel
-        kernel.set_kwargs(all_kwargs)
-        
         autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
         
         trueItem = autoTuneGroupbox.trueItem
         coords = trueItem.coordsToNumpy(includeData=True)
-        kernel.set_zyx_true_spots_coords(coords)
         
-        falseItem = autoTuneGroupbox.falseItem
-        coords = falseItem.coordsToNumpy(includeData=True)
-        kernel.set_zyx_false_spots_coords(coords)
+        if len(coords) == 0:
+            self.warnTrueSpotsAutoTuneNotAdded()
+            return
+        
+        all_kwargs = self.paramsToKwargs()
+        kernel = posData.tuneKernel
+        kernel.set_kwargs(all_kwargs)
         
         args = [kernel]
         kwargs = {
             'lab': None, 'image_data_cropped': None, 
-            'segm_data_cropped': None
+            'segm_data_cropped': None, 'crop_to_global_coords': None
         }
         
         if kernel.ref_ch_endname() and kernel.ref_ch_data() is None:
@@ -901,7 +953,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             )
             
             on_finished_callback = (
-                self.storeCroppedRefChDataAndStartAutoTuneKernel, args, kwargs
+                self.storeCroppedRefChDataAndStartTuneKernel, args, kwargs
             )
             
             self.startCropImageBasedOnSegmDataWorkder(
@@ -911,24 +963,27 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         elif kernel.image_data() is None:
             on_finished_callback = (
-                self.storeCroppedDataAndStartAutoTuneKernel, args, kwargs
+                self.storeCroppedDataAndStartTuneKernel, args, kwargs
             )
             self.startCropImageBasedOnSegmDataWorkder(
                 posData.img_data, posData.segm_data, 
                 on_finished_callback=on_finished_callback
             )
         else:
-            self.startAutoTuneKernelWorker(kernel)
+            self.startTuneKernelWorker(kernel)
         
-    def startAutoTuneKernelWorker(self, kernel):
-        all_kwargs = self.paramsToKwargs()
-        worker = qtworkers.AutoTuneKernelWorker(kernel)
+    def startTuneKernelWorker(self, kernel):
+        posData = self.data[self.pos_i]
+        worker = qtworkers.TuneKernelWorker(kernel)
         self.connectDefaultWorkerSlots(worker)
-        worker.signals.finished.connect(self.autoTuneKernelWorkerFinished)
+        worker.signals.finished.connect(self.tuneKernelWorkerFinished)
         self.threadPool.start(worker)
         return worker
+    
+    def startInspectHoveredSpotWorker(self):
+        pass
 
-    def autoTuneKernelWorkerFinished(self):
+    def tuneKernelWorkerFinished(self):
         if self.progressWin is not None:
             self.progressWin.workerFinished = True
             self.progressWin.close()
@@ -1027,11 +1082,11 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def updatePos(self):
         super().updatePos()
-        self.initAutoTuneKernel()
+        self.initTuneKernel()
         
-    def initAutoTuneKernel(self):
+    def initTuneKernel(self):
         posData = self.data[self.pos_i]
-        posData.autoTuneKernel = autotune.AutoTuneKernel()
+        posData.tuneKernel = tune.TuneKernel()
         
     def connectLeftClickButtons(self):
         super().connectLeftClickButtons()
@@ -1056,6 +1111,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not self.dataIsLoaded:
             return
         self.isAutoTuneRunning = False
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.autoTuneGroupbox.setDisabled(False)
     
     def setRunNumbers(self):
         posData = self.data[self.pos_i]
@@ -1126,6 +1183,18 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.spotsItems.setData(
             posData.frame_i, z=self.currentZ(checkIfProj=True)
         )
+        self.setVisibleAutoTunePoints()
+    
+    def framesScrollBarMoved(self, frame_n):
+        super().framesScrollBarMoved(frame_n)
+        self.setVisibleAutoTunePoints()
+    
+    def setVisibleAutoTunePoints(self):
+        posData = self.data[self.pos_i]
+        frame_i = posData.frame_i
+        z = self.currentZ()
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.setVisibleAutoTunePoints(frame_i, z)
     
     def updateZproj(self, how):
         super().updateZproj(how)
@@ -1139,6 +1208,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.spotsItems.setData(
             posData.frame_i, z=self.currentZ(checkIfProj=True)
         )
+        self.setVisibleAutoTunePoints()
     
     def updatePos(self):
         self.setSaturBarLabel()

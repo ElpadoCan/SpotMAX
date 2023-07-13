@@ -6,6 +6,9 @@ def initial_gaussian_filter(
         image, lab=None, do_remove_hot_pixels=False, gauss_sigma=0.0,
         use_gpu=True, logger_func=print
     ):
+    if image.ndim == 2:
+        image = image[np.newaxis]
+        
     if do_remove_hot_pixels:
         image = filters.remove_hot_pixels(image)
     else:
@@ -18,7 +21,6 @@ def initial_gaussian_filter(
     else:
         image = image
     return image
-    
 
 def spots_semantic_segmentation(
         image, 

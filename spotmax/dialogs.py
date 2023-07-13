@@ -899,7 +899,23 @@ class AutoTuneTabWidget(QWidget):
         self.autoTuneGroupbox.trueColorButton.setColor(trueColor)
         self.autoTuneGroupbox.falseColorButton.setColor(falseColor)
     
-    def addAutoTunePoint(self, z, x, y):
+    def getHoveredPoints(self, frame_i, z, y, x):
+        items = [
+            self.autoTuneGroupbox.trueItem, self.autoTuneGroupbox.falseItem
+        ]
+        hoveredPoints = []
+        for item in items:
+            hoveredMask = item._maskAt(QPointF(x, y))
+            points = item.points()[hoveredMask][::-1]
+            if len(points) == 0:
+                continue
+            for point in points:
+                if point.data() != (frame_i, z):
+                    continue 
+                hoveredPoints.append(point)
+        return hoveredPoints
+    
+    def addAutoTunePoint(self, frame_i, z, x, y):
         if self.autoTuneGroupbox.trueFalseToggle.isChecked():
             item = self.autoTuneGroupbox.trueItem
         else:
@@ -908,15 +924,38 @@ class AutoTuneTabWidget(QWidget):
         points = item.points()[hoveredMask][::-1]
         if len(points) > 0:
             for point in points:
-                if point.data() != z:
+                if point.data() != (frame_i, z):
                     continue 
                 item.removePoint(point._index)
         else:
-            item.addPoints([x], [y], data=[z])
+            item.addPoints([x], [y], data=[(frame_i, z)])
 
             # Debug
             hoveredMask = item._maskAt(QPointF(x, y))
             points = item.points()[hoveredMask][::-1]
+    
+    def setVisibleAutoTunePoints(self, frame_i, z):
+        items = [
+            self.autoTuneGroupbox.trueItem, self.autoTuneGroupbox.falseItem
+        ]
+        
+        for item in items:
+            brushes = []
+            pens = []
+            for point in item.data['item']:
+                visible = point.data() == (frame_i, z)
+                if not visible:
+                    brush = pg.mkBrush((0, 0, 0, 0))
+                    pen = pg.mkPen((0, 0, 0, 0))
+                else:
+                    brush = item.itemBrush()
+                    pen = item.itemPen()
+                brushes.append(brush)
+                pens.append(pen)
+            if not brushes:
+                continue
+            item.setBrush(brushes)
+            item.setPen(pens)
             
     def setAutoTunePointSize(self, size):
         self.autoTuneGroupbox.trueItem.setSize((size))

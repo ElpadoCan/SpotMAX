@@ -132,15 +132,16 @@ class LoadImageWorker(QRunnable):
             (self, filepath, channel, image_data, self._loop)
         )
 
-class AutoTuneKernelWorker(QRunnable):
+class TuneKernelWorker(QRunnable):
     def __init__(self, kernel):
         QRunnable.__init__(self)
         self.signals = signals()
+        self.logger = workerLogger(self.signals.progress)
         self._kernel = kernel
     
     @worker_exception_handler
     def run(self):
-        self.logger.log(f'Running auto-tuning process...')
+        self.logger.log('Running auto-tuning process...')
         self._kernel.run(logger_func=self.logger.log)
         self.signals.finished.emit(self._kernel)
 
@@ -191,7 +192,10 @@ class CropImageBasedOnSegmDataWorker(QRunnable):
         segm_slice, pad_widths, crop_to_global_coords = crop_info
         image_cropped = image_data[segm_slice]
         segm_data_cropped = segm_data[segm_slice]
-        result = (image_cropped, segm_data_cropped, self.on_finished_callback)
+        result = (
+            image_cropped, segm_data_cropped, crop_to_global_coords, 
+            self.on_finished_callback
+        )
         self.signals.finished.emit(result)
 
 class pathScannerWorker(QRunnable):
