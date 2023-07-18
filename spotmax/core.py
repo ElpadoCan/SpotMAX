@@ -144,7 +144,7 @@ class _DataLoader:
                 images_path, os.path.basename(channel)
             )
             if not os.path.exists(ch_path):
-                self._critical_channel_not_found(channel, ch_path)
+                self._critical_channel_not_found(channel, images_path)
                 return
 
             self.log(f'Loading "{channel}" channel from "{ch_path}"...')
