@@ -93,7 +93,7 @@ class _DataLoader:
         return data
     
     def _critical_channel_not_found(
-            self, channel, channel_path, searched_ext=None
+            self, channel, images_path, searched_ext=None
         ):
         ext = os.path.splitext(channel)[-1]
         if ext:
@@ -111,16 +111,19 @@ class _DataLoader:
             )
         self.logger.info(
             f'{error_down_str}\n'
-            f'The channel/file {channel} was not found. If you are trying to load '
+            f'The file ending with "{channel}" was not found. If you are trying to load '
             'a channel without an extension make sure that one of the following '
             'channels exists:\n\n'
             f'{searched_files}\n'
             'Alternatively, provide the extension to the channel name in the '
             '.ini configuration file.\n'
         )
-        error = FileNotFoundError(f'The channel "{channel}" does not exist')
+        error_msg = (
+            f'The file ending with "{channel}" does not exist in the folder "{images_path}"'
+        )
+        error = FileNotFoundError(error_msg)
         self.logger.info(f'[ERROR]: {error}{error_up_str}')       
-        self.quit()
+        raise error
     
     def _load_data_from_images_path(
             self, images_path: os.PathLike, spots_ch_endname: str, 
@@ -141,7 +144,7 @@ class _DataLoader:
                 images_path, os.path.basename(channel)
             )
             if not os.path.exists(ch_path):
-                self._critical_channel_not_found(channel, ch_path)
+                self._critical_channel_not_found(channel, images_path)
                 return
 
             self.log(f'Loading "{channel}" channel from "{ch_path}"...')
@@ -181,7 +184,7 @@ class _DataLoader:
         )
         if table_path is None:
             self._critical_channel_not_found(
-                lineage_table_endname, table_path, searched_ext='.csv'
+                lineage_table_endname, images_path, searched_ext='.csv'
             )
             return
         self.log(
@@ -4654,7 +4657,7 @@ class Kernel(_ParamsParser):
         is_report_enabled = not disable_final_report
         if is_report_enabled and report_filepath:
             self.init_report(self.ini_params_file_path, report_filepath)
-        
+
         if self.exp_paths_list:
             self.is_batch_mode = True
             for exp_paths in self.exp_paths_list:
