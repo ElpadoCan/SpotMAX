@@ -72,10 +72,11 @@ class TuneKernel:
         spots_img = pipe.initial_gaussian_filter(image, **kwargs)
         return spots_img
     
-    def find_best_threshold_method(self):
+    def find_best_threshold_method(self, **kwargs):
+        emitDebug = kwargs.get('emitDebug')
+        
         false_coords_df = self.false_spots_coords_df().set_index('frame_i')
         true_coords_df = self.true_spots_coords_df()
-        printl(true_coords_df)
         f1_scores = []
         positive_areas = []
         methods = []
@@ -93,8 +94,8 @@ class TuneKernel:
                 image, keep_input_shape=True, **kwargs
             )
             zz_true = true_df['z'].to_list()
-            yy_true = true_df['x'].to_list()
-            xx_true = true_df['y'].to_list()
+            yy_true = true_df['y'].to_list()
+            xx_true = true_df['x'].to_list()
             try:
                 zz_false = false_coords_df.loc[frame_i, 'z'].to_list()
                 yy_false = false_coords_df.loc[frame_i, 'y'].to_list()
@@ -102,8 +103,6 @@ class TuneKernel:
             except Exception as e:
                 zz_false, yy_false, xx_false = [], [], []
             
-            printl(zz_true, yy_true, xx_true)
-            printl(zz_false, yy_false, xx_false)
             for method, thresholded in result.items():
                 if method == 'input_image':
                     continue
@@ -118,17 +117,29 @@ class TuneKernel:
                 f1_scores.append(f1_score)
                 methods.append(method)
                 positive_areas.append(positive_area)
+                
+                # input_image = result['input_image']
+                # to_debug = (
+                #     method, thresholded, input_image, zz_true, yy_true, 
+                #     xx_true, zz_false, yy_false, xx_false, tp, fn, tn, fp, 
+                #     positive_area, f1_score
+                # )
+                # emitDebug(to_debug)
             
         df_score = pd.DataFrame({
             'threshold_method': methods,
             'f1_score': f1_scores,
             'positive_area': positive_areas
-        })
+        }).sort_values(['f1_score', 'positive_area'], ascending=[False, True])
         
-        printl(df_score)
+        best_method = df_score.iloc[0]['threshold_method']
+        return best_method
                 
     
-    def run(self, logger_func=printl):
+    def run(self, logger_func=printl, **kwargs):
+        emitDebug = kwargs.get('emitDebug')
         logger_func('Determining optimal thresholding method...')
-        self.find_best_threshold_method()
-        
+        self.best_threshold_method = self.find_best_threshold_method(
+            emitDebug=emitDebug
+        )
+        df_spots = self.compute_spots_features()

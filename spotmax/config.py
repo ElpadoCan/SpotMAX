@@ -529,7 +529,7 @@ def _metadata_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addAutoButton': False,
-            'formWidgetFunc': 'widgets.intLineEdit',
+            'formWidgetFunc': 'acdc_widgets.IntLineEdit',
             'actions': None,
             'dtype': int,
             'valueSetter': 'setValue'
@@ -542,7 +542,7 @@ def _metadata_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addAutoButton': False,
-            'formWidgetFunc': 'widgets.intLineEdit',
+            'formWidgetFunc': 'acdc_widgets.IntLineEdit',
             'actions': None,
             'dtype': int,
             'valueSetter': 'setValue'
@@ -555,7 +555,7 @@ def _metadata_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addAutoButton': False,
-            'formWidgetFunc': 'widgets.intLineEdit',
+            'formWidgetFunc': 'acdc_widgets.IntLineEdit',
             'actions': None,
             'dtype': int,
             'valueSetter': 'setValue'

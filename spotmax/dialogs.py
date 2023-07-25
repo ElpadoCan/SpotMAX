@@ -427,6 +427,7 @@ class guiTabControl(QTabWidget):
                 # printl(section, anchor, val)
                 valueSetter = params[section][anchor].get('valueSetter')
                 formWidget.setValue(val, valueSetter=valueSetter)
+        self.parametersQGBox.updateMinSpotSize()
     
     def loadPreviousParams(self, filePath):
         self.logging_func(f'Loading analysis parameters from "{filePath}"...')
@@ -1215,7 +1216,8 @@ class ParamsGroupBox(QGroupBox):
                     value = widget.value()
                 
                 ini_params[section][anchor] = {
-                    'desc': options['desc'], 'loadedVal': value
+                    'desc': options['desc'], 'loadedVal': value, 
+                    'initalVal': initalVal
                 }
         return ini_params
 

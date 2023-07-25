@@ -6,6 +6,30 @@ import matplotlib.pyplot as plt
 
 from . import printl
 
+def _gui_autotune_f1_score(to_debug):
+    (method, thresholded, input_image, zz_true, yy_true, 
+    xx_true, zz_false, yy_false, xx_false, tp, fn, tn, fp, 
+    positive_area, f1_score, worker) = to_debug
+    
+    printl(
+        f'{method = }\n'
+        f'{zz_true = }\n'
+        f'{yy_true = }\n'
+        f'{xx_true = }\n'
+        f'{zz_false = }\n'
+        f'{yy_false = }\n'
+        f'{xx_false = }\n'
+        f'{tp = }\n'
+        f'{fn = }\n'
+        f'{tn = }\n'
+        f'{fp = }\n'
+        f'{positive_area = }\n'
+        f'{f1_score = }\n'
+    )
+    from cellacdc.plot import imshow
+    points_coords = np.column_stack((zz_true, yy_true, xx_true))
+    imshow(input_image, thresholded, points_coords=points_coords)
+
 def _peak_local_max(
         folder_name, local_sharp_spots_img, footprint, labels, cell_ID,
         threshold_val, df_obj_spots_gop=None, df_obj_spots_det=None, 

@@ -3190,6 +3190,7 @@ class Kernel(_ParamsParser):
             sharp_spots_img, lab, lineage_table=lineage_table, 
             zyx_tolerance=zyx_resolution_limit_pxl
         )
+        
         if prediction_method == 'Thresholding':
             if isinstance(threshold_method, str):
                 threshold_func = getattr(skimage.filters, threshold_method)
@@ -3203,7 +3204,7 @@ class Kernel(_ParamsParser):
         else:
             # Here we will use U-Net
             pass
-
+        
         if detection_method == 'peak_local_max':
             aggr_spots_coords = skimage.feature.peak_local_max(
                 np.squeeze(aggr_spots_img), 
@@ -3214,7 +3215,7 @@ class Kernel(_ParamsParser):
             prediction_lab = skimage.measure.label(labels>0)
             prediction_lab_rp = skimage.measure.regionprops(prediction_lab)
             num_spots = len(prediction_lab_rp)
-            aggr_spots_coords = np.zeros((len(num_spots, 3)))
+            aggr_spots_coords = np.zeros((num_spots, 3), dtype=int)
             for s, spot_obj in enumerate(prediction_lab_rp):
                 aggr_spots_coords[s] = [int(c) for c in spot_obj.centroid]
 
@@ -4303,6 +4304,8 @@ class Kernel(_ParamsParser):
                 sharp_spots_img = self.sharpen_spots(
                     raw_spots_img, self.metadata
                 )
+            else:
+                sharp_spots_img = None
             lab = segm_data[frame_i]
             rp = segm_rp[frame_i]
             if ref_ch_data is not None:

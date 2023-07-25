@@ -12,7 +12,7 @@ import h5py
 
 import skimage.io
 
-from qtpy.QtCore import Signal, QObject, QRunnable
+from qtpy.QtCore import Signal, QObject, QRunnable, QMutex, QWaitCondition
 
 from cellacdc.workers import worker_exception_handler, workerLogger
 from cellacdc import load as acdc_load
@@ -132,17 +132,31 @@ class LoadImageWorker(QRunnable):
             (self, filepath, channel, image_data, self._loop)
         )
 
-class TuneKernelWorker(QRunnable):
-    def __init__(self, kernel):
-        QRunnable.__init__(self)
+class Runnable(QRunnable):
+    def __init__(self):
+        super().__init__()
         self.signals = signals()
         self.logger = workerLogger(self.signals.progress)
+        self.mutex = QMutex()
+        self.waitCond = QWaitCondition()
+    
+    def emitDebugSignal(self, to_debug):
+        self.mutex.lock()
+        self.signals.debug.emit((*to_debug, self))
+        self.waitCond.wait(self.mutex)
+        self.mutex.unlock()
+
+class TuneKernelWorker(Runnable):
+    def __init__(self, kernel):
+        super().__init__()
         self._kernel = kernel
     
     @worker_exception_handler
     def run(self):
         self.logger.log('Running auto-tuning process...')
-        self._kernel.run(logger_func=self.logger.log)
+        self._kernel.run(
+            logger_func=self.logger.log, emitDebug=self.emitDebugSignal
+        )
         self.signals.finished.emit(self._kernel)
 
 class CropImageBasedOnSegmDataWorker(QRunnable):

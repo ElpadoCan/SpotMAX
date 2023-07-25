@@ -133,3 +133,6 @@ def reference_channel_semantic_segm(
     result = {**{'input_image': input_image}, **result}
     
     return result
+
+def compute_spots_features():
+    pass

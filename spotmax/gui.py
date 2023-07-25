@@ -62,6 +62,12 @@ PARAMS_SLOTS = {
     'refChThresholdFunc': ('sigComputeButtonClicked', '_computeSegmentRefChannel')
 }
 
+SliderSingleStepAdd = acdc_gui.SliderSingleStepAdd
+SliderSingleStepSub = acdc_gui.SliderSingleStepSub
+SliderPageStepAdd = acdc_gui.SliderPageStepAdd
+SliderPageStepSub = acdc_gui.SliderPageStepSub
+SliderMove = acdc_gui.SliderMove
+
 class spotMAX_Win(acdc_gui.guiWin):
     def __init__(
             self, app, debug=False, parent=None, buttonToRestore=None, 
@@ -93,13 +99,13 @@ class spotMAX_Win(acdc_gui.guiWin):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
             posData = self.data[self.pos_i]
-            # autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-            # autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+            autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+            autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
             
-            # trueItem = autoTuneGroupbox.trueItem
-            # coords = trueItem.coordsToNumpy(includeData=True)
+            trueItem = autoTuneGroupbox.trueItem
+            coords = trueItem.coordsToNumpy(includeData=True)
             
-            # printl(coords)
+            printl(coords)
         super().keyPressEvent(event)
     
     def gui_setCursor(self, modifiers, event):
@@ -857,7 +863,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.threadPool.start(worker)
     
     def workerDebug(self, to_debug):
-        pass
+        from . import _debug
+        worker = to_debug[-1]
+        _debug._gui_autotune_f1_score(to_debug)
+        worker.waitCond.wakeAll()
     
     def computeAnalysisStepWorkerFinished(self, output: tuple):
         if self.progressWin is not None:
@@ -920,6 +929,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.ax1_BrushCircle.setSize(size)
     
     def addAutoTunePoint(self, frame_i, z, y, x):
+        self.setAutoTunePointSize()
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.addAutoTunePoint(frame_i, z, x, y)
     
@@ -1122,7 +1132,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         pathScanner.getExpPaths(posData.exp_path)
         pathScanner.infoExpPaths(pathScanner.expPaths)
-        run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
+        run_nums = set()
+        for run_num, expsInfo in pathScanner.paths.items():
+            for expPath, expInfo in expsInfo.items():
+                numPosSpotCounted = expInfo.get('numPosSpotCounted', 0)
+                if numPosSpotCounted > 0:
+                    run_nums.add(run_num)
+        run_nums = sorted(list(run_nums))
+        
         self.loaded_exp_run_nums = run_nums
         
     def setAnalysisParameters(self):
@@ -1130,7 +1147,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         posData = self.data[self.pos_i]
         segmFilename = os.path.basename(posData.segm_npz_path)
         segmEndName = segmFilename[len(posData.basename):]
-        runNum = max(self.loaded_exp_run_nums) + 1
+        runNum = max(self.loaded_exp_run_nums, default=0) + 1
         try:
             emWavelen = posData.emWavelens[self.user_ch_name]
         except Exception as e:
@@ -1177,7 +1194,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def zSliceScrollBarActionTriggered(self, action):
         super().zSliceScrollBarActionTriggered(action)
-        if action != QAbstractSlider.SliderAction.SliderMove:
+        if action != SliderMove:
             return
         posData = self.data[self.pos_i]
         self.spotsItems.setData(
