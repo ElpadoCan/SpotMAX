@@ -71,6 +71,7 @@ ZYX_LOCAL_EXPANDED_COLS = [
     'z_local_expanded', 'y_local_expanded', 'x_local_expanded'
 ]
 ZYX_FIT_COLS = ['z_fit', 'y_fit', 'x_fit']
+ZYX_RESOL_COLS = ['z_resolution_pxl', 'y_resolution_pxl', 'x_resolution_pxl']
 
 class _DataLoader:
     def __init__(self, debug=False, log=print):
@@ -3136,6 +3137,8 @@ class Kernel(_ParamsParser):
             'y_local_expanded': local_peaks_coords_expanded[:,1],
             'x_local_expanded': local_peaks_coords_expanded[:,2],
         }).set_index('spot_id')
+        
+        df_obj_spots[ZYX_RESOL_COLS] = self.metadata['zyxResolutionLimitPxl']
 
         return df_obj_spots, local_peaks_coords_expanded
 
@@ -3973,6 +3976,7 @@ class Kernel(_ParamsParser):
         pxl_to_um2 = metadata.get('pxl_to_um2_factor', 1)
         vox_to_um3 = metadata.get('vox_to_um3_factor', 1)
         vox_to_fl_rot = metadata.get('vox_to_fl_rot_factor', 1)
+        df_agg[ZYX_RESOL_COLS] = metadata['zyxResolutionLimitPxl']
         for obj in rp:
             idx = (frame_i, obj.label)
             cell_area_pxl = obj.area
