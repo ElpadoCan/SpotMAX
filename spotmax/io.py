@@ -2087,9 +2087,6 @@ def save_spots_masks(
     spots_ch_segm_filename = f'{spots_ch_segm_filename}.npz'
     spots_ch_segm_filepath = os.path.join(images_path, spots_ch_segm_filename)
     
-    if mask_shape is None:
-        return
-    
     spots_mask_data = np.zeros(mask_shape, dtype=np.uint32)
     for row in df_spots.itertuples():
         frame_i, ID, spot_id = row.Index
@@ -2106,6 +2103,9 @@ def save_spots_masks(
         spots_mask_data[frame_i][spot_slice][spot_obj.image] = spot_obj.label
     
     np.savez_compressed(spots_ch_segm_filepath, spots_mask_data)
+    df_spots = df_spots.drop(columns='spot_obj')
+    return df_spots
+    
 
 def addToRecentPaths(selectedPath):
     if not os.path.exists(selectedPath):

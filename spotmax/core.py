@@ -4676,14 +4676,12 @@ class Kernel(_ParamsParser):
                         text_to_append=text_to_append,
                         mask_shape=uncropped_shape
                     )
-                    import pdb; pdb.set_trace()
                     
                 io.save_df_spots(
                     df_spots, spotmax_out_path, df_spots_filename,
                     extension=df_spots_file_ext
                 )
             
-            ext = df_spots_file_ext
             agg_filename = f'{df_spots_filename}_aggregated.csv'
             agg_key = key.replace('spots', 'agg')
             df_agg = dfs.get(agg_key, None)

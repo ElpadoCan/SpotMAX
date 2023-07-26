@@ -877,7 +877,7 @@ def _spots_ch_params():
         },
         'saveSpotsMask': {
             'desc': 'Save spots segmentation masks',
-            'initialVal': True,
+            'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,
             'addComputeButton': False,
