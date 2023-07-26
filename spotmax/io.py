@@ -2100,7 +2100,7 @@ def save_spots_masks(
             slice(ystart, ystart+dy, None),
             slice(xstart, xstart+dx, None)
         )
-        spots_mask_data[frame_i][spot_slice][spot_obj.image] = spot_obj.label
+        spots_mask_data[frame_i][spot_slice][spot_obj.image] = spot_id
     
     np.savez_compressed(spots_ch_segm_filepath, spots_mask_data)
     df_spots = df_spots.drop(columns='spot_obj')
