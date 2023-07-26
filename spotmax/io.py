@@ -2092,9 +2092,10 @@ def save_spots_masks(
         frame_i, ID, spot_id = row.Index
         spot_obj = row.spot_obj
         dz, dy, dx = spot_obj.image.shape
-        zstart = row.z - row.z_local
-        ystart = row.y - row.y_local
-        xstart = row.x - row.x_local
+        zc_spot_local, yc_spot_local, xc_spot_local = spot_obj.zyx_local_center
+        zstart = row.z - zc_spot_local
+        ystart = row.y - yc_spot_local
+        xstart = row.x - xc_spot_local
         spot_slice = (
             slice(zstart, zstart+dz, None),
             slice(ystart, ystart+dy, None),

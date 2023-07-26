@@ -240,7 +240,6 @@ class _DataLoader:
                 continue
             # Add axis for Time
             data[key] = data[key][np.newaxis]
-            
             data[f'{key}.shape'] = data[key].shape
         
         return data
@@ -3165,8 +3164,6 @@ class Kernel(_ParamsParser):
         })
         if spots_objs is not None:
             df_obj_spots['spot_obj'] = spots_objs
-        df_obj_spots = df_obj_spots.set_index('spot_id')
-        
         df_obj_spots[ZYX_RESOL_COLS] = self.metadata['zyxResolutionLimitPxl']
 
         return df_obj_spots, local_peaks_coords_expanded
@@ -3188,7 +3185,11 @@ class Kernel(_ParamsParser):
             'z_aggr': zz, 'y_aggr': yy, 'x_aggr': xx, 
             'z_local': zeros, 'y_local': zeros, 'x_local': zeros,
             'Cell_ID': aggregated_lab[zz, yy, xx]
-        }).set_index('Cell_ID').sort_index()
+        })
+        if spots_objs is not None:
+            df_spots_coords['spot_obj'] = spots_objs
+        
+        df_spots_coords = df_spots_coords.set_index('Cell_ID').sort_index()
         
         num_spots_objs_txts = []
         pbar = tqdm(
@@ -3211,9 +3212,6 @@ class Kernel(_ParamsParser):
             num_spots_objs_txts.append(s)
             pbar.update()
         pbar.close()
-        
-        if spots_objs is not None:
-            df_spots_coords['spot_obj'] = spots_objs
 
         return df_spots_coords, num_spots_objs_txts
         
@@ -3260,11 +3258,20 @@ class Kernel(_ParamsParser):
             prediction_lab_rp = skimage.measure.regionprops(prediction_lab)
             num_spots = len(prediction_lab_rp)
             aggr_spots_coords = np.zeros((num_spots, 3), dtype=int)
-            for s, spot_obj in enumerate(prediction_lab_rp):
-                aggr_zyx_coords = tuple([int(c) for c in spot_obj.centroid])
-                aggr_spots_coords[s] = aggr_zyx_coords
             if save_spots_mask:
-                spots_objs = prediction_lab_rp
+                spots_objs = []
+            for s, spot_obj in enumerate(prediction_lab_rp):
+                aggr_zyx_coords = tuple([round(c) for c in spot_obj.centroid])
+                aggr_spots_coords[s] = aggr_zyx_coords
+                if not save_spots_mask:
+                    continue
+                zmin, ymin, xmin, _, _, _ = spot_obj.bbox
+                spot_obj.zyx_local_center = (
+                    aggr_zyx_coords[0] - zmin,
+                    aggr_zyx_coords[1] - ymin,
+                    aggr_zyx_coords[2] - xmin
+                )
+                spots_objs.append(spot_obj)
 
         df_spots_coords, num_spots_objs_txts = self._add_local_coords_from_aggr(
             aggr_spots_coords, aggregated_lab, spots_objs=spots_objs
@@ -3324,7 +3331,7 @@ class Kernel(_ParamsParser):
         pbar = tqdm(
             total=len(rp), ncols=100, desc=desc, position=3, leave=False
         )
-        for obj in rp:
+        for obj_idx, obj in enumerate(rp):
             expanded_obj = transformations.get_expanded_obj_slice_image(
                 obj, delta_tol, lab
             )
@@ -3341,6 +3348,13 @@ class Kernel(_ParamsParser):
                 s = f'  * Object ID {obj.label} = 0 --> 0 (0 iterations)'
                 num_spots_filtered_log.append(s)
                 continue
+            
+            # Increment spot_id with previous object
+            if obj_idx > 0:
+                last_spot_id = dfs_spots_det[obj_idx-1].iloc[-1].name
+                df_obj_spots_det['spot_id'] += last_spot_id
+            
+            df_obj_spots_det = df_obj_spots_det.set_index('spot_id').sort_index()
             
             keys.append((frame_i, obj.label))
             num_spots_detected = len(df_obj_spots_det)
