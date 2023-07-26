@@ -46,6 +46,9 @@ html_path = os.path.join(spotmax_path, 'html_files')
 
 home_path = pathlib.Path.home()
 spotmax_appdata_path = os.path.join(home_path, 'spotmax_appdata')
+last_used_ini_text_filepath = os.path.join(
+    spotmax_appdata_path, 'last_used_ini_filepath.txt'
+)
 
 data_path = os.path.join(spotMAX_path, 'data')
 

@@ -155,6 +155,7 @@ class _DataLoader:
             )
             data[f'{key}.dtype'] = ch_dtype
             data[key] = ch_data
+            data[f'{key}.shape'] = ch_data.shape
 
         ch_key = 'spots_ch' if 'spots_ch' in data else 'ref_ch'
         data_shape = data[ch_key].shape
@@ -210,7 +211,7 @@ class _DataLoader:
                 continue
             ch_data = data[key]
             if SizeZ > 1:
-                # Data is already 4D
+                # Data is already 3D z-stacks. T axis will be added later
                 continue
             
             if ch_data.ndim == 2:
@@ -219,6 +220,8 @@ class _DataLoader:
             elif ch_data.ndim == 3:
                 # Data is 3D timelpase. Add axis for z-slice
                 data[key] = data[key][:, np.newaxis]
+            
+            data[f'{key}.shape'] = data[key].shape
 
         if 'lineage_table' in data:
             table = data['lineage_table']
@@ -235,8 +238,11 @@ class _DataLoader:
         for key in arr_keys:
             if key not in data:
                 continue
+            # Add axis for Time
             data[key] = data[key][np.newaxis]
             
+            data[f'{key}.shape'] = data[key].shape
+        
         return data
 
     def _crop_based_on_segm_data(self, data):
@@ -3011,15 +3017,31 @@ class Kernel(_ParamsParser):
 
     @exception_handler_cli
     def spots_detection(
-            self, spots_img, zyx_resolution_limit_pxl, sharp_spots_img=None,
-            raw_spots_img=None, ref_ch_img=None, ref_ch_mask_or_labels=None, 
-            frame_i=0, lab=None, rp=None, backgr_is_outside_ref_ch_mask=False, 
-            df_agg=None, do_keep_spots_in_ref_ch=False, 
-            gop_filtering_thresholds=None, dist_transform_spheroid=None,
-            detection_method='peak_local_max', prediction_method='Thresholding',
-            threshold_method='threshold_otsu', do_aggregate=False,
-            lineage_table=None, min_size_spheroid_mask=None,
-            spot_footprint=None, dfs_lists=None, verbose=True,
+            self, 
+            spots_img, 
+            zyx_resolution_limit_pxl, 
+            sharp_spots_img=None,
+            raw_spots_img=None, 
+            ref_ch_img=None, 
+            ref_ch_mask_or_labels=None, 
+            frame_i=0, 
+            lab=None, 
+            rp=None, 
+            backgr_is_outside_ref_ch_mask=False, 
+            df_agg=None, 
+            do_keep_spots_in_ref_ch=False, 
+            gop_filtering_thresholds=None, 
+            dist_transform_spheroid=None,
+            detection_method='peak_local_max', 
+            prediction_method='Thresholding',
+            threshold_method='threshold_otsu', 
+            do_aggregate=False,
+            lineage_table=None, 
+            min_size_spheroid_mask=None,
+            spot_footprint=None, 
+            dfs_lists=None, 
+            save_spots_mask=True,
+            verbose=True,
         ):
         if spots_img.ndim == 2:
             spots_img = spots_img[np.newaxis]
@@ -3065,7 +3087,7 @@ class Kernel(_ParamsParser):
             sharp_spots_img, lab, detection_method, threshold_method, 
             prediction_method, do_aggregate, spot_footprint, 
             zyx_resolution_limit_pxl, lineage_table=lineage_table,
-            verbose=verbose
+            verbose=verbose, save_spots_mask=save_spots_mask
         )
         
         df_spots_det, df_spots_gop = self._spots_filter(
@@ -3123,6 +3145,10 @@ class Kernel(_ParamsParser):
         # Add correct local_peaks_coords considering the cropping tolerance 
         # `delta_tolerance`
         local_peaks_coords_expanded = global_peaks_coords - crop_obj_start 
+        spots_objs = None
+        if 'spot_obj' in df_spots_coords.columns:
+            spots_objs = (
+                df_spots_coords.loc[[obj.label], 'spot_obj']).to_list()
 
         num_spots_detected = len(global_peaks_coords)
         df_obj_spots = pd.DataFrame({
@@ -3136,13 +3162,18 @@ class Kernel(_ParamsParser):
             'z_local_expanded': local_peaks_coords_expanded[:,0],
             'y_local_expanded': local_peaks_coords_expanded[:,1],
             'x_local_expanded': local_peaks_coords_expanded[:,2],
-        }).set_index('spot_id')
+        })
+        if spots_objs is not None:
+            df_obj_spots['spot_obj'] = spots_objs
+        df_obj_spots = df_obj_spots.set_index('spot_id')
         
         df_obj_spots[ZYX_RESOL_COLS] = self.metadata['zyxResolutionLimitPxl']
 
         return df_obj_spots, local_peaks_coords_expanded
 
-    def _from_aggr_coords_to_local(self, aggr_spots_coords, aggregated_lab):
+    def _add_local_coords_from_aggr(
+            self, aggr_spots_coords, aggregated_lab, spots_objs=None
+        ):
         aggr_lab_rp = skimage.measure.regionprops(aggregated_lab)
         if len(aggr_spots_coords) == 0:
             zz, yy, xx = [], [], []
@@ -3158,6 +3189,7 @@ class Kernel(_ParamsParser):
             'z_local': zeros, 'y_local': zeros, 'x_local': zeros,
             'Cell_ID': aggregated_lab[zz, yy, xx]
         }).set_index('Cell_ID').sort_index()
+        
         num_spots_objs_txts = []
         pbar = tqdm(
             total=len(aggr_lab_rp), ncols=100, position=3, leave=False
@@ -3179,19 +3211,25 @@ class Kernel(_ParamsParser):
             num_spots_objs_txts.append(s)
             pbar.update()
         pbar.close()
+        
+        if spots_objs is not None:
+            df_spots_coords['spot_obj'] = spots_objs
 
         return df_spots_coords, num_spots_objs_txts
         
     def _spots_detection(
             self, sharp_spots_img, lab, detection_method, threshold_method, 
             prediction_method, do_aggregate, footprint, 
-            zyx_resolution_limit_pxl, lineage_table=None, 
+            zyx_resolution_limit_pxl, save_spots_mask=True,
+            lineage_table=None, 
             verbose=True
         ):
         if verbose:
             print('')
             self.logger.info('Detecting spots...')
 
+        spots_objs = None
+        
         aggr_spots_img, aggregated_lab = transformations.aggregate_objs(
             sharp_spots_img, lab, lineage_table=lineage_table, 
             zyx_tolerance=zyx_resolution_limit_pxl
@@ -3223,10 +3261,13 @@ class Kernel(_ParamsParser):
             num_spots = len(prediction_lab_rp)
             aggr_spots_coords = np.zeros((num_spots, 3), dtype=int)
             for s, spot_obj in enumerate(prediction_lab_rp):
-                aggr_spots_coords[s] = [int(c) for c in spot_obj.centroid]
+                aggr_zyx_coords = tuple([int(c) for c in spot_obj.centroid])
+                aggr_spots_coords[s] = aggr_zyx_coords
+            if save_spots_mask:
+                spots_objs = prediction_lab_rp
 
-        df_spots_coords, num_spots_objs_txts = self._from_aggr_coords_to_local(
-            aggr_spots_coords, aggregated_lab
+        df_spots_coords, num_spots_objs_txts = self._add_local_coords_from_aggr(
+            aggr_spots_coords, aggregated_lab, spots_objs=spots_objs
         )
 
         # if self.debug:
@@ -4242,7 +4283,7 @@ class Kernel(_ParamsParser):
         
         if 'spots_ch' not in data:
             dfs = {'agg_detection': data['df_agg']}
-            return dfs
+            return dfs, data
         
         self._current_step = 'Detecting spots'
         spots_data = data.get('spots_ch')
@@ -4291,6 +4332,9 @@ class Kernel(_ParamsParser):
             self._params[SECTION]['spotDetectionMethod']['loadedVal']
         )
         do_spotfit = self._params[SECTION]['doSpotFit']['loadedVal']
+        save_spots_mask = (
+            self._params[SECTION]['saveSpotsMask']['loadedVal']
+        )
         dfs_lists = {
             'dfs_spots_detection': [], 'dfs_spots_gop_test': [], 'keys': []
         }
@@ -4350,6 +4394,7 @@ class Kernel(_ParamsParser):
                 detection_method=detection_method,
                 do_aggregate=do_aggregate,
                 lineage_table=lineage_table,
+                save_spots_mask=save_spots_mask,
                 verbose=verbose
             )
             pbar.update()
@@ -4375,7 +4420,7 @@ class Kernel(_ParamsParser):
                 'agg_gop': df_agg_gop,
                 'agg_spotfit': df_agg_spotfit
             }
-            return dfs
+            return dfs, data
 
         names = ['frame_i', 'Cell_ID', 'spot_id']
         keys = dfs_lists['keys']
@@ -4448,7 +4493,7 @@ class Kernel(_ParamsParser):
             'agg_spotfit': df_agg_spotfit
         }
 
-        return dfs
+        return dfs, data
 
     @exception_handler_cli
     def _run_exp_paths(self, exp_paths):
@@ -4491,7 +4536,7 @@ class Kernel(_ParamsParser):
                 self.logger.info(f'Analysing "...{os.sep}{rel_path}"...')
                 images_path = os.path.join(pos_path, 'Images')
                 self._current_pos_path = pos_path
-                dfs = self._run_from_images_path(
+                dfs, data = self._run_from_images_path(
                     images_path, 
                     spots_ch_endname=spots_ch_endname, 
                     ref_ch_endname=ref_ch_endname, 
@@ -4504,8 +4549,13 @@ class Kernel(_ParamsParser):
                     # Error raised, logged while dfs is None
                     continue
                 self.add_post_detection_features(dfs)
-                self.save_dfs(
-                    pos_path, dfs, run_number=run_number, 
+                self.save_dfs_and_spots_masks(
+                    pos_path, dfs, 
+                    images_path=images_path,
+                    basename=data.get('basename', ''),
+                    spots_ch_endname=spots_ch_endname,
+                    uncropped_shape=data.get('spots_ch.shape'),
+                    run_number=run_number, 
                     text_to_append=text_to_append, 
                     df_spots_file_ext=df_spots_file_ext
                 )
@@ -4571,8 +4621,15 @@ class Kernel(_ParamsParser):
         with open(analysis_inputs_filepath, 'w', encoding="utf-8") as file:
             configPars.write(file)
     
-    def save_dfs(
-            self, folder_path, dfs, run_number=1, text_to_append='', 
+    def save_dfs_and_spots_masks(
+            self, 
+            folder_path, dfs, 
+            images_path='',
+            basename='',
+            spots_ch_endname='',
+            uncropped_shape=None,
+            run_number=1, 
+            text_to_append='', 
             df_spots_file_ext='.h5'
         ):
         if not df_spots_file_ext.startswith('.'):
@@ -4603,14 +4660,24 @@ class Kernel(_ParamsParser):
         self._copy_ini_params_to_spotmax_out(
             spotmax_out_path, run_number, text_to_append
         )
-
+        
         for key, filename in DFs_FILENAMES.items():
-            filename = filename.replace('*rn*', str(run_number))
-            filename = filename.replace('*desc*', text_to_append)
+            df_spots_filename = filename.replace('*rn*', str(run_number))
+            df_spots_filename = df_spots_filename.replace(
+                '*desc*', text_to_append
+            )
             df_spots = dfs.get(key, None)
-            df_spots_filename = filename
 
             if df_spots is not None:
+                if 'spot_obj' in df_spots.columns:
+                    df_spots = io.save_spots_masks(
+                        df_spots, images_path, basename, filename, 
+                        spots_ch_endname, run_number, 
+                        text_to_append=text_to_append,
+                        mask_shape=uncropped_shape
+                    )
+                    import pdb; pdb.set_trace()
+                    
                 io.save_df_spots(
                     df_spots, spotmax_out_path, df_spots_filename,
                     extension=df_spots_file_ext
@@ -4643,6 +4710,8 @@ class Kernel(_ParamsParser):
         self._force_close_on_critical = force_close_on_critical
         if NUMBA_INSTALLED and num_numba_threads > 0:
             numba.set_num_threads(num_numba_threads)
+        
+        io.save_last_used_ini_filepath(params_path)
         
         proceed, missing_params = self.init_params(
             params_path, metadata_csv_path=metadata_csv_path

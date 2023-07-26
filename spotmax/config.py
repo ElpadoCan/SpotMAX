@@ -875,6 +875,17 @@ def _spots_ch_params():
             'actions': None,
             'dtype': get_bool
         },
+        'saveSpotsMask': {
+            'desc': 'Save spots segmentation masks',
+            'initialVal': True,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        }
         # 'highSpotDensityFit': {
         #     'desc': 'Optimise spots size estimation for high spot density',
         #     'initialVal': True,
