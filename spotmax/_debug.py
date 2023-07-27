@@ -265,3 +265,11 @@ def _threshold_spots_img(spots_img):
         all_thresholded.append(prediction_mask)
     imshow(spots_img, *all_thresholded, axis_titles=('image', *threshold_func_names))
     import pdb; pdb.set_trace()
+
+def _gui_autotune_compute_features(to_debug):
+    (result, zz_true, yy_true, xx_true, 
+     zz_false, yy_false, xx_false, worker) = to_debug
+    from cellacdc.plot import imshow
+    points_coords = np.column_stack((zz_true, yy_true, xx_true))
+    imshow(result, points_coords=points_coords)
+    

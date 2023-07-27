@@ -685,7 +685,7 @@ def _pre_processing_params():
         },
         'removeHotPixels': {
             'desc': 'Remove hot pixels',
-            'initialVal': True,
+            'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,
             'addComputeButton': True,

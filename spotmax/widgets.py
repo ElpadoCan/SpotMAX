@@ -1554,8 +1554,8 @@ class SpotsItems:
         else:
             self._setDataButton(toolbutton, frame_i, z=z)
 
-def ParamFormWidget(anchor, param, parent, use_tuned=False):
-    if use_tuned:
+def ParamFormWidget(anchor, param, parent, use_tune_widget=False):
+    if use_tune_widget:
         widgetName = param['autoTuneWidget']
     else:
         widgetName = param['formWidgetFunc']

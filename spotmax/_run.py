@@ -10,6 +10,7 @@ def run_gui(debug=False, app=None):
 
     from . import read_version
     from . import gui
+    from qtpy import QtCore
 
     EXEC = False
     if app is None:
@@ -23,6 +24,7 @@ def run_gui(debug=False, app=None):
     version = read_version()
     win = gui.spotMAX_Win(app, debug=debug, executed=EXEC, version=version)
     win.run()
+    win.logger.info(f'Using Qt version {QtCore.__version__}')
 
     win.logger.info('Lauching application...')
     welcome_text = (

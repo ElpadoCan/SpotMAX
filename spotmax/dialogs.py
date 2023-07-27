@@ -5,6 +5,7 @@ import pathlib
 import time
 import shutil
 import tempfile
+from tkinter import ANCHOR
 import traceback
 from pprint import pprint
 import typing
@@ -534,8 +535,8 @@ class AutoTuneGroupbox(QGroupBox):
             groupBox = None
             row = 0
             for anchor, param in section_params.items():
-                tunedWidget = param.get('autoTuneWidget')
-                if tunedWidget is None:
+                tuneWidget = param.get('autoTuneWidget')
+                if tuneWidget is None:
                     continue
                 if section not in self.params:
                     self.params[section] = {}
@@ -545,7 +546,7 @@ class AutoTuneGroupbox(QGroupBox):
                 groupBox = self.params[section]['groupBox']
                 formLayout = self.params[section]['formLayout']
                 formWidget = widgets.ParamFormWidget(
-                    anchor, param, self, use_tuned=True
+                    anchor, param, self, use_tune_widget=True
                 )
                 formLayout.addFormWidget(formWidget, row=row)
                 self.params[section][anchor]['widget'] = formWidget.widget
@@ -899,6 +900,17 @@ class AutoTuneTabWidget(QWidget):
     def initAutoTuneColors(self, trueColor, falseColor):
         self.autoTuneGroupbox.trueColorButton.setColor(trueColor)
         self.autoTuneGroupbox.falseColorButton.setColor(falseColor)
+    
+    def selectedFeatures(self):
+        SECTION = 'Spots channel'
+        ANCHOR = 'gopThresholds'
+        widget = self.autoTuneGroupbox.params[SECTION][ANCHOR]['widget']
+        selectedFeatures = {
+            groupbox.title(): [None, None] 
+            for groupbox in widget.featureGroupboxes.values()
+            if groupbox.title().find('Click') == -1
+        }    
+        return selectedFeatures
     
     def getHoveredPoints(self, frame_i, z, y, x):
         items = [
