@@ -4138,7 +4138,7 @@ class Kernel(_ParamsParser):
                     do_aggregate=do_aggregate,
                     lineage_table=lineage_table, 
                     vox_to_um3=vox_to_um3,
-                    zyx_tolerance=zyx_resolution_limit_pxl,
+                    zyx_tolerance=self.metadata['deltaTolerance'],
                     verbose=verbose,                    
                 )
                 ref_ch_segm_data[frame_i] = ref_ch_lab
