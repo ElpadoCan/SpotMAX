@@ -378,8 +378,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.initTuneKernel()
         
         self.setFocusGraphics()
-        self.setFocusMain()
-    
+
     def disconnectParamsGroupBoxSignals(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         for section, params in ParamsGroupBox.params.items():
