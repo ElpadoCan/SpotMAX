@@ -658,10 +658,11 @@ class _ParamsParser(_DataLoader):
         proceed, missing_params = self.check_missing_params()
         if not proceed:
             return False, None
-        self.cast_loaded_values_dtypes()
+        self.cast_loaded_values_filepaths()
         proceed = self.check_paths_exist()
         if not proceed:
             return False, None
+        self.cast_loaded_values_dtypes()
         self.set_abs_exp_paths()
         self.set_metadata()
         proceed = self.check_contradicting_params()
@@ -1362,8 +1363,27 @@ class _ParamsParser(_DataLoader):
                 self._params[SECTION]['refChSegmEndName']['loadedVal'] = ''
         return True
     
+    def cast_loaded_values_filepaths(self):
+        for section_name in list(self._params.keys()):
+            if section_name != 'File paths and channels':
+                continue
+            anchor_names = list(self._params[section_name].keys())
+            for anchor_name in anchor_names:
+                to_dtype = self._params[section_name][anchor_name].get('dtype')
+                if to_dtype is None:
+                    continue
+                option = self._params[section_name][anchor_name]
+                value = option['loadedVal']
+                if value is None:
+                    value = option['initialVal']
+                else:
+                    value = to_dtype(value)
+                self._params[section_name][anchor_name]['loadedVal'] = value
+    
     def cast_loaded_values_dtypes(self):
         for section_name in list(self._params.keys()):
+            if section_name == 'File paths and channels':
+                continue
             anchor_names = list(self._params[section_name].keys())
             for anchor_name in anchor_names:
                 to_dtype = self._params[section_name][anchor_name].get('dtype')
