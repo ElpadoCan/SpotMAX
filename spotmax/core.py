@@ -144,6 +144,7 @@ class _DataLoader:
             data[f'{key}.dtype'] = ch_dtype
             data[key] = ch_data
             data[f'{key}.shape'] = ch_data.shape
+            data[f'{key}.channel_name'] = channel
 
         ch_key = 'spots_ch' if 'spots_ch' in data else 'ref_ch'
         data_shape = data[ch_key].shape
@@ -220,7 +221,31 @@ class _DataLoader:
         
         SizeT = metadata['SizeT']
         if SizeT > 1:
-            # Data is already time-lapse --> do not reshape
+            # Data is already time-lapse --> check that it is true and do not 
+            # reshape
+            for key in arr_keys:
+                if key not in data:
+                    continue
+                arr_data = data[key]
+                if arr_data.shape[0] != SizeT:
+                    D0 = arr_data.shape[0]
+                    channel = data[f'{key}.channel_name']
+                    raise TypeError(
+                        f'The first dimension of the channel "{channel}" is {D0}'
+                        f' (shape is {arr_data.shape}), but the "Number of frames '
+                        f'(SizeT)" in the configuration file is {SizeT}. '
+                        'Please double check that, thanks!'
+                    )
+                if arr_data.shape[0] != 4:
+                    D0 = arr_data.shape[0]
+                    channel = data[f'{key}.channel_name']
+                    raise TypeError(
+                        f'The shape of the image data from channel "{channel}" '
+                        f'is {arr_data.shape}, which means that either "Number '
+                        'of frames (SizeT)" and/or "Number of z-slices (SizeZ)" '
+                        'in the configuration file are wrong. '
+                        'Please double check that, thanks!'
+                    )
             return data
 
         for key in arr_keys:
@@ -1175,6 +1200,7 @@ class _ParamsParser(_DataLoader):
             self.logger.info('*'*50)
             self.logger.info(info_txt)
             io._log_forced_default(options[0], self.logger.info)
+            self._set_default_val_params(missing_params)
             return True, missing_params
         
         while True:
@@ -1394,7 +1420,10 @@ class _ParamsParser(_DataLoader):
                 if value is None:
                     value = option['initialVal']
                 else:
-                    value = to_dtype(value)
+                    try:
+                        value = to_dtype(value)
+                    except Exception as e:
+                        import pdb; pdb.set_trace()
                 self._params[section_name][anchor_name]['loadedVal'] = value
     
     def check_paths_exist(self):
