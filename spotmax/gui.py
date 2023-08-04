@@ -62,6 +62,12 @@ PARAMS_SLOTS = {
     'refChThresholdFunc': ('sigComputeButtonClicked', '_computeSegmentRefChannel')
 }
 
+SliderSingleStepAdd = acdc_gui.SliderSingleStepAdd
+SliderSingleStepSub = acdc_gui.SliderSingleStepSub
+SliderPageStepAdd = acdc_gui.SliderPageStepAdd
+SliderPageStepSub = acdc_gui.SliderPageStepSub
+SliderMove = acdc_gui.SliderMove
+
 class spotMAX_Win(acdc_gui.guiWin):
     def __init__(
             self, app, debug=False, parent=None, buttonToRestore=None, 
@@ -93,13 +99,16 @@ class spotMAX_Win(acdc_gui.guiWin):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
             posData = self.data[self.pos_i]
-            # autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-            # autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+            autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+            autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
             
-            # trueItem = autoTuneGroupbox.trueItem
-            # coords = trueItem.coordsToNumpy(includeData=True)
+            trueItem = autoTuneGroupbox.trueItem
+            coords = trueItem.coordsToNumpy(includeData=True)
             
-            # printl(coords)
+            printl(coords)
+            
+            tune_features_range = autoTuneTabWidget.selectedFeatures()
+            printl(tune_features_range)
         super().keyPressEvent(event)
     
     def gui_setCursor(self, modifiers, event):
@@ -395,7 +404,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     @exception_handler
     def _computeGaussSigma(self, formWidget):
         self.funcDescription = 'Initial gaussian filter'
-        module_func = 'pipe.initial_gaussian_filter'
+        module_func = 'pipe.preprocess_image'
         anchor = 'gaussSigma'
         
         posData = self.data[self.pos_i]
@@ -411,8 +420,6 @@ class spotMAX_Win(acdc_gui.guiWin):
             posData.img_data, posData.segm_data, 
             on_finished_callback=on_finished_callback
         )
-        
-        image = posData.img_data[posData.frame_i]
     
     def warnTrueSpotsAutoTuneNotAdded(self):
         msg = acdc_widgets.myMessageBox(wrapText=False)
@@ -620,16 +627,29 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         do_aggregate = preprocessParams['aggregate']['widget'].isChecked()
         
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        optimise_with_edt = (
+            spotsParams['optimiseWithEdt']['widget'].isChecked()
+        )
+        
         configParams = ParamsGroupBox.params['Configuration']
         use_gpu = configParams['useGpu']['widget'].isChecked()
         
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        tune_features_range = autoTuneTabWidget.selectedFeatures()
+        
         kwargs = {
-            'lab': None, 'gauss_sigma': gauss_sigma, 
-            'spots_zyx_radii': spots_zyx_radii, 'do_sharpen': do_sharpen, 
+            'lab': None, 
+            'gauss_sigma': gauss_sigma, 
+            'spots_zyx_radii': spots_zyx_radii, 
+            'do_sharpen': do_sharpen, 
             'do_remove_hot_pixels': do_remove_hot_pixels,
-            'lineage_table': lineage_table, 'do_aggregate': do_aggregate, 
+            'lineage_table': lineage_table, 
+            'do_aggregate': do_aggregate, 
+            'optimise_with_edt': optimise_with_edt,
             'use_gpu': use_gpu, 'sigma': gauss_sigma, 
-            'ref_ch_endname': refChEndName
+            'ref_ch_endname': refChEndName,
+            'tune_features_range': tune_features_range
         }
         
         return kwargs
@@ -855,8 +875,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         worker.signals.debug.connect(self.workerDebug)
         self.threadPool.start(worker)
     
+    @exception_handler
     def workerDebug(self, to_debug):
-        pass
+        try:
+            from . import _debug
+            worker = to_debug[-1]
+            _debug._gui_autotune_compute_features(to_debug)
+            # _debug._gui_autotune_f1_score(to_debug)
+        except Exception as error:
+            raise error
+        finally:
+            worker.waitCond.wakeAll()
     
     def computeAnalysisStepWorkerFinished(self, output: tuple):
         if self.progressWin is not None:
@@ -919,6 +948,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.ax1_BrushCircle.setSize(size)
     
     def addAutoTunePoint(self, frame_i, z, y, x):
+        self.setAutoTunePointSize()
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.addAutoTunePoint(frame_i, z, x, y)
     
@@ -1121,7 +1151,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         pathScanner.getExpPaths(posData.exp_path)
         pathScanner.infoExpPaths(pathScanner.expPaths)
-        run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
+        run_nums = set()
+        for run_num, expsInfo in pathScanner.paths.items():
+            for expPath, expInfo in expsInfo.items():
+                numPosSpotCounted = expInfo.get('numPosSpotCounted', 0)
+                if numPosSpotCounted > 0:
+                    run_nums.add(run_num)
+        run_nums = sorted(list(run_nums))
+        
         self.loaded_exp_run_nums = run_nums
         
     def setAnalysisParameters(self):
@@ -1129,7 +1166,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         posData = self.data[self.pos_i]
         segmFilename = os.path.basename(posData.segm_npz_path)
         segmEndName = segmFilename[len(posData.basename):]
-        runNum = max(self.loaded_exp_run_nums) + 1
+        runNum = max(self.loaded_exp_run_nums, default=0) + 1
         try:
             emWavelen = posData.emWavelens[self.user_ch_name]
         except Exception as e:
@@ -1176,7 +1213,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def zSliceScrollBarActionTriggered(self, action):
         super().zSliceScrollBarActionTriggered(action)
-        if action != QAbstractSlider.SliderAction.SliderMove:
+        if action != SliderMove:
             return
         posData = self.data[self.pos_i]
         self.spotsItems.setData(

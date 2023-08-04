@@ -6,8 +6,8 @@ import typing
 import webbrowser
 from pprint import pprint
 from functools import partial
-from PyQt6 import QtCore, QtGui
-from PyQt6.QtWidgets import QWidget
+from qtpy import QtCore, QtGui
+from qtpy.QtWidgets import QWidget
 from qtpy import QtCore
 
 from matplotlib.figure import Figure
@@ -585,6 +585,12 @@ class _spotDetectionMethod(myQComboBox):
             return 'peak_local_max'
         elif text == 'Label prediction mask':
             return 'label_prediction_mask'
+    
+    def value(self):
+        return self.currentText()
+
+    def text(self):
+        return self.text()
 
 def _spotPredictionMethod():
     widget = myQComboBox()
@@ -936,32 +942,6 @@ class myQScrollBar(QScrollBar):
             self.label.setStyleSheet('color: gray')
         elif self.label is not None:
             self.label.setStyleSheet('color: black')
-
-class intLineEdit(QLineEdit):
-    valueChanged = Signal(int)
-
-    def __init__(self, *args, **kwargs):
-        QLineEdit.__init__(self, *args, **kwargs)
-
-        regExp = QRegularExpression('\d+')
-        self.setValidator(QRegularExpressionValidator(regExp))
-        self.setAlignment(Qt.AlignCenter)
-
-        font = QFont()
-        font.setPixelSize(11)
-        self.setFont(font)
-        self.setText('0')
-
-        self.textChanged.connect(self.emitValueChanged)
-
-    def setValue(self, value: int):
-        self.setText(str(value))
-
-    def value(self):
-        return int(self.text())
-
-    def emitValueChanged(self, text):
-        self.valueChanged.emit(self.value())
 
 class ReadOnlyLineEdit(QLineEdit):
     def __init__(self, *args):
@@ -1439,7 +1419,10 @@ class SpotsItems:
         self.buttons = []
 
     def addLayer(self, h5files):
-        win = dialogs.SpotsItemPropertiesDialog(h5files)
+        win = dialogs.SpotsItemPropertiesDialog(
+            h5files, 
+            spotmax_out_path=self.spotmax_out_path
+        )
         win.exec_()
         if win.cancel:
             return
@@ -1468,7 +1451,8 @@ class SpotsItems:
     
     def editAppearance(self, button):
         win = dialogs.SpotsItemPropertiesDialog(
-            button.h5files, state=button.state
+            button.h5files, state=button.state, 
+            spotmax_out_path=self.spotmax_out_path
         )
         win.exec_()
         if win.cancel:
@@ -1570,8 +1554,8 @@ class SpotsItems:
         else:
             self._setDataButton(toolbutton, frame_i, z=z)
 
-def ParamFormWidget(anchor, param, parent, use_tuned=False):
-    if use_tuned:
+def ParamFormWidget(anchor, param, parent, use_tune_widget=False):
+    if use_tune_widget:
         widgetName = param['autoTuneWidget']
     else:
         widgetName = param['formWidgetFunc']

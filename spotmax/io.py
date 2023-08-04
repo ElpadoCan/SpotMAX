@@ -52,6 +52,7 @@ import cellacdc.features
 from . import utils, config
 from . import core, printl, error_up_str
 from . import settings_path
+from . import last_used_ini_text_filepath
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -2068,6 +2069,45 @@ def save_ref_ch_mask(
 
     np.savez_compressed(ref_ch_segm_filepath, ref_ch_segm_data)
 
+def save_spots_masks(
+        df_spots, images_path, basename, filename, spots_ch_endname, run_number, 
+        text_to_append='', mask_shape=None
+    ):
+    if not basename.endswith('_'):
+        basename = f'{basename}_'
+    
+    spots_ch_segm_filename = filename.replace('*rn*', f'run_num{run_number}')
+    desc = f'_{spots_ch_endname}'
+    spots_ch_segm_filename = spots_ch_segm_filename.replace('*desc*', desc)
+    
+    spots_ch_segm_filename = f'{basename}{spots_ch_segm_filename}_segm_mask'
+    if text_to_append:
+        spots_ch_segm_filename = f'{spots_ch_segm_filename}_{text_to_append}'
+    
+    spots_ch_segm_filename = f'{spots_ch_segm_filename}.npz'
+    spots_ch_segm_filepath = os.path.join(images_path, spots_ch_segm_filename)
+    
+    spots_mask_data = np.zeros(mask_shape, dtype=np.uint32)
+    for row in df_spots.itertuples():
+        frame_i, ID, spot_id = row.Index
+        spot_obj = row.spot_obj
+        dz, dy, dx = spot_obj.image.shape
+        zc_spot_local, yc_spot_local, xc_spot_local = spot_obj.zyx_local_center
+        zstart = row.z - zc_spot_local
+        ystart = row.y - yc_spot_local
+        xstart = row.x - xc_spot_local
+        spot_slice = (
+            slice(zstart, zstart+dz, None),
+            slice(ystart, ystart+dy, None),
+            slice(xstart, xstart+dx, None)
+        )
+        spots_mask_data[frame_i][spot_slice][spot_obj.image] = spot_id
+    
+    np.savez_compressed(spots_ch_segm_filepath, spots_mask_data)
+    df_spots = df_spots.drop(columns='spot_obj')
+    return df_spots
+    
+
 def addToRecentPaths(selectedPath):
     if not os.path.exists(selectedPath):
         return
@@ -2150,3 +2190,12 @@ class PathScanner:
         pathScanner.input(app=self.guiWin.app, parent=self.guiWin)
         self.images_paths = pathScanner.selectedPaths
         self._loop.exit()
+
+def browse_last_used_ini_folderpath():
+    with open(last_used_ini_text_filepath, 'r') as txt:
+        params_path = txt.read()
+    cellacdc.myutils.showInExplorer(os.path.dirname(params_path))
+
+def save_last_used_ini_filepath(params_path: os.PathLike):
+    with open(last_used_ini_text_filepath, 'w') as txt:
+        txt.write(params_path)

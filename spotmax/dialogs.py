@@ -5,6 +5,7 @@ import pathlib
 import time
 import shutil
 import tempfile
+from tkinter import ANCHOR
 import traceback
 from pprint import pprint
 import typing
@@ -427,6 +428,7 @@ class guiTabControl(QTabWidget):
                 # printl(section, anchor, val)
                 valueSetter = params[section][anchor].get('valueSetter')
                 formWidget.setValue(val, valueSetter=valueSetter)
+        self.parametersQGBox.updateMinSpotSize()
     
     def loadPreviousParams(self, filePath):
         self.logging_func(f'Loading analysis parameters from "{filePath}"...')
@@ -533,8 +535,8 @@ class AutoTuneGroupbox(QGroupBox):
             groupBox = None
             row = 0
             for anchor, param in section_params.items():
-                tunedWidget = param.get('autoTuneWidget')
-                if tunedWidget is None:
+                tuneWidget = param.get('autoTuneWidget')
+                if tuneWidget is None:
                     continue
                 if section not in self.params:
                     self.params[section] = {}
@@ -544,7 +546,7 @@ class AutoTuneGroupbox(QGroupBox):
                 groupBox = self.params[section]['groupBox']
                 formLayout = self.params[section]['formLayout']
                 formWidget = widgets.ParamFormWidget(
-                    anchor, param, self, use_tuned=True
+                    anchor, param, self, use_tune_widget=True
                 )
                 formLayout.addFormWidget(formWidget, row=row)
                 self.params[section][anchor]['widget'] = formWidget.widget
@@ -899,6 +901,17 @@ class AutoTuneTabWidget(QWidget):
         self.autoTuneGroupbox.trueColorButton.setColor(trueColor)
         self.autoTuneGroupbox.falseColorButton.setColor(falseColor)
     
+    def selectedFeatures(self):
+        SECTION = 'Spots channel'
+        ANCHOR = 'gopThresholds'
+        widget = self.autoTuneGroupbox.params[SECTION][ANCHOR]['widget']
+        selectedFeatures = {
+            groupbox.title(): [None, None] 
+            for groupbox in widget.featureGroupboxes.values()
+            if groupbox.title().find('Click') == -1
+        }    
+        return selectedFeatures
+    
     def getHoveredPoints(self, frame_i, z, y, x):
         items = [
             self.autoTuneGroupbox.trueItem, self.autoTuneGroupbox.falseItem
@@ -1215,7 +1228,8 @@ class ParamsGroupBox(QGroupBox):
                     value = widget.value()
                 
                 ini_params[section][anchor] = {
-                    'desc': options['desc'], 'loadedVal': value
+                    'desc': options['desc'], 'loadedVal': value, 
+                    'initalVal': initalVal
                 }
         return ini_params
 
@@ -2654,10 +2668,11 @@ def getSelectedExpPaths(utilityName, parent=None):
 class SpotsItemPropertiesDialog(QBaseDialog):
     sigDeleteSelecAnnot = Signal(object)
 
-    def __init__(self, h5files, parent=None, state=None):
+    def __init__(self, h5files, spotmax_out_path, parent=None, state=None):
         self.cancel = True
         self.loop = None
         self.clickedButton = None
+        self.spotmax_out_path = spotmax_out_path
 
         super().__init__(parent)
 
@@ -2681,6 +2696,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
             parent=self, infoTxt=h5FileInfoTxt
         )
         layout.addFormWidget(self.h5FileWidget, row=row)
+        self.h5fileCombobox.currentTextChanged.connect(self.setSizeFromTable)
 
         row += 1
         self.nameInfoLabel = QLabel()
@@ -2808,6 +2824,17 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         mainLayout.addLayout(buttonsLayout)
 
         self.setLayout(mainLayout)
+        
+        self.setSizeFromTable(self.h5fileCombobox.currentText())
+    
+    def setSizeFromTable(self, filename):
+        from .core import ZYX_RESOL_COLS
+        df = io.load_spots_table(self.spotmax_out_path, filename)
+        try:
+            size = round(df[ZYX_RESOL_COLS[1]].iloc[0]*2)
+        except KeyError as err:
+            return
+        self.sizeSpinBox.setValue(size)
 
     def checkName(self, text):
         if not text:

@@ -1,9 +1,53 @@
 import numpy as np
+import pandas as pd
 
 import scipy.ndimage
 import skimage.measure
 
 from . import utils, rng
+from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS
+from . import features
+
+def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
+    """Generate the slices required to insert a local mask into a larger image.
+
+    Parameters
+    ----------
+    zyx_center : (3,) ArrayLike
+        Array, tuple, or list of `z, y, x` center coordinates
+    global_shape : tuple
+        Shape of the image where the mask will be inserted.
+    local_shape : tuple
+        Shape of the mask to be inserted into the image.
+
+    Returns
+    -------
+    tuple
+        - `slice_global_to_local`: used to slice the image to the same shape of 
+        the cropped mask.
+        - `slice_crop_local`: used to crop the local mask before inserting it 
+        into the image.
+    """    
+    dz, dy, dx = local_shape
+
+    slice_global_to_local = []
+    slice_crop_local = []
+    for _c, _d, _D in zip(zyx_center, local_shape, global_shape):
+        _r = int(_d/2)
+        _min = _c - _r
+        _max = _c + _r + 1
+        _min_crop, _max_crop = None, None
+        if _min < 0:
+            _min_crop = abs(_min)
+            _min = 0
+        if _max > _D:
+            _max_crop = _D - _max
+            _max = _D
+        
+        slice_global_to_local.append(slice(_min, _max))
+        slice_crop_local.append(slice(_min_crop, _max_crop))
+    
+    return tuple(slice_global_to_local), tuple(slice_crop_local)
 
 def get_expanded_obj_slice_image(obj, delta_expand, lab):
     Z, Y, X = lab.shape
@@ -98,7 +142,7 @@ def get_aggregate_obj_slice(
 def _aggregate_objs(img_data, lab, zyx_tolerance=None):
     # Add tolerance based on resolution limit
     if zyx_tolerance is not None:
-        dz, dy, dx = [int(2*np.ceil(dd)) for dd in zyx_tolerance]
+        dz, dy, dx = zyx_tolerance
     else:
         dz, dy, dx = 0, 0, 0
 
@@ -347,3 +391,133 @@ def index_aggregated_segm_into_input_image(
         zz, yy, xx = global_coords[:,0], global_coords[:,1], global_coords[:,2]
         segm_lab[zz, yy, xx] = obj.label
     return segm_lab
+
+def get_local_spheroid_mask(zyx_radii_pxl):
+    zr, yr, xr = zyx_radii_pxl
+    wh, d = int(np.ceil(yr)), int(np.ceil(zr))
+
+    # Generate a sparse meshgrid to evaluate 3D spheroid mask
+    z, y, x = np.ogrid[-d:d+1, -wh:wh+1, -wh:wh+1]
+
+    # 3D spheroid equation
+    if zr > 0:
+        mask = (x**2 + y**2)/(yr**2) + z**2/(zr**2) <= 1
+        # # Remove empty slices
+        # mask = mask[np.any(mask, axis=(0,1))]
+    else:
+        mask = (x**2 + y**2)/(yr**2) <= 1
+    
+    return mask
+
+def get_spheroids_maks(
+        zyx_coords, mask_shape, min_size_spheroid_mask=None, 
+        zyx_radii_pxl=None, debug=False
+    ):
+    mask = np.zeros(mask_shape, dtype=bool)
+    if min_size_spheroid_mask is None:
+        min_size_spheroid_mask = get_local_spheroid_mask(
+            zyx_radii_pxl
+        )
+
+    for zyx_center in zyx_coords:
+        slice_global_to_local, slice_crop_local = (
+            get_slices_local_into_global_3D_arr(
+                zyx_center, mask_shape, min_size_spheroid_mask.shape
+            )
+        )
+        local_mask = min_size_spheroid_mask[slice_crop_local]
+        mask[slice_global_to_local][local_mask] = True
+    return mask, min_size_spheroid_mask
+
+def get_expand_obj_delta_tolerance(spots_zyx_radii):
+    delta_tol = np.array(spots_zyx_radii)
+    # Allow twice the airy disk radius in y,x
+    delta_tol[1:] *= 2
+    delta_tol = np.ceil(delta_tol).astype(int)
+    return delta_tol
+
+def reshape_lab_image_to_3D(lab, image):
+    if lab is None:
+        lab = np.ones(image.shape, dtype=np.uint8) 
+    
+    if image.ndim == 2:
+        image = image[np.newaxis]
+        
+    if lab.ndim == 2 and image.ndim == 3:
+        # Stack 2D lab into 3D z-stack
+        lab = np.array([lab]*len(image))
+    return lab, image
+
+def to_local_zyx_coords(obj, global_zyx_coords):
+    depth, height, width = obj.image.shape
+    zmin, ymin, xmin, _, _, _ = obj.bbox
+    local_zyx_coords = global_zyx_coords - (zmin, ymin, xmin)
+    local_zyx_coords = local_zyx_coords[np.all(local_zyx_coords>=0, axis=1)]
+    local_zyx_coords = local_zyx_coords[local_zyx_coords[:,0] < depth]
+    local_zyx_coords = local_zyx_coords[local_zyx_coords[:,1] < height]
+    local_zyx_coords = local_zyx_coords[local_zyx_coords[:,2] < width]
+    zz, yy, xx = (
+        local_zyx_coords[:,0], 
+        local_zyx_coords[:,1], 
+        local_zyx_coords[:,2]
+    )
+    zyx_centers_mask = obj.image[zz, yy, xx]
+    local_zyx_coords = local_zyx_coords[zyx_centers_mask]
+    return local_zyx_coords
+
+def init_df_features(df_spots_coords, obj, crop_obj_start, spots_zyx_radii):
+    if obj.label not in df_spots_coords.index:
+        return None, []
+    
+    local_peaks_coords = (
+        df_spots_coords.loc[[obj.label], ZYX_LOCAL_COLS]
+    ).to_numpy()
+    zyx_local_to_global = [s.start for s in obj.slice]
+    global_peaks_coords = local_peaks_coords + zyx_local_to_global
+    # Add correct local_peaks_coords considering the cropping tolerance 
+    # `delta_tolerance`
+    local_peaks_coords_expanded = global_peaks_coords - crop_obj_start 
+    spots_objs = None
+    if 'spot_obj' in df_spots_coords.columns:
+        spots_objs = (
+            df_spots_coords.loc[[obj.label], 'spot_obj']).to_list()
+
+    num_spots_detected = len(global_peaks_coords)
+    df_features = pd.DataFrame({
+        'spot_id': np.arange(1, num_spots_detected+1),
+        'z': global_peaks_coords[:,0],
+        'y': global_peaks_coords[:,1],
+        'x': global_peaks_coords[:,2],
+        'z_local': local_peaks_coords[:,0],
+        'y_local': local_peaks_coords[:,1],
+        'x_local': local_peaks_coords[:,2],
+        'z_local_expanded': local_peaks_coords_expanded[:,0],
+        'y_local_expanded': local_peaks_coords_expanded[:,1],
+        'x_local_expanded': local_peaks_coords_expanded[:,2],
+    })
+    if spots_objs is not None:
+        df_features['spot_obj'] = spots_objs
+    df_features[ZYX_RESOL_COLS] = spots_zyx_radii
+
+    return df_features, local_peaks_coords_expanded
+
+def norm_distance_transform_edt(mask):
+    edt = scipy.ndimage.distance_transform_edt(mask)
+    edt = edt/edt.max()
+    return edt
+
+def normalise_spot_by_dist_transf(
+        spot_slice_z, dist_transf, backgr_vals_z_spots,
+        how='range'
+    ):
+    if how == 'range':
+        norm_spot_slice_z = features.normalise_by_dist_transform_range(
+            spot_slice_z, dist_transf, backgr_vals_z_spots
+        )
+    elif how == 'simple':
+        norm_spot_slice_z = features.normalise_by_dist_transform_simple(
+            spot_slice_z, dist_transf, backgr_vals_z_spots
+        )
+    else:
+        norm_spot_slice_z = spot_slice_z
+    return norm_spot_slice_z

@@ -529,7 +529,7 @@ def _metadata_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addAutoButton': False,
-            'formWidgetFunc': 'widgets.intLineEdit',
+            'formWidgetFunc': 'acdc_widgets.IntLineEdit',
             'actions': None,
             'dtype': int,
             'valueSetter': 'setValue'
@@ -542,7 +542,7 @@ def _metadata_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addAutoButton': False,
-            'formWidgetFunc': 'widgets.intLineEdit',
+            'formWidgetFunc': 'acdc_widgets.IntLineEdit',
             'actions': None,
             'dtype': int,
             'valueSetter': 'setValue'
@@ -555,7 +555,7 @@ def _metadata_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addAutoButton': False,
-            'formWidgetFunc': 'widgets.intLineEdit',
+            'formWidgetFunc': 'acdc_widgets.IntLineEdit',
             'actions': None,
             'dtype': int,
             'valueSetter': 'setValue'
@@ -685,7 +685,7 @@ def _pre_processing_params():
         },
         'removeHotPixels': {
             'desc': 'Remove hot pixels',
-            'initialVal': True,
+            'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,
             'addComputeButton': True,
@@ -875,6 +875,17 @@ def _spots_ch_params():
             'actions': None,
             'dtype': get_bool
         },
+        'saveSpotsMask': {
+            'desc': 'Save spots segmentation masks',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        }
         # 'highSpotDensityFit': {
         #     'desc': 'Optimise spots size estimation for high spot density',
         #     'initialVal': True,

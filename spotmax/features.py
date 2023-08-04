@@ -1,4 +1,8 @@
+from typing import Union
+
 import numpy as np
+import pandas as pd
+
 import scipy.stats
 
 from . import printl
@@ -59,6 +63,7 @@ def normalise_by_dist_transform_range(
     dist_transf_range = 1 - dist_transf
     dist_transf_correction = np.abs(dist_from_expected_perc*dist_transf_range)
     dist_tranf_required = 1-np.sqrt(dist_transf_correction)
+    dist_tranf_required[dist_tranf_required<0] = 0
     norm_spot_slice_z = spot_slice_z*dist_tranf_required
     norm_spot_slice_z[norm_spot_slice_z<backgr_median] = backgr_median
     return norm_spot_slice_z
@@ -307,3 +312,62 @@ def add_consecutive_spots_distance(df, zyx_voxel_size, suffix=''):
     df[f'consecutive_spots_distance{suffix}_um'] = np.linalg.norm(
         df_coords_diff_physical_units.values, axis=1
     )
+
+def add_ttest_values(
+        arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, 
+        idx: Union[int, pd.Index], name: str='spot_vs_backgr',
+        logger_func=printl
+    ):
+    try:
+        tstat, pvalue = scipy.stats.ttest_ind(arr1, arr2, equal_var=False)
+    except FloatingPointError as e:
+        logger_func(
+            '[WARNING]: FloatingPointError while performing t-test.'
+        )
+        tstat, pvalue = np.nan, np.nan
+    df.at[idx, f'{name}_ttest_tstat'] = tstat
+    df.at[idx, f'{name}_ttest_pvalue'] = pvalue
+
+def add_distribution_metrics(arr, df, idx, col_name='*name'):
+    distribution_metrics_func = get_distribution_metrics_func()
+    for name, func in distribution_metrics_func.items():
+        _col_name = col_name.replace('*name', name)
+        df.at[idx, _col_name] = func(arr)
+    
+def add_effect_sizes(
+        pos_arr, neg_arr, df, idx, name='spot_vs_backgr', 
+        debug=False
+    ):
+    effect_size_func = get_effect_size_func()
+    negative_name = name[8:]
+    info = {}
+    for eff_size_name, func in effect_size_func.items():
+        result = _try_metric_func(func, pos_arr, neg_arr)
+        if result is not np.nan:
+            eff_size, negative_mean, negative_std = result
+        else:
+            eff_size, negative_mean, negative_std = np.nan, np.nan, np.nan
+        col_name = f'{name}_effect_size_{eff_size_name}'
+        df.at[idx, col_name] = eff_size
+        negative_mean_colname = (
+            f'{negative_name}_effect_size_{eff_size_name}_negative_mean'
+        )
+        df.at[idx, negative_mean_colname] = negative_mean
+        negative_std_colname = (
+            f'{negative_name}_effect_size_{eff_size_name}_negative_std'
+        )
+        df.at[idx, negative_std_colname] = negative_std
+        if debug:
+            info[eff_size_name] = (
+                eff_size, np.mean(pos_arr), negative_mean, negative_std
+            )
+    if debug:
+        print('')
+        for eff_size_name, values in info.items():
+            eff_size, pos_mean, negative_mean, negative_std = values
+            print(f'Effect size {eff_size_name} = {eff_size}')
+            print(f'Positive mean = {pos_mean}')
+            print(f'Negative mean = {negative_mean}')
+            print(f'Negative std = {negative_std}')
+            print('-'*60)
+        import pdb; pdb.set_trace()

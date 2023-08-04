@@ -87,17 +87,6 @@ def setup_cli_logger(name='spotmax_cli', logs_path=None):
 
     if not os.path.exists(logs_path):
         os.mkdir(logs_path)
-    else:
-        # Keep 20 most recent logs
-        ls = listdir(logs_path)
-        if len(ls)>20:
-            ls = [os.path.join(logs_path, f) for f in ls]
-            ls.sort(key=lambda x: os.path.getmtime(x))
-            for file in ls[:-20]:
-                try:
-                    os.remove(file)
-                except Exception as e:
-                    pass
 
     date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     id = uuid4()
@@ -112,47 +101,6 @@ def setup_cli_logger(name='spotmax_cli', logs_path=None):
     logger.addHandler(stdout_handler)
 
     return logger, log_path, logs_path
-
-def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
-    """Generate the slices required to insert a local mask into a larger image.
-
-    Parameters
-    ----------
-    zyx_center : (3,) ArrayLike
-        Array, tuple, or list of `z, y, x` center coordinates
-    global_shape : tuple
-        Shape of the image where the mask will be inserted.
-    local_shape : tuple
-        Shape of the mask to be inserted into the image.
-
-    Returns
-    -------
-    tuple
-        - `slice_global_to_local`: used to slice the image to the same shape of 
-        the cropped mask.
-        - `slice_crop_local`: used to crop the local mask before inserting it 
-        into the image.
-    """    
-    dz, dy, dx = local_shape
-
-    slice_global_to_local = []
-    slice_crop_local = []
-    for _c, _d, _D in zip(zyx_center, local_shape, global_shape):
-        _r = int(_d/2)
-        _min = _c - _r
-        _max = _c + _r + 1
-        _min_crop, _max_crop = None, None
-        if _min < 0:
-            _min_crop = abs(_min)
-            _min = 0
-        if _max > _D:
-            _max_crop = _D - _max
-            _max = _D
-        
-        slice_global_to_local.append(slice(_min, _max))
-        slice_crop_local.append(slice(_min_crop, _max_crop))
-    
-    return tuple(slice_global_to_local), tuple(slice_crop_local)
 
 def is_valid_url(x):
     try:
