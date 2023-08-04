@@ -11,7 +11,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from functools import wraps
 
 try:
-    from cellacdc import gui
+    from cellacdc import gui as acdc_gui
     from qtpy.QtGui import QFont
     font = QFont()
     font.setPixelSize(11)
