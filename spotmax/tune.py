@@ -77,6 +77,9 @@ class TuneKernel:
         spots_img = pipe.preprocess_image(image, **kwargs)
         return spots_img
     
+    def input_kwargs(self):
+        return self._kwargs
+    
     def _iter_frames(self):
         false_coords_df = self.false_spots_coords_df().set_index('frame_i')
         true_coords_df = self.true_spots_coords_df()
@@ -86,7 +89,7 @@ class TuneKernel:
                 'do_remove_hot_pixels', 'lineage_table', 'do_aggregate', 
                 'use_gpu'
             ]
-            segm_kwargs = {key:self._kwargs[key] for key in keys}
+            input_kwargs = {key:self._kwargs[key] for key in keys}
             zz_true = true_df['z'].to_list()
             yy_true = true_df['y'].to_list()
             xx_true = true_df['x'].to_list()
@@ -97,7 +100,7 @@ class TuneKernel:
             except Exception as e:
                 zz_false, yy_false, xx_false = [], [], []
             yield (
-                segm_kwargs, zz_true, yy_true, xx_true, zz_false, 
+                input_kwargs, zz_true, yy_true, xx_true, zz_false, 
                 yy_false, xx_false
             )
     
@@ -152,7 +155,7 @@ class TuneKernel:
         dfs = []
         frames = []
         for frame_i, inputs in enumerate(self._iter_frames()):
-            (segm_kwargs, zz_true, yy_true, xx_true, 
+            (input_kwargs, zz_true, yy_true, xx_true, 
             zz_false, yy_false, xx_false) = inputs 
             
             image = self._image_data[frame_i] 
@@ -170,12 +173,12 @@ class TuneKernel:
                 'lab', 'do_remove_hot_pixels', 'gauss_sigma', 'use_gpu', 
                 'use_gpu'
             ]
-            features_kwargs = {key:segm_kwargs[key] for key in kwargs_keys}
-            spots_zyx_radii = segm_kwargs['spots_zyx_radii']
+            features_kwargs = {key:input_kwargs[key] for key in kwargs_keys}
+            spots_zyx_radii = input_kwargs['spots_zyx_radii']
             
-            if segm_kwargs['do_sharpen']:
+            if input_kwargs['do_sharpen']:
                 sharp_image = filters.DoG_spots(
-                    image, spots_zyx_radii, use_gpu=segm_kwargs['use_gpu']
+                    image, spots_zyx_radii, use_gpu=input_kwargs['use_gpu']
                 )
             else:
                 sharp_image = None
@@ -217,7 +220,14 @@ class TuneKernel:
             frames.append((frame_i, 'false_spot'))
             dfs.append(df_features_frame_false)
         
-        df_features = pd.concat(dfs, keys=frames, name=['frame_i', 'category'])
+        features_range = self.input_kwargs()['tune_features_range']
+        df_features = pd.concat(dfs, keys=frames, names=['frame_i', 'category'])
+        
+        if not features_range:
+            return df_features
+        printl(df_features)
+        printl(features_range)
+        
     
     def run(self, logger_func=printl, **kwargs):
         emitDebug = kwargs.get('emitDebug')
@@ -227,4 +237,4 @@ class TuneKernel:
         )
         
         logger_func('Determining optimal features range...')
-        df_spots = self.find_features_range(emitDebug=emitDebug)
+        df_features = self.find_features_range(emitDebug=emitDebug)

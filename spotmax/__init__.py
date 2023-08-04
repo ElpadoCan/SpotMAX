@@ -1,4 +1,7 @@
-print('Importing modules...')
+print('Setting up required libraries...')
+from cellacdc._run import _install_tables
+_install_tables(parent_software='SpotMAX')
+
 import os
 import sys
 import traceback
@@ -8,7 +11,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from functools import wraps
 
 try:
-    import cellacdc
+    from cellacdc import gui
     from qtpy.QtGui import QFont
     font = QFont()
     font.setPixelSize(11)
@@ -24,11 +27,15 @@ resources_folderpath = os.path.join(spotmax_path, 'resources')
 
 # Replace 'from PyQt5' with 'from qtpy' in qrc_resources.py file
 try:
+    save_qrc = False
     with open(qrc_resources_path, 'r') as qrc_py:
         text = qrc_py.read()
-        text = text.replace('from PyQt5', 'from qtpy')
-    with open(qrc_resources_path, 'w') as qrc_py:
-        qrc_py.write(text)
+        if text.find('from PyQt5') != -1:
+            text = text.replace('from PyQt5', 'from qtpy')
+            save_qrc = True
+    if save_qrc:
+        with open(qrc_resources_path, 'w') as qrc_py:
+            qrc_py.write(text)
 except Exception as err:
     raise err
 

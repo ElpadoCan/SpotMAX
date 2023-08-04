@@ -4,9 +4,9 @@ import os
 from . import printl, spotmax_path, resources_folderpath
 
 def run_gui(debug=False, app=None):
-    from cellacdc._run import _setup_gui, _setup_app
+    from cellacdc._run import _setup_gui_libraries, _setup_app
     
-    _setup_gui()
+    _setup_gui_libraries()
 
     from . import read_version
     from . import gui
