@@ -16,7 +16,7 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 from qtpy.QtCore import (
     Signal, QTimer, Qt, QRegularExpression, QEvent, QPropertyAnimation,
-    Property
+    QPointF
 )
 from qtpy.QtGui import (
     QFont,  QPainter, QRegularExpressionValidator, QIcon, QPixmap
@@ -1477,6 +1477,52 @@ class SpotsItems:
             symbol=symbol
         )
     
+    def getHoveredPoints(self, frame_i, z, y, x):
+        hoveredPoints = []
+        item = None
+        for toolbutton in self.buttons:
+            if not toolbutton.isChecked():
+                continue
+            df = toolbutton.df
+            if df is None:
+                continue
+            item = toolbutton.item
+            hoveredMask = item._maskAt(QPointF(x, y))
+            points = item.points()[hoveredMask][::-1]
+            if frame_i != item.frame_i:
+                continue
+            if z != item.z:
+                continue
+            if len(points) == 0:
+                continue
+            hoveredPoints.extend(points)
+            break
+        return hoveredPoints, item
+    
+    def getHoveredPointData(self, frame_i, z, y, x):
+        for toolbutton in self.buttons:
+            if not toolbutton.isChecked():
+                continue
+            df = toolbutton.df
+            if df is None:
+                continue
+            item = toolbutton.item
+            hoveredMask = item._maskAt(QPointF(x, y))
+            points = item.points()[hoveredMask][::-1]
+            if frame_i != item.frame_i:
+                continue
+            if z != item.z:
+                continue
+            if len(points) == 0:
+                continue
+            point = points[0]
+            pos = point.pos()
+            x, y = int(pos.x()-0.5), int(pos.y()-0.5)
+            df = df.loc[[(frame_i, z)]].reset_index().set_index(['x', 'y'])
+            point_df = df.loc[[(x, y)]].reset_index()
+            point_features = point_df.set_index(['frame_i', 'z', 'y', 'x']).iloc[0]
+            return point_features
+    
     def getBrush(self, state, alpha=255):
         r,g,b,a = state['symbolColor'].getRgb()
         brush = pg.mkBrush(color=(r,g,b,alpha))
@@ -1675,6 +1721,23 @@ class SelectedFeatureAutoTuneGroupbox(QGroupBox):
         self.maxLineEdit.setDisabled(False)
         self.layout().labelForField(self.maxLineEdit).setDisabled(False)
         super().setTitle(title)
+    
+    def range(self):
+        minimum = self.minLineEdit.text()
+        if not minimum or minimum == 'None':
+            minimum = None
+        else:
+            minimum = float(minimum)
+        maximum = self.maxLineEdit.text()
+        if not maximum or maximum == 'None':
+            maximum = None
+        else:
+            minimum = float(minimum)
+        return minimum, maximum
+
+    def setRange(self, minimum, maximum):
+        self.minLineEdit.setText(str(minimum))
+        self.maxLineEdit.setText(str(minimum))
         
 class SelectFeaturesAutoTune(QWidget):
     sigFeatureSelected = Signal(object, str, str)

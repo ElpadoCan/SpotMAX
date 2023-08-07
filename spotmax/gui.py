@@ -1,4 +1,4 @@
-from functools import partial
+import sys
 import os
 import shutil
 import datetime
@@ -38,6 +38,7 @@ from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc import exception_handler
 from cellacdc import load as acdc_load
+from cellacdc.myutils import get_salute_string
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
@@ -80,6 +81,7 @@ class spotMAX_Win(acdc_gui.guiWin):
 
         self._version = version
         self._appName = 'spotMAX'
+        self._executed = executed
     
     def run(self, module='spotmax_gui', logs_path=logs_path):
         super().run(module=module, logs_path=logs_path)
@@ -102,13 +104,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
             autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
             
-            trueItem = autoTuneGroupbox.trueItem
-            coords = trueItem.coordsToNumpy(includeData=True)
-            
-            printl(coords)
-            
-            tune_features_range = autoTuneTabWidget.selectedFeatures()
-            printl(tune_features_range)
+            printl(autoTuneTabWidget.df_features.iloc[:, :6])
         super().keyPressEvent(event)
     
     def gui_setCursor(self, modifiers, event):
@@ -144,9 +140,10 @@ class spotMAX_Win(acdc_gui.guiWin):
                 [], [], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             )
         
-        self.checkHoverAutoTunePoints(x, y)
+        self.onHoverAutoTunePoints(x, y)
+        self.onkHoverInspectPoints(x, y)
     
-    def checkHoverAutoTunePoints(self, x, y):
+    def onHoverAutoTunePoints(self, x, y):
         if not self.isAutoTuneTabActive:
             return
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
@@ -155,7 +152,16 @@ class spotMAX_Win(acdc_gui.guiWin):
         hoveredPoints = autoTuneTabWidget.getHoveredPoints(frame_i, z, y, x)
         if not hoveredPoints:
             return
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.setInspectFeatures(hoveredPoints)
     
+    def onkHoverInspectPoints(self, x, y):
+        z = self.currentZ()
+        frame_i = self.data[self.pos_i].frame_i
+        point_features = self.spotsItems.getHoveredPointData(frame_i, z, y, x)
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        inspectResultsTab.setInspectFeatures(point_features)
+        
     def getIDfromXYPos(self, x, y):
         posData = self.data[self.pos_i]
         xdata, ydata = int(x), int(y)
@@ -196,6 +202,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             parent=self.computeDockWidget, logging_func=self.logger.info
         )
         computeTabControl.addAutoTuneTab()
+        computeTabControl.addInspectResultsTab()
         computeTabControl.initState(False)
         computeTabControl.currentChanged.connect(self.tabControlPageChanged)
 
@@ -1012,7 +1019,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     def startInspectHoveredSpotWorker(self):
         pass
 
-    def tuneKernelWorkerFinished(self):
+    def tuneKernelWorkerFinished(self, result: tune.TuneResult):
         if self.progressWin is not None:
             self.progressWin.workerFinished = True
             self.progressWin.close()
@@ -1020,6 +1027,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.autoTuningButton.setChecked(False)
+        autoTuneTabWidget.setTuneResult(result)
         
     def initAutoTuneColors(self):
         setting_name = 'autoTuningTrueSpotsColor'
@@ -1272,3 +1280,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.realTimeTrackingToggle.hide()
         self.computeDockWidget.hide()
         QTimer.singleShot(50, self.resizeComputeDockWidget)
+    
+    def closeEvent(self, event):
+        super().closeEvent(event)
+        if not sys.stdout == self.logger.default_stdout:
+            return
+        if not self._executed:
+            return
+        print('**********************************************')
+        print(f'SpotMAX closed. {get_salute_string()}')
+        print('**********************************************')

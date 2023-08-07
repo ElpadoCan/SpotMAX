@@ -292,9 +292,9 @@ def true_positive_feauture_inequality_direction_mapper():
     mapper = {}
     for group_name, feature_names in get_features_groups().items():
         if group_name.find('p-value') != -1:
-            direction = 'less_than'
+            direction = 'max'
         else:
-            direction = 'greater_than'
+            direction = 'min'
         for feature_name in feature_names:
             mapper[f'{group_name}, {feature_name}'] = direction
     return mapper

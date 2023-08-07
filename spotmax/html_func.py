@@ -83,6 +83,8 @@ def span(text, font_color=None):
 def paragraph(txt, font_size='13px', font_color=None, wrap=True, center=False):
     if not wrap:
         txt = txt.replace(' ', '&nbsp;')
+    if font_color == 'r':
+        font_color = '#FF0000'
     if font_color is None:
         s = (f"""
         <p style="font-size:{font_size};">

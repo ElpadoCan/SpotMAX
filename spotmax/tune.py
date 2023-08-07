@@ -7,6 +7,7 @@ from . import pipe
 from . import metrics
 from . import printl
 from . import filters
+from . import features
 from . import ZYX_GLOBAL_COLS
 
 class TuneKernel:
@@ -19,6 +20,7 @@ class TuneKernel:
         self._kwargs = kwargs
     
     def set_tzyx_true_spots_coords(self, tzyx_coords, crop_to_global_coords):
+        self._crop_to_global_coords = crop_to_global_coords
         self._tzyx_true_spots_coords = tzyx_coords
         self._true_spots_coords_df = pd.DataFrame(
             columns=['frame_i', 'z_global', 'y_global', 'x_global'], 
@@ -35,6 +37,7 @@ class TuneKernel:
     def set_tzyx_false_spots_coords(self, tzyx_coords, crop_to_global_coords):
         if len(tzyx_coords) == 0:
             tzyx_coords = None
+        self._crop_to_global_coords = crop_to_global_coords
         self._tzyx_false_spots_coords = tzyx_coords
         self._false_spots_coords_df = pd.DataFrame(
             columns=['frame_i', 'z_global', 'y_global', 'x_global'], 
@@ -44,6 +47,13 @@ class TuneKernel:
             self._false_spots_coords_df[['z_global', 'y_global', 'x_global']]
             - crop_to_global_coords
         )
+    
+    def to_global_coords(self, df):
+        df[ZYX_GLOBAL_COLS] += self.crop_to_global_coords()
+        return df
+    
+    def crop_to_global_coords(self):
+        return self._crop_to_global_coords
     
     def false_spots_coords_df(self):
         return self._false_spots_coords_df
@@ -221,20 +231,56 @@ class TuneKernel:
             dfs.append(df_features_frame_false)
         
         features_range = self.input_kwargs()['tune_features_range']
-        df_features = pd.concat(dfs, keys=frames, names=['frame_i', 'category'])
+        df_features = (
+            pd.concat(dfs, keys=frames, names=['frame_i', 'category'])
+            .reset_index()
+            .set_index(['frame_i', 'Cell_ID'])
+        )
+        df_features = self.to_global_coords(df_features)
         
         if not features_range:
-            return df_features
-        printl(df_features)
-        printl(features_range)
+            return df_features, features_range
         
-    
+        df_features_tp = df_features[df_features.category == 'true_spot']
+        df_features_fp = df_features[df_features.category == 'false_spot']
+        to_col_mapper = features.feature_names_to_col_names_mapper()
+        inequality_direction_mapper = (
+            features.true_positive_feauture_inequality_direction_mapper()
+        )
+        for feature_name in features_range.keys():
+            inequality_dir = inequality_direction_mapper[feature_name]
+            col_name = to_col_mapper[feature_name]
+            if inequality_dir == 'max':
+                maximum = df_features_tp[col_name].max()
+                minimum = None
+                if not df_features_fp.empty:
+                    minimum = df_features_tp[col_name].min()
+            else:
+                minimum = df_features_tp[col_name].min()
+                maximum = None
+                if not df_features_fp.empty:
+                    maximum = df_features_tp[col_name].max()
+            features_range[feature_name][0] = minimum
+            features_range[feature_name][1] = maximum
+        
+        return df_features, features_range
+        
     def run(self, logger_func=printl, **kwargs):
         emitDebug = kwargs.get('emitDebug')
         logger_func('Determining optimal thresholding method...')
-        self.best_threshold_method = self.find_best_threshold_method(
+        best_threshold_method = self.find_best_threshold_method(
             emitDebug=emitDebug
         )
         
         logger_func('Determining optimal features range...')
-        df_features = self.find_features_range(emitDebug=emitDebug)
+        df_features, features_range = self.find_features_range(
+            emitDebug=emitDebug
+        )
+        result = TuneResult(df_features, features_range, best_threshold_method)
+        return result
+
+class TuneResult:
+    def __init__(self, df_features, features_range, best_threshold_method):
+        self.df_features = df_features
+        self.features_range = features_range
+        self.threshold_method = best_threshold_method

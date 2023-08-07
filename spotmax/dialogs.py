@@ -43,7 +43,7 @@ from . import core, features
 
 # NOTE: Enable icons
 from . import printl, font
-from . import is_mac, is_win, is_linux
+from . import tune
 from . import gui_settings_csv_path as settings_csv_path
 
 class QBaseDialog(QDialog):
@@ -499,25 +499,40 @@ class guiTabControl(QTabWidget):
         msg.addShowInFileManagerButton(os.path.dirname(filePath))
         msg.information(self, 'Saving done!', txt, commands=(filePath,))
         
-    def addInspectResultsTab(self, posData):
-        self.inspectResultsTab = QScrollArea(self)
-
-        self.inspectResultsQGBox = inspectResults(
-            posData, parent=self.inspectResultsTab
-        )
-
-        self.inspectResultsTab.setWidget(self.inspectResultsQGBox)
-
-        self.removeTab(1)
+    def addInspectResultsTab(self):
+        self.inspectResultsTab = InspectResultsTab(parent=self)
         self.addTab(self.inspectResultsTab, 'Inspect results')
-        self.inspectResultsQGBox.resizeSelector()
     
     def addAutoTuneTab(self):
         self.autoTuneTabWidget = AutoTuneTabWidget()
         # self.autoTuneTabWidget.setDisabled(True)
         self.addTab(self.autoTuneTabWidget, 'Tune parameters')
 
+class InspectResultsTab(QWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+
+        layout = QVBoxLayout()
         
+        scrollArea =   QScrollArea(self)
+        scrollArea.setWidgetResizable(True)
+        
+        self.viewFeaturesGroupbox = AutoTuneViewSpotFeatures(
+            parent=self, infoText=''
+        )
+        scrollArea.setWidget(self.viewFeaturesGroupbox)
+        
+        layout.addWidget(scrollArea)
+        layout.addStretch(1)
+        
+        self.setLayout(layout)
+    
+    def setInspectFeatures(self, point_features):
+        if point_features is None:
+            return
+        self.viewFeaturesGroupbox.setFeatures(point_features)       
+        
+
 class AutoTuneGroupbox(QGroupBox):
     sigColorChanged = Signal(object, bool)
     sigFeatureSelected = Signal(object, str, str)
@@ -575,6 +590,7 @@ class AutoTuneGroupbox(QGroupBox):
         
         self.trueItem = autoTuneSpotProperties.trueItem
         self.falseItem = autoTuneSpotProperties.falseItem
+        self.autoTuneSpotProperties = autoTuneSpotProperties
         
         self.trueItem.sigClicked.connect(self.truePointsClicked)
         self.falseItem.sigClicked.connect(self.falsePointsClicked)
@@ -589,6 +605,9 @@ class AutoTuneGroupbox(QGroupBox):
         mainLayout.addStretch(1)
         self.setLayout(mainLayout)
         self.setFont(font)
+    
+    def setInspectFeatures(self, point_features):
+        self.viewFeaturesGroupbox.setFeatures(point_features)
     
     def emitYXresolMultiplSigChanged(self, value):
         self.sigYXresolMultiplChanged.emit(value)
@@ -719,7 +738,7 @@ class AutoTuneSpotProperties(QGroupBox):
         self.falseItem.clear()
 
 class AutoTuneViewSpotFeatures(QGroupBox):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, infoText=None):
         super().__init__(parent)
         
         self.setTitle('Features of the spot under mouse cursor')
@@ -729,6 +748,16 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         
         col = 0
         row = 0
+        if infoText is None:
+            txt = (
+                '<i>Add some points and run autotuning to view spots features</i>'
+            )
+        else:
+            txt = infoText
+        self.infoLabel = QLabel(txt)
+        layout.addWidget(self.infoLabel, row, col, 1, 2, alignment=Qt.AlignCenter)
+        
+        row += 1
         layout.addWidget(QLabel('x coordinate'), row, col, alignment=Qt.AlignRight)
         self.xLineEntry = widgets.ReadOnlyLineEdit()
         layout.addWidget(self.xLineEntry, row, col+1)
@@ -762,6 +791,27 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         self.addFeatureButton.clicked.connect(self.addFeatureEntry)
         
         self.nextRow = row + 1
+        
+        self._layout = layout
+    
+    def resetFeatures(self):
+        txt = (
+            '<i>Add some points and run autotuning to view spots features</i>'
+        )
+        self.infoLabel.setText(txt)
+    
+    def setFeatures(self, point_features: pd.Series):
+        frame_i, z, x, y = point_features.name
+        self.xLineEntry.setText(str(x))
+        self.yLineEntry.setText(str(y))
+        self.zLineEntry.setText(str(z))
+        for selectButton in self.featureButtons:
+            feature_colname = selectButton.toolTip()
+            if feature_colname not in point_features.index:
+                continue
+            value = point_features.loc[feature_colname]
+            selectButton.entry.setText(str(value))
+        self.infoLabel.setText('<i>&nbsp;</i>')
     
     def addFeatureEntry(self):
         selectButton = widgets.FeatureSelectorButton(
@@ -775,11 +825,12 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         delButton = acdc_widgets.delPushButton()
         delButton.widgets = [selectButton, selectButton.entry]
         delButton.selector = selectButton
+        delButton.clicked.connect(self.removeFeatureField)
         
-        self.layout().addWidget(self.selectButton, self.nextRow, 0)
-        self.layout().addWidget(self.selectButton.entry, self.nextRow, 1)
-        self.layout().addWidget(
-            self.addFeatureButton, self.nextRow, 2, alignment=Qt.AlignLeft
+        self._layout.addWidget(selectButton, self.nextRow, 0)
+        self._layout.addWidget(selectButton.entry, self.nextRow, 1)
+        self._layout.addWidget(
+            delButton, self.nextRow, 2, alignment=Qt.AlignLeft
         )
         self.nextRow += 1
         
@@ -787,10 +838,18 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         
     def removeFeatureField(self):
         delButton = self.sender()
-        for widget in delButton.selector.widgets:
-            self.layout().removeWidget(widget)
-        self.layout().removeWidget(delButton)
+        for widget in delButton.widgets:
+            self._layout.removeWidget(widget)
+        self._layout.removeWidget(delButton)
         self.featureButtons.remove(delButton.selector)
+    
+    def getFeatureGroup(self):
+        if self.selectButton.text().find('Click') != -1:
+            return ''
+
+        text = self.selectButton.text()
+        topLevelText, childText = text.split(', ')
+        return {topLevelText: childText}
     
     def selectFeature(self):
         self.selectFeatureDialog = widgets.FeatureSelectorDialog(
@@ -829,6 +888,8 @@ class AutoTuneTabWidget(QWidget):
         super().__init__(parent)
 
         layout = QVBoxLayout()
+        
+        self.df_features = None
 
         buttonsLayout = QHBoxLayout()
         helpButton = acdc_widgets.helpPushButton('Help...')
@@ -894,6 +955,16 @@ class AutoTuneTabWidget(QWidget):
         else:
             self.sigStopAutoTune.emit(self)
     
+    def setInspectFeatures(self, points):
+        if self.df_features is None:
+            return
+        point = points[0]
+        frame_i, z = point.data()
+        pos = point.pos()
+        x, y = round(pos.x()), round(pos.y())
+        point_features = self.df_features.loc[(frame_i, z, y, x)]
+        self.autoTuneGroupbox.setInspectFeatures(point_features)
+    
     def emitForegrBackrToggledSignal(self, checked):
         self.sigTrueFalseToggled.emit(checked)
     
@@ -911,6 +982,29 @@ class AutoTuneTabWidget(QWidget):
             if groupbox.title().find('Click') == -1
         }    
         return selectedFeatures
+    
+    def setTuneResult(self, tuneResult: tune.TuneResult):
+        SECTION = 'Spots channel'
+        ANCHOR = 'gopThresholds'
+        widget = self.autoTuneGroupbox.params[SECTION][ANCHOR]['widget']
+        for groupbox in widget.featureGroupboxes.values():
+            feature_name = groupbox.title()
+            if feature_name not in tuneResult.features_range:
+                continue
+            minimum, maximum = tuneResult.features_range[feature_name]
+            groupbox.setRange(minimum, maximum)
+        
+        ANCHOR = 'spotThresholdFunc'
+        widget = self.autoTuneGroupbox.params[SECTION][ANCHOR]['widget']
+        widget.setText(tuneResult.threshold_method)
+        
+        self.autoTuneGroupbox.viewFeaturesGroupbox.infoLabel.setText(
+            '<i>Hover mouse cursor on points to view features</i>'
+        )
+        self.df_features = (
+            tuneResult.df_features.reset_index()
+            .set_index(['frame_i', 'z', 'y', 'x'])
+        )
     
     def getHoveredPoints(self, frame_i, z, y, x):
         items = [
@@ -942,10 +1036,12 @@ class AutoTuneTabWidget(QWidget):
                 item.removePoint(point._index)
         else:
             item.addPoints([x], [y], data=[(frame_i, z)])
-
-            # Debug
-            hoveredMask = item._maskAt(QPointF(x, y))
-            points = item.points()[hoveredMask][::-1]
+        
+        self.resetFeatures()
+    
+    def resetFeatures(self):
+        self.df_features = None
+        self.autoTuneGroupbox.viewFeaturesGroupbox.resetFeatures()
     
     def setVisibleAutoTunePoints(self, frame_i, z):
         items = [
@@ -1000,58 +1096,6 @@ class AutoTuneTabWidget(QWidget):
     def setDisabled(self, disabled: bool) -> None:
         self.autoTuneGroupbox.setDisabled(disabled)
         self.autoTuningButton.setDisabled(disabled)
-
-class inspectResults(QGroupBox):
-    def __init__(self, posData, parent=None):
-        QGroupBox.__init__(self, parent)
-        self.row = 0
-
-        self.setFont(font)
-
-        runsInfo = self.runsInfo(posData)
-
-        self.H5_selectorLayout = selectSpotsH5FileLayout(
-            runsInfo, font=font, parent=self
-        )
-
-        self.setLayout(self.H5_selectorLayout)
-
-        self.setMyStyleSheet()
-
-    def runsInfo(self, posData):
-        run_nums = posData.validRuns()
-        runsInfo = {}
-        for run in run_nums:
-            h5_files = posData.h5_files(run)
-            if not h5_files:
-                continue
-            runsInfo[run] = h5_files
-        return runsInfo
-
-    def setMyStyleSheet(self):
-        self.setStyleSheet("""
-            QTreeWidget::item:hover {background-color:#E6E6E6;}
-            QTreeWidget::item:hover {color:black;}
-            QTreeWidget::item:selected {
-                background-color:#CFEB9B;
-                color:black;
-            }
-            QTreeView {
-                selection-background-color: #CFEB9B;
-                show-decoration-selected: 1;
-                outline: 0;
-            }
-            QTreeWidget::item {padding: 5px;}
-        """)
-
-    def resizeSelector(self):
-        longestText = '3: Spots after goodness-of-peak AND ellipsoid test'
-        w = (
-            QFontMetrics(self.font())
-            .boundingRect(longestText)
-            .width()+120
-        )
-        self.setMinimumWidth(w)
 
 class ParamsGroupBox(QGroupBox):
     def __init__(self, *args):

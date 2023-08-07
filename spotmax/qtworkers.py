@@ -154,10 +154,11 @@ class TuneKernelWorker(Runnable):
     @worker_exception_handler
     def run(self):
         self.logger.log('Running auto-tuning process...')
-        self._kernel.run(
+        result = self._kernel.run(
             logger_func=self.logger.log, emitDebug=self.emitDebugSignal
         )
-        self.signals.finished.emit(self._kernel)
+        
+        self.signals.finished.emit(result)
 
 class CropImageBasedOnSegmDataWorker(QRunnable):
     def __init__(
