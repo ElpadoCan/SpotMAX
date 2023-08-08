@@ -413,7 +413,8 @@ class FeatureRangeSelector:
         self.selectFeatureDialog = FeatureSelectorDialog(
             parent=self.selectButton, multiSelection=False, 
             expandOnDoubleClick=True, isTopLevelSelectable=False, 
-            infoTxt='Select feature', allItemsExpanded=False
+            infoTxt='Select feature', allItemsExpanded=False,
+            title='Select feature'
         )
         self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
         # self.selectFeatureDialog.resizeVertical()
@@ -496,7 +497,7 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
         super().__init__(parent)
         super().setText(' Set features or view the selected ones... ')
         self.selectedFeaturesWindow = dialogs.GopFeaturesAndThresholdsDialog(
-            parent=self.parent()
+            parent=self
         )
         self.clicked.connect(self.setFeatures)
         self.col_to_feature_mapper = {
@@ -504,6 +505,10 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
             in features.feature_names_to_col_names_mapper().items()
         }
         self.selectedFeaturesWindow.hide()
+    
+    def setParent(self, parent):
+        super().setParent(parent)
+        self.selectedFeaturesWindow.setParent(self)
     
     def setFeatures(self):
         self.selectedFeaturesWindow.exec_()
@@ -561,8 +566,8 @@ def _refChThresholdFuncWidget():
     widget.addItems(items)
     return widget
 
-def _dfSpotsFileExtensionsWidget():
-    widget = myQComboBox()
+def _dfSpotsFileExtensionsWidget(parent=None):
+    widget = myQComboBox(parent)
     items = ['.h5', '.csv']
     widget.addItems(items)
     return widget
@@ -658,7 +663,7 @@ class formWidget(QWidget):
             parent=None,
             valueSetter=None,
         ):
-        QWidget.__init__(self, parent)
+        super().__init__(parent)
         self.widget = widget
         self.anchor = anchor
         self.key = key
@@ -1612,6 +1617,7 @@ def ParamFormWidget(anchor, param, parent, use_tune_widget=False):
         widgetFunc = getattr(widgets_module, attr)
     except KeyError as e:
         widgetFunc = globals()[attr]
+    
     return formWidget(
         widgetFunc(),
         anchor=anchor,
@@ -1653,7 +1659,8 @@ class SelectFeatureAutoTuneButton(acdc_widgets.editPushButton):
         self.selectFeatureDialog = FeatureSelectorDialog(
             parent=self, multiSelection=False, 
             expandOnDoubleClick=True, isTopLevelSelectable=False, 
-            infoTxt='Select feature', allItemsExpanded=False
+            infoTxt='Select feature to tune', allItemsExpanded=False,
+            title='Select feature'
         )
         self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
         # self.selectFeatureDialog.resizeVertical()
@@ -1737,7 +1744,7 @@ class SelectedFeatureAutoTuneGroupbox(QGroupBox):
 
     def setRange(self, minimum, maximum):
         self.minLineEdit.setText(str(minimum))
-        self.maxLineEdit.setText(str(minimum))
+        self.maxLineEdit.setText(str(maximum))
         
 class SelectFeaturesAutoTune(QWidget):
     sigFeatureSelected = Signal(object, str, str)

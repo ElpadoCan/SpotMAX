@@ -394,8 +394,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.connectParamsGroupBoxSignals()
         self.autoTuningAddItems()
         self.initTuneKernel()
+        self.hideAcdcToolbars()
         
         self.setFocusGraphics()
+    
+    def hideAcdcToolbars(self):
+        self.editToolBar.setVisible(False)
+        self.editToolBar.setDisabled(True)
+        self.placeHolderToolbar.setVisible(False)
+        self.placeHolderToolbar.setDisabled(True)
+        self.ccaToolBar.setVisible(False)
+        self.ccaToolBar.setDisabled(True)
 
     def disconnectParamsGroupBoxSignals(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox

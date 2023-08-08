@@ -1,3 +1,5 @@
+import traceback
+
 import numpy as np
 import pandas as pd
 
@@ -91,7 +93,7 @@ class TuneKernel:
         return self._kwargs
     
     def _iter_frames(self):
-        false_coords_df = self.false_spots_coords_df().set_index('frame_i')
+        false_coords_df = self.false_spots_coords_df().set_index('frame_i')        
         true_coords_df = self.true_spots_coords_df()
         for frame_i, true_df in true_coords_df.groupby('frame_i'):
             keys = [
@@ -104,9 +106,9 @@ class TuneKernel:
             yy_true = true_df['y'].to_list()
             xx_true = true_df['x'].to_list()
             try:
-                zz_false = false_coords_df.loc[frame_i, 'z'].to_list()
-                yy_false = false_coords_df.loc[frame_i, 'y'].to_list()
-                xx_false = false_coords_df.loc[frame_i, 'x'].to_list()
+                zz_false = false_coords_df.loc[[frame_i], 'z'].to_list()
+                yy_false = false_coords_df.loc[[frame_i], 'y'].to_list()
+                xx_false = false_coords_df.loc[[frame_i], 'x'].to_list()
             except Exception as e:
                 zz_false, yy_false, xx_false = [], [], []
             yield (
@@ -243,6 +245,7 @@ class TuneKernel:
         
         df_features_tp = df_features[df_features.category == 'true_spot']
         df_features_fp = df_features[df_features.category == 'false_spot']
+        
         to_col_mapper = features.feature_names_to_col_names_mapper()
         inequality_direction_mapper = (
             features.true_positive_feauture_inequality_direction_mapper()
@@ -254,12 +257,12 @@ class TuneKernel:
                 maximum = df_features_tp[col_name].max()
                 minimum = None
                 if not df_features_fp.empty:
-                    minimum = df_features_tp[col_name].min()
+                    minimum = df_features_fp[col_name].min()
             else:
                 minimum = df_features_tp[col_name].min()
                 maximum = None
                 if not df_features_fp.empty:
-                    maximum = df_features_tp[col_name].max()
+                    maximum = df_features_fp[col_name].max()
             features_range[feature_name][0] = minimum
             features_range[feature_name][1] = maximum
         

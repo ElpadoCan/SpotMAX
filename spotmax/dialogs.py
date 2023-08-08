@@ -285,7 +285,7 @@ class guiTabControl(QTabWidget):
 
         self.parametersTab = QScrollArea(self)
         self.parametersTab.setWidgetResizable(True)
-        self.parametersQGBox = ParamsGroupBox(self.parametersTab)
+        self.parametersQGBox = ParamsGroupBox(parent=self.parametersTab, debug=True)
         self.logging_func = logging_func
         containerWidget = QWidget()
         containerLayout = QVBoxLayout()
@@ -500,7 +500,7 @@ class guiTabControl(QTabWidget):
         msg.information(self, 'Saving done!', txt, commands=(filePath,))
         
     def addInspectResultsTab(self):
-        self.inspectResultsTab = InspectResultsTab(parent=self)
+        self.inspectResultsTab = InspectResultsTabWidget()
         self.addTab(self.inspectResultsTab, 'Inspect results')
     
     def addAutoTuneTab(self):
@@ -508,13 +508,13 @@ class guiTabControl(QTabWidget):
         # self.autoTuneTabWidget.setDisabled(True)
         self.addTab(self.autoTuneTabWidget, 'Tune parameters')
 
-class InspectResultsTab(QWidget):
+class InspectResultsTabWidget(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
         layout = QVBoxLayout()
         
-        scrollArea =   QScrollArea(self)
+        scrollArea = QScrollArea(self)
         scrollArea.setWidgetResizable(True)
         
         self.viewFeaturesGroupbox = AutoTuneViewSpotFeatures(
@@ -523,7 +523,7 @@ class InspectResultsTab(QWidget):
         scrollArea.setWidget(self.viewFeaturesGroupbox)
         
         layout.addWidget(scrollArea)
-        layout.addStretch(1)
+        # layout.addStretch(1)
         
         self.setLayout(layout)
     
@@ -743,8 +743,9 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         
         self.setTitle('Features of the spot under mouse cursor')
         
+        mainLayout = QVBoxLayout()
+        
         layout = QGridLayout()
-        self.setLayout(layout)
         
         col = 0
         row = 0
@@ -793,6 +794,10 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         self.nextRow = row + 1
         
         self._layout = layout
+        
+        mainLayout.addLayout(layout)
+        mainLayout.addStretch(1)
+        self.setLayout(mainLayout)
     
     def resetFeatures(self):
         txt = (
@@ -1098,8 +1103,8 @@ class AutoTuneTabWidget(QWidget):
         self.autoTuningButton.setDisabled(disabled)
 
 class ParamsGroupBox(QGroupBox):
-    def __init__(self, *args):
-        QGroupBox.__init__(self, *args)
+    def __init__(self, parent=None, debug=False):
+        super().__init__(parent)
 
         # mainLayout = QGridLayout(self)
         mainLayout = QVBoxLayout()
