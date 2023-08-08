@@ -2768,7 +2768,7 @@ class Kernel(_ParamsParser):
         self._current_step = 'Kernel initialization'
         self._current_pos_path = 'Not determined yet'
     
-    def _preprocess(self, image_data, verbose=True):
+    def _preprocess(self, image_data, is_ref_ch=False, verbose=True):
         SECTION = 'Pre-processing'
         ANCHOR = 'removeHotPixels'
         options = self._params[SECTION][ANCHOR]
@@ -2779,11 +2779,14 @@ class Kernel(_ParamsParser):
         if do_remove_hot_pixels:
             image_data = filters.remove_hot_pixels(image_data, progress=False)
         
-        ANCHOR = 'gaussSigma'
-        options = self._params[SECTION][ANCHOR]
+        options = self._params[SECTION].get('gaussSigma')
+        if is_ref_ch:
+            ref_ch_section_params = self._params['Reference channel']
+            options = ref_ch_section_params.get('refChGaussSigma', options)
+        
         sigma = options.get('loadedVal')
         if sigma is None:
-            sigma = options.get('initalVal')
+            sigma = options.get('initialVal')
         
         if sigma == 0:
             return image_data
@@ -4176,7 +4179,9 @@ class Kernel(_ParamsParser):
                     lineage_table = None
                 lab_rp = segm_rp[frame_i]
                 ref_ch_img = ref_ch_data[frame_i]
-                ref_ch_img = self._preprocess(ref_ch_img, verbose=frame_i==0)
+                ref_ch_img = self._preprocess(
+                    ref_ch_img, is_ref_ch=True, verbose=frame_i==0
+                )
                 lab = segm_data[frame_i]
                 ref_ch_lab, df_agg = self.segment_ref_ch(
                     ref_ch_img, lab_rp=lab_rp, lab=lab, 

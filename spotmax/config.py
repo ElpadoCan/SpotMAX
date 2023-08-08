@@ -765,6 +765,17 @@ def _ref_ch_params():
             'actions': None,
             'dtype': get_bool
         },
+        'refChGaussSigma': {
+            'desc': 'Ref. channel gaussian filter sigma',
+            'initialVal': 0.75,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.VectorLineEdit',
+            'actions': None,
+            'dtype': get_gauss_sigma
+        },
         'refChThresholdFunc': {
             'desc': 'Ref. channel threshold function',
             'initialVal': 'threshold_li',
@@ -933,7 +944,6 @@ def analysisInputsParams(params_path=default_ini_path, cast_dtypes=True):
         'Reference channel': _ref_ch_params(),
         'Spots channel': _spots_ch_params(),
         'Configuration': _configuration_params()
-    
     }
     if params_path is None:
         return params

@@ -1255,25 +1255,25 @@ class ParamsGroupBox(QGroupBox):
             ini_params[section] = {}
             for anchor, options in section_params.items():
                 groupbox = options['groupBox']
-                initalVal = options['initialVal']
+                initialVal = options['initialVal']
                 widget = options['widget']
                 if groupbox.isCheckable() and not groupbox.isChecked():
-                    value = initalVal
-                elif isinstance(initalVal, bool):
+                    value = initialVal
+                elif isinstance(initialVal, bool):
                     value = widget.isChecked()
-                elif isinstance(initalVal, str):
+                elif isinstance(initialVal, str):
                     try:
                         value = widget.currentText()
                     except AttributeError:
                         value = widget.text()
-                elif isinstance(initalVal, float) or isinstance(initalVal, int):
+                elif isinstance(initialVal, float) or isinstance(initialVal, int):
                     value = widget.value()
                 else:
                     value = widget.value()
                 
                 ini_params[section][anchor] = {
                     'desc': options['desc'], 'loadedVal': value, 
-                    'initalVal': initalVal
+                    'initialVal': initialVal
                 }
         return ini_params
 

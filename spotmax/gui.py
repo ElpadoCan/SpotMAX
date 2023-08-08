@@ -49,6 +49,7 @@ from . import qrc_resources_spotmax
 
 ANALYSIS_STEP_RESULT_SLOTS = {
     'gaussSigma': '_displayGaussSigmaResult',
+    'refChGaussSigma': '_displayGaussSigmaResult',
     'removeHotPixels': '_displayRemoveHotPixelsResult',
     'sharpenSpots': '_displaySharpenSpotsResult',
     'spotPredictionMethod': '_displayspotPredictionResult',
@@ -56,7 +57,8 @@ ANALYSIS_STEP_RESULT_SLOTS = {
 }
 
 PARAMS_SLOTS = {
-    'gaussSigma': ('sigComputeButtonClicked', '_computeGaussSigma'),
+    'gaussSigma': ('sigComputeButtonClicked', '_computeGaussFilter'),
+    'refChGaussSigma': ('sigComputeButtonClicked', '_computeRefChGaussSigma'),
     'removeHotPixels': ('sigComputeButtonClicked', '_computeRemoveHotPixels'),
     'sharpenSpots': ('sigComputeButtonClicked', '_computeSharpenSpots'),
     'spotPredictionMethod': ('sigComputeButtonClicked', '_computeSpotPrediction'),
@@ -409,7 +411,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 signal.disconnect()
     
     @exception_handler
-    def _computeGaussSigma(self, formWidget):
+    def _computeGaussFilter(self, formWidget):
         self.funcDescription = 'Initial gaussian filter'
         module_func = 'pipe.preprocess_image'
         anchor = 'gaussSigma'
@@ -425,6 +427,40 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         self.startCropImageBasedOnSegmDataWorkder(
             posData.img_data, posData.segm_data, 
+            on_finished_callback=on_finished_callback
+        )
+    
+    @exception_handler
+    def _computeRefChGaussSigma(self, formWidget):
+        self.funcDescription = 'Initial gaussian filter'
+        module_func = 'pipe.preprocess_image'
+        anchor = 'refChGaussSigma'
+        
+        posData = self.data[self.pos_i]
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        refChEndName = filePathParams['refChEndName']['widget'].text()
+        if not refChEndName:
+            refChEndName = self.askReferenceChannelEndname()
+            if refChEndName is None:
+                self.logger.info('Segmenting reference channel cancelled.')
+                return
+            filePathParams['refChEndName']['widget'].setText(refChEndName)
+        
+        self.logger.info(f'Loading "{refChEndName}" reference channel data...')
+        refChannelData = self.loadImageDataFromChannelName(refChEndName) 
+        
+        args = [module_func, anchor]
+        all_kwargs = self.paramsToKwargs()
+        keys = ['do_remove_hot_pixels', 'ref_ch_gauss_sigma', 'use_gpu']
+        kwargs = {key:all_kwargs[key] for key in keys}
+        kwargs['gauss_sigma'] = kwargs.pop('ref_ch_gauss_sigma')
+        on_finished_callback = (
+            self.startComputeAnalysisStepWorker, args, kwargs
+        )
+        self.startCropImageBasedOnSegmDataWorkder(
+            refChannelData, posData.segm_data, 
             on_finished_callback=on_finished_callback
         )
     
@@ -634,6 +670,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         do_aggregate = preprocessParams['aggregate']['widget'].isChecked()
         
+        refChParams = ParamsGroupBox.params['Reference channel']
+        ref_ch_gauss_sigma = refChParams['refChGaussSigma']['widget'].value()
+        
         spotsParams = ParamsGroupBox.params['Spots channel']
         optimise_with_edt = (
             spotsParams['optimiseWithEdt']['widget'].isChecked()
@@ -648,6 +687,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs = {
             'lab': None, 
             'gauss_sigma': gauss_sigma, 
+            'ref_ch_gauss_sigma': ref_ch_gauss_sigma, 
             'spots_zyx_radii': spots_zyx_radii, 
             'do_sharpen': do_sharpen, 
             'do_remove_hot_pixels': do_remove_hot_pixels,
@@ -774,11 +814,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         refChannelData = self.loadImageDataFromChannelName(refChEndName)        
         
         keys = [
-            'lab', 'gauss_sigma', 'do_remove_hot_pixels', 'lineage_table',
+            'lab', 'ref_ch_gauss_sigma', 'do_remove_hot_pixels', 'lineage_table',
             'do_aggregate', 'use_gpu'
         ]
         all_kwargs = self.paramsToKwargs()
         kwargs = {key:all_kwargs[key] for key in keys}
+        kwargs['gauss_sigma'] = kwargs.pop('ref_ch_gauss_sigma')
         
         args = [module_func, anchor]
         

@@ -430,6 +430,8 @@ def get_spheroids_maks(
     return mask, min_size_spheroid_mask
 
 def get_expand_obj_delta_tolerance(spots_zyx_radii):
+    if spots_zyx_radii is None:
+        return np.array([0, 0, 0]).astype(int)
     delta_tol = np.array(spots_zyx_radii)
     # Allow twice the airy disk radius in y,x
     delta_tol[1:] *= 2
