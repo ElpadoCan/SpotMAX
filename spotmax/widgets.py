@@ -591,6 +591,21 @@ class _spotDetectionMethod(myQComboBox):
         elif text == 'Label prediction mask':
             return 'label_prediction_mask'
     
+    def setValue(self, value):
+        if value == 'peak_local_max':
+            self.setCurrentText('Detect local peaks')
+            return True
+        elif value == 'label_prediction_mask':
+            self.setCurrentText('Label prediction mask')
+            return True
+        return False
+    
+    def setCurrentText(self, text: str) -> None:
+        success = self.setValue(text)
+        if success:
+            return
+        super().setCurrentText(text)
+    
     def value(self):
         return self.currentText()
 
