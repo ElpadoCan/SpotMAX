@@ -1162,7 +1162,8 @@ class ParamsGroupBox(QGroupBox):
     
     def addFoldersToAnalyse(self, formWidget):
         preSelectedPaths = formWidget.widget.text().split('\n')
-        if not preSelectedPaths[0]:
+        preSelectedPaths = [path for path in preSelectedPaths if path]
+        if not preSelectedPaths:
             preSelectedPaths = None
         win = SelectFolderToAnalyse(preSelectedPaths=preSelectedPaths)
         win.exec_()
@@ -2963,7 +2964,7 @@ class SelectFolderToAnalyse(QBaseDialog):
         mainLayout = QVBoxLayout()
         
         instructionsText = html_func.paragraph(
-            'Click on <code>Browse</code> button to <b>add</b> as many <b>paths</b>'
+            'Click on <code>Browse</code> button to <b>add</b> as many <b>paths</b> '
             'as needed.<br>', font_size='14px'
         )
         instructionsLabel = QLabel(instructionsText)
