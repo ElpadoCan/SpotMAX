@@ -6,6 +6,7 @@ import time
 import cv2
 import logging
 import traceback
+from tqdm import tqdm
 import numpy as np
 import tkinter as tk
 import pathlib
@@ -24,6 +25,7 @@ import colorsys
 
 from math import log, pow, floor, sqrt
 
+from . import last_cli_log_file_path
 from . import GUI_INSTALLED
 
 if GUI_INSTALLED:
@@ -79,19 +81,20 @@ def check_cli_file_path(file_path, desc='parameters'):
         f'The following {desc} file provided does not exist: "{abs_file_path}"'
     )
 
-def setup_cli_logger(name='spotmax_cli', logs_path=None):    
-    if logs_path is None:
+def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):    
+    if custom_logs_folderpath is None:
         from . import logs_path
+        custom_logs_folderpath = logs_path
     logger = logging.getLogger(f'spotmax-logger-{name}')
     logger.setLevel(logging.INFO)
 
-    if not os.path.exists(logs_path):
-        os.mkdir(logs_path)
+    if not os.path.exists(custom_logs_folderpath):
+        os.mkdir(custom_logs_folderpath)
 
     date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     id = uuid4()
     log_filename = f'{date_time}_{name}_{id}_stdout.log'
-    log_path = os.path.join(logs_path, log_filename)
+    log_path = os.path.join(custom_logs_folderpath, log_filename)
 
     output_file_handler = logger_file_handler(log_path)
     logger._file_handler = output_file_handler
@@ -99,8 +102,10 @@ def setup_cli_logger(name='spotmax_cli', logs_path=None):
     
     stdout_handler = logging.StreamHandler(sys.stdout)    
     logger.addHandler(stdout_handler)
+    
+    store_current_log_file_path(log_path)
 
-    return logger, log_path, logs_path
+    return logger, log_path, custom_logs_folderpath
 
 def is_valid_url(x):
     try:
@@ -931,6 +936,30 @@ def get_closest_square(start_num, direction='ceil'):
             if is_perfect_square(num):
                 return num
             num -= 1
+
+def store_current_log_file_path(log_path):
+    with open(last_cli_log_file_path, 'w') as file:
+        file.write(log_path)
+
+def get_current_log_file_path():
+    if not os.path.exists(last_cli_log_file_path):
+        return
+    
+    with open(last_cli_log_file_path, 'r') as file:
+        log_path = file.read()
+    return log_path
+
+def parse_log_file():
+    log_path = get_current_log_file_path()
+    if log_path is None:
+        return '', []
+    
+    with open(log_path, 'r') as file:
+        log_text = file.read()
+    
+    errors = re.findall(r'(\[ERROR\]: .+)\n\^', log_text)
+    
+    return log_path, errors
 
 if __name__ == '__main__':
     df = get_sizes_path(r'C:\Users\Frank', return_df=True)

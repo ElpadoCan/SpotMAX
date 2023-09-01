@@ -43,7 +43,7 @@ from cellacdc.myutils import get_salute_string
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
 from . import widgets, config
-from . import tune
+from . import tune, utils
 
 from . import qrc_resources_spotmax
 
@@ -325,7 +325,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.logger.info('Starting spotMAX analysis...')
         self._analysis_started_datetime = datetime.datetime.now()
         self.funcDescription = 'starting analysis process'
-        worker = qtworkers.analysisWorker(ini_filepath, is_tempfile)
+        worker = qtworkers.AnalysisWorker(ini_filepath, is_tempfile)
 
         worker.signals.finished.connect(self.analysisWorkerFinished)
         worker.signals.progress.connect(self.workerProgress)
@@ -341,6 +341,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             tempdir = os.path.dirname(ini_filepath)
             self.logger.info(f'Deleting temp folder "{tempdir}"')
             shutil.rmtree(tempdir)
+        log_path, errors = utils.parse_log_file()
         self._analysis_finished_datetime = datetime.datetime.now()
         delta = self._analysis_finished_datetime-self._analysis_started_datetime
         delta_sec = str(delta).split('.')[0]
@@ -353,10 +354,34 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         line_str = '-'*60
         close_str = '*'*60
+        msg_kwargs = {
+            'path_to_browse': os.path.dirname(log_path),
+            'browse_button_text': 'Show log file'
+        }
+        if errors:
+            details = '\n\n'.join(errors)
+            msg_kwargs['detailsText'] = details
+            txt.replace(
+                'spotMAX analysis finished!', 
+                'spotMAX analysis ended with ERRORS'
+            )
+            txt = (
+                f'{txt}\n'
+                'WARNING: Analysis ended with errors. '
+                'See summary of errors below and more details in the '
+                'log file:\n\n'
+                f'`{log_path}`\n'
+            )
+            msg_func = 'critical'
+        else:
+            msg_func = 'information'
         self.logger.info(f'{line_str}\n{txt}\n{close_str}')
         txt = html_func.paragraph(txt.replace('\n', '<br>'))
+        txt = re.sub('`(.+)`', r'<code>\1</code>', txt)
         msg = acdc_widgets.myMessageBox()
-        msg.information(self, 'spotMAX analysis finished!', txt)
+        
+        msg_args = (self, 'spotMAX analysis finished', txt)
+        getattr(msg, msg_func)(*msg_args, **msg_kwargs)
     
     def gui_createActions(self):
         super().gui_createActions()

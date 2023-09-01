@@ -58,7 +58,7 @@ class signals(QObject):
     debug = Signal(object)
     sigLoadingNewChunk = Signal(object)
 
-class analysisWorker(QRunnable):
+class AnalysisWorker(QRunnable):
     def __init__(self, ini_filepath, is_tempfile):
         QRunnable.__init__(self)
         self.signals = signals()
@@ -73,7 +73,8 @@ class analysisWorker(QRunnable):
         # command = r'python, spotmax\test.py'
         command_format = command.replace(',', '')
         self.logger.log(f'spotMAX analysis started with command `{command_format}`')
-        subprocess.run([sys.executable, _process.__file__, '-c', command])
+        args = [sys.executable, _process.__file__, '-c', command]
+        subprocess.run(args)
         self.signals.finished.emit((self._ini_filepath, self._is_tempfile))
 
 class ComputeAnalysisStepWorker(QRunnable):

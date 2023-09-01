@@ -236,8 +236,7 @@ class _DataLoader:
                         f'(SizeT)" in the configuration file is {SizeT}. '
                         'Please double check that, thanks!'
                     )
-                if arr_data.shape[0] != 4:
-                    D0 = arr_data.shape[0]
+                if arr_data.ndim != 4:
                     channel = data[f'{key}.channel_name']
                     raise TypeError(
                         f'The shape of the image data from channel "{channel}" '
@@ -326,6 +325,7 @@ class _ParamsParser(_DataLoader):
         log_filename = os.path.basename(self.log_path)
         new_log_path = os.path.join(log_folder_path, log_filename)
         shutil.copy(self.log_path, new_log_path)
+        utils.store_current_log_file_path(new_log_path)
         self.log_path = new_log_path
 
         # Copy log file and add new handler

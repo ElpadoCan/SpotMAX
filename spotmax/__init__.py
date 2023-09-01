@@ -56,7 +56,9 @@ spotmax_appdata_path = os.path.join(home_path, 'spotmax_appdata')
 last_used_ini_text_filepath = os.path.join(
     spotmax_appdata_path, 'last_used_ini_filepath.txt'
 )
-
+last_cli_log_file_path = os.path.join(
+    spotmax_appdata_path, 'last_cli_log_file_path.txt'
+)
 data_path = os.path.join(spotMAX_path, 'data')
 
 logs_path = os.path.join(spotmax_appdata_path, 'logs')
@@ -104,7 +106,6 @@ help_text = (
     'The `<path_to_params_file>` can either be a CSV or INI file.\n'
     'If you do not have one, use the GUI to set up the parameters.\n\n'
     'See below other arguments you can pass to the command line. Enjoy!'
-
 )
 
 base_lineage_table_values = {
