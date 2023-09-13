@@ -449,6 +449,18 @@ class _ParamsParser(_DataLoader):
 
     def _check_numba_num_threads(self, num_threads, force_default=False):
         max_num_threads = numba.config.NUMBA_NUM_THREADS
+        if num_threads>0 and num_threads<=max_num_threads:
+            return num_threads
+
+        if num_threads > max_num_threads:
+            print('')
+            self.logger.info(
+                '[WARNING]: Max number of numba threads on this machine is '
+                f'{max_num_threads}. Ignoring provided number ({num_threads}) '
+                f'and using the maximum allowed ({max_num_threads}).'
+            )
+            return max_num_threads
+        
         default_option = str(int(max_num_threads/2))
         if force_default:
             return int(default_option)
@@ -459,15 +471,14 @@ class _ParamsParser(_DataLoader):
             'However, you might want to limit the amount of resources used.'
         )
         question = 'How many threads should spotMAX use'
-        if num_threads<=0 or num_threads>max_num_threads:
-            num_threads = io.get_user_input(
-                question, options=options, info_txt=info_txt, 
-                logger=self.logger.info, default_option=default_option
-            )
-            if num_threads is None:
-                return
-            else:
-                num_threads = int(num_threads)
+        num_threads = io.get_user_input(
+            question, options=options, info_txt=info_txt, 
+            logger=self.logger.info, default_option=default_option
+        )
+        if num_threads is None:
+            return
+        else:
+            num_threads = int(num_threads)
         return num_threads
 
     def _check_raise_on_critical(self, force_default=False):
