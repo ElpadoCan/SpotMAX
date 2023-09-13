@@ -2897,9 +2897,12 @@ class Kernel(_ParamsParser):
                     continue
             
             # Get the image for thresholding (either object or mother-bud)
-            ref_ch_img_local, obj_mask, bud_ID = self._extract_img_from_segm_obj(
-                ref_ch_img, lab, obj, lineage_table
+            ref_ch_img_local, lab_mask_lab, merged_obj_slice, bud_ID = (
+                self._extract_img_from_segm_obj(
+                    ref_ch_img, lab, obj, lineage_table
+                )
             )
+            obj_mask_lab = lab_mask_lab[merged_obj_slice]
 
             # Compute threshold value if not aggregate object (threshold value 
             # computed before on the aggregated image)
@@ -2915,30 +2918,23 @@ class Kernel(_ParamsParser):
 
             # Threshold
             ref_mask_local = ref_ch_img_local > thresh_val
-            ref_mask_local[~obj_mask] = False
-
-            if bud_ID > 0:
-                bud_obj = lab_rp[IDs.index(bud_ID)]
-                objs = [obj, bud_obj]
-            else:
-                objs = [obj]
-
+            ref_mask_local[~(obj_mask_lab>0)] = False
+            
             # Iterate eventually merged (mother-bud) objects
-            for obj in objs:
-                ref_ch_mask = np.zeros_like(obj.image)
-                local_slice = tuple([slice(0,d) for d in obj.image.shape])
-                ref_ch_mask[local_slice] = ref_mask_local[local_slice]
-                ref_ch_mask[~obj.image] = False
+            for obj_local in skimage.measure.regionprops(obj_mask_lab):                
+                ref_ch_mask = ref_mask_local[obj_local.slice].copy()
+                ref_ch_mask[~obj_local.image] = False
                 if keep_only_largest_obj:
                     ref_ch_mask = filters.filter_largest_obj(ref_ch_mask)
 
                 # Add numerical features
                 df_agg = self._add_aggregated_ref_ch_features(
-                    df_agg, frame_i, obj.label, ref_ch_mask, 
+                    df_agg, frame_i, obj_local.label, ref_ch_mask, 
                     vox_to_um3=vox_to_um3
                 )
 
-                ref_ch_segm[obj.slice][ref_ch_mask] = obj.label
+                id = obj_local.label
+                ref_ch_segm[merged_obj_slice][obj_local.slice][ref_ch_mask] = id
             
             pbar.update()
         pbar.close()

@@ -283,8 +283,14 @@ class SliceImageFromSegmObject:
         
         return lab_obj_image, rel_ID
     
+    def _get_obj_lab(self, lab_mask):
+        lab_mask_lab = np.zeros_like(self._lab)
+        lab_mask_lab[lab_mask] = self._lab[lab_mask]
+        return lab_mask_lab
+    
     def slice(self, image, obj):
         lab_mask, bud_ID = self._get_obj_mask(obj)
+        lab_mask_lab = self._get_obj_lab(lab_mask)
         lab_mask_rp = skimage.measure.regionprops(lab_mask.astype(np.uint8))
         lab_mask_obj = lab_mask_rp[0]
         img_local = image[lab_mask_obj.slice]
@@ -307,7 +313,7 @@ class SliceImageFromSegmObject:
 
         img_backgr[lab_mask_obj.image] = img_local[lab_mask_obj.image]
 
-        return img_backgr, lab_mask_obj.image, bud_ID
+        return img_backgr, lab_mask_lab, lab_mask_obj.slice, bud_ID
 
 def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):
     if segm_data.ndim != 4:
