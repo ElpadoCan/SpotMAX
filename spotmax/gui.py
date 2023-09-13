@@ -44,6 +44,7 @@ from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
 from . import widgets, config
 from . import tune, utils
+from . import core
 
 from . import qrc_resources_spotmax
 
@@ -93,6 +94,17 @@ class spotMAX_Win(acdc_gui.guiWin):
 
         self.initGui()
         self.createThreadPool()
+        self.setMaxNumThreadsNumbaParam()
+    
+    def setMaxNumThreadsNumbaParam(self):
+        SECTION = 'Configuration'
+        ANCHOR = 'numbaNumThreads'
+        paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
+        widget = paramsGroupbox.params[SECTION][ANCHOR]['widget']
+        if core.NUMBA_INSTALLED:
+            widget.setDisabled(True)
+        else:
+            widget.setMaximum(numba.config.NUMBA_NUM_THREADS)
     
     def createThreadPool(self):
         self.maxThreads = QThreadPool.globalInstance().maxThreadCount()

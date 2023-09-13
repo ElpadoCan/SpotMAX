@@ -226,6 +226,9 @@ class _DataLoader:
             for key in arr_keys:
                 if key not in data:
                     continue
+                if key == 'segm':
+                    # Do not check segm data length since it can be shorter
+                    continue
                 arr_data = data[key]
                 if arr_data.shape[0] != SizeT:
                     D0 = arr_data.shape[0]
