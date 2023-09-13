@@ -280,7 +280,7 @@ class guiTabControl(QTabWidget):
         super().__init__(parent)
 
         self.loadedFilename = ''
-        
+        self.lastEntry = None
         self.lastSavedIniFilePath = ''
 
         self.parametersTab = QScrollArea(self)
@@ -440,6 +440,8 @@ class guiTabControl(QTabWidget):
     def saveParamsFile(self):
         if self.loadedFilename:
             entry = self.loadedFilename
+        elif self.lastEntry is not None:
+            entry = self.lastEntry
         else:
             now = datetime.datetime.now().strftime(r'%Y-%m-%d')
             entry = f'{now}_analysis_parameters'
@@ -456,6 +458,8 @@ class guiTabControl(QTabWidget):
             filenameWindow.exec_()
             if filenameWindow.cancel:
                 return ''
+            
+            self.lastEntry = filenameWindow.entryText
             
             folder_path = QFileDialog.getExistingDirectory(
                 self, 'Select folder where to save the parameters file', 
