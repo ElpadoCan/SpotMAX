@@ -27,6 +27,7 @@ from math import log, pow, floor, sqrt
 
 from . import last_cli_log_file_path
 from . import GUI_INSTALLED
+from . import DFs_FILENAMES
 
 if GUI_INSTALLED:
     import matplotlib.colors
@@ -41,6 +42,7 @@ if GUI_INSTALLED:
 
     GUI_INSTALLED = True
 
+from cellacdc import myutils as acdc_utils
 from . import is_mac, is_linux, printl, settings_path, io
 
 class _Dummy:
@@ -960,6 +962,26 @@ def parse_log_file():
     errors = re.findall(r'(\[ERROR\]: .+)\n\^', log_text)
     
     return log_path, errors
+
+def get_runs_num_and_desc(exp_path, pos_foldernames=None):
+    if pos_foldernames is None:
+        pos_foldernames = acdc_utils.get_pos_foldernames(exp_path)
+    pattern = DFs_FILENAMES['spots_detection']
+    pattern = pattern.replace('*rn*', r'(\d+)')
+    pattern = pattern.replace('*desc*', r'(_?.*)_aggregated\.')
+    
+    all_runs = set()
+    for pos in pos_foldernames:
+        pos_path = os.path.join(exp_path, pos)
+        spotmax_output_path = os.path.join(pos_path, 'spotMAX_output')
+        if not os.path.exists(spotmax_output_path):
+            continue
+        
+        for file in acdc_utils.listdir(spotmax_output_path):
+            m = re.findall(pattern, file)
+            all_runs.update(m)
+    
+    return all_runs
 
 if __name__ == '__main__':
     df = get_sizes_path(r'C:\Users\Frank', return_df=True)
