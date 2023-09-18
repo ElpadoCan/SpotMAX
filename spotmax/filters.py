@@ -151,7 +151,6 @@ def local_semantic_segmentation(
             threshold_val = thresh_func(spots_img_obj.max(axis=0))
             predict_mask_merged = spots_img_obj > threshold_val
             
-            import pdb; pdb.set_trace()
             # Iterate eventually merged (mother-bud) objects
             for obj_local in skimage.measure.regionprops(obj_mask_lab):  
                 predict_mask_obj = predict_mask_merged[obj_local.slice].copy()
