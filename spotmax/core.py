@@ -3161,12 +3161,14 @@ class Kernel(_ParamsParser):
             threshold_val = threshold_func(aggr_spots_img.max(axis=0))
             prediction_mask = aggr_spots_img>threshold_val
             labels = prediction_mask.astype(np.uint8)
+            
             # from . import _debug
             # _debug._threshold_spots_img(aggr_spots_img)
             # from cellacdc.plot import imshow
             # imshow(aggr_spots_img, labels)
             # import pdb; pdb.set_trace()
-            # return labels
+            
+            return labels
 
         labels = filters.local_semantic_segmentation(
             aggr_spots_img, aggregated_lab, threshold_func, 
