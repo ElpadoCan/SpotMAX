@@ -150,13 +150,12 @@ def local_semantic_segmentation(
             # Threshold
             threshold_val = thresh_func(spots_img_obj.max(axis=0))
             predict_mask_merged = spots_img_obj > threshold_val
-            
+
             # Iterate eventually merged (mother-bud) objects
             for obj_local in skimage.measure.regionprops(obj_mask_lab):  
                 predict_mask_obj = predict_mask_merged[obj_local.slice].copy()
-                labels[merged_obj_slice][obj_local.slice][predict_mask_obj] = (
-                    obj.label
-                )
+                id = obj_local.label
+                labels[merged_obj_slice][obj_local.slice][predict_mask_obj] = id
         
         result[method] = labels.astype(np.int32)
         if threshold_func is None:

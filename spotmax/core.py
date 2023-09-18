@@ -3250,7 +3250,7 @@ class Kernel(_ParamsParser):
             
             labels = self._get_peak_local_max_labels_thresholding(
                 aggr_spots_img, aggregated_lab, threshold_func, 
-                do_aggregate, lineage_table=None
+                do_aggregate, lineage_table=lineage_table
             )
         else:
             # Here we will use U-Net

@@ -301,27 +301,35 @@ class SliceImageFromSegmObject:
         lab_mask_lab = self._get_obj_lab(lab_mask)
         lab_mask_rp = skimage.measure.regionprops(lab_mask.astype(np.uint8))
         lab_mask_obj = lab_mask_rp[0]
-        img_local = image[lab_mask_obj.slice]
+        img_local = image[lab_mask_obj.slice].copy()
         backgr_vals = img_local[~lab_mask_obj.image]
         if backgr_vals.size == 0:
             return img_local, lab_mask_obj.image, bud_ID
         
-        backgr_mean = backgr_vals.mean()
-        backgr_mean = backgr_mean if backgr_mean>=0 else 0
-        backgr_std = backgr_vals.std()/3
+        # backgr_mean = backgr_vals.mean()
+        # backgr_mean = backgr_mean if backgr_mean>=0 else 0
+        # backgr_std = backgr_vals.std()/2
         # gamma_shape = np.square(backgr_mean/backgr_std)
         # gamma_scale = np.square(backgr_std)/backgr_mean
         # img_backgr = rng.gamma(
         #     gamma_shape, gamma_scale, size=lab_mask_obj.image.shape
         # )
-        img_backgr = rng.normal(
-            backgr_mean, backgr_std, size=lab_mask_obj.image.shape
-        )
-        np.clip(img_backgr, 0, 1, out=img_backgr)
+        # img_backgr = rng.normal(
+        #     backgr_mean, backgr_std, size=lab_mask_obj.image.shape
+        # )
+        # np.clip(img_backgr, 0, 1, out=img_backgr)
 
-        img_backgr[lab_mask_obj.image] = img_local[lab_mask_obj.image]
+        # img_backgr[lab_mask_obj.image] = img_local[lab_mask_obj.image]
+        
+        # Replace values outside of the obj mask that are higher than the 
+        # max with mean of the object to avoid external objects with 
+        # bright features to skew thresholding the object
+        foregr_vals = img_local[lab_mask_obj.image]
+        foregr_mean = foregr_vals.mean()
+        foregr_max = foregr_vals.max()
+        img_local[img_local > foregr_max] = foregr_mean
 
-        return img_backgr, lab_mask_lab, lab_mask_obj.slice, bud_ID
+        return img_local, lab_mask_lab, lab_mask_obj.slice, bud_ID
 
 def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):
     if segm_data.ndim != 4:
