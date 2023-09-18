@@ -260,9 +260,12 @@ def _threshold_spots_img(spots_img):
     all_thresholded = []
     for func_name in threshold_func_names:
         thresh_func = getattr(skimage.filters, func_name)
-        thresh_val = thresh_func(spots_img.max(axis=0))
+        input_img = spots_img.max(axis=0)
+        thresh_val = thresh_func(input_img)
         prediction_mask = spots_img>thresh_val
         all_thresholded.append(prediction_mask)
+        printl(func_name, thresh_val, input_img.max())
+        imshow(input_img, prediction_mask)
     imshow(spots_img, *all_thresholded, axis_titles=('image', *threshold_func_names))
     import pdb; pdb.set_trace()
 

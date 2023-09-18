@@ -142,25 +142,22 @@ def local_semantic_segmentation(
                     # Skip buds since they are aggregated with mother
                     continue
             
-            spots_img_obj, obj_mask, budID = slicer.slice(image, obj)
+            spots_img_obj, lab_mask_lab, merged_obj_slice, bud_ID = (
+                slicer.slice(image, obj)
+            )
+            obj_mask_lab = lab_mask_lab[merged_obj_slice]
 
             # Threshold
             threshold_val = thresh_func(spots_img_obj.max(axis=0))
             predict_mask_merged = spots_img_obj > threshold_val
-            # predict_mask_merged[~obj_mask] = False
-
-            if budID > 0:
-                bud_obj = aggr_rp[IDs.index(budID)]
-                objs = [obj, bud_obj]
-            else:
-                objs = [obj]
-
+            
             # Iterate eventually merged (mother-bud) objects
-            for obj in objs:
-                predict_mask_obj = np.zeros_like(obj.image)
-                obj_slice = tuple([slice(0,d) for d in obj.image.shape])
-                predict_mask_obj[obj_slice] = predict_mask_merged[obj_slice]
-                labels[obj.slice][predict_mask_obj] = obj.label
+            for obj_local in skimage.measure.regionprops(obj_mask_lab):  
+                predict_mask_obj = predict_mask_merged[obj_local.slice].copy()
+                labels[merged_obj_slice][obj_local.slice][predict_mask_obj] = (
+                    obj.label
+                )
+        
         result[method] = labels.astype(np.int32)
         if threshold_func is None:
             pbar.update()

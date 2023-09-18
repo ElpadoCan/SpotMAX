@@ -3166,7 +3166,7 @@ class Kernel(_ParamsParser):
             # from cellacdc.plot import imshow
             # imshow(aggr_spots_img, labels)
             # import pdb; pdb.set_trace()
-            return labels
+            # return labels
 
         labels = filters.local_semantic_segmentation(
             aggr_spots_img, aggregated_lab, threshold_func, 
@@ -3236,7 +3236,8 @@ class Kernel(_ParamsParser):
         
         aggr_spots_img, aggregated_lab = transformations.aggregate_objs(
             sharp_spots_img, lab, lineage_table=lineage_table, 
-            zyx_tolerance=self.metadata['deltaTolerance']
+            zyx_tolerance=self.metadata['deltaTolerance'],
+            debug=self.debug
         )
         
         if prediction_method == 'Thresholding':

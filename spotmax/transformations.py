@@ -8,6 +8,8 @@ from . import utils, rng
 from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS
 from . import features
 
+from . import printl
+
 def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
     """Generate the slices required to insert a local mask into a larger image.
 
@@ -139,7 +141,7 @@ def get_aggregate_obj_slice(
     )
     return obj_slice
 
-def _aggregate_objs(img_data, lab, zyx_tolerance=None):
+def _aggregate_objs(img_data, lab, zyx_tolerance=None, debug=False):
     # Add tolerance based on resolution limit
     if zyx_tolerance is not None:
         dz, dy, dx = zyx_tolerance
@@ -190,7 +192,7 @@ def _aggregate_objs(img_data, lab, zyx_tolerance=None):
         obj_lab = lab[obj_slice].copy()
         obj_lab[obj_lab != obj.label] = 0
         aggregated_lab[:, :, last_w:last_w+obj_width] = obj_lab
-        last_w += w
+        last_w += obj_width
     if excess_width > 0:
         # Trim excess width result of adding dx to all objects
         aggregated_img = aggregated_img[..., :-excess_width]
@@ -247,14 +249,20 @@ def _separate_moth_buds(lab_merged, bud_images):
 
 def aggregate_objs(
         img_data, lab, zyx_tolerance=None, return_bud_images=True, 
-        lineage_table=None
+        lineage_table=None, debug=False
     ):
     lab_merged, bud_images = _merge_moth_bud(
         lineage_table, lab, return_bud_images=return_bud_images
     )
+        
     aggregated_img, aggregated_lab = _aggregate_objs(
-        img_data, lab_merged, zyx_tolerance=zyx_tolerance
+        img_data, lab_merged, zyx_tolerance=zyx_tolerance, debug=debug
     )
+    
+    if debug:
+        imshow(aggregated_img, aggregated_lab)
+        import pdb; pdb.set_trace()
+    
     aggregated_lab = _separate_moth_buds(
         aggregated_lab, bud_images
     )
