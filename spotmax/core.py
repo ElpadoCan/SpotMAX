@@ -2883,7 +2883,7 @@ class Kernel(_ParamsParser):
         rp = skimage.measure.regionprops(ref_ch_mask_local.astype(np.uint32))
         num_fragments = len(rp)
         df_agg.at[(frame_i, ID), 'ref_ch_num_fragments'] = num_fragments
-
+        
         return df_agg
     
     def _segment_ref_ch(
@@ -3495,12 +3495,13 @@ class Kernel(_ParamsParser):
             df_spots_det.reset_index().groupby(['frame_i', 'Cell_ID'])
             .agg(**func)
         )
-        df_agg_det = df_agg_det.join(df_agg, how='left')
+        df_agg_det = df_agg_det.join(df_agg, how='outer')
+        
         df_agg_gop = (
             df_spots_gop.reset_index().groupby(['frame_i', 'Cell_ID'])
             .agg(**func)
         )
-        df_agg_gop = df_agg_gop.join(df_agg, how='left')
+        df_agg_gop = df_agg_gop.join(df_agg, how='outer')
         if df_spots_fit is not None:
             spotfit_func = {
                 name:(col, aggFunc) for name, (col, aggFunc, _) 
@@ -3511,7 +3512,7 @@ class Kernel(_ParamsParser):
                 df_spots_fit.reset_index().groupby(['frame_i', 'Cell_ID'])
                 .agg(**spotfit_func)
             )
-            df_agg_spotfit = df_agg_spotfit.join(df_agg, how='left')
+            df_agg_spotfit = df_agg_spotfit.join(df_agg, how='outer')
         else:
             df_agg_spotfit = None
 
