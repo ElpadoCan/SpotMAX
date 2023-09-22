@@ -134,7 +134,7 @@ class measurementsQGroupBox(QGroupBox):
         self.formWidgets = []
 
         self.setCheckable(True)
-        layout = widgets.myFormLayout()
+        layout = widgets.FormLayout()
 
         for row, item in enumerate(names.items()):
             key, labelTextRight = item
@@ -560,7 +560,7 @@ class AutoTuneGroupbox(QGroupBox):
                 if section not in self.params:
                     self.params[section] = {}
                     self.params[section]['groupBox'] = QGroupBox(section)
-                    self.params[section]['formLayout'] = widgets.myFormLayout()
+                    self.params[section]['formLayout'] = widgets.FormLayout()
                 self.params[section][anchor] = param.copy()
                 groupBox = self.params[section]['groupBox']
                 formLayout = self.params[section]['formLayout']
@@ -1118,7 +1118,7 @@ class ParamsGroupBox(QGroupBox):
         _params = config.analysisInputsParams()
         self.params = {}
         for section, section_params in _params.items():
-            formLayout = widgets.myFormLayout()
+            formLayout = widgets.FormLayout()
             self.params[section] = {}
             groupBox = QGroupBox(section)
             isNotCheckableGroup = (
@@ -2732,7 +2732,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
 
         self.setWindowTitle('Spots scatter plot item')
 
-        layout = acdc_widgets.myFormLayout()
+        layout = acdc_widgets.FormLayout()
 
         row = 0
         h5fileCombobox = QComboBox()

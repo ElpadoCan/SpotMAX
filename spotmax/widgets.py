@@ -228,7 +228,7 @@ class measurementsQGroupBox(QGroupBox):
         self.formWidgets = []
 
         self.setCheckable(True)
-        layout = myFormLayout()
+        layout = FormLayout()
 
         for row, item in enumerate(names.items()):
             key, labelTextRight = item
@@ -873,7 +873,7 @@ class formWidget(QWidget):
         # Here show user manual already scrolled at anchor
         # see https://stackoverflow.com/questions/20678610/qtextedit-set-anchor-and-scroll-to-it
 
-class myFormLayout(QGridLayout):
+class FormLayout(QGridLayout):
     def __init__(self):
         QGridLayout.__init__(self)
 
