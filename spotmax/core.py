@@ -1971,7 +1971,7 @@ class spheroid:
             desc='Building spots mask', total=len(zyx_centers),
             unit=' spot', leave=False, position=4, ncols=100
         )
-        for i, zyx_c in enumerate(zyx_centers):
+        for c, zyx_c in enumerate(zyx_centers):
             (temp_mask, _, slice_G_to_L,
             slice_crop) = self.index_local_into_global_mask(
                 temp_mask, local_spot_mask, zyx_c, semiax_len, Z, Y, X,
@@ -1981,7 +1981,7 @@ class spheroid:
                 spots_mask = np.logical_or(spots_mask, temp_mask)
             elif dtype == np.uint32:
                 cropped_mask = local_spot_mask[slice_crop]
-                spots_mask[slice_G_to_L][cropped_mask] = ids[i]
+                spots_mask[slice_G_to_L][cropped_mask] = ids[c]
             in_pbar.update(1)
         in_pbar.close()
         return spots_mask
