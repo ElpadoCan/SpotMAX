@@ -1,4 +1,5 @@
 import os
+from posixpath import isabs
 import sys
 import pandas as pd
 import datetime
@@ -963,6 +964,11 @@ def parse_log_file():
     
     return log_path, errors
 
+def resolve_path(rel_or_abs_path, abs_path=''):
+    if os.path.isabs(rel_or_abs_path):
+        return rel_or_abs_path
+    parts = rel_or_abs_path.replace('\\', '/').split('/')
+    
 def get_runs_num_and_desc(exp_path, pos_foldernames=None):
     if pos_foldernames is None:
         pos_foldernames = acdc_utils.get_pos_foldernames(exp_path)

@@ -5,9 +5,9 @@ import torch
 from skimage import measure
 from skimage.metrics import adapted_rand_error, peak_signal_noise_ratio, mean_squared_error
 
-from ...pytorch3dunet.unet3d.losses import compute_per_channel_dice
-from ...pytorch3dunet.unet3d.seg_metrics import AveragePrecision, Accuracy
-from ...pytorch3dunet.unet3d.utils import get_logger, expand_as_one_hot, convert_to_numpy
+from pytorch3dunet.unet3d.losses import compute_per_channel_dice
+from pytorch3dunet.unet3d.seg_metrics import AveragePrecision, Accuracy
+from pytorch3dunet.unet3d.utils import get_logger, expand_as_one_hot, convert_to_numpy
 
 logger = get_logger('EvalMetric')
 

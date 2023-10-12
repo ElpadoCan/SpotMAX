@@ -4,9 +4,9 @@ unet2D:
     n_channels: 1
     n_classes: 2
     bilinear: True
-    model_dir: models_weight/unet2D
-    best_model_path: models_weight/unet2D/unet_best.pth
-    training_path: models_weight/unet2D/training/
+    model_dir: ~/spotmax_appdata/unet_checkpoints/checkpoints/unet2D
+    best_model_path: ~/spotmax_appdata/unet_checkpoints/unet2D/unet_best.pth
+    training_path: ~/spotmax_appdata/unet_checkpoints/unet2D/training/
 
   trainer:
     batch_size: 16
@@ -29,7 +29,7 @@ unet3D:
       is_segmentation: true
 
     trainer:
-      checkpoint_dir: models_weight/unet3D/training
+      checkpoint_dir: ~/spotmax_appdata/unet_checkpoints/unet3D/training
       resume: null
       pre_trained: null
       validate_after_iters: 100
@@ -102,8 +102,8 @@ unet3D:
               expand_dims: false
 
   predict:
-    model_path: models_weight/unet3D/normal_30_250_250_20_100_100/best_checkpoint.pytorch
-    #model_path: models_weight/unet3D/training/best_checkpoint.pytorch
+    model_path: ~/spotmax_appdata/unet_checkpoints/unet3D/normal_30_250_250_20_100_100/best_checkpoint.pytorch
+    #model_path: ~/spotmax_appdata/unet_checkpoints/unet3D/training/best_checkpoint.pytorch
 
     model:
       name: UNet3D

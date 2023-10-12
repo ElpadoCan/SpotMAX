@@ -5,133 +5,11 @@ from itertools import chain
 import h5py
 import numpy as np
 
-from ...pytorch3dunet.augment import transforms
-from ...pytorch3dunet.datasets.utils import get_slice_builder, ConfigDataset, calculate_stats
-from ...pytorch3dunet.unet3d.utils import get_logger
+import pytorch3dunet.augment.transforms as transforms
+from pytorch3dunet.datasets.utils import get_slice_builder, ConfigDataset, calculate_stats
+from pytorch3dunet.unet3d.utils import get_logger
 
 logger = get_logger('HDF5Dataset')
-
-class NumpyDataset(ConfigDataset):
-
-    def __init__(
-        self,
-        phase,
-        slice_builder_config,
-        transformer_config,
-        mirror_padding=(16, 32, 32),
-        global_normalization=True,
-        raw=None,
-        label=None,
-        ):
-        """
-        :param phase: 'train' for training, 'val' for validation, 'test' for testing; data augmentation is performed
-            only during the 'train' phase
-        :para'/home/adrian/workspace/ilastik-datasets/VolkerDeconv/train'm slice_builder_config: configuration of the SliceBuilder
-        :param transformer_config: data augmentation configuration
-        :param mirror_padding (int or tuple): number of voxels padded to each axis
-        :param global_normalization (bool): if True, the mean and std of the whole dataset are used for normalization
-        """
-        assert phase in ['train', 'val', 'test']
-        if phase in ['train', 'val']:
-            mirror_padding = None
-
-        if mirror_padding is not None:
-            if isinstance(mirror_padding, int):
-                mirror_padding = (mirror_padding,) * 3
-            else:
-                assert len(mirror_padding) == 3, f"Invalid mirror_padding: {mirror_padding}"
-
-        self.mirror_padding = mirror_padding
-        self.phase = phase
-
-        self.raw = self.fetch_and_check(raw)
-
-        if global_normalization:
-            stats = calculate_stats(self.raw)
-        else:
-            stats = {'pmin': None, 'pmax': None, 'mean': None, 'std': None}
-
-        self.transformer = transforms.Transformer(transformer_config, stats)
-        self.raw_transform = self.transformer.raw_transform()
-
-        if phase != 'test':
-            # create label/weight transform only in train/val phase
-            self.label_transform = self.transformer.label_transform()
-            self.label = self.fetch_and_check(label)
-
-            self.weight_map = None
-            self._check_volume_sizes(self.raw, self.label)
-        else:
-            # 'test' phase used only for predictions so ignore the label dataset
-            self.label = None
-            self.weight_map = None
-
-            # add mirror padding if needed
-            if self.mirror_padding is not None:
-                z, y, x = self.mirror_padding
-                pad_width = ((z, z), (y, y), (x, x))
-                if self.raw.ndim == 4:
-                    channels = [np.pad(r, pad_width=pad_width, mode='reflect') for r in self.raw]
-                    self.raw = np.stack(channels)
-                else:
-                    self.raw = np.pad(self.raw, pad_width=pad_width, mode='reflect')
-
-        # build slice indices for raw and label data sets
-        slice_builder = get_slice_builder(self.raw, self.label, self.weight_map, slice_builder_config)
-        self.raw_slices = slice_builder.raw_slices
-        self.label_slices = slice_builder.label_slices
-        self.weight_slices = slice_builder.weight_slices
-
-        self.patch_count = len(self.raw_slices)
-        logger.info(f'Number of patches: {self.patch_count}')
-
-    @staticmethod
-    def fetch_and_check(array):
-        if array.ndim == 2:
-            # expand dims if 2d
-            array = np.expand_dims(array, axis=0)
-        return array
-
-    def __getitem__(self, idx):
-        if idx >= len(self):
-            raise StopIteration
-
-        # get the slice for a given index 'idx'
-        raw_idx = self.raw_slices[idx]
-        # get the raw data patch for a given slice
-        raw_patch_transformed = self.raw_transform(self.raw[raw_idx])
-
-        if self.phase == 'test':
-            # discard the channel dimension in the slices: predictor requires only the spatial dimensions of the volume
-            if len(raw_idx) == 4:
-                raw_idx = raw_idx[1:]
-            return raw_patch_transformed, raw_idx
-        else:
-            # get the slice for a given index 'idx'
-            label_idx = self.label_slices[idx]
-            label_patch_transformed = self.label_transform(self.label[label_idx])
-            if self.weight_map is not None:
-                weight_idx = self.weight_slices[idx]
-                weight_patch_transformed = self.weight_transform(self.weight_map[weight_idx])
-                return raw_patch_transformed, label_patch_transformed, weight_patch_transformed
-            # return the transformed raw and label patches
-            return raw_patch_transformed, label_patch_transformed
-
-    def __len__(self):
-        return self.patch_count
-
-    @staticmethod
-    def _check_volume_sizes(raw, label):
-        def _volume_shape(volume):
-            if volume.ndim == 3:
-                return volume.shape
-            return volume.shape[1:]
-
-        assert raw.ndim in [3, 4], 'Raw dataset must be 3D (DxHxW) or 4D (CxDxHxW)'
-        assert label.ndim in [3, 4], 'Label dataset must be 3D (DxHxW) or 4D (CxDxHxW)'
-
-        assert _volume_shape(raw) == _volume_shape(label), 'Raw and labels have to be of the same size'
-
 
 
 class AbstractHDF5Dataset(ConfigDataset):
@@ -148,8 +26,7 @@ class AbstractHDF5Dataset(ConfigDataset):
                  raw_internal_path='raw',
                  label_internal_path='label',
                  weight_internal_path=None,
-                 global_normalization=True,
-                 ):
+                 global_normalization=True):
         """
         :param file_path: path to H5 file containing raw data as well as labels and per pixel weights (optional)
         :param phase: 'train' for training, 'val' for validation, 'test' for testing; data augmentation is performed

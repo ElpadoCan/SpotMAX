@@ -8,8 +8,6 @@ from skimage import measure
 from skimage.filters import gaussian
 from skimage.segmentation import find_boundaries
 
-from ...pytorch3dunet.augment import transforms as pytorch3dunet_augment_transforms
-
 # WARN: use fixed random state for reproducibility; if you want to randomize on each run seed with `time.time()` e.g.
 GLOBAL_RANDOM_STATE = np.random.RandomState(47)
 
@@ -711,9 +709,9 @@ class Transformer:
 
     @staticmethod
     def _transformer_class(class_name):
-        # m = importlib.import_module('pytorch3dunet.augment.transforms')
-        attr = getattr(pytorch3dunet_augment_transforms, class_name)
-        return attr
+        m = importlib.import_module('pytorch3dunet.augment.transforms')
+        clazz = getattr(m, class_name)
+        return clazz
 
     def _create_transform(self, name):
         assert name in self.phase_config, f'Could not find {name} transform'

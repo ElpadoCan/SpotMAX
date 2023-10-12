@@ -1,25 +1,17 @@
 import os
-from tqdm import tqdm
+
 import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
 
-from models.unet3D.datasets.utils import get_train_loaders
-from models.unet3D.unet3d.losses import get_loss_criterion
-from models.unet3D.unet3d.metrics import get_evaluation_metric
-from models.unet3D.unet3d.model import get_model
-from models.unet3D.unet3d.utils import (
-    get_logger, get_tensorboard_formatter, create_optimizer,
+from pytorch3dunet.datasets.utils import get_train_loaders
+from pytorch3dunet.unet3d.losses import get_loss_criterion
+from pytorch3dunet.unet3d.metrics import get_evaluation_metric
+from pytorch3dunet.unet3d.model import get_model
+from pytorch3dunet.unet3d.utils import get_logger, get_tensorboard_formatter, create_optimizer, \
     create_lr_scheduler, get_number_of_learnable_parameters
-)
 from . import utils
-
-try:
-    import wandb
-    WANDB_INSTALLED = True
-except Exception as err:
-    WANDB_INSTALLED = False
 
 logger = get_logger('UNet3DTrainer')
 
@@ -129,10 +121,6 @@ class UNet3DTrainer:
         self.log_after_iters = log_after_iters
         self.validate_iters = validate_iters
         self.eval_score_higher_is_better = eval_score_higher_is_better
-        if WANDB_INSTALLED:
-            self.wandb_mode = kwargs.get('wandb_mode', 'disabled')
-        else:
-            self.wandb_mode = 'disabled'
 
         logger.info(model)
         logger.info(f'eval_score_higher_is_better: {eval_score_higher_is_better}')
@@ -170,28 +158,16 @@ class UNet3DTrainer:
                 self.checkpoint_dir = os.path.split(pre_trained)[0]
 
     def fit(self):
-        self.experiment = wandb.init(project="spoot-deep", entity="lfk", mode=self.wandb_mode)
-        self.experiment.config.update(
-            dict(
-                epochs=self.max_num_epochs,
-                learning_rate=self.optimizer.param_groups[0]['lr']
-            )
-        )
-        # Create a pbar for the epoch
-        self.epoch_pbar = tqdm(total=self.max_num_epochs, desc="Epochs", position=0)
-
         for _ in range(self.num_epochs, self.max_num_epochs):
             # train for one epoch
             should_terminate = self.train()
 
             if should_terminate:
-                self.epoch_pbar.set_description(f"Epochs (finished). Stopping criterion is satisfied")
-                self.experiment.finish()
+                logger.info('Stopping criterion is satisfied. Finishing training')
                 return
 
             self.num_epochs += 1
-            self.epoch_pbar.update(1)
-        self.epoch_pbar.set_description(f"Reached maximum number of epochs: {self.max_num_epochs}. Finishing training...")
+        logger.info(f"Reached maximum number of epochs: {self.max_num_epochs}. Finishing training...")
 
     def train(self):
         """Trains the model for 1 epoch.
@@ -206,7 +182,7 @@ class UNet3DTrainer:
         self.model.train()
 
         for t in self.loaders['train']:
-            self.epoch_pbar.set_description(f'Training iteration [{self.num_iterations}/{self.max_num_iterations}]. '
+            logger.info(f'Training iteration [{self.num_iterations}/{self.max_num_iterations}]. '
                         f'Epoch [{self.num_epochs}/{self.max_num_epochs - 1}]')
 
             input, target, weight = self._split_training_batch(t)
@@ -220,22 +196,11 @@ class UNet3DTrainer:
             loss.backward()
             self.optimizer.step()
 
-            self.experiment.log(
-                    {
-                        "learning rate": self.optimizer.param_groups[0]["lr"],
-                        "step": self.num_iterations,
-                        "epoch": self.num_epochs,
-                        "loss": loss.item() / self._batch_size(input),
-                        "avg_train_loss": train_losses.avg,
-                        "batch_size": self._batch_size(input)
-                    }
-                )
-
             if self.num_iterations % self.validate_after_iters == 0:
                 # set the model in eval mode
                 self.model.eval()
                 # evaluate on validation set
-                eval_score, eval_loss = self.validate()
+                eval_score = self.validate()
                 # set the model back to training mode
                 self.model.train()
 
@@ -252,15 +217,6 @@ class UNet3DTrainer:
                 # save checkpoint
                 self._save_checkpoint(is_best)
 
-                self.experiment.log(
-                    {
-                        "step": self.num_iterations,
-                        "epoch": self.num_epochs,
-                        "eval_score": eval_score,
-                        "avg_eval_loss": eval_loss,
-                    }
-                )
-
             if self.num_iterations % self.log_after_iters == 0:
                 # compute eval criterion
                 if not self.skip_train_validation:
@@ -268,7 +224,7 @@ class UNet3DTrainer:
                     train_eval_scores.update(eval_score.item(), self._batch_size(input))
 
                 # log stats, params and images
-                self.epoch_pbar.set_description(
+                logger.info(
                     f'Training stats. Loss: {train_losses.avg}. Evaluation score: {train_eval_scores.avg}')
                 self._log_stats('train', train_losses.avg, train_eval_scores.avg)
                 self._log_params()
@@ -287,26 +243,26 @@ class UNet3DTrainer:
         some predefined threshold (1e-6 in our case)
         """
         if self.max_num_iterations < self.num_iterations:
-            self.epoch_pbar.set_description(f'Maximum number of iterations {self.max_num_iterations} exceeded.')
+            logger.info(f'Maximum number of iterations {self.max_num_iterations} exceeded.')
             return True
 
-        #min_lr = 1e-12
-        #lr = self.optimizer.param_groups[0]['lr']
-        #if lr < min_lr:
-        #    logger.info(f'Learning rate below the minimum {min_lr}.')
-        #    return True
+        min_lr = 1e-6
+        lr = self.optimizer.param_groups[0]['lr']
+        if lr < min_lr:
+            logger.info(f'Learning rate below the minimum {min_lr}.')
+            return True
 
         return False
 
     def validate(self):
-        self.epoch_pbar.set_description('Validating...')
+        logger.info('Validating...')
 
         val_losses = utils.RunningAverage()
         val_scores = utils.RunningAverage()
 
         with torch.no_grad():
             for i, t in enumerate(self.loaders['val']):
-                self.epoch_pbar.set_description(f'Validation iteration {i}')
+                logger.info(f'Validation iteration {i}')
 
                 input, target, weight = self._split_training_batch(t)
 
@@ -324,8 +280,8 @@ class UNet3DTrainer:
                     break
 
             self._log_stats('val', val_losses.avg, val_scores.avg)
-            self.epoch_pbar.set_description(f'Validation finished. Loss: {val_losses.avg}. Evaluation score: {val_scores.avg}')
-            return val_scores.avg, val_losses.avg
+            logger.info(f'Validation finished. Loss: {val_losses.avg}. Evaluation score: {val_scores.avg}')
+            return val_scores.avg
 
     def _split_training_batch(self, t):
         def _move_to_device(input):
@@ -361,7 +317,7 @@ class UNet3DTrainer:
             is_best = eval_score < self.best_eval_score
 
         if is_best:
-            self.epoch_pbar.set_description(f'Saving new best evaluation metric: {eval_score}')
+            logger.info(f'Saving new best evaluation metric: {eval_score}')
             self.best_eval_score = eval_score
 
         return is_best
@@ -375,7 +331,7 @@ class UNet3DTrainer:
             state_dict = self.model.state_dict()
 
         last_file_path = os.path.join(self.checkpoint_dir, 'last_checkpoint.pytorch')
-        self.epoch_pbar.set_description(f"Saving checkpoint to '{last_file_path}'")
+        logger.info(f"Saving checkpoint to '{last_file_path}'")
 
         utils.save_checkpoint({
             'num_epochs': self.num_epochs + 1,

@@ -1,6 +1,6 @@
 import random
 import torch
-import wandb
+import os
 import numpy as np
 from models.base_model import BaseModel
 from torch.utils.data import DataLoader
@@ -12,9 +12,17 @@ from tqdm import tqdm
 import logging
 from pathlib import Path
 import shutil as sh
+
 from models.unet2D.unet_2D_model import UNet2D
 from models.unet2D.dice_score import dice_loss, dice_coeff, multiclass_dice_coeff
 
+from spotmax.utils import resolve_path
+
+try:
+    import wandb
+    WANDB_INSTALLED = True
+except Exception as err:
+    WANDB_INSTALLED = False
 
 class SegmentationDataset(Dataset):
     """Pytorch dataset for uploading images and masks to the model.
@@ -72,10 +80,16 @@ class Unet2DModel(BaseModel):
         self.model_config = config['model']
         self.trainer_config = config['trainer']
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model_dir = self.model_config['model_dir']
-        self.best_model_location = self.model_config['best_model_path']
-        self.training_directory = self.model_config['training_path']
-        self.net = None
+        self.model_dir = os.path.expanduser(
+            self.model_config['model_dir']
+        )
+        self.best_model_location = os.path.expanduser(
+            self.model_config['best_model_path']
+        )
+        self.training_directory = os.path.expanduser(
+            self.model_config['training_path']
+        )
+        self.net = None        
 
     def initialize_network(self):
         """Initialize the 2D U-Net model. This function is called by the train function."""
@@ -107,7 +121,10 @@ class Unet2DModel(BaseModel):
         learning_rate = self.trainer_config['learning_rate']
         save_checkpoint = self.trainer_config['save_checkpoint']
         amp = self.trainer_config['amp']
-        wandb_mode = self.trainer_config.get('wandb_mode', 'disabled')
+        if WANDB_INSTALLED:
+            wandb_mode = self.trainer_config.get('wandb_mode', 'disabled')
+        else:
+            wandb_mode = 'disabled'
 
         # Initialize the network
         if not self.net:
@@ -374,4 +391,6 @@ class Unet2DModel(BaseModel):
         else:
             model_to_load = self.model_dir + "/checkpoint_epoch{}.pth".format(epoch)
 
-        self.net.load_state_dict(torch.load(model_to_load, map_location=self.device))
+        self.net.load_state_dict(
+            torch.load(model_to_load, map_location=self.device)
+        )

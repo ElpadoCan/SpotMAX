@@ -4,6 +4,8 @@ from enum import Enum
 from models.unet2d_model import Unet2DModel
 from models.unet3D_model import Unet3DModel
 
+from pprint import pprint
+
 @dataclass
 class Data:
     """
@@ -99,7 +101,7 @@ class NDModel(object):
         """
 
         # Check inputs depedning on the operation
-        data.check_dimensions()
+        # data.check_dimensions()
         check_valid_operation(self.operation, self.model, data)
 
         # Config of the 3D model has an extra dimension
@@ -115,7 +117,8 @@ class NDModel(object):
         print("########################################")
         print(f"Model: {self.model.value}")
         print(f"Operation: {self.operation.value}")
-        print(f"Configuration: {config}")
+        print(f"Configuration:")
+        pprint(config, sort_dicts=False)
         print("########################################")
 
         # Instanciate the model using the config

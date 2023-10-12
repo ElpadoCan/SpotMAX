@@ -9,7 +9,6 @@ import numpy as np
 import torch
 from torch import optim
 
-from ...pytorch3dunet.unet3d import utils as pytorch3dunet_unet3d_utils
 
 def save_checkpoint(state, is_best, checkpoint_dir):
     """Saves model and training parameters at '{checkpoint_dir}/last_checkpoint.pytorch'.
@@ -74,18 +73,15 @@ def get_logger(name, level=logging.INFO):
     if loggers.get(name) is not None:
         return loggers[name]
     else:
-
         logger = logging.getLogger(name)
-        logger.propagate = False
         logger.setLevel(level)
-
         # Logging to console
         stream_handler = logging.StreamHandler(sys.stdout)
         formatter = logging.Formatter(
-            '[%(threadName)s] %(levelname)s %(name)s - %(message)s')
+            '%(asctime)s [%(threadName)s] %(levelname)s %(name)s - %(message)s')
         stream_handler.setFormatter(formatter)
-
         logger.addHandler(stream_handler)
+
         loggers[name] = logger
 
         return logger
@@ -279,8 +275,8 @@ def get_tensorboard_formatter(formatter_config):
         return DefaultTensorboardFormatter()
 
     class_name = formatter_config['name']
-    # m = importlib.import_module('pytorch3dunet.unet3d.utils')
-    clazz = getattr(pytorch3dunet_unet3d_utils, class_name)
+    m = importlib.import_module('pytorch3dunet.unet3d.utils')
+    clazz = getattr(m, class_name)
     return clazz(**formatter_config)
 
 
