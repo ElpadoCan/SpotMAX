@@ -618,6 +618,143 @@ def _spotPredictionMethod():
     widget.addItems(items)
     return widget
 
+class SpotPredictionMethodWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.posData = None
+        self.metadata_df = None
+        self.nnetParams = None
+        
+        layout = QHBoxLayout()
+        self.setLayout(layout)
+        
+        self.combobox = myQComboBox()
+        items = ['Thresholding', 'Neural network']
+        self.combobox.addItems(items)
+        
+        self.configButton = acdc_widgets.setPushButton()
+        self.configButton.setDisabled(True)
+        
+        self.configButton.clicked.connect(self.promptConfigModel)
+        self.combobox.currentTextChanged.connect(self.onTextChanged)
+        
+        layout.addWidget(self.combobox)
+        layout.addWidget(self.configButton)
+        layout.setStretch(0, 1)
+        layout.setStretch(1, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
+    
+    def setCurrentText(self, text):
+        self.setValue(text)
+        
+    def currentText(self):
+        return self.value()
+    
+    def onTextChanged(self, text):
+        self.configButton.setDisabled(text == 'Thresholding')
+    
+    def value(self):
+        return self.combobox.currentText()
+    
+    def setValue(self, value):
+        return self.combobox.setCurrentText(str(value))
+    
+    def setPosData(self, posData):
+        self.posData = posData
+        self.metadata_df = posData.metadata_df
+    
+    def _importModel(self):
+        try:
+            paramsGroupBox = self.parent().parent()
+            paramsGroupBox.logging_func('Importing neural network model...')
+        except Exception as e:
+            printl('Importing neural network model...')
+        from .nnet import model
+        return model
+    
+    def _promptConfigNeuralNet(self):
+        model = self._importModel()
+        init_params, segment_params = acdc_myutils.getModelArgSpec(model)
+        url = model.url_help()
+        win = acdc_apps.QDialogModelParams(
+            init_params,
+            segment_params,
+            'spotMAX-UNet', 
+            parent=self,
+            url=url, 
+            initLastParams=True, 
+            posData=self.posData,
+            df_metadata=self.metadata_df,
+            force_postprocess_2D=False,
+            is_tracker=True
+        )
+        if self.nnetParams is not None:
+            win.setValuesFromParams(
+                self.nnetParams['init'], self.nnetParams['segment']
+            )
+        win.exec_()
+        if win.cancel:
+            return
+        self.nnetParams = {
+            'init': win.init_kwargs, 'segment': win.model_kwargs
+        }
+        self.configButton.confirmAction()
+    
+    def promptConfigModel(self):
+        if self.value() == 'Neural network':
+            self._promptConfigNeuralNet()
+    
+    def nnet_params_to_ini_sections(self):
+        if self.nnetParams is None:
+            return
+
+        if self.value() != 'Neural network':
+            return 
+        
+        init_model_params = {
+            key:str(value) for key, value in self.nnetParams['init'].items()
+        }
+        segment_model_params = {
+            key:str(value) for key, value in self.nnetParams['segment'].items()
+        }
+        return init_model_params, segment_model_params
+    
+    def nnet_params_from_ini_sections(self, ini_params):
+        sections = ['neural_network.init', 'neural_network.segment']
+        if not any([section in ini_params for section in sections]):
+            return 
+            
+        model = self._importModel()
+        init_params, segment_params = acdc_myutils.getModelArgSpec(model)
+        
+        self.nnetParams = {'init': {}, 'segment': {}}
+        
+        for section in sections:
+            if section not in ini_params:
+                continue
+        
+        section = sections[0]
+        if section in ini_params:
+            section_params = ini_params[section]
+            for argWidget in init_params:
+                value = section_params[argWidget.name]['loadedVal']
+                if not isinstance(argWidget.default, str):
+                    try:
+                        value = utils.to_dtype(value, type(argWidget.default))
+                    except Exception as err:
+                        value = argWidget.default
+                self.nnetParams['init'][argWidget.name] = value
+        
+        section = sections[1]
+        if section in ini_params:
+            section_params = ini_params[section]
+            for argWidget in segment_params:
+                value = section_params[argWidget.name]['loadedVal']
+                if not isinstance(argWidget.default, str):
+                    value = type(argWidget.default)(value)
+                self.nnetParams['segment'][argWidget.name] = value
+
 class _spotMinSizeLabels(QWidget):
     def __init__(self):
         QWidget.__init__(self)
@@ -1853,3 +1990,15 @@ class SpinBox(acdc_widgets.SpinBox):
     def setText(self, text):
         value = int(text)
         super().setValue(value)
+
+class RunNumberSpinbox(SpinBox):
+    def __init__(self, parent=None, disableKeyPress=False):
+        super().__init__(parent=parent, disableKeyPress=disableKeyPress)
+        self.installEventFilter(self)
+        self.setMinimum(1)
+    
+    def eventFilter(self, object, event) -> bool:
+        if event.type() == QEvent.Type.Wheel:
+            return True
+        return False
+        

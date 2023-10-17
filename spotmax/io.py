@@ -414,8 +414,23 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
                     config_value = None
 
             params[section][anchor]['loadedVal'] = config_value
+    
+    params = add_neural_network_params(params, configPars)
     return params
 
+def add_neural_network_params(params, configPars):
+    sections = ['neural_network.init', 'neural_network.segment']
+    for section in sections:
+        if section not in configPars.sections():
+            continue
+        for key, value in configPars[section].items():
+            if section not in params:
+                params[section] = {}
+            params[section][key] = {
+                'desc': key, 'loadedVal': value, 'isParam': True
+            }
+    return params
+    
 def add_metadata_from_csv(csv_path, ini_params):
     df = pd.read_csv(csv_path).set_index('Description')
     metadata = ini_params['METADATA']

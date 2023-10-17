@@ -5,11 +5,11 @@ import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.tensorboard import SummaryWriter
 
-from models.unet3D.datasets.utils import get_train_loaders
-from models.unet3D.unet3d.losses import get_loss_criterion
-from models.unet3D.unet3d.metrics import get_evaluation_metric
-from models.unet3D.unet3d.model import get_model
-from models.unet3D.unet3d.utils import (
+from ..datasets.utils import get_train_loaders
+from .losses import get_loss_criterion
+from .metrics import get_evaluation_metric
+from .model import get_model
+from .utils import (
     get_logger, get_tensorboard_formatter, create_optimizer,
     create_lr_scheduler, get_number_of_learnable_parameters
 )

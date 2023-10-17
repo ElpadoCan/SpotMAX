@@ -137,6 +137,13 @@ DFs_FILENAMES = {
     'spots_spotfit': '*rn*_2_spotfit*desc*'
 }
 
+valid_true_bool_str = {
+    'true', 'yes', 'on'
+}
+valid_false_bool_str = {
+    'false', 'no', 'off'
+}
+
 def exception_handler_cli(func):
     @wraps(func)
     def inner_function(self, *args, **kwargs):

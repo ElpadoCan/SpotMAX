@@ -29,6 +29,7 @@ from math import log, pow, floor, sqrt
 from . import last_cli_log_file_path
 from . import GUI_INSTALLED
 from . import DFs_FILENAMES
+from . import valid_true_bool_str, valid_false_bool_str
 
 if GUI_INSTALLED:
     import matplotlib.colors
@@ -988,6 +989,25 @@ def get_runs_num_and_desc(exp_path, pos_foldernames=None):
             all_runs.update(m)
     
     return all_runs
+
+def to_dtype(value, dtype):
+    if dtype == bool:
+        if isinstance(value, str):
+            if value.lower() in valid_true_bool_str:
+                return True
+            elif value.lower() in valid_false_bool_str:
+                return False
+            else:
+                error = f'"{value}" is not a valid boolean expression.'
+        elif isinstance(value, bool):
+            return bool
+        else:
+            error = f'"{value}" is not a valid boolean expression.'
+    else:
+        return dtype(value)
+    
+    raise TypeError(error)
+
 
 if __name__ == '__main__':
     df = get_sizes_path(r'C:\Users\Frank', return_df=True)

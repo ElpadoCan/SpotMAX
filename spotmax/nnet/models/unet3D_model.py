@@ -1,10 +1,10 @@
 import importlib
-from models.base_model import BaseModel
+from .base_model import BaseModel
 import numpy as np
-from models.unet3D.unet3d import utils
-from models.unet3D.datasets.utils import get_test_numpy_loader
-from models.unet3D.unet3d.model import get_model
-from models.unet3D.unet3d.trainer import create_trainer
+from .unet3D.unet3d import utils
+from .unet3D.datasets.utils import get_test_numpy_loader
+from .unet3D.unet3d.model import get_model
+from .unet3D.unet3d.trainer import create_trainer
 import os
 import torch
 
@@ -33,7 +33,7 @@ class Unet3DModel(BaseModel):
                 device_str = 'cpu'
         else:
             device_str = "cuda:0" if torch.cuda.is_available() else 'cpu'
-
+        
         device = torch.device(device_str)
 
         # Set the device in the config

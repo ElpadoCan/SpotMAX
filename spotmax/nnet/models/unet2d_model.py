@@ -2,21 +2,21 @@ import random
 import torch
 import os
 import numpy as np
-from models.base_model import BaseModel
+
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torch import optim
 import torch.nn as nn
 import torch.nn.functional as F
+
 from tqdm import tqdm
 import logging
 from pathlib import Path
 import shutil as sh
 
-from models.unet2D.unet_2D_model import UNet2D
-from models.unet2D.dice_score import dice_loss, dice_coeff, multiclass_dice_coeff
-
-from spotmax.utils import resolve_path
+from .base_model import BaseModel
+from .unet2D.unet_2D_model import UNet2D
+from .unet2D.dice_score import dice_loss, dice_coeff, multiclass_dice_coeff
 
 try:
     import wandb

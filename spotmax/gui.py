@@ -115,10 +115,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
             posData = self.data[self.pos_i]
-            autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-            autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
-            
-            printl(autoTuneTabWidget.df_features.iloc[:, :6])
+            paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
+            printl(paramsGroupbox.params, pretty=True)
         super().keyPressEvent(event)
     
     def gui_setCursor(self, modifiers, event):
@@ -212,15 +210,15 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def gui_createParamsDockWidget(self):
         self.computeDockWidget = QDockWidget('spotMAX Tab Control', self)
-        computeTabControl = dialogs.guiTabControl(
+        guiTabControl = dialogs.guiTabControl(
             parent=self.computeDockWidget, logging_func=self.logger.info
         )
-        computeTabControl.addAutoTuneTab()
-        computeTabControl.addInspectResultsTab()
-        computeTabControl.initState(False)
-        computeTabControl.currentChanged.connect(self.tabControlPageChanged)
+        guiTabControl.addAutoTuneTab()
+        guiTabControl.addInspectResultsTab()
+        guiTabControl.initState(False)
+        guiTabControl.currentChanged.connect(self.tabControlPageChanged)
 
-        self.computeDockWidget.setWidget(computeTabControl)
+        self.computeDockWidget.setWidget(guiTabControl)
         self.computeDockWidget.setFeatures(
             QDockWidget.DockWidgetFeature.DockWidgetFloatable 
             | QDockWidget.DockWidgetFeature.DockWidgetMovable
@@ -1258,7 +1256,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         
     def setAnalysisParameters(self):
         paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = paramsGroupbox.params['Spots channel']
+        anchor = 'spotPredictionMethod'
         posData = self.data[self.pos_i]
+        spotsParams[anchor]['widget'].setPosData(self.data[self.pos_i])
         segmFilename = os.path.basename(posData.segm_npz_path)
         segmEndName = segmFilename[len(posData.basename):]
         runNum = max(self.loaded_exp_run_nums, default=0) + 1

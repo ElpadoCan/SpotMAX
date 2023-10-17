@@ -285,7 +285,11 @@ class guiTabControl(QTabWidget):
 
         self.parametersTab = QScrollArea(self)
         self.parametersTab.setWidgetResizable(True)
-        self.parametersQGBox = ParamsGroupBox(parent=self.parametersTab, debug=True)
+        self.parametersQGBox = ParamsGroupBox(
+            parent=self.parametersTab, 
+            debug=True,
+            logging_func=logging_func
+        )
         self.logging_func = logging_func
         containerWidget = QWidget()
         containerLayout = QVBoxLayout()
@@ -429,6 +433,9 @@ class guiTabControl(QTabWidget):
                 valueSetter = params[section][anchor].get('valueSetter')
                 formWidget.setValue(val, valueSetter=valueSetter)
         self.parametersQGBox.updateMinSpotSize()
+        spotsParams = self.parametersQGBox.params['Spots channel']
+        spotPredMethodWidget = spotsParams['spotPredictionMethod']['widget']
+        spotPredMethodWidget.nnet_params_from_ini_sections(params)
     
     def loadPreviousParams(self, filePath):
         self.logging_func(f'Loading analysis parameters from "{filePath}"...')
@@ -1107,12 +1114,14 @@ class AutoTuneTabWidget(QWidget):
         self.autoTuningButton.setDisabled(disabled)
 
 class ParamsGroupBox(QGroupBox):
-    def __init__(self, parent=None, debug=False):
+    def __init__(self, parent=None, debug=False, logging_func=print):
         super().__init__(parent)
 
         # mainLayout = QGridLayout(self)
         mainLayout = QVBoxLayout()
 
+        self.logging_func = logging_func
+        
         font = config.font()
 
         _params = config.analysisInputsParams()
@@ -1285,8 +1294,35 @@ class ParamsGroupBox(QGroupBox):
                     'desc': options['desc'], 'loadedVal': value, 
                     'initialVal': initialVal
                 }
+        
+        ini_params = self.addNNetParams(ini_params)
         return ini_params
 
+    def addNNetParams(self, ini_params):
+        spotsParams = self.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        nnet_params = spotsParams[anchor]['widget'].nnet_params_to_ini_sections()
+        if nnet_params is None:
+            return ini_params
+
+        init_model_params, segment_model_params = nnet_params
+        SECTION = 'neural_network.init'
+        for key, value in init_model_params.items():
+            if SECTION not in ini_params:
+                ini_params[SECTION] = {}
+            ini_params[SECTION][key] = {
+                'desc': key, 'loadedVal': value, 'isParam': True
+            }
+        
+        SECTION = 'neural_network.segment'
+        for key, value in segment_model_params.items():
+            if SECTION not in ini_params:
+                ini_params[SECTION] = {}
+            ini_params[SECTION][key] = {
+                'desc': key, 'loadedVal': value, 'isParam': True
+            }
+        return ini_params
+    
     def saveToIniFile(self, ini_filepath):
         params = self.configIniParams()
         io.writeConfigINI(params, ini_filepath)

@@ -5,10 +5,10 @@ import numpy as np
 import torch
 from skimage import measure
 
-from models.unet3D.datasets.hdf5 import AbstractHDF5Dataset, NumpyDataset
-from models.unet3D.datasets.utils import SliceBuilder
-from models.unet3D.unet3d.utils import get_logger
-from models.unet3D.unet3d.utils import remove_halo
+from ..datasets.hdf5 import AbstractHDF5Dataset, NumpyDataset
+from ..datasets.hdf5.utils import SliceBuilder
+from .utils import get_logger
+from .utils import remove_halo
 from tqdm import tqdm
 
 logger = get_logger('UNetPredictor')

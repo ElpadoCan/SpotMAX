@@ -933,7 +933,12 @@ class _ParamsParser(_DataLoader):
         spots_ch_endname = section_params['spotsEndName'].get('loadedVal')
         ref_ch_endname = section_params['refChEndName'].get('loadedVal')
         segm_endname = section_params['segmEndName'].get('loadedVal')
-        ref_ch_segm_endname = section_params['refChSegmEndName'].get('loadedVal')
+        ref_ch_segm_endname = section_params['refChSegmEndName'].get(
+            'loadedVal'
+        )
+        spots_ch_segm_endname = section_params['spotChSegmEndName'].get(
+            'loadedVal'
+        )
         lineage_table_endname = section_params['lineageTableEndName'].get(
             'loadedVal'
         )
@@ -952,6 +957,7 @@ class _ParamsParser(_DataLoader):
                     exp_info['spotsEndName'] = spots_ch_endname
                     exp_info['refChEndName'] = ref_ch_endname
                     exp_info['segmEndName'] = segm_endname
+                    exp_info['spotChSegmEndName'] = spots_ch_segm_endname
                     exp_info['refChSegmEndName'] = ref_ch_segm_endname
                     exp_info['lineageTableEndName'] = lineage_table_endname
                     exp_info['textToAppend'] = text_to_append
@@ -1737,10 +1743,8 @@ class spheroid:
 
     def get_backgr_vals(self, zyx_c, semiax_len, V, spot_id):
         spot_surf_mask, spot_filled_mask = self.get_sph_surf_mask(
-                                                    semiax_len,
-                                                    zyx_c,
-                                                    self.V_shape,
-                                                    return_filled_mask=True)
+            semiax_len, zyx_c, self.V_shape, return_filled_mask=True
+        )
         surf_pixels = V[spot_surf_mask]
         surf_mean = np.mean(surf_pixels)
         return surf_mean, spot_filled_mask
@@ -4467,6 +4471,7 @@ class Kernel(_ParamsParser):
             spots_ch_endname = exp_info['spotsEndName'] 
             ref_ch_endname = exp_info['refChEndName']
             segm_endname = exp_info['segmEndName']
+            spots_ch_segm_endname = exp_info['spotChSegmEndName']
             ref_ch_segm_endname = exp_info['refChSegmEndName']
             lineage_table_endname = exp_info['lineageTableEndName']
             text_to_append = exp_info['textToAppend']

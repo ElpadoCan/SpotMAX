@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 import numpy as np
 from enum import Enum
-from models.unet2d_model import Unet2DModel
-from models.unet3D_model import Unet3DModel
+from .unet2d_model import Unet2DModel
+from .unet3D_model import Unet3DModel
 
 from pprint import pprint
 

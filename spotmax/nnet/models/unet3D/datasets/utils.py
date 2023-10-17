@@ -3,8 +3,9 @@ import collections
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, ConcatDataset, Dataset
-from models.unet3D.datasets.hdf5 import NumpyDataset
-from models.unet3D.unet3d.utils import get_logger, get_class
+
+from .hdf5 import NumpyDataset
+from ..unet3d.utils import get_logger, get_class
 
 logger = get_logger('Dataset')
 

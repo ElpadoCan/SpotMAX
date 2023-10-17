@@ -1,3 +1,4 @@
+base_pixel_size_nm: 73
 unet2D:
   model:
     name: UNet2D

@@ -317,6 +317,19 @@ def _filepaths_params():
             'actions': None,
             'dtype': str
         },
+        'spotChSegmEndName': {
+            'desc': 'Spots channel segmentation end name or path',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
+            'actions': None,
+            'dtype': str
+        },
         'refChSegmEndName': {
             'desc': 'Ref. channel segmentation end name or path',
             'initialVal': """""",
@@ -352,7 +365,7 @@ def _filepaths_params():
             'addApplyButton': False,
             'addBrowseButton': False,
             'addEditButton': False,
-            'formWidgetFunc': 'widgets.SpinBox',
+            'formWidgetFunc': 'widgets.RunNumberSpinbox',
             'actions': None,
             'dtype': int,
             'valueSetter': 'setValue'
@@ -832,7 +845,7 @@ def _spots_ch_params():
             'addInfoButton': True,
             'addComputeButton': True,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets._spotPredictionMethod',
+            'formWidgetFunc': 'widgets.SpotPredictionMethodWidget',
             'actions': None
         },
         'spotThresholdFunc': {
