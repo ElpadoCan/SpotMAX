@@ -720,6 +720,7 @@ class _ParamsParser(_DataLoader):
         self.cast_loaded_values_dtypes()
         self.set_abs_exp_paths()
         self.set_metadata()
+        self.check_init_neural_network()
         proceed = self.check_contradicting_params()
         if not proceed:
             return False, None
@@ -1424,6 +1425,33 @@ class _ParamsParser(_DataLoader):
             return 'do_not_load_ref_ch_segm'
         elif answer == options[1]:
             return 'do_not_segment_ref_ch'
+    
+    def check_init_neural_network(self):
+        SECTION = 'File paths and channels'
+        ANCHOR = 'spotChSegmEndName'
+        section_params = self._params[SECTION]
+        spots_ch_segm_endname = section_params[ANCHOR].get('loadedVal', '')
+        if spots_ch_segm_endname:
+            # User provided a segm mask --> no need to use neural net
+            return        
+        
+        SECTION = 'Spots channel'
+        ANCHOR = 'spotPredictionMethod'
+        section_params = self._params[SECTION]
+        spots_prediction_method = section_params[ANCHOR].get('loadedVal')
+        if spots_prediction_method != 'Neural network':
+            # Neural network is not required
+            return
+        
+        import pdb; pdb.set_trace()
+        
+        self.logger.info('Initializing neural network...')
+        from spotmax.nnet.model import get_nnet_params_from_ini_params
+        self.nnet_params = get_nnet_params_from_ini_params(self._params)
+        
+        import pdb; pdb.set_trace()
+        
+        self.logger.exception(e)
     
     @exception_handler_cli
     def check_contradicting_params(self):

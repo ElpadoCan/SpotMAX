@@ -17,6 +17,9 @@ unet2D:
     amp: False
     wandb_mode: disabled
 
+  default_params:
+    threshold_value: 0.9
+
 unet3D:
   train:
     model:
@@ -132,3 +135,6 @@ unet3D:
             raw:
               - name: ToTensor
                 expand_dims: true
+    
+  default_params:
+    threshold_value: 0.7

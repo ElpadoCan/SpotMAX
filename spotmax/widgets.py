@@ -687,7 +687,8 @@ class SpotPredictionMethodWidget(QWidget):
             posData=self.posData,
             df_metadata=self.metadata_df,
             force_postprocess_2D=False,
-            is_tracker=True
+            is_tracker=True,
+            model_module=model
         )
         if self.nnetParams is not None:
             win.setValuesFromParams(
@@ -721,39 +722,8 @@ class SpotPredictionMethodWidget(QWidget):
         return init_model_params, segment_model_params
     
     def nnet_params_from_ini_sections(self, ini_params):
-        sections = ['neural_network.init', 'neural_network.segment']
-        if not any([section in ini_params for section in sections]):
-            return 
-            
-        model = self._importModel()
-        init_params, segment_params = acdc_myutils.getModelArgSpec(model)
-        
-        self.nnetParams = {'init': {}, 'segment': {}}
-        
-        for section in sections:
-            if section not in ini_params:
-                continue
-        
-        section = sections[0]
-        if section in ini_params:
-            section_params = ini_params[section]
-            for argWidget in init_params:
-                value = section_params[argWidget.name]['loadedVal']
-                if not isinstance(argWidget.default, str):
-                    try:
-                        value = utils.to_dtype(value, type(argWidget.default))
-                    except Exception as err:
-                        value = argWidget.default
-                self.nnetParams['init'][argWidget.name] = value
-        
-        section = sections[1]
-        if section in ini_params:
-            section_params = ini_params[section]
-            for argWidget in segment_params:
-                value = section_params[argWidget.name]['loadedVal']
-                if not isinstance(argWidget.default, str):
-                    value = type(argWidget.default)(value)
-                self.nnetParams['segment'][argWidget.name] = value
+        from spotmax.nnet.model import get_nnet_params_from_ini_params
+        self.nnetParams = get_nnet_params_from_ini_params(ini_params)
 
 class _spotMinSizeLabels(QWidget):
     def __init__(self):
