@@ -1,4 +1,3 @@
-import dataclasses
 import os
 import sys
 import shutil
@@ -158,7 +157,7 @@ class _DataLoader:
             data[f'{key}.shape'] = ch_data.shape
             data[f'{key}.channel_name'] = channel
 
-        data = self._init_reshape_segm_data(dataclasses)
+        data = self._init_reshape_segm_data(data)
 
         if not lineage_table_endname:
             return data
@@ -771,13 +770,72 @@ class _ParamsParser(_DataLoader):
             )      
             return True
 
-    def _ask_user_run_num_exists(self, user_run_num, run_nums):
+    def _check_multi_or_missing_run_numbers(
+            self, run_nums, exp_path, scanner_paths, user_run_number
+        ):
+        if len(run_nums) > 1 and user_run_number is None:
+            # Multiple run numbers detected
+            run_number = self._ask_user_multiple_run_nums(
+                run_nums, exp_path
+            )
+            if run_number is None:
+                self.logger.info(
+                    'spotMAX stopped by the user. Run number was not provided.'
+                )
+                self.quit()
+        elif user_run_number is None:
+            # Single run number --> we still need to check if already exists
+            ask_run_number = False
+            for exp_path, exp_info in scanner_paths[run_nums[0]].items():
+                if exp_info['numPosSpotCounted'] > 0:
+                    ask_run_number = True
+                    break
+            else:
+                run_number = 1
+            
+            if ask_run_number:
+                run_number = self._ask_user_multiple_run_nums(
+                    run_nums, exp_path
+                )
+                if run_number is None:
+                    self.logger.info(
+                        'spotMAX stopped by the user.'
+                        'Run number was not provided.'
+                    )
+                    self.quit()
+        elif user_run_number is not None:
+            # Check that user run number is not already existing
+            if user_run_number in run_nums:
+                run_num_info = scanner_paths[user_run_number]
+                ask_run_number = False
+                for exp_path, exp_info in run_num_info.items():
+                    if exp_info['numPosSpotCounted'] > 0:
+                        ask_run_number = True
+                        break
+                
+                if ask_run_number:
+                    user_run_number = self._ask_user_run_num_exists(
+                        user_run_number, run_nums, exp_path
+                    )
+                    if user_run_number is None:
+                        self.logger.info(
+                            'spotMAX stopped by the user.'
+                            'Run number was not provided.'
+                        )
+                        self.quit()
+                
+            run_number = user_run_number
+        return run_number        
+        
+    def _ask_user_run_num_exists(self, user_run_num, run_nums, exp_path):
         default_option = f'Overwrite existing run number {user_run_num}'
         options = ('Choose a different run number', default_option )
         question = 'What do you want to do'
         txt = (
-            f'[WARNING]: The requested run number {user_run_num} already exists! '
-            f'(run numbers presents are {run_nums})'
+            f'[WARNING]: The requested run number {user_run_num} already exists '
+            'in the folder path below! '
+            f'(run numbers presents are {run_nums}):\n\n'
+            f'{exp_path}'
         )
         if self._force_default:
             self.logger.info('*'*50)
@@ -796,15 +854,15 @@ class _ParamsParser(_DataLoader):
         user_run_num = io.get_user_input(question, dtype='uint')
         return user_run_num
 
-    def _ask_user_multiple_run_nums(self, run_nums):
+    def _ask_user_multiple_run_nums(self, run_nums, exp_path):
         new_run_num = max(run_nums)+1
         default_option = f'Save as new run number {new_run_num}'
         options = ('Choose run number to overwrite', default_option )
         question = 'What do you want to do'
         txt = (
-            '[WARNING]: All or some of the experiments present in the loaded '
-            'folder have already been analysed before '
-            f'(run numbers presents are {run_nums})'
+            '[WARNING]: The following experiment was already analysed '
+            f'(run numbers presents are {run_nums}):\n\n'
+            f'{exp_path}'
         )
         if self._force_default:
             self.logger.info('*'*50)
@@ -851,7 +909,6 @@ class _ParamsParser(_DataLoader):
         with open(self.ini_params_file_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
 
-
     @exception_handler_cli
     def set_abs_exp_paths(self):
         SECTION = 'File paths and channels'
@@ -860,6 +917,7 @@ class _ParamsParser(_DataLoader):
         user_run_number = self._params[SECTION]['runNumber'].get('loadedVal')
         self.exp_paths_list = []
         run_num_log = []
+        run_num_exp_path_processed = {}
         for exp_path in loaded_exp_paths:
             acdc_myutils.addToRecentPaths(exp_path, logger=self.logger.info)
             if io.is_pos_path(exp_path):
@@ -883,61 +941,24 @@ class _ParamsParser(_DataLoader):
             else:
                 exp_paths = {}
             
+            exp_path = exp_path.replace('\\', '/')
+            
             # Scan and determine run numbers
             pathScanner = io.expFolderScanner(
                 exp_path, logger_func=self.logger.info
             )
             pathScanner.getExpPaths(exp_path)
             pathScanner.infoExpPaths(pathScanner.expPaths)
-            run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
-            if len(run_nums) > 1 and user_run_number is None:
-                # Multiple run numbers detected
-                run_number = self._ask_user_multiple_run_nums(run_nums)
-                if run_number is None:
-                    self.logger.info(
-                        'spotMAX stopped by the user. Run number was not provided.'
-                    )
-                    self.quit()
-            elif user_run_number is None:
-                # Single run number --> we still need to check if already exists
-                ask_run_number = False
-                for exp_path, exp_info in pathScanner.paths[run_nums[0]].items():
-                    if exp_info['numPosSpotCounted'] > 0:
-                        ask_run_number = True
-                        break
-                else:
-                    run_number = 1
-                
-                if ask_run_number:
-                    run_number = self._ask_user_multiple_run_nums(run_nums)
-                    if run_number is None:
-                        self.logger.info(
-                            'spotMAX stopped by the user.'
-                            'Run number was not provided.'
-                        )
-                        self.quit()
-            elif user_run_number is not None:
-                # Check that user run number is not already existing
-                if user_run_number in run_nums:
-                    run_num_info = pathScanner.paths[user_run_number]
-                    ask_run_number = False
-                    for exp_path, exp_info in run_num_info.items():
-                        if exp_info['numPosSpotCounted'] > 0:
-                            ask_run_number = True
-                            break
-                    
-                    if ask_run_number:
-                        user_run_number = self._ask_user_run_num_exists(
-                            user_run_number, run_nums
-                        )
-                        if user_run_number is None:
-                            self.logger.info(
-                                'spotMAX stopped by the user.'
-                                'Run number was not provided.'
-                            )
-                            self.quit()
-                    
-                run_number = user_run_number
+            
+            if exp_path not in run_num_exp_path_processed:
+                run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
+                run_number = self._check_multi_or_missing_run_numbers(
+                    run_nums, exp_path, pathScanner.paths, user_run_number
+                )
+            else:
+                run_number = run_num_exp_path_processed[exp_path]
+            
+            run_num_exp_path_processed[exp_path] = run_number
             self._store_run_number(run_number, pathScanner.paths, exp_paths)
             run_num_log.append(f'  * Run number = {run_number} ("{exp_path}")')
             self.exp_paths_list.append(exp_paths)
@@ -1135,7 +1156,7 @@ class _ParamsParser(_DataLoader):
             'at the [METADATA] section. If you do not have timelapse data and\n'
             'the "Analyse until frame number" is missing you need to\n'
             'to write "Analyse until frame number = 1".\n\n'
-            f'Parameters file path: "{self.ini_params_file_path}"\n'
+            f'Parameters file path: "{self.ini_params_file_path}"'
         )
         self.logger.info(err_msg)
         if self.is_cli:

@@ -264,9 +264,10 @@ def aggregate_objs(
             if _img is None:
                 additional_aggr_imgs.append(None)
                 continue
-            aggregated_img, _ = _aggregate_objs(
+            additional_aggr_img, _ = _aggregate_objs(
                 _img, lab_merged, zyx_tolerance=zyx_tolerance, debug=debug
             )
+            additional_aggr_imgs.append(additional_aggr_img)
     else:
         additional_aggr_imgs = [None]
     
