@@ -249,7 +249,7 @@ def _separate_moth_buds(lab_merged, bud_images):
 
 def aggregate_objs(
         img_data, lab, zyx_tolerance=None, return_bud_images=True, 
-        lineage_table=None, debug=False
+        additional_imgs_to_aggr=None, lineage_table=None, debug=False
     ):
     lab_merged, bud_images = _merge_moth_bud(
         lineage_table, lab, return_bud_images=return_bud_images
@@ -258,15 +258,27 @@ def aggregate_objs(
     aggregated_img, aggregated_lab = _aggregate_objs(
         img_data, lab_merged, zyx_tolerance=zyx_tolerance, debug=debug
     )
+    if additional_imgs_to_aggr is not None:
+        additional_aggr_imgs = []
+        for _img in additional_imgs_to_aggr:
+            if _img is None:
+                additional_aggr_imgs.append(None)
+                continue
+            aggregated_img, _ = _aggregate_objs(
+                _img, lab_merged, zyx_tolerance=zyx_tolerance, debug=debug
+            )
+    else:
+        additional_aggr_imgs = [None]
     
     if debug:
+        from cellacdc.plot import imshow
         imshow(aggregated_img, aggregated_lab)
         import pdb; pdb.set_trace()
     
     aggregated_lab = _separate_moth_buds(
         aggregated_lab, bud_images
     )
-    return aggregated_img, aggregated_lab
+    return aggregated_img, aggregated_lab, additional_aggr_imgs
 
 class SliceImageFromSegmObject:
     def __init__(self, lab, lineage_table=None):

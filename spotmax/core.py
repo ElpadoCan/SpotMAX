@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import sys
 import shutil
@@ -57,6 +58,7 @@ SQRT_2 = math.sqrt(2)
 
 np.seterr(divide='warn', invalid='warn')
 
+CHANNELS_KEYS = ( 'spots_ch', 'ref_ch', 'ref_ch_segm', 'spots_ch_segm', 'segm')
 distribution_metrics_func = features.get_distribution_metrics_func()
 effect_size_func = features.get_effect_size_func()
 aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
@@ -67,13 +69,18 @@ class _DataLoader:
         self.log = log
     
     def get_data_from_images_path(
-            self, images_path: os.PathLike, spots_ch_endname: str, 
-            ref_ch_endname: str, segm_endname: str, ref_ch_segm_endname: str,
+            self, 
+            images_path: os.PathLike, 
+            spots_ch_endname: str, 
+            ref_ch_endname: str, 
+            segm_endname: str, 
+            spots_ch_segm_endname: str,
+            ref_ch_segm_endname: str,
             lineage_table_endname: str
         ):
         data = self._load_data_from_images_path(
             images_path, spots_ch_endname, ref_ch_endname, segm_endname, 
-            ref_ch_segm_endname, lineage_table_endname
+            spots_ch_segm_endname, ref_ch_segm_endname, lineage_table_endname
         )
         data = self._reshape_data(data, self.metadata)
         data = self._crop_based_on_segm_data(data)
@@ -115,14 +122,19 @@ class _DataLoader:
         raise error
     
     def _load_data_from_images_path(
-            self, images_path: os.PathLike, spots_ch_endname: str, 
-            ref_ch_endname: str, segm_endname: str, ref_ch_segm_endname: str,
+            self, images_path: os.PathLike, 
+            spots_ch_endname: str, 
+            ref_ch_endname: str, 
+            segm_endname: str, 
+            spots_ch_segm_endname: str, 
+            ref_ch_segm_endname: str,
             lineage_table_endname: str
         ):
         channels = {
             spots_ch_endname: 'spots_ch', 
             ref_ch_endname: 'ref_ch', 
             segm_endname: 'segm',
+            spots_ch_segm_endname: 'spots_ch_segm',
             ref_ch_segm_endname: 'ref_ch_segm'
         }
         data = {'basename': io.get_basename(utils.listdir(images_path))}
@@ -146,25 +158,7 @@ class _DataLoader:
             data[f'{key}.shape'] = ch_data.shape
             data[f'{key}.channel_name'] = channel
 
-        ch_key = 'spots_ch' if 'spots_ch' in data else 'ref_ch'
-        data_shape = data[ch_key].shape
-        data['is_segm_3D'] = True
-        if 'segm' not in data:
-            # Use entire image as segm_data  
-            segm_data = np.ones(data_shape, dtype=np.uint8)
-            data['segm'] = segm_data
-        elif data['segm'].ndim < len(data_shape):
-            # Stack the 2D segm into z-slices
-            if len(data_shape) == 4:
-                # Timelapse data, stack on second axis (T, Z, Y, X)
-                SizeZ = data_shape[1]
-                data['segm'] = np.stack([data['segm']]*SizeZ, axis=1)
-                data['is_segm_3D'] = False
-            else:
-                # Snapshot data, stack on first axis (Z, Y, X)
-                SizeZ = data_shape[0]
-                data['segm'] = np.stack([data['segm']]*SizeZ, axis=0)
-                data['is_segm_3D'] = False
+        data = self._init_reshape_segm_data(dataclasses)
 
         if not lineage_table_endname:
             return data
@@ -192,10 +186,34 @@ class _DataLoader:
         ]
         return data
 
+    def _init_reshape_segm_data(self, data):
+        ch_key = 'spots_ch' if 'spots_ch' in data else 'ref_ch'
+        data_shape = data[ch_key].shape
+        data['is_segm_3D'] = True
+        if 'segm' not in data:
+            # Use entire image as segm_data  
+            segm_data = np.ones(data_shape, dtype=np.uint8)
+            data['segm'] = segm_data
+        elif data['segm'].ndim < len(data_shape):
+            # Stack the 2D segm into z-slices
+            if len(data_shape) == 4:
+                # Timelapse data, stack on second axis (T, Z, Y, X)
+                SizeZ = data_shape[1]
+                data['segm'] = np.stack([data['segm']]*SizeZ, axis=1)
+                data['is_segm_3D'] = False
+            else:
+                # Snapshot data, stack on first axis (Z, Y, X)
+                SizeZ = data_shape[0]
+                data['segm'] = np.stack([data['segm']]*SizeZ, axis=0)
+                data['is_segm_3D'] = False
+        return data
+    
     def _reshape_data(self, data, metadata: dict):
         SizeZ = metadata['SizeZ']
-        arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm', 'segm')
-        for key in arr_keys:
+        CHANNELS_KEYS = (
+            'spots_ch', 'ref_ch', 'ref_ch_segm', 'spots_ch_segm', 'segm'
+        )
+        for key in CHANNELS_KEYS:
             if key not in data:
                 continue
             ch_data = data[key]
@@ -223,7 +241,7 @@ class _DataLoader:
         if SizeT > 1:
             # Data is already time-lapse --> check that it is true and do not 
             # reshape
-            for key in arr_keys:
+            for key in CHANNELS_KEYS:
                 if key not in data:
                     continue
                 if key == 'segm':
@@ -250,7 +268,7 @@ class _DataLoader:
                     )
             return data
 
-        for key in arr_keys:
+        for key in CHANNELS_KEYS:
             if key not in data:
                 continue
             # Add axis for Time
@@ -273,8 +291,7 @@ class _DataLoader:
         data['pad_width'] = pad_widths
         
         # Crop images
-        arr_keys = ('spots_ch', 'ref_ch', 'ref_ch_segm', 'segm')
-        for key in arr_keys:
+        for key in CHANNELS_KEYS:
             if key not in data:
                 continue
             data[key] = data[key][segm_slice].copy()
@@ -3074,7 +3091,8 @@ class Kernel(_ParamsParser):
             do_keep_spots_in_ref_ch=False, 
             gop_filtering_thresholds=None, 
             dist_transform_spheroid=None,
-            detection_method='peak_local_max', 
+            detection_method='peak_local_max',
+            spots_ch_segm_mask=None, 
             prediction_method='Thresholding',
             threshold_method='threshold_otsu', 
             do_aggregate=False,
@@ -3128,10 +3146,12 @@ class Kernel(_ParamsParser):
             gop_filtering_thresholds = {}
 
         df_spots_coords = self._spots_detection(
-            sharp_spots_img, lab, detection_method, threshold_method, 
-            prediction_method, do_aggregate, spot_footprint, 
-            zyx_resolution_limit_pxl, lineage_table=lineage_table,
-            verbose=verbose, save_spots_mask=save_spots_mask
+            sharp_spots_img, lab, detection_method,
+            threshold_method, prediction_method, do_aggregate, spot_footprint, 
+            spots_ch_segm_mask=spots_ch_segm_mask, 
+            lineage_table=lineage_table, 
+            verbose=verbose, 
+            save_spots_mask=save_spots_mask
         )
         
         df_spots_det, df_spots_gop = self._spots_filter(
@@ -3228,9 +3248,13 @@ class Kernel(_ParamsParser):
         return df_spots_coords, num_spots_objs_txts
         
     def _spots_detection(
-            self, sharp_spots_img, lab, detection_method, threshold_method, 
-            prediction_method, do_aggregate, footprint, 
-            zyx_resolution_limit_pxl, save_spots_mask=True,
+            self, sharp_spots_img, lab, 
+            detection_method, 
+            threshold_method, 
+            prediction_method, 
+            do_aggregate, footprint, 
+            spots_ch_segm_mask=None,
+            save_spots_mask=True,
             lineage_table=None, 
             verbose=True
         ):
@@ -3240,13 +3264,18 @@ class Kernel(_ParamsParser):
 
         spots_objs = None
         
-        aggr_spots_img, aggregated_lab = transformations.aggregate_objs(
+        aggregated = transformations.aggregate_objs(
             sharp_spots_img, lab, lineage_table=lineage_table, 
             zyx_tolerance=self.metadata['deltaTolerance'],
+            additional_imgs_to_aggr=[spots_ch_segm_mask],
             debug=self.debug
         )
+        aggr_spots_img, aggregated_lab, aggr_imgs = aggregated
+        aggr_spots_ch_segm_mask = aggr_imgs[0]
         
-        if prediction_method == 'Thresholding':
+        if aggr_spots_ch_segm_mask is not None:
+            labels = aggr_spots_ch_segm_mask.astype(np.uint8)
+        elif prediction_method == 'Thresholding':
             if isinstance(threshold_method, str):
                 threshold_func = getattr(skimage.filters, threshold_method)
             else:
@@ -4114,14 +4143,19 @@ class Kernel(_ParamsParser):
 
     @handle_log_exception_cli
     def _run_from_images_path(
-            self, images_path, spots_ch_endname: str='', ref_ch_endname: str='', 
-            segm_endname: str='', ref_ch_segm_endname: str='', 
-            lineage_table_endname: str='', text_to_append: str=''
+            self, images_path, 
+            spots_ch_endname: str='', 
+            ref_ch_endname: str='', 
+            segm_endname: str='', 
+            spots_ch_segm_endname: str='', 
+            ref_ch_segm_endname: str='', 
+            lineage_table_endname: str='', 
+            text_to_append: str=''
         ):
         self._current_step = 'Loading data from images path'
         data = self.get_data_from_images_path(
             images_path, spots_ch_endname, ref_ch_endname, segm_endname, 
-            ref_ch_segm_endname, lineage_table_endname
+            spots_ch_segm_endname, ref_ch_segm_endname, lineage_table_endname
         )
         do_segment_ref_ch = (
             self._params['Reference channel']['segmRefCh']['loadedVal']
@@ -4235,6 +4269,7 @@ class Kernel(_ParamsParser):
         
         self._current_step = 'Detecting spots'
         spots_data = data.get('spots_ch')
+        spots_ch_segm_data = data.get('spots_ch_segm')
         min_size_spheroid_mask = transformations.get_local_spheroid_mask(
             zyx_resolution_limit_pxl
         )
@@ -4300,6 +4335,10 @@ class Kernel(_ParamsParser):
         for frame_i in range(stopFrameNum):
             self._current_frame_i = frame_i
             raw_spots_img = spots_data[frame_i]
+            if spots_ch_segm_data is not None:
+                spots_ch_segm_mask = spots_ch_segm_data[frame_i] > 0
+            else:
+                spots_ch_segm_mask = None
             preproc_spots_img = self._preprocess(raw_spots_img)
             if do_sharpen_spots:
                 sharp_spots_img = self.sharpen_spots(
@@ -4339,6 +4378,7 @@ class Kernel(_ParamsParser):
                 backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
                 do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch,
                 gop_filtering_thresholds=gop_filtering_thresholds,
+                spots_ch_segm_mask=spots_ch_segm_mask,
                 prediction_method=prediction_method,
                 threshold_method=threshold_method,
                 detection_method=detection_method,
@@ -4492,6 +4532,7 @@ class Kernel(_ParamsParser):
                     spots_ch_endname=spots_ch_endname, 
                     ref_ch_endname=ref_ch_endname, 
                     segm_endname=segm_endname,
+                    spots_ch_segm_endname=spots_ch_segm_endname,
                     ref_ch_segm_endname=ref_ch_segm_endname, 
                     lineage_table_endname=lineage_table_endname,
                     text_to_append=text_to_append
