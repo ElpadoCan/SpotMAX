@@ -10,15 +10,16 @@ from spotmax.nnet.models.nd_model import  Data, Operation, NDModel, Models
 from cellacdc.plot import imshow
 
 # Pre-trained model was trained with images scaled to 73 nm pixel size
-BASE_PIXEL_SIZE = 73 
-INPUT_PIXEL_SIZE = 72.06
 REMOVE_HOT_PIXELS = False
+INPUT_PIXEL_SIZE = 72.06
 
 print('Reading config file...')
 # Read config and convert to dict
 with open(config_yaml_path, 'r') as f:
     config = yaml.safe_load(f)
-    
+
+BASE_PIXEL_SIZE = config['base_pixel_size_nm']
+
 img_data_path = os.path.join(data_path, 'single_volume.tiff')
 lab_data_path = os.path.join(data_path, 'single_volume_label.tiff')
 
@@ -31,6 +32,7 @@ imshow(img_data, lab_data)
 model = Model(
     model_type='2D',
     preprocess_across_experiment=False, 
+    preprocess_across_timepoints=False, 
     config_yaml_filepath=config_yaml_path,
     PhysicalSizeX=0.07206,
     use_gpu=True

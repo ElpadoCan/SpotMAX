@@ -1,8 +1,11 @@
 import os
+from matplotlib.style import use
+import numpy as np
 import skimage
 import yaml
 
 import skimage.measure
+import skimage.transform
 
 import torch
 
@@ -21,6 +24,9 @@ except:
 
 class AvailableModels:
     values = ['2D', '3D']
+
+class NotParam:
+    not_a_param = True
 
 class CustomSignals:
     def __init__(self):
@@ -51,16 +57,20 @@ class Model:
     def __init__(
             self, 
             model_type: AvailableModels='2D', 
-            preprocess_across_experiment=True,
+            preprocess_across_experiment=False,
+            preprocess_across_timepoints=True,
+            remove_hot_pixels=False,
             config_yaml_filepath: os.PathLike=config_yaml_path,
             PhysicalSizeX: float=0.073,
             use_gpu=False,
         ):
         self._config = self._load_config(config_yaml_filepath)
         self._scale_factor = self._get_scale_factor(PhysicalSizeX)
-        self.x_transformer = self._init_data_transformer()
+        self.x_transformer = self._init_data_transformer(remove_hot_pixels)
         self._config['device'] = self._get_device_str(use_gpu)
-        self._batch_preprocess = preprocess_across_experiment
+        self._batch_preprocess = (
+            preprocess_across_experiment or preprocess_across_timepoints
+        )
         self.model = self._init_model(model_type)
     
     def _load_config(self, config_yaml_filepath):
@@ -72,13 +82,19 @@ class Model:
         pixel_size_nm = pixel_size*1000
         return pixel_size_nm/self._config['base_pixel_size_nm']
 
-    def _init_data_transformer(self):
+    def _init_data_transformer(self, remove_hot_pixels):
         x_transformer = transform.ImageTransformer(logs=False)
-        x_transformer.set_pipeline([
-            transform._rescale,
-            # transform._opening,
-            transform._normalize,
-        ])
+        if remove_hot_pixels:
+            x_transformer.set_pipeline([
+                transform._rescale,
+                transform._opening,
+                transform._normalize,
+            ])
+        else:
+            x_transformer.set_pipeline([
+                transform._rescale,
+                transform._normalize,
+            ])
         return x_transformer
 
     def _get_device_str(self, use_gpu: bool):
@@ -108,27 +124,65 @@ class Model:
         )
         return transformed_data
     
+    def resize_to_orig_shape(self, thresh, orig_shape):
+        if thresh.shape[-2:] == orig_shape:
+            return thresh
+        
+        if thresh.ndim == 2:
+            thresh_resized = skimage.transform.resize(thresh, orig_shape)
+        else:
+            thresh_resized = np.array([
+                skimage.transform.resize(thresh_z, orig_shape) 
+                for thresh_z in thresh
+            ])
+        return thresh_resized
+    
+    def _check_input_dtype_is_float(self, image):
+        if isinstance(image[tuple([0]*image.ndim)], (np.floating, float)):
+            return
+        
+        raise TypeError(
+            f'Input image has data type {image.dtype}. The only supported types '
+            'are float64, float32, and float16. Did you forget to pre-process '
+            'your images? You can let spotMAX taking care of that by setting '
+            'both `preprocess_across_experiment=False` and '
+            '`preprocess_across_timepoints=False` when you initialize the model.'
+        )
+    
     def segment(
             self, image,
             threshold_value=0.9,
-            label_components=False
+            label_components=False,
+            verbose: NotParam=True
         ):
+        orig_yx_shape = image.shape[-2:]
         if not self._batch_preprocess:
             image = self.preprocess(image)
+        
+        self._check_input_dtype_is_float(image)
         
         input_data = Data(
             images=image, masks=None, val_images=None, val_masks=None
         )
-        prediction, _ = self.model(input_data)
+        prediction, _ = self.model(input_data, verbose=verbose)
         thresh = prediction > threshold_value
+        thresh = self.resize_to_orig_shape(thresh, orig_yx_shape)
         if label_components:
             lab = skimage.measure.label(thresh)
         else:
             lab = thresh
-        
+            
         return lab
 
-def get_nnet_params_from_ini_params(ini_params):
+def _raise_missing_param_ini(missing_option):
+    raise KeyError(
+        'The following parameter is missing from the INI configuration file: '
+        f'`{missing_option}`. You can force using default value by setting '
+        '`Use default values for missing parameters = True` in the '
+        'INI file.'
+    )
+
+def get_nnet_params_from_ini_params(ini_params, use_default_for_missing=False):
     sections = ['neural_network.init', 'neural_network.segment']
     if not any([section in ini_params for section in sections]):
         return 
@@ -145,7 +199,18 @@ def get_nnet_params_from_ini_params(ini_params):
     if section in ini_params:
         section_params = ini_params[section]
         for argWidget in init_params:
-            value = section_params[argWidget.name]['loadedVal']
+            try:
+                not_a_param = argWidget.type().not_a_param
+                continue
+            except Exception as err:
+                pass
+            option = section_params.get(argWidget.name)
+            if option is None:
+                if use_default_for_missing:
+                    continue
+                else:
+                    _raise_missing_param_ini(argWidget.name)
+            value = option['loadedVal']
             if not isinstance(argWidget.default, str):
                 try:
                     value = utils.to_dtype(value, type(argWidget.default))
@@ -157,7 +222,19 @@ def get_nnet_params_from_ini_params(ini_params):
     if section in ini_params:
         section_params = ini_params[section]
         for argWidget in segment_params:
-            value = section_params[argWidget.name]['loadedVal']
+            try:
+                not_a_param = argWidget.type().not_a_param
+                continue
+            except Exception as err:
+                pass
+                
+            option = section_params.get(argWidget.name)
+            if option is None:
+                if use_default_for_missing:
+                    continue
+                else:
+                    _raise_missing_param_ini(argWidget.name)
+            value = option['loadedVal']
             if not isinstance(argWidget.default, str):
                 try:
                     value = utils.to_dtype(value, type(argWidget.default))

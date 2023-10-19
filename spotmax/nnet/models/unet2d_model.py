@@ -371,9 +371,10 @@ class Unet2DModel(BaseModel):
         if not self.net:
             self.load()
 
+        desc = 'Running inference'
         masks = [
             self._predict_img(full_img=image)
-            for image in tqdm(images, total=len(images), desc="Predicting")
+            for image in tqdm(images, total=len(images), desc=desc, ncols=100)
         ]
 
         return np.asarray(masks)

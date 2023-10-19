@@ -125,7 +125,6 @@ def _pad_or_crop(images: np.ndarray, **kwargs) -> np.ndarray:
         images = _pad(images, **kwargs)
     return images
 
-
 def _rescale(images: np.ndarray, **kwargs) -> np.ndarray:
     """Function to rescale an array of images.
 
@@ -141,7 +140,13 @@ def _rescale(images: np.ndarray, **kwargs) -> np.ndarray:
     final_size = kwargs.get("final_size", None)
 
     # Rescale in 2D
-    scaled_images = [rescale(img, scale, anti_aliasing=anti_aliasing, preserve_range=True, order=order) for img in images]
+    scaled_images = [
+        rescale(
+            img, scale, anti_aliasing=anti_aliasing, 
+            preserve_range=True, order=order
+        ) 
+        for img in images
+    ]
     # Rescale in 3D
     #scaled_images = rescale(images, scale, anti_aliasing=anti_aliasing, preserve_range=True, order=order)
     scaled_images = np.asarray(scaled_images)
@@ -162,7 +167,12 @@ def _normalize(images: np.ndarray, **kwargs) -> np.ndarray:
     percentile = kwargs.get("percentile", 100)
     initial_shape = images.shape
     scaler = MinMaxScaler(feature_range=(-1, 1))
-    images[images > np.percentile(images, percentile)] = np.percentile(images, percentile)
+    
+    if percentile < 100:
+        # Cap images with percentile
+        images[images > np.percentile(images, percentile)] = (
+            np.percentile(images, percentile)
+        )
     images = scaler.fit_transform(images.reshape(-1, 1))
     images = images.reshape(initial_shape)
     return images

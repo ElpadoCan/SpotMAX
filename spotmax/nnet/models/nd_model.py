@@ -89,7 +89,7 @@ class NDModel(object):
         self.model = model
         self.config = config
 
-    def __call__(self, data:Data):
+    def __call__(self, data:Data, verbose=True):
         """Call the model and perform the operation.
 
         Args:
@@ -112,14 +112,15 @@ class NDModel(object):
 
 
         # Print operation and configuration of the model
-        print("########################################")
-        print("######## Model Configuration ###########")
-        print("########################################")
-        print(f"Model: {self.model.value}")
-        print(f"Operation: {self.operation.value}")
-        print(f"Configuration:")
-        pprint(config, sort_dicts=False)
-        print("########################################")
+        if verbose:
+            print("########################################")
+            print("######## Model Configuration ###########")
+            print("########################################")
+            print(f"Model: {self.model.value}")
+            print(f"Operation: {self.operation.value}")
+            print(f"Configuration:")
+            pprint(config, sort_dicts=False)
+            print("########################################")
 
         # Instanciate the model using the config
         model_instance = models[self.model](config)

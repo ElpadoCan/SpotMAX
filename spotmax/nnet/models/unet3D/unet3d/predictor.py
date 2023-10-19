@@ -115,8 +115,9 @@ class NumpyPredictor(_AbstractPredictor):
         # It is necessary for batchnorm/dropout layers if present as well as final Sigmoid/Softmax to be applied
         self.model.eval()
         # Run predictions on the entire input dataset
+        desc = 'Running inference'
         with torch.no_grad():
-            for batch, indices in tqdm(test_loader, desc='Predicting', total=len(test_loader)):
+            for batch, indices in tqdm(test_loader, desc=desc, total=len(test_loader), ncols=100):
                 # send batch to device
                 batch = batch.to(device)
 

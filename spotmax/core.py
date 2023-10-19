@@ -57,7 +57,10 @@ SQRT_2 = math.sqrt(2)
 
 np.seterr(divide='warn', invalid='warn')
 
-CHANNELS_KEYS = ( 'spots_ch', 'ref_ch', 'ref_ch_segm', 'spots_ch_segm', 'segm')
+CHANNELS_KEYS = (
+    'spots_ch', 'ref_ch', 'ref_ch_segm', 'spots_ch_segm', 'segm',
+    'transformed_spots_ch'
+)
 distribution_metrics_func = features.get_distribution_metrics_func()
 effect_size_func = features.get_effect_size_func()
 aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
@@ -75,12 +78,15 @@ class _DataLoader:
             segm_endname: str, 
             spots_ch_segm_endname: str,
             ref_ch_segm_endname: str,
-            lineage_table_endname: str
+            lineage_table_endname: str,
+            transformed_spots_ch_nnet=None,
         ):
         data = self._load_data_from_images_path(
             images_path, spots_ch_endname, ref_ch_endname, segm_endname, 
             spots_ch_segm_endname, ref_ch_segm_endname, lineage_table_endname
         )
+        if transformed_spots_ch_nnet is not None:
+            data['transformed_spots_ch'] = transformed_spots_ch_nnet
         data = self._reshape_data(data, self.metadata)
         data = self._crop_based_on_segm_data(data)
         data = self._add_regionprops(data)
@@ -209,9 +215,6 @@ class _DataLoader:
     
     def _reshape_data(self, data, metadata: dict):
         SizeZ = metadata['SizeZ']
-        CHANNELS_KEYS = (
-            'spots_ch', 'ref_ch', 'ref_ch_segm', 'spots_ch_segm', 'segm'
-        )
         for key in CHANNELS_KEYS:
             if key not in data:
                 continue
@@ -1427,6 +1430,8 @@ class _ParamsParser(_DataLoader):
             return 'do_not_segment_ref_ch'
     
     def check_init_neural_network(self):
+        self.nnet_params = None
+        
         SECTION = 'File paths and channels'
         ANCHOR = 'spotChSegmEndName'
         section_params = self._params[SECTION]
@@ -1443,15 +1448,18 @@ class _ParamsParser(_DataLoader):
             # Neural network is not required
             return
         
-        import pdb; pdb.set_trace()
-        
-        self.logger.info('Initializing neural network...')
-        from spotmax.nnet.model import get_nnet_params_from_ini_params
-        self.nnet_params = get_nnet_params_from_ini_params(self._params)
-        
-        import pdb; pdb.set_trace()
-        
-        self.logger.exception(e)
+        try:
+            self.logger.info('-'*50)                
+            self.logger.info('Initializing neural network...')
+            from spotmax.nnet import model
+            self.nnet_params = model.get_nnet_params_from_ini_params(
+                self._params, use_default_for_missing=self._force_default
+            )
+            self.nnet_model = model.Model(**self.nnet_params['init'])
+            self.nnet_params['segment']['verbose'] = False
+        except Exception as err:
+            self.logger.exception(traceback.format_exc())
+            raise err
     
     @exception_handler_cli
     def check_contradicting_params(self):
@@ -3130,6 +3138,7 @@ class Kernel(_ParamsParser):
             zyx_resolution_limit_pxl, 
             sharp_spots_img=None,
             raw_spots_img=None, 
+            transf_spots_nnet_img=None,
             ref_ch_img=None, 
             ref_ch_mask_or_labels=None, 
             frame_i=0, 
@@ -3196,7 +3205,8 @@ class Kernel(_ParamsParser):
 
         df_spots_coords = self._spots_detection(
             sharp_spots_img, lab, detection_method,
-            threshold_method, prediction_method, do_aggregate, spot_footprint, 
+            threshold_method, prediction_method, do_aggregate, spot_footprint,
+            transf_spots_nnet_img=transf_spots_nnet_img,
             spots_ch_segm_mask=spots_ch_segm_mask, 
             lineage_table=lineage_table, 
             verbose=verbose, 
@@ -3295,13 +3305,42 @@ class Kernel(_ParamsParser):
         pbar.close()
 
         return df_spots_coords, num_spots_objs_txts
+    
+    def _spots_prediction(
+            self, prediction_method, threshold_method, do_aggregate, 
+            aggr_spots_img, aggregated_lab, aggr_spots_ch_segm_mask, 
+            lineage_table, aggr_transf_spots_nnet_img
+        ):
+        if aggr_spots_ch_segm_mask is not None:
+            labels = aggr_spots_ch_segm_mask.astype(np.uint8)
+        elif prediction_method == 'Thresholding':
+            if isinstance(threshold_method, str):
+                threshold_func = getattr(skimage.filters, threshold_method)
+            else:
+                threshold_func = threshold_method
+            
+            labels = self._get_peak_local_max_labels_thresholding(
+                aggr_spots_img, aggregated_lab, threshold_func, 
+                do_aggregate, lineage_table=lineage_table
+            )
+        elif prediction_method == 'Neural network':
+            if aggr_transf_spots_nnet_img is None:
+                nnet_input_img = aggr_spots_img
+            else:
+                nnet_input_img = aggr_transf_spots_nnet_img
+            labels = self.nnet_model.segment(
+                nnet_input_img, **self.nnet_params['segment']
+            )
         
+        return labels
+    
     def _spots_detection(
             self, sharp_spots_img, lab, 
             detection_method, 
             threshold_method, 
             prediction_method, 
             do_aggregate, footprint, 
+            transf_spots_nnet_img=None,
             spots_ch_segm_mask=None,
             save_spots_mask=True,
             lineage_table=None, 
@@ -3316,27 +3355,18 @@ class Kernel(_ParamsParser):
         aggregated = transformations.aggregate_objs(
             sharp_spots_img, lab, lineage_table=lineage_table, 
             zyx_tolerance=self.metadata['deltaTolerance'],
-            additional_imgs_to_aggr=[spots_ch_segm_mask],
+            additional_imgs_to_aggr=[spots_ch_segm_mask, transf_spots_nnet_img],
             debug=self.debug
         )
         aggr_spots_img, aggregated_lab, aggr_imgs = aggregated
         aggr_spots_ch_segm_mask = aggr_imgs[0]
+        aggr_transf_spots_nnet_img = aggr_imgs[1]
         
-        if aggr_spots_ch_segm_mask is not None:
-            labels = aggr_spots_ch_segm_mask.astype(np.uint8)
-        elif prediction_method == 'Thresholding':
-            if isinstance(threshold_method, str):
-                threshold_func = getattr(skimage.filters, threshold_method)
-            else:
-                threshold_func = threshold_method
-            
-            labels = self._get_peak_local_max_labels_thresholding(
-                aggr_spots_img, aggregated_lab, threshold_func, 
-                do_aggregate, lineage_table=lineage_table
-            )
-        else:
-            # Here we will use U-Net
-            pass
+        labels = self._spots_prediction(
+            prediction_method, threshold_method, do_aggregate, 
+            aggr_spots_img, aggregated_lab, aggr_spots_ch_segm_mask, 
+            lineage_table, aggr_transf_spots_nnet_img
+        )
         
         if detection_method == 'peak_local_max':
             aggr_spots_coords = skimage.feature.peak_local_max(
@@ -4191,6 +4221,71 @@ class Kernel(_ParamsParser):
             )
 
     @handle_log_exception_cli
+    def check_preprocess_data_nnet_across_exp(
+            self, exp_path, pos_foldernames, spots_ch_endname
+        ):
+        if self.nnet_params is None:
+            return {pos:None for pos in pos_foldernames}
+        
+        preprocess_across_experiment = (
+            self.nnet_params['init']['preprocess_across_experiment']
+        )
+        if not preprocess_across_experiment:
+            return {pos:None for pos in pos_foldernames}
+        
+        self.logger.info(f'Pre-processing "{spots_ch_endname}" channel data across experiment...')
+        images = []
+        for pos in pos_foldernames:
+            images_path = os.path.join(exp_path, pos, 'Images')
+            ch_path = cellacdc.io.get_filepath_from_channel_name(
+                images_path, os.path.basename(spots_ch_endname)
+            )
+            if not os.path.exists(ch_path):
+                self._critical_channel_not_found(spots_ch_endname, images_path)
+                return
+            ch_data, ch_dtype = io.load_image_data(
+                ch_path, to_float=True, return_dtype=True
+            )
+            images.append(ch_data)
+        
+        transformed = self.nnet_model.preprocess(images)
+        transformed_data_nnet = {}
+        for pos, transf_data in zip(pos_foldernames, transformed):
+            transformed_data_nnet[pos] = transf_data
+        
+        return transformed_data_nnet
+    
+    @handle_log_exception_cli
+    def check_preprocess_data_nnet_across_time(
+            self, spots_data, 
+            transformed_spots_ch_nnet=None
+        ):
+        if self.nnet_params is None:
+            # Neural network not required
+            return transformed_spots_ch_nnet
+        
+        SizeT = self.metadata['SizeT']
+        if SizeT == 1:
+            # Do not preprocess across timepoints for static data
+            return transformed_spots_ch_nnet
+        
+        preprocess_across_timepoints = (
+            self.nnet_params['init']['preprocess_across_timepoints']
+        )
+        if not preprocess_across_timepoints:
+            # Processing across timepoints disabled by the user
+            return transformed_spots_ch_nnet
+        
+        if transformed_spots_ch_nnet is None:
+            input_data = spots_data
+        else:
+            input_data = transformed_spots_ch_nnet
+        
+        transformed_data = self.nnet_model.preprocess(input_data)
+        return transformed_data
+        
+    
+    @handle_log_exception_cli
     def _run_from_images_path(
             self, images_path, 
             spots_ch_endname: str='', 
@@ -4199,12 +4294,14 @@ class Kernel(_ParamsParser):
             spots_ch_segm_endname: str='', 
             ref_ch_segm_endname: str='', 
             lineage_table_endname: str='', 
-            text_to_append: str=''
+            text_to_append: str='',
+            transformed_spots_ch_nnet: dict=None,
         ):
         self._current_step = 'Loading data from images path'
         data = self.get_data_from_images_path(
             images_path, spots_ch_endname, ref_ch_endname, segm_endname, 
-            spots_ch_segm_endname, ref_ch_segm_endname, lineage_table_endname
+            spots_ch_segm_endname, ref_ch_segm_endname, lineage_table_endname,
+            transformed_spots_ch_nnet=transformed_spots_ch_nnet
         )
         do_segment_ref_ch = (
             self._params['Reference channel']['segmRefCh']['loadedVal']
@@ -4375,7 +4472,13 @@ class Kernel(_ParamsParser):
         if do_spotfit:
             dfs_lists['dfs_spots_spotfit'] = []
             dfs_lists['spotfit_keys'] = []
-
+        
+        transformed_spots_ch_nnet = data.get('transformed_spots_ch')
+        
+        transformed_spots_ch_nnet = self.check_preprocess_data_nnet_across_time(
+            spots_data, transformed_spots_ch_nnet=transformed_spots_ch_nnet
+        )
+        
         desc = 'Frames completed (spot detection)'
         pbar = tqdm(
             total=stopFrameNum, ncols=100, desc=desc, position=2, 
@@ -4388,6 +4491,10 @@ class Kernel(_ParamsParser):
                 spots_ch_segm_mask = spots_ch_segm_data[frame_i] > 0
             else:
                 spots_ch_segm_mask = None
+            if transformed_spots_ch_nnet is not None:
+                transf_spots_nnet_img = transformed_spots_ch_nnet[frame_i]
+            else:
+                transf_spots_nnet_img = None
             preproc_spots_img = self._preprocess(raw_spots_img)
             if do_sharpen_spots:
                 sharp_spots_img = self.sharpen_spots(
@@ -4420,6 +4527,7 @@ class Kernel(_ParamsParser):
                 ref_ch_mask_or_labels=ref_ch_mask_or_labels, 
                 df_agg=df_agg,
                 raw_spots_img=raw_spots_img, 
+                transf_spots_nnet_img=transf_spots_nnet_img,
                 dfs_lists=dfs_lists,
                 min_size_spheroid_mask=min_size_spheroid_mask,
                 dist_transform_spheroid=edt_spheroid,
@@ -4543,9 +4651,9 @@ class Kernel(_ParamsParser):
         ----------
         exp_paths : dict
             Dictionary where the keys are the experiment paths containing the 
-            Position folders with the following values: `run_number`, `pos_foldernames`
-            `spotsEndName`, `refChEndName`, `segmEndName`, `refChSegmEndName`,
-            and `lineageTableEndName`.
+            Position folders with the following values: `run_number`, 
+            `pos_foldernames`, `spotsEndName`, `refChEndName`, `segmEndName`, 
+            `refChSegmEndName`, and `lineageTableEndName`.
 
             NOTE: This dictionary is computed in the `set_abs_exp_paths` method.
         """      
@@ -4566,7 +4674,12 @@ class Kernel(_ParamsParser):
             text_to_append = exp_info['textToAppend']
             df_spots_file_ext = exp_info['df_spots_file_ext']
             desc = 'Experiments completed'
-            pbar_pos = tqdm(total=len(exp_paths), ncols=100, desc=desc, position=1) 
+            pbar_pos = tqdm(
+                total=len(exp_paths), ncols=100, desc=desc, position=1
+            ) 
+            transformed_data_nnet = self.check_preprocess_data_nnet_across_exp(
+                exp_path, pos_foldernames, spots_ch_endname
+            )
             for pos in pos_foldernames:
                 print('')
                 pos_path = os.path.join(exp_path, pos)
@@ -4584,7 +4697,8 @@ class Kernel(_ParamsParser):
                     spots_ch_segm_endname=spots_ch_segm_endname,
                     ref_ch_segm_endname=ref_ch_segm_endname, 
                     lineage_table_endname=lineage_table_endname,
-                    text_to_append=text_to_append
+                    text_to_append=text_to_append,
+                    transformed_spots_ch_nnet=transformed_data_nnet[pos]
                 )      
                 if dfs is None:
                     # Error raised, logged while dfs is None
