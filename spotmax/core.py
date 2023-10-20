@@ -2968,7 +2968,7 @@ class Kernel(_ParamsParser):
             self, ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
             threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
             vox_to_um3=None, thresh_val=None, verbose=True,
-            do_aggregate=True
+            do_aggregate=True, ridge_filter_sigmas=0
         ):
         if verbose and frame_i == 0:
             print('')
@@ -2997,6 +2997,10 @@ class Kernel(_ParamsParser):
             # Compute threshold value if not aggregate object (threshold value 
             # computed before on the aggregated image)
             if not do_aggregate:
+                if ridge_filter_sigmas:
+                    ref_ch_img_local = filters.ridge(
+                        ref_ch_img_local, ridge_filter_sigmas
+                    )
                 ref_mask_local, thresh_val = filters.threshold_masked_by_obj(
                     ref_ch_img_local, obj_mask_lab, threshold_func, 
                     do_max_proj=False, return_thresh_val=np.True_
@@ -3050,7 +3054,8 @@ class Kernel(_ParamsParser):
             self, ref_ch_img, threshold_method='threshold_otsu', lab_rp=None, 
             lab=None, lineage_table=None, keep_only_largest_obj=False, 
             do_aggregate=False, df_agg=None, frame_i=0, 
-            vox_to_um3=None, zyx_tolerance=None, verbose=True
+            vox_to_um3=None, zyx_tolerance=None, ridge_filter_sigmas=0.0, 
+            verbose=True
         ):
         if self._is_lab_all_zeros(lab):
             df_agg['ref_ch_threshold_value'] = np.nan
@@ -3085,6 +3090,10 @@ class Kernel(_ParamsParser):
                 ref_ch_img, lab, lineage_table=lineage_table, 
                 zyx_tolerance=zyx_tolerance
             )
+            if ridge_filter_sigmas:
+                aggr_ref_ch_img = filters.ridge(
+                    aggr_ref_ch_img, ridge_filter_sigmas
+                )
             thresh_val = threshold_func(aggr_ref_ch_img.max(axis=0))
         else:
             thresh_val = None
@@ -3093,7 +3102,7 @@ class Kernel(_ParamsParser):
             ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
             threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
             thresh_val=thresh_val, vox_to_um3=vox_to_um3, verbose=verbose,
-            do_aggregate=do_aggregate
+            do_aggregate=do_aggregate, ridge_filter_sigmas=ridge_filter_sigmas
         )
 
         return ref_ch_segm, df_agg
@@ -4352,6 +4361,9 @@ class Kernel(_ParamsParser):
             is_ref_ch_single_obj = (
                 self._params[SECTION]['refChSingleObj']['loadedVal']
             )
+            ridge_filter_sigmas = (
+                self._params[SECTION]['refChRidgeFilterSigmas']['loadedVal']
+            )
             save_ref_ch_segm = (
                 self._params[SECTION]['saveRefChMask']['loadedVal']
             )
@@ -4383,6 +4395,7 @@ class Kernel(_ParamsParser):
                     lineage_table=lineage_table, 
                     vox_to_um3=vox_to_um3,
                     zyx_tolerance=self.metadata['deltaTolerance'],
+                    ridge_filter_sigmas=ridge_filter_sigmas,
                     verbose=verbose,                    
                 )
                 ref_ch_segm_data[frame_i] = ref_ch_lab

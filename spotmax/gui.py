@@ -58,6 +58,7 @@ LINEAGE_COLUMNS = list(base_lineage_table_values.keys())
 ANALYSIS_STEP_RESULT_SLOTS = {
     'gaussSigma': '_displayGaussSigmaResult',
     'refChGaussSigma': '_displayGaussSigmaResult',
+    'refChRidgeFilterSigmas': '_displayRidgeFilterResult',
     'removeHotPixels': '_displayRemoveHotPixelsResult',
     'sharpenSpots': '_displaySharpenSpotsResult',
     'spotPredictionMethod': '_displayspotPredictionResult',
@@ -67,6 +68,7 @@ ANALYSIS_STEP_RESULT_SLOTS = {
 PARAMS_SLOTS = {
     'gaussSigma': ('sigComputeButtonClicked', '_computeGaussFilter'),
     'refChGaussSigma': ('sigComputeButtonClicked', '_computeRefChGaussSigma'),
+    'refChRidgeFilterSigmas': ('sigComputeButtonClicked', '_computeRefChRidgeFilter'),
     'removeHotPixels': ('sigComputeButtonClicked', '_computeRemoveHotPixels'),
     'sharpenSpots': ('sigComputeButtonClicked', '_computeSharpenSpots'),
     'spotPredictionMethod': ('sigComputeButtonClicked', '_computeSpotPrediction'),
@@ -559,7 +561,44 @@ class spotMAX_Win(acdc_gui.guiWin):
             refChannelData, posData.segm_data, 
             on_finished_callback=on_finished_callback
         )
-    
+
+    @exception_handler
+    def _computeRefChRidgeFilter(self, formWidget):
+        self.funcDescription = 'Ridge filter (enhances networks)'
+        module_func = 'pipe.ridge_filter'
+        anchor = 'refChRidgeFilterSigmas'
+        
+        posData = self.data[self.pos_i]
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        refChEndName = filePathParams['refChEndName']['widget'].text()
+        if not refChEndName:
+            refChEndName = self.askReferenceChannelEndname()
+            if refChEndName is None:
+                self.logger.info('Segmenting reference channel cancelled.')
+                return
+            filePathParams['refChEndName']['widget'].setText(refChEndName)
+        
+        self.logger.info(f'Loading "{refChEndName}" reference channel data...')
+        refChannelData = self.loadImageDataFromChannelName(refChEndName) 
+        
+        args = [module_func, anchor]
+        all_kwargs = self.paramsToKwargs()
+        if all_kwargs is None:
+            self.logger.info('Process cancelled.')
+            return
+        keys = ['do_remove_hot_pixels', 'ref_ch_ridge_sigmas']
+        kwargs = {key:all_kwargs[key] for key in keys}
+        kwargs['ridge_sigmas'] = kwargs.pop('ref_ch_ridge_sigmas')
+        on_finished_callback = (
+            self.startComputeAnalysisStepWorker, args, kwargs
+        )
+        self.startCropImageBasedOnSegmDataWorkder(
+            refChannelData, posData.segm_data, 
+            on_finished_callback=on_finished_callback
+        )
+
     def warnTrueSpotsAutoTuneNotAdded(self):
         msg = acdc_widgets.myMessageBox(wrapText=False)
         txt = html_func.paragraph("""
@@ -881,6 +920,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         refChParams = ParamsGroupBox.params['Reference channel']
         ref_ch_gauss_sigma = refChParams['refChGaussSigma']['widget'].value()
         
+        refChParams = ParamsGroupBox.params['Reference channel']
+        refChRidgeSigmasWidget = refChParams['refChRidgeFilterSigmas']
+        ref_ch_ridge_sigmas = refChRidgeSigmasWidget['widget'].value()
+        if isinstance(ref_ch_ridge_sigmas, float):
+            ref_ch_ridge_sigmas = [ref_ch_ridge_sigmas]
+        
         spotsParams = ParamsGroupBox.params['Spots channel']
         optimise_with_edt = (
             spotsParams['optimiseWithEdt']['widget'].isChecked()
@@ -896,6 +941,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             'lab': None, 
             'gauss_sigma': gauss_sigma, 
             'ref_ch_gauss_sigma': ref_ch_gauss_sigma, 
+            'ref_ch_ridge_sigmas': ref_ch_ridge_sigmas,
             'spots_zyx_radii': spots_zyx_radii, 
             'do_sharpen': do_sharpen, 
             'do_remove_hot_pixels': do_remove_hot_pixels,
@@ -1248,6 +1294,38 @@ class spotMAX_Win(acdc_gui.guiWin):
         imshow(
             image, result, axis_titles=titles, parent=self, 
             window_title='Pre-processing - Gaussian filter',
+            color_scheme=self._colorScheme
+        )
+    
+    def _displayRefChGaussSigmaResult(self, result, image):
+        from cellacdc.plot import imshow
+        posData = self.data[self.pos_i]
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        refChParams = ParamsGroupBox.params['Reference channel']
+        anchor = 'refChGaussSigma'
+        sigma = refChParams[anchor]['widget'].value()
+        titles = ['Raw image', f'Filtered image (sigma = {sigma})']
+        imshow(
+            image, result, axis_titles=titles, parent=self, 
+            window_title='Reference channel - Gaussian filter',
+            color_scheme=self._colorScheme
+        )
+    
+    def _displayRidgeFilterResult(self, result, image):
+        from cellacdc.plot import imshow
+        posData = self.data[self.pos_i]
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        refChParams = ParamsGroupBox.params['Reference channel']
+        anchor = 'refChRidgeFilterSigmas'
+        sigmas = refChParams[anchor]['widget'].value()
+        titles = ['Raw image', f'Filtered image (sigmas = {sigmas})']
+        imshow(
+            image, result, axis_titles=titles, parent=self, 
+            window_title='Reference channel - Ridge filter (enhances networks)',
             color_scheme=self._colorScheme
         )
     

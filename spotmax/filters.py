@@ -54,6 +54,10 @@ def gaussian(image, sigma, use_gpu=False, logger_func=print):
         filtered = skimage.filters.gaussian(image, sigma=sigma)
     return filtered
 
+def ridge(image, sigmas):
+    filtered = skimage.filters.sato(image, sigmas=sigmas, black_ridges=False)
+    return filtered
+
 def DoG_spots(image, spots_zyx_radii, use_gpu=False, logger_func=print):
     spots_zyx_radii = np.array(spots_zyx_radii)
     if image.ndim == 2 and len(spots_zyx_radii) == 3:
@@ -135,7 +139,7 @@ def threshold_masked_by_obj(
 def local_semantic_segmentation(
         image, lab, threshold_func=None, lineage_table=None, return_image=False,
         nnet_model=None, nnet_params=None, nnet_input_data=None,
-        do_max_proj=True, clear_outside_objs=False
+        do_max_proj=True, clear_outside_objs=False, ridge_filter_sigmas=0
     ):
     # Get prediction mask by thresholding objects separately
     if threshold_func is None:
@@ -175,22 +179,26 @@ def local_semantic_segmentation(
             )
             obj_mask_lab = lab_mask_lab[merged_obj_slice]
 
+            if method == 'neural_network' and nnet_input_data is not None:
+                input_img, _, _, _ = (
+                    slicer.slice(nnet_input_data, obj)
+                )
+            else:
+                input_img = spots_img_obj
+            
+            if ridge_filter_sigmas:
+                input_img = ridge(input_img, ridge_filter_sigmas)
+            
             if method != 'neural_network':
                 # Threshold
                 predict_mask_merged = threshold_masked_by_obj(
-                    spots_img_obj, obj_mask_lab, thresh_func, 
+                    input_img, obj_mask_lab, thresh_func, 
                     do_max_proj=do_max_proj
                 )
                 # predict_mask_merged[~(obj_mask_lab>0)] = False
             else:
-                if nnet_input_data is None:
-                    nnet_input_img = spots_img_obj
-                else:
-                    nnet_input_img, _, _, _ = (
-                        slicer.slice(image, obj)
-                    )
                 predict_mask_merged = nnet_model.segment(
-                    nnet_input_img, **nnet_params['segment']
+                    input_img, **nnet_params['segment']
                 )
 
             if clear_outside_objs:
@@ -217,7 +225,7 @@ def global_semantic_segmentation(
         image, lab, lineage_table=None, zyx_tolerance=None, 
         thresholding_method='', logger_func=print, return_image=False,
         keep_input_shape=True, nnet_model=None, nnet_params=None,
-        nnet_input_data=None
+        nnet_input_data=None, ridge_filter_sigmas=0
     ):
     if image.ndim == 2:
         image = image[np.newaxis]
@@ -237,6 +245,10 @@ def global_semantic_segmentation(
         additional_imgs_to_aggr=[nnet_input_data]
     )
     aggr_spots_img, aggregated_lab, aggr_imgs = aggregated
+    
+    if ridge_filter_sigmas:
+        aggr_spots_img = ridge(aggr_spots_img, ridge_filter_sigmas)
+    
     aggr_transf_spots_nnet_img = aggr_imgs[0]
     if thresholding_method is not None:
         thresholded = threshold(
@@ -294,3 +306,6 @@ def filter_largest_sub_obj_per_obj(mask_or_labels, lab):
         filtered_obj = filter_largest_obj(obj_mask_to_filter)
         filtered[obj.slice] = filtered_obj
     return filtered
+
+def segment_reference_channel():
+    pass

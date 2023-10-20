@@ -1283,8 +1283,11 @@ class VectorLineEdit(QLineEdit):
             self.setStyleSheet('')
             self.valueChanged.emit(self.value())
     
-    def setValue(self, value: float):
-        self.setText(str(value))
+    def setValue(self, value):
+        self.setText(value)
+    
+    def setText(self, text):
+        super().setText(str(text))
     
     def value(self):
         m = re.match(self.validRegex, self.text())

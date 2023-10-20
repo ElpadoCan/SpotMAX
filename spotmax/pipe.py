@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 import skimage.measure
+import skimage.filters
 
 from . import filters
 from . import transformations
@@ -36,6 +37,28 @@ def preprocess_image(
     else:
         image = image
     return image
+
+
+def ridge_filter(
+        image, 
+        lab=None, 
+        do_remove_hot_pixels=False, 
+        ridge_sigmas=0.0,
+        logger_func=print
+    ):
+    _, image = transformations.reshape_lab_image_to_3D(lab, image)
+        
+    if do_remove_hot_pixels:
+        image = filters.remove_hot_pixels(image)
+    else:
+        image = image
+    
+    if ridge_sigmas:
+        image = filters.ridge(image, ridge_sigmas)
+    else:
+        image = image
+    return image
+
 
 def spots_semantic_segmentation(
         image, 
@@ -114,6 +137,7 @@ def reference_channel_semantic_segm(
         use_gpu=False,
         logger_func=print,
         thresholding_method=None,
+        ridge_filter_sigmas=0,
         keep_input_shape=True
     ):
     lab, image = transformations.reshape_lab_image_to_3D(lab, image)
@@ -140,13 +164,15 @@ def reference_channel_semantic_segm(
             image, lab, lineage_table=lineage_table, 
             thresholding_method=thresholding_method, 
             logger_func=logger_func, return_image=True,
-            keep_input_shape=keep_input_shape
+            keep_input_shape=keep_input_shape,
+            ridge_filter_sigmas=ridge_filter_sigmas
         )
     else:
         result = filters.local_semantic_segmentation(
             image, lab, threshold_func=thresholding_method, 
             lineage_table=lineage_table, return_image=True,
-            do_max_proj=False, clear_outside_objs=True
+            do_max_proj=False, clear_outside_objs=True,
+            ridge_filter_sigmas=ridge_filter_sigmas
         )
     
     if not keep_only_largest_obj:

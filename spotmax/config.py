@@ -125,6 +125,29 @@ def get_gauss_sigma(text):
         )
     return sigma
 
+def get_ridge_sigmas(text):
+    if not text:
+        return 0.0
+    
+    try:
+        sigmas = [float(text)]
+        return sigmas
+    except Exception as e:
+        pass
+    
+    try:
+        if text.startswith('[') or text.startswith('('):
+            text = text[1:]
+        if text.endswith(']') or text.startswith(')'):
+            text = text[:-1]
+        sigmas = [float(val) for val in text.split(',')]
+    except Exception as e:
+        raise TypeError(
+            f'{text} is not a valid value for the ridge filter sigmas. '
+            'Pass either a single number or a list of numbers'
+        )
+    return sigmas
+
 class InvalidThresholdFunc:
     def __init__(self, func_name):
         self._name = func_name
@@ -788,6 +811,17 @@ def _ref_ch_params():
             'formWidgetFunc': 'widgets.VectorLineEdit',
             'actions': None,
             'dtype': get_gauss_sigma
+        },
+        'refChRidgeFilterSigmas': {
+            'desc': 'Sigmas used to enhance network-like structures',
+            'initialVal': 1.0,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.VectorLineEdit',
+            'actions': None,
+            'dtype': get_ridge_sigmas
         },
         'refChThresholdFunc': {
             'desc': 'Ref. channel threshold function',
