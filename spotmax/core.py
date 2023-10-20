@@ -3261,7 +3261,7 @@ class Kernel(_ParamsParser):
 
         labels = filters.local_semantic_segmentation(
             aggr_spots_img, aggregated_lab, threshold_func, 
-            lineage_table=lineage_table
+            lineage_table=lineage_table, do_max_proj=True
         )
         return labels
 

@@ -145,7 +145,8 @@ def reference_channel_semantic_segm(
     else:
         result = filters.local_semantic_segmentation(
             image, lab, threshold_func=thresholding_method, 
-            lineage_table=lineage_table, return_image=True
+            lineage_table=lineage_table, return_image=True,
+            do_max_proj=False, clear_outside_objs=True
         )
     
     if not keep_only_largest_obj:

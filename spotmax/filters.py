@@ -134,7 +134,8 @@ def threshold_masked_by_obj(
 
 def local_semantic_segmentation(
         image, lab, threshold_func=None, lineage_table=None, return_image=False,
-        nnet_model=None, nnet_params=None, nnet_input_data=None
+        nnet_model=None, nnet_params=None, nnet_input_data=None,
+        do_max_proj=True, clear_outside_objs=False
     ):
     # Get prediction mask by thresholding objects separately
     if threshold_func is None:
@@ -177,9 +178,10 @@ def local_semantic_segmentation(
             if method != 'neural_network':
                 # Threshold
                 predict_mask_merged = threshold_masked_by_obj(
-                    spots_img_obj, obj_mask_lab, thresh_func, do_max_proj=True
+                    spots_img_obj, obj_mask_lab, thresh_func, 
+                    do_max_proj=do_max_proj
                 )
-                predict_mask_merged[~(obj_mask_lab>0)] = False
+                # predict_mask_merged[~(obj_mask_lab>0)] = False
             else:
                 if nnet_input_data is None:
                     nnet_input_img = spots_img_obj
@@ -191,6 +193,9 @@ def local_semantic_segmentation(
                     nnet_input_img, **nnet_params['segment']
                 )
 
+            if clear_outside_objs:
+                predict_mask_merged[~(obj_mask_lab>0)] = False
+            
             # Iterate eventually merged (mother-bud) objects
             for obj_local in skimage.measure.regionprops(obj_mask_lab):  
                 predict_mask_obj = predict_mask_merged[obj_local.slice].copy()
