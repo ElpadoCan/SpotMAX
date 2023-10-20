@@ -2967,7 +2967,8 @@ class Kernel(_ParamsParser):
     def _segment_ref_ch(
             self, ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
             threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
-            vox_to_um3=None, thresh_val=None, verbose=True
+            vox_to_um3=None, thresh_val=None, verbose=True,
+            do_aggregate=True
         ):
         if verbose and frame_i == 0:
             print('')
@@ -2995,9 +2996,14 @@ class Kernel(_ParamsParser):
 
             # Compute threshold value if not aggregate object (threshold value 
             # computed before on the aggregated image)
-            if thresh_val is None:
-                thresh_val = threshold_func(ref_ch_img_local.max(axis=0))
-            
+            if not do_aggregate:
+                ref_mask_local, thresh_val = filters.threshold_masked_by_obj(
+                    ref_ch_img_local, obj_mask_lab, threshold_func, 
+                    do_max_proj=False, return_thresh_val=np.True_
+                )
+            else:
+                ref_mask_local = ref_ch_img_local > thresh_val
+                
             # Store threshold value
             df_idx = (frame_i, obj.label)
             df_agg.at[df_idx, 'ref_ch_threshold_value'] = thresh_val
@@ -3006,7 +3012,6 @@ class Kernel(_ParamsParser):
                 df_agg.at[bud_idx, 'ref_ch_threshold_value'] = thresh_val
 
             # Threshold
-            ref_mask_local = ref_ch_img_local > thresh_val
             ref_mask_local[~(obj_mask_lab>0)] = False
             
             # Iterate eventually merged (mother-bud) objects
@@ -3087,7 +3092,8 @@ class Kernel(_ParamsParser):
         ref_ch_segm, df_agg = self._segment_ref_ch(
             ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
             threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
-            thresh_val=thresh_val, vox_to_um3=vox_to_um3, verbose=verbose
+            thresh_val=thresh_val, vox_to_um3=vox_to_um3, verbose=verbose,
+            do_aggregate=do_aggregate
         )
 
         return ref_ch_segm, df_agg

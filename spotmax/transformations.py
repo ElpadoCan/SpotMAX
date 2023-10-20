@@ -210,7 +210,7 @@ def _merge_moth_bud(lineage_table, lab, return_bud_images=False):
             return lab, {}
         else:
             return lab
-
+    
     df_buds = lineage_table[lineage_table.relationship == 'bud']
     moth_IDs = df_buds['relative_ID'].unique()
     df_buds = df_buds.reset_index().set_index('relative_ID')
@@ -338,15 +338,15 @@ class SliceImageFromSegmObject:
         # np.clip(img_backgr, 0, 1, out=img_backgr)
 
         # img_backgr[lab_mask_obj.image] = img_local[lab_mask_obj.image]
+    
+        # # Replace values outside of the obj mask that are higher than the 
+        # # max with mean of the object to avoid external objects with 
+        # # bright features to skew thresholding the object
+        # foregr_vals = img_local[lab_mask_obj.image]
+        # foregr_mean = foregr_vals.mean()
+        # foregr_max = foregr_vals.max()
+        # img_local[img_local > foregr_max] = foregr_mean
         
-        # Replace values outside of the obj mask that are higher than the 
-        # max with mean of the object to avoid external objects with 
-        # bright features to skew thresholding the object
-        foregr_vals = img_local[lab_mask_obj.image]
-        foregr_mean = foregr_vals.mean()
-        foregr_max = foregr_vals.max()
-        img_local[img_local > foregr_max] = foregr_mean
-
         return img_local, lab_mask_lab, lab_mask_obj.slice, bud_ID
 
 def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):

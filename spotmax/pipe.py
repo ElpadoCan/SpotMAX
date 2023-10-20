@@ -116,20 +116,38 @@ def reference_channel_semantic_segm(
         thresholding_method=None,
         keep_input_shape=True
     ):
-    result = spots_semantic_segmentation(
-        image, 
-        lab=lab,
-        gauss_sigma=gauss_sigma,
-        spots_zyx_radii=None, 
-        do_sharpen=False, 
-        do_remove_hot_pixels=do_remove_hot_pixels,
-        lineage_table=lineage_table,
-        do_aggregate=do_aggregate,
-        use_gpu=use_gpu,
-        logger_func=logger_func,
-        thresholding_method=thresholding_method,
-        keep_input_shape=keep_input_shape
-    )
+    lab, image = transformations.reshape_lab_image_to_3D(lab, image)
+    
+    if do_remove_hot_pixels:
+        image = filters.remove_hot_pixels(image)
+    else:
+        image = image
+    
+    if gauss_sigma>0:
+        image = filters.gaussian(
+            image, gauss_sigma, use_gpu=use_gpu, logger_func=logger_func
+        )
+    
+    if not np.any(lab):
+        result = {
+            'input_image': image,
+            'Segmentation_data_is_empty': np.zeros(image.shape, dtype=np.uint8)
+        }
+        return result
+    
+    if do_aggregate:
+        result = filters.global_semantic_segmentation(
+            image, lab, lineage_table=lineage_table, 
+            thresholding_method=thresholding_method, 
+            logger_func=logger_func, return_image=True,
+            keep_input_shape=keep_input_shape
+        )
+    else:
+        result = filters.local_semantic_segmentation(
+            image, lab, threshold_func=thresholding_method, 
+            lineage_table=lineage_table, return_image=True
+        )
+    
     if not keep_only_largest_obj:
         return result
     

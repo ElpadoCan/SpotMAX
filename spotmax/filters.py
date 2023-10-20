@@ -110,6 +110,28 @@ def threshold(image, thresholding_method: str, logger_func=print):
         thresh_val = np.inf
     return image > thresh_val
 
+def threshold_masked_by_obj(
+        img, mask, threshold_func, do_max_proj=False, return_thresh_val=False
+    ):
+    if do_max_proj:
+        input_img = img.max(axis=0)
+        mask = mask.max(axis=0)
+    else:
+        input_img = img
+        
+    masked = input_img[mask>0]
+    try:
+        thresh_val = threshold_func(masked)
+        thresholded = img > thresh_val
+    except Exception as err:
+        thresh_val = np.nan
+        thresholded = np.zeros(img.shape, dtype=bool)
+    
+    if return_thresh_val:
+        return thresholded, thresh_val
+    else:
+        return thresholded
+
 def local_semantic_segmentation(
         image, lab, threshold_func=None, lineage_table=None, return_image=False,
         nnet_model=None, nnet_params=None, nnet_input_data=None
@@ -154,8 +176,10 @@ def local_semantic_segmentation(
 
             if method != 'neural_network':
                 # Threshold
-                threshold_val = thresh_func(spots_img_obj.max(axis=0))
-                predict_mask_merged = spots_img_obj > threshold_val
+                predict_mask_merged = threshold_masked_by_obj(
+                    spots_img_obj, obj_mask_lab, thresh_func, do_max_proj=True
+                )
+                predict_mask_merged[~(obj_mask_lab>0)] = False
             else:
                 if nnet_input_data is None:
                     nnet_input_img = spots_img_obj
@@ -258,7 +282,7 @@ def filter_largest_obj(mask_or_labels):
 def filter_largest_sub_obj_per_obj(mask_or_labels, lab):
     rp = skimage.measure.regionprops(lab)
     filtered = np.zeros_like(mask_or_labels)
-    for obj in lab:
+    for obj in rp:
         obj_mask_to_filter = np.zeros_like(obj.image)
         mask_obj_sub_obj = np.logical_and(obj.image, mask_or_labels[obj.slice])
         obj_mask_to_filter[mask_obj_sub_obj] = True

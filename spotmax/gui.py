@@ -41,6 +41,7 @@ from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc import exception_handler
 from cellacdc import load as acdc_load
+from cellacdc import io as acdc_io
 from cellacdc.myutils import get_salute_string, determine_folder_type
 
 from . import qtworkers, io, printl, dialogs
@@ -48,8 +49,11 @@ from . import logs_path, html_path, html_func
 from . import widgets, config
 from . import tune, utils
 from . import core
+from . import base_lineage_table_values
 
 from . import qrc_resources_spotmax
+
+LINEAGE_COLUMNS = list(base_lineage_table_values.keys())
 
 ANALYSIS_STEP_RESULT_SLOTS = {
     'gaussSigma': '_displayGaussSigmaResult',
@@ -343,6 +347,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.transformedDataTime = None
         
     def initGui(self):
+        self.isAnalysisRunning = False
+        
         self._setWelcomeText()
         self._disableAcdcActions(
             self.newAction, self.manageVersionsAction, self.openFileAction
@@ -370,6 +376,7 @@ class spotMAX_Win(acdc_gui.guiWin):
 
     @exception_handler
     def runAnalysis(self, ini_filepath, is_tempfile):
+        self.isAnalysisRunning = True
         self.logger.info('Starting spotMAX analysis...')
         self._analysis_started_datetime = datetime.datetime.now()
         self.funcDescription = 'starting analysis process'
@@ -383,6 +390,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.threadPool.start(worker)
         
     def analysisWorkerFinished(self, args):
+        self.isAnalysisRunning = False
         ini_filepath, is_tempfile = args
         self.logger.info('Analysis finished')
         if is_tempfile:
@@ -502,6 +510,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         args = [module_func, anchor]
         all_kwargs = self.paramsToKwargs()
+        if all_kwargs is None:
+            self.logger.info('Process cancelled.')
+            return
         keys = ['do_remove_hot_pixels', 'gauss_sigma', 'use_gpu']
         kwargs = {key:all_kwargs[key] for key in keys}
         on_finished_callback = (
@@ -535,6 +546,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         args = [module_func, anchor]
         all_kwargs = self.paramsToKwargs()
+        if all_kwargs is None:
+            self.logger.info('Process cancelled.')
+            return
         keys = ['do_remove_hot_pixels', 'ref_ch_gauss_sigma', 'use_gpu']
         kwargs = {key:all_kwargs[key] for key in keys}
         kwargs['gauss_sigma'] = kwargs.pop('ref_ch_gauss_sigma')
@@ -723,6 +737,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         keys = ['spots_zyx_radii', 'use_gpu']
         all_kwargs = self.paramsToKwargs()
+        if all_kwargs is None:
+            self.logger.info('Process cancelled.')
+            return
         kwargs = {key:all_kwargs[key] for key in keys}
         
         args = [module_func, anchor]
@@ -735,12 +752,113 @@ class spotMAX_Win(acdc_gui.guiWin):
             on_finished_callback=on_finished_callback
         )
     
+    def getLineageTable(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        acdcDfEndNameWidget = filePathParams['lineageTableEndName']['widget']
+        acdcDfEndName = acdcDfEndNameWidget.text()
+        if not acdcDfEndName:
+            return None, True
+        
+        acdcDfEndName, _ = os.path.splitext(acdcDfEndName)
+        
+        posData = self.data[self.pos_i]
+        loadedAcdcDfEndname = posData.getAcdcDfEndname()
+        
+        if acdcDfEndName == loadedAcdcDfEndname:
+            return posData.acdc_df[LINEAGE_COLUMNS].copy(), True
+        
+        df, proceed = self.warnLoadedAcdcDfDifferentFromRequested(
+            loadedAcdcDfEndname, acdcDfEndName
+        )
+        return df, proceed
+    
+    def checkRequestedSegmEndname(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        segmEndNameWidget = filePathParams['segmEndName']['widget']
+        segmEndName = segmEndNameWidget.text()
+        if not segmEndName:
+            return True
+        
+        segmEndName, _ = os.path.splitext(segmEndName)
+        
+        posData = self.data[self.pos_i]
+        loadedSegmEndname = posData.getSegmEndname()
+        
+        if loadedSegmEndname == segmEndName:
+            return True
+        
+        proceed = self.warnLoadedSegmDifferentFromRequested(
+            loadedSegmEndname, segmEndName
+        )    
+        return proceed
+    
+    def warnLoadedSegmDifferentFromRequested(self, loaded, requested):
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph(f"""
+            You loaded the segmentation file ending with <code>{loaded},</code> 
+            but in the parameter `Cells segmentation end name or path`<br>
+            you requested the file <code>{requested}</code>.<br><br>
+            How do you want to proceed?
+        """)
+        keepLoadedButton = acdc_widgets.okPushButton(
+            f'Continue with `{loaded}`'
+        )
+        msg.warning(
+            self, 'Mismatch between loaded and requested file', txt,
+            buttonsTexts=('Cancel', keepLoadedButton)
+        )
+        return not msg.cancel
+    
+    def warnLoadedAcdcDfDifferentFromRequested(self, loaded, requested):
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph(f"""
+            You loaded the lineage table ending with <code>{loaded},</code> 
+            but in the parameter `Table with lineage info end name or path`<br>
+            you requested the table name <code>{requested}</code>.<br><br>
+            How do you want to proceed?
+        """)
+        loadRequestedButton = acdc_widgets.OpenFilePushButton(
+            f'Load table `{requested}`'
+        )
+        keepLoadedButton = acdc_widgets.okPushButton(
+            f'Keep table `{loaded}`'
+        )
+        msg.warning(
+            self, 'Mismatch between loaded and requested file', txt,
+            buttonsTexts=('Cancel', loadRequestedButton, keepLoadedButton)
+        )
+        if msg.cancel:
+            return None, False
+        
+        posData = self.data[self.pos_i]
+        if msg.clickedButton == loadRequestedButton:
+            filepath = acdc_io.get_filepath_from_channel_name(
+                posData.images_path, posData.basename
+            )
+            self.logger.info(f'Loading table from "{filepath}"...')
+            df = acdc_load._load_acdc_df_file(filepath)
+            return df, True
+        
+        return posData.acdc_df[LINEAGE_COLUMNS].copy(), True
+    
     def paramsToKwargs(self):
         posData = self.data[self.pos_i]
         lineage_table = None
         if posData.acdc_df is not None:
-            lineage_table = posData.acdc_df.loc[posData.frame_i]
-            
+            acdc_df, proceed = self.getLineageTable()
+            if not proceed:
+                return 
+            if acdc_df is not None:
+                lineage_table = acdc_df.loc[posData.frame_i]
+        
+        proceed = self.checkRequestedSegmEndname()
+        if not proceed:
+            return
+        
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
         filePathParams = ParamsGroupBox.params['File paths and channels']
@@ -840,6 +958,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             'use_gpu'
         ]
         all_kwargs = self.paramsToKwargs()
+        if all_kwargs is None:
+            self.logger.info('Process cancelled.')
+            return
         kwargs = {key:all_kwargs[key] for key in keys}
         
         kwargs = self.addNnetKwargs(kwargs)
@@ -1098,6 +1219,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             'do_aggregate', 'use_gpu'
         ]
         all_kwargs = self.paramsToKwargs()
+        if all_kwargs is None:
+            self.logger.info('Process cancelled.')
+            return
         kwargs = {key:all_kwargs[key] for key in keys}
         kwargs['gauss_sigma'] = kwargs.pop('ref_ch_gauss_sigma')
         
@@ -1427,6 +1551,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         
         all_kwargs = self.paramsToKwargs()
+        if all_kwargs is None:
+            self.logger.info('Process cancelled.')
+            return
         kernel = posData.tuneKernel
         kernel.set_kwargs(all_kwargs)
         
@@ -1759,7 +1886,27 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.computeDockWidget.hide()
         QTimer.singleShot(50, self.resizeComputeDockWidget)
     
+    def warnClosingWhileAnalysisIsRunning(self):
+        txt = html_func.paragraph("""
+            The analysis is still running (see progress in the terminal).<br><br>
+            Are you sure you want to close and abort the analysis process?<br>
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        noButton, yesButton = msg.warning(
+            self, 'Analysis still running!', txt,
+            buttonsTexts=(
+                'No, do not close', 
+                'Yes, stop analysis and close spotMAX'
+            )
+        )
+        return msg.clickedButton == yesButton
+    
     def closeEvent(self, event):
+        if self.isAnalysisRunning:
+            proceed = self.warnClosingWhileAnalysisIsRunning()
+            if not proceed:
+                event.ignore()
+                return
         super().closeEvent(event)
         if not sys.stdout == self.logger.default_stdout:
             return

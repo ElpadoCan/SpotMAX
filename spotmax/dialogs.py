@@ -377,7 +377,7 @@ class guiTabControl(QTabWidget):
         msg = acdc_widgets.myMessageBox()
         msg.information(
             self, 'Analysis will run in the terminal', txt,
-            buttonsTexts=('Cancel', 'Ok, got it'),
+            buttonsTexts=('Cancel', 'Ok, run now!'),
             commands=(f'spotmax -p "{ini_filepath}"',)
         )
         if msg.cancel:

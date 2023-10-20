@@ -116,7 +116,9 @@ base_lineage_table_values = {
     'relative_ID': -1,
     'relationship': 'mother',
     'emerg_frame_i': -1,
-    'division_frame_i': -1
+    'division_frame_i': -1,
+    'is_cell_dead': 0,
+    'is_cell_excluded': 0
 }
 
 error_up_str = '^'*50
