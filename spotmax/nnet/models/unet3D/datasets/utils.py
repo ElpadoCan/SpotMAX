@@ -250,12 +250,18 @@ def get_train_loaders(config):
         batch_size = batch_size * torch.cuda.device_count()
 
     logger.info(f'Batch size for train/val loader: {batch_size}')
-    # when training with volumetric data use batch_size of 1 due to GPU memory constraints
+    # when training with volumetric data use batch_size of 1 due to GPU memory 
+    # constraints
     return {
-        'train': DataLoader(ConcatDataset(train_datasets), batch_size=batch_size, shuffle=True,
-                            num_workers=num_workers),
+        'train': DataLoader(
+            ConcatDataset(train_datasets), batch_size=batch_size, shuffle=True,
+            num_workers=num_workers
+        ),
         # don't shuffle during validation: useful when showing how predictions for a given batch get better over time
-        'val': DataLoader(ConcatDataset(val_datasets), batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        'val': DataLoader(
+            ConcatDataset(val_datasets), batch_size=batch_size, shuffle=False, 
+            num_workers=num_workers
+        )
     }
 
 # For only NumPy arrays
@@ -289,7 +295,7 @@ def get_test_numpy_loader(config, raw):
         batch_size=batch_size,
         num_workers=num_workers,
         collate_fn=default_prediction_collate
-        )
+    )
 
 
 def get_test_loaders(config):

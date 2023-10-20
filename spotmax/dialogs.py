@@ -2072,6 +2072,7 @@ class selectPathsSpotmax(QBaseDialog):
         showAnalysisTableButton.clicked.connect(self.showAnalysisInputsTable)
         okButton.clicked.connect(self.ok_cb)
         cancelButton.clicked.connect(self.cancel_cb)
+        pathSelector.itemClicked.connect(self.selectAllChildren)
 
         self.pathSelector.setFocus()
 
@@ -2219,12 +2220,12 @@ class selectPathsSpotmax(QBaseDialog):
 
             relPathItem = QTreeWidgetItem()
             pathSelector.addTopLevelItem(relPathItem)
-            relPathLabel = acdc_widgets.QClickableLabel()
-            relPathLabel.item = relPathItem
-            relPathLabel.clicked.connect(self.selectAllChildren)
-            relPathText = f'{relPath} (<i>{nPSCtext}, {nPSStext}</i>)'
-            relPathLabel.setText(relPathText)
-            pathSelector.setItemWidget(relPathItem, 0, relPathLabel)
+            relPathText = f'{relPath} ({nPSCtext}, {nPSStext})'
+            relPathItem.setText(0, relPathText)
+            
+            # relPathLabel = acdc_widgets.QClickableLabel()
+            # relPathLabel.item = relPathItem
+            # relPathLabel.clicked.connect(self.selectAllChildren)
 
             for pos in posFoldernames:
                 posInfo = expInfo[pos]
@@ -2242,12 +2243,13 @@ class selectPathsSpotmax(QBaseDialog):
                 else:
                     posText = f'{posText} (NOT spotCOUNTED, NOT spotSIZED)'
                 posItem = QTreeWidgetItem()
-                posLabel = acdc_widgets.QClickableLabel()
-                posLabel.item = posItem
-                posLabel.clicked.connect(self.selectAllChildren)
-                posLabel.setText(posText)
+                posItem.setText(0, posText)
+                # posLabel = acdc_widgets.QClickableLabel()
+                # posLabel.item = posItem
+                # posLabel.clicked.connect(self.selectAllChildren)
+                # posLabel.setText(posText)
                 relPathItem.addChild(posItem)
-                pathSelector.setItemWidget(posItem, 0, posLabel)
+                # pathSelector.setItemWidget(posItem, 0, posLabel)
         if relPathItem is not None and len(selectedRunPaths) == 1:
             relPathItem.setExpanded(True)
 
@@ -2272,9 +2274,7 @@ class selectPathsSpotmax(QBaseDialog):
         selectedItems = self.pathSelector.selectedItems()
         doc = QTextDocument()
         for item in selectedItems:
-            label = self.pathSelector.itemWidget(item, 0)
-            doc.setHtml(label.text())
-            plainText = doc.toPlainText()
+            plainText = item.text(0)
             parent = item.parent()
             if parent is None:
                 continue
@@ -2282,9 +2282,7 @@ class selectPathsSpotmax(QBaseDialog):
                 posFoldername = re.findall('(.+) \(', plainText)[0]
             except IndexError:
                 posFoldername = plainText
-            parentLabel = self.pathSelector.itemWidget(parent, 0)
-            doc.setHtml(parentLabel.text())
-            parentText = doc.toPlainText()
+            parentText = parent.text(0)
             relPath = re.findall('...(.+) \(', parentText)[0]
             relPath = pathlib.Path(relPath)
             relPath = pathlib.Path(*relPath.parts[2:])
@@ -2338,11 +2336,8 @@ class selectPathsSpotmax(QBaseDialog):
         w = 0
         for i in range(self.pathSelector.topLevelItemCount()):
             item = self.pathSelector.topLevelItem(i)
-            label = self.pathSelector.itemWidget(item, 0)
-            doc = QTextDocument()
-            doc.setHtml(label.text())
-            plainText = doc.toPlainText()
-            currentW = label.fontMetrics().boundingRect(plainText).width()+60
+            labelText = item.text(0)
+            currentW = item.sizeHint(0).width()
             if currentW > w:
                 w = currentW
 

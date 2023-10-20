@@ -390,7 +390,9 @@ class Unet2DModel(BaseModel):
         if not epoch:
             model_to_load = self.best_model_location
         else:
-            model_to_load = self.model_dir + "/checkpoint_epoch{}.pth".format(epoch)
+            model_to_load = os.path.join(
+                self.model_dir, f'/checkpoint_epoch{epoch}.pth'
+            )
 
         self.net.load_state_dict(
             torch.load(model_to_load, map_location=self.device)

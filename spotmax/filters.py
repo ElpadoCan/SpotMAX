@@ -1,3 +1,4 @@
+from sklearn import neural_network
 from tqdm import tqdm
 
 import numpy as np
@@ -110,7 +111,8 @@ def threshold(image, thresholding_method: str, logger_func=print):
     return image > thresh_val
 
 def local_semantic_segmentation(
-        image, lab, threshold_func=None, lineage_table=None, return_image=False
+        image, lab, threshold_func=None, lineage_table=None, return_image=False,
+        nnet_model=None, nnet_params=None, nnet_input_data=None
     ):
     # Get prediction mask by thresholding objects separately
     if threshold_func is None:
@@ -122,6 +124,9 @@ def local_semantic_segmentation(
         threshold_funcs = {'custom': getattr(skimage.filters, threshold_func)}
     else:
         threshold_funcs = {'custom': threshold_func}
+    
+    if nnet_model is not None:
+        threshold_funcs['neural_network'] = 'placeholder'
     
     slicer = transformations.SliceImageFromSegmObject(
         lab, lineage_table=lineage_table
@@ -147,9 +152,20 @@ def local_semantic_segmentation(
             )
             obj_mask_lab = lab_mask_lab[merged_obj_slice]
 
-            # Threshold
-            threshold_val = thresh_func(spots_img_obj.max(axis=0))
-            predict_mask_merged = spots_img_obj > threshold_val
+            if method != 'neural_network':
+                # Threshold
+                threshold_val = thresh_func(spots_img_obj.max(axis=0))
+                predict_mask_merged = spots_img_obj > threshold_val
+            else:
+                if nnet_input_data is None:
+                    nnet_input_img = spots_img_obj
+                else:
+                    nnet_input_img, _, _, _ = (
+                        slicer.slice(image, obj)
+                    )
+                predict_mask_merged = nnet_model.segment(
+                    nnet_input_img, **nnet_params['segment']
+                )
 
             # Iterate eventually merged (mother-bud) objects
             for obj_local in skimage.measure.regionprops(obj_mask_lab):  
@@ -171,7 +187,8 @@ def local_semantic_segmentation(
 def global_semantic_segmentation(
         image, lab, lineage_table=None, zyx_tolerance=None, 
         thresholding_method='', logger_func=print, return_image=False,
-        keep_input_shape=True
+        keep_input_shape=True, nnet_model=None, nnet_params=None,
+        nnet_input_data=None
     ):
     if image.ndim == 2:
         image = image[np.newaxis]
@@ -186,9 +203,12 @@ def global_semantic_segmentation(
             f'Input image has {ndim} dimensions. Only 2D and 3D is supported.'
         )
     
-    aggr_spots_img, aggregated_lab = transformations.aggregate_objs(
-        image, lab, lineage_table=lineage_table, zyx_tolerance=zyx_tolerance
+    aggregated = transformations.aggregate_objs(
+        image, lab, lineage_table=lineage_table, zyx_tolerance=zyx_tolerance,
+        additional_imgs_to_aggr=[nnet_input_data]
     )
+    aggr_spots_img, aggregated_lab, aggr_imgs = aggregated
+    aggr_transf_spots_nnet_img = aggr_imgs[0]
     if thresholding_method is not None:
         thresholded = threshold(
             aggr_spots_img, thresholding_method, logger_func=logger_func
@@ -196,6 +216,16 @@ def global_semantic_segmentation(
         result = {thresholding_method: thresholded}
     else:
         result = try_all_thresholds(aggr_spots_img, logger_func=print)
+    
+    if nnet_model is not None:
+        if aggr_transf_spots_nnet_img is None:
+            nnet_input_img = aggr_spots_img
+        else:
+            nnet_input_img = aggr_transf_spots_nnet_img
+        nnet_labels = nnet_model.segment(
+            nnet_input_img, **nnet_params['segment']
+        )
+        result['neural_network'] = nnet_labels
     
     if keep_input_shape:
         reindexed_result = {}

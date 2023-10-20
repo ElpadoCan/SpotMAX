@@ -6,7 +6,7 @@ import torch
 from skimage import measure
 
 from ..datasets.hdf5 import AbstractHDF5Dataset, NumpyDataset
-from ..datasets.hdf5.utils import SliceBuilder
+from ..datasets.utils import SliceBuilder
 from .utils import get_logger
 from .utils import remove_halo
 from tqdm import tqdm
@@ -76,7 +76,7 @@ class NumpyPredictor(_AbstractPredictor):
         super().__init__(model, output_dir, config, **kwargs)
 
     def __call__(self, test_loader):
-        assert isinstance(test_loader.dataset, NumpyDataset)
+        # assert isinstance(test_loader.dataset, NumpyDataset)
 
         #logger.info(f"Processing '{test_loader.dataset.file_path}'...")
         #output_file = _get_output_file(dataset=test_loader.dataset, output_dir=self.output_dir)
@@ -108,19 +108,24 @@ class NumpyPredictor(_AbstractPredictor):
 
         # allocate prediction and normalization arrays
         logger.info('Allocating prediction and normalization arrays...')
-        prediction_maps, normalization_masks = self._allocate_prediction_maps(prediction_maps_shape,
-                                                                              output_heads)
+        prediction_maps, normalization_masks = self._allocate_prediction_maps(
+            prediction_maps_shape, output_heads
+        )
 
         # Sets the module in evaluation mode explicitly
         # It is necessary for batchnorm/dropout layers if present as well as final Sigmoid/Softmax to be applied
         self.model.eval()
+        
         # Run predictions on the entire input dataset
         desc = 'Running inference'
-        with torch.no_grad():
-            for batch, indices in tqdm(test_loader, desc=desc, total=len(test_loader), ncols=100):
+        
+        with torch.no_grad():            
+            for batch, indices in tqdm(
+                    test_loader, desc=desc, total=len(test_loader), ncols=100
+                ):
                 # send batch to device
                 batch = batch.to(device)
-
+                
                 # forward pass
                 predictions = self.model(batch)
 
@@ -128,10 +133,11 @@ class NumpyPredictor(_AbstractPredictor):
                 if output_heads == 1:
                     predictions = [predictions]
 
+                zipped = zip(
+                    predictions, prediction_maps, normalization_masks
+                )
                 # for each output head
-                for prediction, prediction_map, normalization_mask in zip(predictions, prediction_maps,
-                                                                          normalization_masks):
-
+                for prediction, prediction_map, normalization_mask in zipped:
                     # convert to numpy array
                     prediction = prediction.cpu().numpy()
 
@@ -146,17 +152,26 @@ class NumpyPredictor(_AbstractPredictor):
 
                         if prediction_channel is not None:
                             # use only the 'prediction_channel'
-                            pred = np.expand_dims(pred[prediction_channel], axis=0)
+                            pred = np.expand_dims(
+                                pred[prediction_channel], axis=0
+                            )
 
-                        # remove halo in order to avoid block artifacts in the output probability maps
-                        u_prediction, u_index = remove_halo(pred, index, volume_shape, patch_halo)
-                        # accumulate probabilities into the output prediction array
+                        # remove halo in order to avoid block artifacts 
+                        # in the output probability maps
+                        u_prediction, u_index = remove_halo(
+                            pred, index, volume_shape, patch_halo
+                        )
+                        # accumulate probabilities into the output 
+                        # prediction array
                         prediction_map[u_index] += u_prediction
                         # count voxel visits for normalization
                         normalization_mask[u_index] += 1
-
-        return self._get_results(prediction_maps, normalization_masks, output_heads, test_loader.dataset)
-
+        
+        result = self._get_results(
+            prediction_maps, normalization_masks, output_heads, 
+            test_loader.dataset
+        )
+        return result
 
     def _allocate_prediction_maps(self, output_shape, output_heads):
         # initialize the output prediction arrays
@@ -255,12 +270,15 @@ class StandardPredictor(_AbstractPredictor):
         h5_output_file = h5py.File(output_file, 'w')
         # allocate prediction and normalization arrays
         logger.info('Allocating prediction and normalization arrays...')
-        prediction_maps, normalization_masks = self._allocate_prediction_maps(prediction_maps_shape,
-                                                                              output_heads, h5_output_file)
+        prediction_maps, normalization_masks = self._allocate_prediction_maps(
+            prediction_maps_shape, output_heads, h5_output_file
+        )
 
         # Sets the module in evaluation mode explicitly
-        # It is necessary for batchnorm/dropout layers if present as well as final Sigmoid/Softmax to be applied
+        # It is necessary for batchnorm/dropout layers if present as well 
+        # as final Sigmoid/Softmax to be applied
         self.model.eval()
+        
         # Run predictions on the entire input dataset
         with torch.no_grad():
             for batch, indices in test_loader:

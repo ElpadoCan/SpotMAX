@@ -4,6 +4,7 @@ import shutil
 import datetime
 import traceback
 import re
+import pprint
 from queue import Queue
 
 import numpy as np
@@ -17,6 +18,8 @@ from qtpy.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
 
 # Interpret image data as row-major instead of col-major
 import pyqtgraph as pg
+
+from spotmax.filters import remove_hot_pixels
 pg.setConfigOption('imageAxisOrder', 'row-major')
 try:
     import numba
@@ -38,7 +41,7 @@ from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc import exception_handler
 from cellacdc import load as acdc_load
-from cellacdc.myutils import get_salute_string
+from cellacdc.myutils import get_salute_string, determine_folder_type
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
@@ -114,9 +117,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
-            posData = self.data[self.pos_i]
-            paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
-            printl(paramsGroupbox.params, pretty=True)
+            from spotmax.nnet import model
+            pass
         super().keyPressEvent(event)
     
     def gui_setCursor(self, modifiers, event):
@@ -229,6 +231,7 @@ class spotMAX_Win(acdc_gui.guiWin):
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.computeDockWidget)
         
+        self.connectParamsBaseSignals()
         self.connectAutoTuneSlots()
         self.initAutoTuneColors()
         
@@ -294,6 +297,38 @@ class spotMAX_Win(acdc_gui.guiWin):
             action.setVisible(False)
             action.setDisabled(True)
     
+    def isNeuralNetworkRequested(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        return spotsParams[anchor]['widget'].currentText() == 'Neural network'
+    
+    def isPreprocessAcrossExpRequired(self):
+        if not self.isNeuralNetworkRequested():
+            return False
+        
+        nnetParams = self.getNeuralNetParams()
+        if not nnetParams['init']['preprocess_across_experiment']:
+            # Pre-processing not requested
+            return False
+        
+        return True
+
+    def isPreprocessAcrossTimeRequired(self):
+        if not self.isNeuralNetworkRequested():
+            return False
+        
+        posData = self.data[self.pos_i]
+        if posData.SizeT == 1:
+            return False
+        
+        nnetParams = self.getNeuralNetParams()
+        if not nnetParams['init']['preprocess_across_timepoints']:
+            # Pre-processing not requested
+            return False
+        
+        return True
+    
     def reInitGui(self):
         super().reInitGui()
         try:
@@ -303,6 +338,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             pass
         self.showParamsDockButton.setDisabled(False)
         self.computeDockWidget.widget().initState(False)
+        
+        self.transformedDataNnetExp = None
+        self.transformedDataTime = None
         
     def initGui(self):
         self._setWelcomeText()
@@ -563,7 +601,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             )
     
     def startCropImageBasedOnSegmDataWorkder(
-            self, image_data, segm_data, on_finished_callback
+            self, image_data, segm_data, on_finished_callback,
+            nnet_input_data=None
         ):
         self.progressWin = acdc_apps.QDialogWorkerProgress(
             title='Cropping based on segm data', parent=self,
@@ -583,7 +622,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         worker = qtworkers.CropImageBasedOnSegmDataWorker(
             image_data, segm_data, delta_tolerance, posData.SizeZ,
-            on_finished_callback
+            on_finished_callback, nnet_input_data=nnet_input_data
         )
         worker = self.connectDefaultWorkerSlots(worker)
         worker.signals.finished.connect(self.cropImageWorkerFinished)
@@ -591,7 +630,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def cropImageWorkerFinished(self, result):
         (image_data_cropped, segm_data_cropped, crop_to_global_coords, 
-         on_finished_callback) = result
+         on_finished_callback, nnet_input_data_cropped) = result
         
         if on_finished_callback is None:
             return
@@ -607,15 +646,22 @@ class spotMAX_Win(acdc_gui.guiWin):
         if 'crop_to_global_coords' in kwargs:
             kwargs['crop_to_global_coords'] = crop_to_global_coords
         
+        if 'nnet_input_data_cropped' in kwargs:
+            kwargs['nnet_input_data_cropped'] = nnet_input_data_cropped
+        
         posData = self.data[self.pos_i]
         image = image_data_cropped[posData.frame_i]
         kwargs['image'] = image
+        if nnet_input_data_cropped is not None:
+            kwargs['nnet_input_data'] = nnet_input_data_cropped[posData.frame_i]
+            
         if 'lab' in kwargs:
             lab = segm_data_cropped[posData.frame_i]
             if not np.any(lab):
                 # Without segm data we evaluate the entire image
                 lab = None
             kwargs['lab'] = lab
+        
         func(*args, **kwargs)
     
     @exception_handler
@@ -745,8 +791,43 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         return kwargs
     
+    def checkPreprocessAcrossExp(self):
+        if not self.isPreprocessAcrossExpRequired():
+            return True
+
+        if self.transformedDataNnetExp is not None:
+            # Data already pre-processed
+            return True
+        
+        proceed = self.startAndWaitPreprocessAcrossExpWorker()
+        return proceed
+        
+    def checkPreprocessAcrossTime(self):
+        if not self.isPreprocessAcrossTimeRequired():
+            return True
+
+        if self.transformedDataTime is not None:
+            # Data already pre-processed
+            return True
+
+        if self.transformedDataNnetExp is not None:
+            posData = self.data[self.pos_i]
+            input_data = self.transformedDataNnetExp[posData.pos_foldername]
+        else:
+            input_data = posData.img_data
+        
+        proceed = self.startAndWaitPreprocessAcrossTimeWorker(input_data)
+        return proceed
+        
+        
     @exception_handler
     def _computeSpotPrediction(self, formWidget):
+        proceed = self.checkPreprocessAcrossExp()
+        if not proceed:
+            self.logger.info('Computing spots segmentation cancelled.')
+            return
+        
+        self.checkPreprocessAcrossTime()
         self.funcDescription = 'Spots location semantic segmentation'
         module_func = 'pipe.spots_semantic_segmentation'
         anchor = 'spotPredictionMethod'
@@ -761,13 +842,68 @@ class spotMAX_Win(acdc_gui.guiWin):
         all_kwargs = self.paramsToKwargs()
         kwargs = {key:all_kwargs[key] for key in keys}
         
+        kwargs = self.addNnetKwargs(kwargs)
+        
+        self.logNnetParams(kwargs['nnet_params'])
+        
         on_finished_callback = (
             self.startComputeAnalysisStepWorker, args, kwargs
         )
         self.startCropImageBasedOnSegmDataWorkder(
             posData.img_data, posData.segm_data, 
-            on_finished_callback=on_finished_callback
+            on_finished_callback=on_finished_callback,
+            nnet_input_data=kwargs.get('nnet_input_data')
         )
+    
+    def logNnetParams(self, nnet_params):
+        text = '-'*60
+        text = (
+            f'{text}\nRunning neural network with the following parameters:\n'
+        )
+        text = f'{text}  1. Initialization:\n'
+        for param, value in nnet_params['init'].items():
+            text = f'{text}    - {param}: {value}\n'
+        
+        text = f'{text}  2. Segmentation:\n'
+        for param, value in nnet_params['segment'].items():
+            text = f'{text}    - {param}: {value}\n'
+            
+        closing = '*'*60
+        text = f'{text}{closing}'
+        self.logger.info(text)        
+        
+    def addNnetKwargs(self, kwargs):
+        if not self.isNeuralNetworkRequested():
+            return kwargs
+        
+        kwargs['nnet_model'] = self.getNeuralNetworkModel()
+        kwargs['nnet_params'] = self.getNeuralNetParams()
+        kwargs['nnet_input_data'] = self.getNeuralNetInputData()
+        
+        return kwargs
+    
+    def getNeuralNetInputData(self):
+        useTranformedDataTime = (
+            self.transformedDataTime is not None
+            and self.isPreprocessAcrossTimeRequired()
+        )
+        if useTranformedDataTime:
+            return self.transformedDataTime
+        
+        useTranformedDataExp = (
+            self.transformedDataNnetExp is not None
+            and self.isPreprocessAcrossExpRequired()
+        )
+        
+        if useTranformedDataExp:
+            posData = self.data[self.pos_i]
+            nnet_input_data = self.transformedDataNnetExp[posData.pos_foldername]
+            if posData.SizeT == 1:
+                nnet_input_data = nnet_input_data[np.newaxis]
+            return nnet_input_data
+        
+        # We return None so that the network will use the raw image
+        return
     
     def askReferenceChannelEndname(self):
         posData = self.data[self.pos_i]
@@ -780,6 +916,106 @@ class spotMAX_Win(acdc_gui.guiWin):
         if selectChannelWin.cancel:
             return
         return selectChannelWin.selectedItemsText[0]
+    
+    @exception_handler
+    def startAndWaitPreprocessAcrossExpWorker(self):        
+        selectedPath = self.getSelectExpPath()
+        if selectedPath is None:
+            self.logger.info('Experiment path not selected')
+            return False
+        
+        folder_type = determine_folder_type(selectedPath)
+        is_pos_folder, is_images_folder, _ = folder_type
+        if is_pos_folder:
+            images_paths = [os.path.join(selectedPath, 'Images')]
+        elif is_images_folder:
+            images_paths = [selectedPath]
+        else:
+            images_paths = self._loadFromExperimentFolder(selectedPath)
+        
+        if not images_paths:
+            self.logger.info(
+                'Selected experiment path does not contain valid '
+                'Position folders.'
+            )
+            return False
+        
+        pos_foldernames = [
+            os.path.basename(os.path.dirname(images_path))
+            for images_path in images_paths
+        ]
+        exp_path = os.path.dirname(os.path.dirname(images_paths[0]))
+        
+        nnet_model = self.getNeuralNetworkModel()
+        
+        spots_ch_endname = self.getSpotsChannelEndname()
+        if not spots_ch_endname:
+            raise ValueError(
+                '"Spots channel end name or path" parameter not provided.'
+            )
+        
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
+            title='Preprocessing data', parent=self,
+            pbarDesc='Preprocessing data across experiment'
+        )
+        self.progressWin.mainPbar.setMaximum(0)
+        self.progressWin.show(self.app)
+        
+        loop = QEventLoop()
+        worker = qtworkers.PreprocessNnetDataAcrossExpWorker(
+            exp_path, pos_foldernames, spots_ch_endname, nnet_model, 
+            loop_to_exist_on_finished=loop
+        )
+        self.connectDefaultWorkerSlots(worker)
+        worker.signals.finished.connect(self.preprocesAcrossExpFinished)
+        self.threadPool.start(worker)
+        loop.exec_()
+        return True
+    
+    @exception_handler
+    def startAndWaitPreprocessAcrossTimeWorker(self, input_data):
+        nnet_model = self.getNeuralNetworkModel()
+        
+        pbarDesc = 'Preprocessing data across time-points'
+        if self.progressWin is None:
+            self.progressWin = acdc_apps.QDialogWorkerProgress(
+                title='Preprocessing data across time-points', parent=self,
+                pbarDesc=pbarDesc
+            )
+            self.progressWin.mainPbar.setMaximum(0)
+            self.progressWin.show(self.app)
+        else:
+            self.progressWin.progressLabel.setText(pbarDesc)
+        
+        loop = QEventLoop()
+        worker = qtworkers.PreprocessNnetDataAcrossTimeWorker(
+            input_data, nnet_model, loop_to_exist_on_finished=loop
+        )
+        self.connectDefaultWorkerSlots(worker)
+        worker.signals.finished.connect(self.preprocesAcrossTimeFinished)
+        self.threadPool.start(worker)
+        loop.exec_()
+        return True
+    
+    def preprocesAcrossExpFinished(self, result):
+        if self.progressWin is not None:
+            self.progressWin.workerFinished = True
+            self.progressWin.close()
+            self.progressWin = None
+        worker, transformed_data, loop = result
+        self.transformedDataNnetExp = transformed_data
+        if loop is not None:
+            loop.exit()
+    
+    def preprocesAcrossTimeFinished(self, result):
+        if self.progressWin is not None:
+            self.progressWin.workerFinished = True
+            self.progressWin.close()
+            self.progressWin = None
+        worker, transformed_data, loop = result
+        self.transformedDataTime = transformed_data
+        if loop is not None:
+            loop.exit()
     
     def startLoadImageDataWorker(
             self, filepath='', channel='', images_path='', 
@@ -915,9 +1151,20 @@ class spotMAX_Win(acdc_gui.guiWin):
         from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
         
-        titles = list(result.keys())
-        titles[0] = 'Input image'
-        prediction_images = list(result.values())
+        if 'neural_network' in result:
+            selected_threshold_method = self.getThresholdMethod()
+            titles = [
+                'Input image', f'{selected_threshold_method}', 'Neural network'
+            ]
+            prediction_images = [
+                result['input_image'], 
+                result[f'{selected_threshold_method}'], 
+                result['neural_network'],
+            ]
+        else:
+            titles = list(result.keys())
+            titles[0] = 'Input image'
+            prediction_images = list(result.values())
         
         window_title = 'Spots channel - Spots segmentation method'
         
@@ -989,6 +1236,127 @@ class spotMAX_Win(acdc_gui.guiWin):
         displayFunc = ANALYSIS_STEP_RESULT_SLOTS[anchor]
         displayFunc = getattr(self, displayFunc)
         displayFunc(result, image)
+    
+    def connectParamsBaseSignals(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        preprocessParams = ParamsGroupBox.params['Pre-processing']
+        removeHotPixelsToggle = preprocessParams['removeHotPixels']['widget']
+        removeHotPixelsToggle.toggled.connect(self.onRemoveHotPixelsToggled)
+        
+        metadataParams = ParamsGroupBox.params['METADATA']
+        pixelWidthWidget = metadataParams['pixelWidth']['widget']
+        pixelWidthWidget.valueChanged.connect(self.onPixelWidthValueChanged)
+        
+        configParams = ParamsGroupBox.params['Configuration']
+        useGpuToggle = configParams['useGpu']['widget']
+        useGpuToggle.toggled.connect(self.onUseGpuToggled)
+        
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        expPathsWidget = filePathParams['folderPathsToAnalyse']['widget']
+        expPathsWidget.textChanged.connect(self.onExpPathsTextChanged)
+        
+        spotsChNameWidget = filePathParams['spotsEndName']['widget']
+        spotsChNameWidget.textChanged.connect(self.onSpotsChannelTextChanged)
+    
+    def onExpPathsTextChanged(self):
+        self.transformedDataNnetExp = None
+        self.transformedDataTime = None
+    
+    def onSpotsChannelTextChanged(self):
+        self.transformedDataNnetExp = None
+        self.transformedDataTime = None
+    
+    @exception_handler
+    def getNeuralNetworkModel(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        if spotPredictionMethodWidget.nnetModel is None:
+            raise ValueError(
+                'Neural network parameters were not initialized. Before trying '
+                'to use it, you need to initialize the model\'s parameters by '
+                'clicking on the settings button on the right of the selection '
+                'box at the "Spots segmentation method" parameter.'
+            )
+        
+        return spotPredictionMethodWidget.nnetModel    
+    
+    def getThresholdMethod(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        anchor = 'spotThresholdFunc'
+        spotThresholdFuncWidget = spotsParams[anchor]['widget']
+        return spotThresholdFuncWidget.currentText()
+    
+    @exception_handler
+    def getSelectExpPath(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        pathsToAnalyse = filePathParams['folderPathsToAnalyse']['widget'].text()
+        caster = filePathParams['folderPathsToAnalyse']['dtype']
+        pathsToAnalyse = caster(pathsToAnalyse)  
+        if len(pathsToAnalyse) == 0:
+            return 
+        
+        if len(pathsToAnalyse) == 1:
+            return pathsToAnalyse[0]
+
+        selectWin = acdc_widgets.QDialogListbox(
+            'Select experiment to process',
+            'You provided multiple experiment folders, but you can visualize '
+            'only one at the time.\n\n'
+            'Select which experiment folder to pre-process\n',
+            pathsToAnalyse, multiSelection=False, parent=self
+        )
+        selectWin.exec_()
+        if selectWin.cancel:
+            return
+        return selectWin.selectedItemsText[0]
+    
+    @exception_handler
+    def getSpotsChannelEndname(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        return filePathParams['spotsEndName']['widget'].text()
+    
+    @exception_handler
+    def getNeuralNetParams(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        if spotPredictionMethodWidget.nnetModel is None:
+            raise ValueError(
+                'Neural network parameters were not initialized. Before trying '
+                'to use it, you need to initialize the model\'s parameters by '
+                'clicking on the settings button on the right of the selection '
+                'box at the "Spots segmentation method" parameter.'
+            )
+        
+        return spotPredictionMethodWidget.nnetParams    
+    
+    def onRemoveHotPixelsToggled(self, checked):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        anchor = 'spotPredictionMethod'
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        spotPredictionMethodWidget.setDefaultRemoveHotPixels(checked)
+    
+    def onUseGpuToggled(self, checked):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        anchor = 'spotPredictionMethod'
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        spotPredictionMethodWidget.setDefaultUseGpu(checked)
+    
+    def onPixelWidthValueChanged(self, value):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        anchor = 'spotPredictionMethod'
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        spotPredictionMethodWidget.setDefaultPixelWidth(value)
     
     def connectParamsGroupBoxSignals(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -1253,13 +1621,34 @@ class spotMAX_Win(acdc_gui.guiWin):
         run_nums = sorted(list(run_nums))
         
         self.loaded_exp_run_nums = run_nums
+    
+    def initDefaultParamsNnet(self, posData):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        anchor = 'spotPredictionMethod'
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        if posData is not None:
+            spotsParams[anchor]['widget'].setPosData(self.data[self.pos_i])
         
+        preprocessParams = ParamsGroupBox.params['Pre-processing']
+        do_remove_hot_pixels = (
+            preprocessParams['removeHotPixels']['widget'].isChecked()
+        )
+        
+        configParams = ParamsGroupBox.params['Configuration']
+        use_gpu = configParams['useGpu']['widget'].isChecked()
+        
+        PhysicalSizeX = posData.PhysicalSizeX
+        
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        spotPredictionMethodWidget.setDefaultPixelWidth(PhysicalSizeX)
+        spotPredictionMethodWidget.setDefaultRemoveHotPixels(
+            do_remove_hot_pixels
+        )
+        spotPredictionMethodWidget.setDefaultUseGpu(use_gpu)
+    
     def setAnalysisParameters(self):
         paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
-        spotsParams = paramsGroupbox.params['Spots channel']
-        anchor = 'spotPredictionMethod'
         posData = self.data[self.pos_i]
-        spotsParams[anchor]['widget'].setPosData(self.data[self.pos_i])
         segmFilename = os.path.basename(posData.segm_npz_path)
         segmEndName = segmFilename[len(posData.basename):]
         runNum = max(self.loaded_exp_run_nums, default=0) + 1
@@ -1285,6 +1674,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 {'anchor': 'emWavelen', 'value': emWavelen}
             ]
         }
+        self.initDefaultParamsNnet(posData)
         analysisParams = config.analysisInputsParams(params_path=None)
         for section, params in loadedValues.items():
             for paramValue in params:

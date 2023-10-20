@@ -86,13 +86,13 @@ class Model:
         x_transformer = transform.ImageTransformer(logs=False)
         if remove_hot_pixels:
             x_transformer.set_pipeline([
-                transform._rescale,
+                # transform._rescale,
                 transform._opening,
                 transform._normalize,
             ])
         else:
             x_transformer.set_pipeline([
-                transform._rescale,
+                # transform._rescale,
                 transform._normalize,
             ])
         return x_transformer
@@ -119,10 +119,23 @@ class Model:
         return model
     
     def preprocess(self, images):
-        transformed_data = self.x_transformer.transform(
-            images, scale=self._scale_factor
-        )
+        transformed_data = self.x_transformer.transform(images)
         return transformed_data
+    
+    def rescale_to_base_pixel_width(self, image):
+        if self._scale_factor == 1:
+            return image
+        
+        if image.ndim == 2:
+            scaled = skimage.transform.rescale(
+                image, self._scale_factor, order=1
+            )
+        else:
+            scaled = np.array([
+                skimage.transform.rescale(img_z, self._scale_factor, order=1)
+                for img_z in image
+            ], dtype=image.dtype)
+        return scaled
     
     def resize_to_orig_shape(self, thresh, orig_shape):
         if thresh.shape[-2:] == orig_shape:
@@ -161,12 +174,14 @@ class Model:
         
         self._check_input_dtype_is_float(image)
         
+        rescaled = self.rescale_to_base_pixel_width(image)
         input_data = Data(
-            images=image, masks=None, val_images=None, val_masks=None
+            images=rescaled, masks=None, val_images=None, val_masks=None
         )
         prediction, _ = self.model(input_data, verbose=verbose)
         thresh = prediction > threshold_value
         thresh = self.resize_to_orig_shape(thresh, orig_yx_shape)
+        
         if label_components:
             lab = skimage.measure.label(thresh)
         else:

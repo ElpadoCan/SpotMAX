@@ -4234,26 +4234,12 @@ class Kernel(_ParamsParser):
             return {pos:None for pos in pos_foldernames}
         
         self.logger.info(f'Pre-processing "{spots_ch_endname}" channel data across experiment...')
-        images = []
-        for pos in pos_foldernames:
-            images_path = os.path.join(exp_path, pos, 'Images')
-            ch_path = cellacdc.io.get_filepath_from_channel_name(
-                images_path, os.path.basename(spots_ch_endname)
-            )
-            if not os.path.exists(ch_path):
-                self._critical_channel_not_found(spots_ch_endname, images_path)
-                return
-            ch_data, ch_dtype = io.load_image_data(
-                ch_path, to_float=True, return_dtype=True
-            )
-            images.append(ch_data)
+        transformed_data = transformations.load_preprocess_nnet_data_across_exp(
+            exp_path, pos_foldernames, spots_ch_endname, self.nnet_model, 
+            callback_channel_not_found=self._critical_channel_not_found
+        )
         
-        transformed = self.nnet_model.preprocess(images)
-        transformed_data_nnet = {}
-        for pos, transf_data in zip(pos_foldernames, transformed):
-            transformed_data_nnet[pos] = transf_data
-        
-        return transformed_data_nnet
+        return transformed_data
     
     @handle_log_exception_cli
     def check_preprocess_data_nnet_across_time(

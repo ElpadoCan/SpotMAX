@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from torch import optim
 
-from ...pytorch3dunet.unet3d import utils as pytorch3dunet_unet3d_utils
+from pytorch3dunet.unet3d import utils as pytorch3dunet_unet3d_utils
 
 def save_checkpoint(state, is_best, checkpoint_dir):
     """Saves model and training parameters at '{checkpoint_dir}/last_checkpoint.pytorch'.

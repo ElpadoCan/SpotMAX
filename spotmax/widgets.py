@@ -19,7 +19,7 @@ from qtpy.QtCore import (
     QPointF
 )
 from qtpy.QtGui import (
-    QFont,  QPainter, QRegularExpressionValidator, QIcon, QPixmap
+    QFont,  QPainter, QRegularExpressionValidator, QIcon, QColor, QPalette
 )
 from qtpy.QtWidgets import (
     QTextEdit, QLabel, QProgressBar, QHBoxLayout, QToolButton, QCheckBox,
@@ -625,6 +625,7 @@ class SpotPredictionMethodWidget(QWidget):
         self.posData = None
         self.metadata_df = None
         self.nnetParams = None
+        self.nnetModel = None
         
         layout = QHBoxLayout()
         self.setLayout(layout)
@@ -653,12 +654,58 @@ class SpotPredictionMethodWidget(QWidget):
     
     def onTextChanged(self, text):
         self.configButton.setDisabled(text == 'Thresholding')
+        if not self.configButton.isEnabled():
+            return
+        
+        self.blinkFlag = False
+        self.buttonBasePalette = self.configButton.palette()
+        self.buttonBlinkPalette = self.configButton.palette()
+        self.buttonBlinkPalette.setColor(QPalette.Button, QColor('#F38701'))
+        self.blinkingTimer = QTimer(self)
+        self.blinkingTimer.timeout.connect(self.blinkConfigButton)
+        self.blinkingTimer.start(150)
+        self.stopBlinkingTimer = QTimer(self)
+        self.stopBlinkingTimer.timeout.connect(self.stopBlinkConfigButton)
+        self.stopBlinkingTimer.start(2000)
     
+    def stopBlinkConfigButton(self):
+        self.blinkingTimer.stop()
+        self.configButton.setPalette(self.buttonBasePalette)
+    
+    def blinkConfigButton(self):
+        if self.blinkFlag:
+            self.configButton.setPalette(self.buttonBlinkPalette)
+        else:
+            self.configButton.setPalette(self.buttonBasePalette)
+        self.blinkFlag = not self.blinkFlag
+        
     def value(self):
         return self.combobox.currentText()
     
     def setValue(self, value):
         return self.combobox.setCurrentText(str(value))
+    
+    def setDefaultParams(self, remove_hot_pixels, PhysicalSizeX, use_gpu):
+        if self.nnetParams is None:
+            self.nnetParams = { 'init': {}, 'segment': {}}
+        self.nnetParams['init']['PhysicalSizeX'] = PhysicalSizeX
+        self.nnetParams['init']['remove_hot_pixels'] = remove_hot_pixels
+        self.nnetParams['init']['use_gpu'] = use_gpu
+    
+    def setDefaultPixelWidth(self, pixelWidth):
+        if self.nnetParams is None:
+            self.nnetParams = { 'init': {}, 'segment': {}}
+        self.nnetParams['init']['PhysicalSizeX'] = pixelWidth
+    
+    def setDefaultRemoveHotPixels(self, remove_hot_pixels):
+        if self.nnetParams is None:
+            self.nnetParams = { 'init': {}, 'segment': {}}
+        self.nnetParams['init']['remove_hot_pixels'] = remove_hot_pixels
+    
+    def setDefaultUseGpu(self, use_gpu):
+        if self.nnetParams is None:
+            self.nnetParams = { 'init': {}, 'segment': {}}
+        self.nnetParams['init']['use_gpu'] = use_gpu
     
     def setPosData(self, posData):
         self.posData = posData
@@ -697,6 +744,8 @@ class SpotPredictionMethodWidget(QWidget):
         win.exec_()
         if win.cancel:
             return
+        
+        self.nnetModel = model.Model(**win.init_kwargs)
         self.nnetParams = {
             'init': win.init_kwargs, 'segment': win.model_kwargs
         }

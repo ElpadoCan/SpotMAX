@@ -5,9 +5,9 @@ from itertools import chain
 import h5py
 import numpy as np
 
-from ...pytorch3dunet.augment import transforms
-from ...pytorch3dunet.datasets.utils import get_slice_builder, ConfigDataset, calculate_stats
-from ...pytorch3dunet.unet3d.utils import get_logger
+from pytorch3dunet.augment import transforms
+from pytorch3dunet.datasets.utils import get_slice_builder, ConfigDataset, calculate_stats
+from pytorch3dunet.unet3d.utils import get_logger
 
 logger = get_logger('HDF5Dataset')
 

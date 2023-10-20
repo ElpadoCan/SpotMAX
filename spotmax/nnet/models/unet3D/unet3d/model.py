@@ -1,9 +1,9 @@
 import torch.nn as nn
 
-from ...pytorch3dunet.unet3d.buildingblocks import (
+from pytorch3dunet.unet3d.buildingblocks import (
     DoubleConv, ExtResNetBlock, create_encoders, create_decoders
 )
-from ...pytorch3dunet.unet3d.utils import (
+from pytorch3dunet.unet3d.utils import (
     number_of_features_per_level, get_class
 )
 
@@ -146,5 +146,8 @@ class ResidualUNet3D(Abstract3DUNet):
                                              **kwargs)
 
 def get_model(model_config):
-    model_class = get_class(model_config['name'], modules=['pytorch3dunet.unet3d.model'])
+    model_class = get_class(
+        model_config['name'], 
+        modules=['pytorch3dunet.unet3d.model']
+    )
     return model_class(**model_config)

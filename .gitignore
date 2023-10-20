@@ -16,6 +16,7 @@ spotmax/_old_gui.py
 spotmax/mytests/*
 spotmax/spotmax_v1_paramWin.png
 spotmax/spotmax_v2_parameters.png
+spotmax/nnet/models/deprecated_pytorch3dunet
 **/checkpoints
 _tests
 

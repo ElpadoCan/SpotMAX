@@ -65,7 +65,7 @@ class Unet3DModel(BaseModel):
 
         # Read the model trained
         model = get_model(self.config['model'])
-        model_path = self.config['model_path']
+        model_path = os.path.expanduser(self.config['model_path'])
         utils.load_checkpoint(model_path, model)
 
         # Moving the model to the GPU
@@ -78,8 +78,12 @@ class Unet3DModel(BaseModel):
         # create predictor instance
         predictor = _get_predictor(model, output_dir ,self.config)
         test_loader = get_test_numpy_loader(self.config, images)
-
-        predictions = np.asarray(predictor(test_loader)).squeeze()
+        
+        # Run inference
+        predicted = predictor(test_loader)
+        
+        # To numpy
+        predictions = np.asarray(predicted).squeeze()
 
         # if predictions have 2 dimensions reshape to have 3D array
         if len(predictions.shape) == 2:

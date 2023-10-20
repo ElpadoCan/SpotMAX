@@ -8,7 +8,7 @@ from skimage import measure
 from skimage.filters import gaussian
 from skimage.segmentation import find_boundaries
 
-from ...pytorch3dunet.augment import transforms as pytorch3dunet_augment_transforms
+from pytorch3dunet.augment import transforms as pytorch3dunet_augment_transforms
 
 # WARN: use fixed random state for reproducibility; if you want to randomize on each run seed with `time.time()` e.g.
 GLOBAL_RANDOM_STATE = np.random.RandomState(47)

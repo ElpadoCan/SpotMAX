@@ -1,12 +1,17 @@
+import os
+
 import numpy as np
 import pandas as pd
 
 import scipy.ndimage
 import skimage.measure
 
+import cellacdc.io
+
 from . import utils, rng
 from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS
 from . import features
+from . import io
 
 from . import printl
 
@@ -558,3 +563,27 @@ def normalise_spot_by_dist_transf(
     else:
         norm_spot_slice_z = spot_slice_z
     return norm_spot_slice_z
+
+def load_preprocess_nnet_data_across_exp(
+        exp_path, pos_foldernames, spots_ch_endname, model, 
+        callback_channel_not_found=None
+    ):
+    images = []
+    for pos in pos_foldernames:
+        images_path = os.path.join(exp_path, pos, 'Images')
+        ch_path = cellacdc.io.get_filepath_from_channel_name(
+            images_path, os.path.basename(spots_ch_endname)
+        )
+        if not os.path.exists(ch_path) and callback_channel_not_found is not None:
+            callback_channel_not_found(spots_ch_endname, images_path)
+            return
+        ch_data, ch_dtype = io.load_image_data(
+            ch_path, to_float=True, return_dtype=True
+        )
+        images.append(ch_data)
+    
+    transformed = model.preprocess(images)
+    transformed_data_nnet = {}
+    for pos, transf_data in zip(pos_foldernames, transformed):
+        transformed_data_nnet[pos] = transf_data
+    return transformed_data_nnet

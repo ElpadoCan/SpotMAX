@@ -164,13 +164,14 @@ class TuneKernelWorker(Runnable):
 class CropImageBasedOnSegmDataWorker(QRunnable):
     def __init__(
             self, image_data, segm_data, delta_tolerance, SizeZ, 
-            on_finished_callback
+            on_finished_callback, nnet_input_data=None
         ):
         QRunnable.__init__(self)
         self.signals = signals()
         self.logger = workerLogger(self.signals.progress)
         self.image_data = image_data
         self.segm_data = segm_data
+        self.nnet_input_data = nnet_input_data
         self.delta_tolerance = delta_tolerance
         self.SizeZ = SizeZ
         self.on_finished_callback = on_finished_callback
@@ -180,8 +181,14 @@ class CropImageBasedOnSegmDataWorker(QRunnable):
         self.logger.log('Cropping based on segm data...')
         segm_data = self.segm_data
         image_data = self.image_data
+        nnet_input_data = self.nnet_input_data
         if image_data.ndim == 3:
-            image_data = self.image_data[:, np.newaxis]
+            image_data = image_data[:, np.newaxis]
+        
+        if nnet_input_data is not None:
+            if nnet_input_data.ndim == 3:
+                nnet_input_data = nnet_input_data[:, np.newaxis]
+        
         if segm_data.ndim == 3:
             if self.SizeZ == 1:
                 segm_data = segm_data[:, np.newaxis]
@@ -192,15 +199,16 @@ class CropImageBasedOnSegmDataWorker(QRunnable):
                 for frame_i, lab in enumerate(segm_data):
                     tiled_segm_data[frame_i, :] = lab
                 segm_data = tiled_segm_data
-        return segm_data, image_data
+        return segm_data, image_data, nnet_input_data
     
     @worker_exception_handler
     def run(self):
+        segm_data, image_data, nnet_input_data = self._add_missing_axis()
+        
         if not np.any(self.segm_data):
-            result = (image_cropped, segm_data_cropped)
+            result = (image_data, segm_data, nnet_input_data)
             self.signals.finished.emit(result)
             return
-        segm_data, image_data = self._add_missing_axis()
         
         crop_info = transformations.crop_from_segm_data_info(
             segm_data, self.delta_tolerance
@@ -208,9 +216,12 @@ class CropImageBasedOnSegmDataWorker(QRunnable):
         segm_slice, pad_widths, crop_to_global_coords = crop_info
         image_cropped = image_data[segm_slice]
         segm_data_cropped = segm_data[segm_slice]
+        nnet_input_data_cropped = None
+        if nnet_input_data is not None:
+            nnet_input_data_cropped = nnet_input_data[segm_slice]
         result = (
             image_cropped, segm_data_cropped, crop_to_global_coords, 
-            self.on_finished_callback
+            self.on_finished_callback, nnet_input_data_cropped
         )
         self.signals.finished.emit(result)
 
@@ -501,3 +512,45 @@ class findContoursWorker(QRunnable):
 
             self.signals.progressBar.emit(1)
         self.signals.finished.emit(self.side)
+
+class PreprocessNnetDataAcrossExpWorker(QRunnable):
+    def __init__(
+            self, exp_path, pos_foldernames, spots_ch_endname, nnet_model, 
+            loop_to_exist_on_finished=None
+        ):
+        QRunnable.__init__(self)
+        self.signals = signals()
+        self.logger = workerLogger(self.signals.progress)
+        self._loop = loop_to_exist_on_finished
+        self.nnet_model = nnet_model
+        self.exp_path = exp_path
+        self.pos_foldernames = pos_foldernames
+        self.spots_ch_endname = spots_ch_endname
+    
+    @worker_exception_handler
+    def run(self):
+        transformed_data = transformations.load_preprocess_nnet_data_across_exp(
+            self.exp_path, self.pos_foldernames, self.spots_ch_endname, 
+            self.nnet_model
+        )
+        self.signals.finished.emit(
+            (self, transformed_data, self._loop)
+        )
+
+class PreprocessNnetDataAcrossTimeWorker(QRunnable):
+    def __init__(
+            self, input_data, nnet_model, loop_to_exist_on_finished=None
+        ):
+        QRunnable.__init__(self)
+        self.signals = signals()
+        self.logger = workerLogger(self.signals.progress)
+        self._loop = loop_to_exist_on_finished
+        self.nnet_model = nnet_model
+        self.input_data = input_data
+    
+    @worker_exception_handler
+    def run(self):
+        transformed_data = self.nnet_model.preprocess(self.input_data)
+        self.signals.finished.emit(
+            (self, transformed_data, self._loop)
+        )

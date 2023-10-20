@@ -8,6 +8,9 @@ def run_gui(debug=False, app=None):
     
     _setup_gui_libraries()
 
+    import spotmax
+    spotmax.is_cli = False
+    
     from . import read_version
     from . import gui
     from qtpy import QtCore

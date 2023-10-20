@@ -49,7 +49,10 @@ def spots_semantic_segmentation(
         use_gpu=False,
         logger_func=print,
         thresholding_method=None,
-        keep_input_shape=True
+        keep_input_shape=True,
+        nnet_model=None,
+        nnet_params=None,
+        nnet_input_data=None
     ):  
     lab, image = transformations.reshape_lab_image_to_3D(lab, image)
     
@@ -86,12 +89,16 @@ def spots_semantic_segmentation(
             zyx_tolerance=zyx_tolerance, 
             thresholding_method=thresholding_method, 
             logger_func=logger_func, return_image=True,
-            keep_input_shape=keep_input_shape
+            keep_input_shape=keep_input_shape,
+            nnet_model=nnet_model, nnet_params=nnet_params,
+            nnet_input_data=nnet_input_data
         )
     else:
         result = filters.local_semantic_segmentation(
             image, lab, threshold_func=thresholding_method, 
-            lineage_table=lineage_table, return_image=True
+            lineage_table=lineage_table, return_image=True,
+            nnet_model=nnet_model, nnet_params=nnet_params,
+            nnet_input_data=nnet_input_data
         )
     
     return result

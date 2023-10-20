@@ -1,4 +1,4 @@
-print('Setting up required libraries...')
+# print('Setting up required libraries...')
 from cellacdc._run import _install_tables
 _install_tables(parent_software='SpotMAX')
 
@@ -9,6 +9,8 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from functools import wraps
+
+is_cli = True
 
 try:
     from cellacdc import gui as acdc_gui
