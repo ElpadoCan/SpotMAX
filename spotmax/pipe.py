@@ -21,6 +21,7 @@ def preprocess_image(
         do_remove_hot_pixels=False, 
         gauss_sigma=0.0,
         use_gpu=True, 
+        return_lab=False,
         logger_func=print
     ):
     _, image = transformations.reshape_lab_image_to_3D(lab, image)
@@ -36,7 +37,11 @@ def preprocess_image(
         )
     else:
         image = image
-    return image
+    
+    if return_lab:
+        return image, lab
+    else:
+        return image
 
 
 def ridge_filter(
@@ -138,26 +143,30 @@ def reference_channel_semantic_segm(
         logger_func=print,
         thresholding_method=None,
         ridge_filter_sigmas=0,
-        keep_input_shape=True
-    ):
-    lab, image = transformations.reshape_lab_image_to_3D(lab, image)
-    
-    if do_remove_hot_pixels:
-        image = filters.remove_hot_pixels(image)
-    else:
-        image = image
-    
-    if gauss_sigma>0:
-        image = filters.gaussian(
-            image, gauss_sigma, use_gpu=use_gpu, logger_func=logger_func
+        keep_input_shape=True,
+        do_preprocess=True
+    ):    
+    if do_preprocess:
+        lab, image = preprocess_image(
+            image, 
+            lab=lab, 
+            do_remove_hot_pixels=do_remove_hot_pixels, 
+            gauss_sigma=gauss_sigma,
+            use_gpu=use_gpu, 
+            logger_func=logger_func,
+            return_lab=True
         )
     
     if not np.any(lab):
-        result = {
-            'input_image': image,
-            'Segmentation_data_is_empty': np.zeros(image.shape, dtype=np.uint8)
-        }
-        return result
+        empty_segm = np.zeros(image.shape, dtype=np.uint8)
+        if thresholding_method is not None:
+            return empty_segm
+        else:
+            result = {
+                'input_image': image,
+                'Segmentation_data_is_empty': empty_segm
+            }
+            return result
     
     if do_aggregate:
         result = filters.global_semantic_segmentation(
@@ -180,8 +189,6 @@ def reference_channel_semantic_segm(
     
     if not np.any(lab):
         return result
-    
-    lab, _ = transformations.reshape_lab_image_to_3D(lab, image)
     
     input_image = result.pop('input_image')
     result = {

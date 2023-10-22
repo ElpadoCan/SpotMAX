@@ -48,6 +48,7 @@ from . import utils, rng, base_lineage_table_values
 from . import issues_url, printl, io, features, config
 from . import transformations
 from . import filters
+from . import pipe
 from . import ZYX_GLOBAL_COLS, ZYX_LOCAL_COLS, ZYX_AGGR_COLS
 from . import ZYX_LOCAL_EXPANDED_COLS, ZYX_FIT_COLS, ZYX_RESOL_COLS
 from . import DFs_FILENAMES
@@ -2958,86 +2959,42 @@ class Kernel(_ParamsParser):
         if vox_to_um3 is not None:
             df_agg.at[(frame_i, ID), 'ref_ch_vol_fl'] = vol_voxels*vox_to_um3
 
-        rp = skimage.measure.regionprops(ref_ch_mask_local.astype(np.uint32))
+        ref_ch_lab = skimage.measure.label(ref_ch_mask_local)
+        rp = skimage.measure.regionprops(ref_ch_lab)
         num_fragments = len(rp)
         df_agg.at[(frame_i, ID), 'ref_ch_num_fragments'] = num_fragments
         
         return df_agg
     
-    def _segment_ref_ch(
-            self, ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
-            threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
-            vox_to_um3=None, thresh_val=None, verbose=True,
-            do_aggregate=True, ridge_filter_sigmas=0
+    def add_ref_ch_features(
+            self, 
+            df_agg,
+            lab_rp,
+            ref_ch_segm,
+            vox_to_um3=None,
+            frame_i=0,
+            verbose=True
         ):
         if verbose and frame_i == 0:
             print('')
-            self.logger.info('Segmenting reference channel...')
-        IDs = [obj.label for obj in lab_rp]
-        desc = 'Segmenting reference channel'
+            self.logger.info('Quantifying reference channel...')
+        desc = 'Quantifying reference channel'
         pbar = tqdm(
             total=len(lab_rp), ncols=100, desc=desc, position=3, 
             leave=False
         )
         for obj in lab_rp:
-            if lineage_table is not None:
-                if lineage_table.at[obj.label, 'relationship'] == 'bud':
-                    # Skip buds since they are aggregated with mother
-                    pbar.update()
-                    continue
-            
-            # Get the image for thresholding (either object or mother-bud)
-            ref_ch_img_local, lab_mask_lab, merged_obj_slice, bud_ID = (
-                self._extract_img_from_segm_obj(
-                    ref_ch_img, lab, obj, lineage_table
-                )
+            ref_ch_mask_local = ref_ch_segm[obj.slice] > 0
+            ref_ch_mask_local[ref_ch_mask_local!=obj.label] = 0
+
+            # Add numerical features
+            df_agg = self._add_aggregated_ref_ch_features(
+                df_agg, frame_i, obj.label, ref_ch_mask_local, 
+                vox_to_um3=vox_to_um3
             )
-            obj_mask_lab = lab_mask_lab[merged_obj_slice]
-
-            # Compute threshold value if not aggregate object (threshold value 
-            # computed before on the aggregated image)
-            if not do_aggregate:
-                if ridge_filter_sigmas:
-                    ref_ch_img_local = filters.ridge(
-                        ref_ch_img_local, ridge_filter_sigmas
-                    )
-                ref_mask_local, thresh_val = filters.threshold_masked_by_obj(
-                    ref_ch_img_local, obj_mask_lab, threshold_func, 
-                    do_max_proj=False, return_thresh_val=np.True_
-                )
-            else:
-                ref_mask_local = ref_ch_img_local > thresh_val
-                
-            # Store threshold value
-            df_idx = (frame_i, obj.label)
-            df_agg.at[df_idx, 'ref_ch_threshold_value'] = thresh_val
-            if bud_ID > 0:
-                bud_idx = (frame_i, bud_ID)
-                df_agg.at[bud_idx, 'ref_ch_threshold_value'] = thresh_val
-
-            # Threshold
-            ref_mask_local[~(obj_mask_lab>0)] = False
-            
-            # Iterate eventually merged (mother-bud) objects
-            for obj_local in skimage.measure.regionprops(obj_mask_lab):                
-                ref_ch_mask = ref_mask_local[obj_local.slice].copy()
-                ref_ch_mask[~obj_local.image] = False
-                if keep_only_largest_obj:
-                    ref_ch_mask = filters.filter_largest_obj(ref_ch_mask)
-
-                # Add numerical features
-                df_agg = self._add_aggregated_ref_ch_features(
-                    df_agg, frame_i, obj_local.label, ref_ch_mask, 
-                    vox_to_um3=vox_to_um3
-                )
-
-                id = obj_local.label
-                ref_ch_segm[merged_obj_slice][obj_local.slice][ref_ch_mask] = id
-            
             pbar.update()
         pbar.close()
-
-        return ref_ch_segm, df_agg
+        return df_agg
     
     def ref_ch_to_physical_units(self, df_agg, metadata):
         vox_to_um3_factor = metadata['vox_to_um3_factor']
@@ -3050,7 +3007,7 @@ class Kernel(_ParamsParser):
         return not np.any(lab)
 
     @exception_handler_cli
-    def segment_ref_ch(
+    def segment_quantify_ref_ch(
             self, ref_ch_img, threshold_method='threshold_otsu', lab_rp=None, 
             lab=None, lineage_table=None, keep_only_largest_obj=False, 
             do_aggregate=False, df_agg=None, frame_i=0, 
@@ -3076,34 +3033,39 @@ class Kernel(_ParamsParser):
             df_data = {'frame_i': [frame_i]*len(IDs), 'Cell_ID': IDs}
             df_agg = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
         
-        df_agg['ref_ch_threshold_value'] = np.nan
-
-        ref_ch_segm = np.zeros_like(lab)
-
         if isinstance(threshold_method, str):
             threshold_func = getattr(skimage.filters, threshold_method)
         else:
             threshold_func = threshold_method
-
-        if do_aggregate:
-            aggr_ref_ch_img, _ = transformations.aggregate_objs(
-                ref_ch_img, lab, lineage_table=lineage_table, 
-                zyx_tolerance=zyx_tolerance
-            )
-            if ridge_filter_sigmas:
-                aggr_ref_ch_img = filters.ridge(
-                    aggr_ref_ch_img, ridge_filter_sigmas
-                )
-            thresh_val = threshold_func(aggr_ref_ch_img.max(axis=0))
-        else:
-            thresh_val = None
         
-        ref_ch_segm, df_agg = self._segment_ref_ch(
-            ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
-            threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
-            thresh_val=thresh_val, vox_to_um3=vox_to_um3, verbose=verbose,
-            do_aggregate=do_aggregate, ridge_filter_sigmas=ridge_filter_sigmas
+        ref_ch_segm = pipe.reference_channel_semantic_segm(
+            ref_ch_img, 
+            lab=lab,
+            keep_only_largest_obj=keep_only_largest_obj,
+            lineage_table=lineage_table,
+            do_aggregate=do_aggregate,
+            logger_func=self.logger.info,
+            thresholding_method=threshold_func,
+            ridge_filter_sigmas=ridge_filter_sigmas,
+            keep_input_shape=False,
+            do_preprocess=False
         )
+        
+        df_agg = self.add_ref_ch_features(
+            df_agg, lab_rp, ref_ch_segm, 
+            vox_to_um3=vox_to_um3,
+            frame_i=frame_i,
+            verbose=verbose
+        )
+        
+        # ref_ch_segm, df_agg = self._segment_ref_ch(
+        #     ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
+        #     threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
+        #     thresh_val=thresh_val, vox_to_um3=vox_to_um3, verbose=verbose,
+        #     do_aggregate=do_aggregate, ridge_filter_sigmas=ridge_filter_sigmas
+        # )
+        
+        import pdb; pdb.set_trace()
 
         return ref_ch_segm, df_agg
     
@@ -4385,7 +4347,7 @@ class Kernel(_ParamsParser):
                     ref_ch_img, is_ref_ch=True, verbose=frame_i==0
                 )
                 lab = segm_data[frame_i]
-                ref_ch_lab, df_agg = self.segment_ref_ch(
+                ref_ch_lab, df_agg = self.segment_quantify_ref_ch(
                     ref_ch_img, lab_rp=lab_rp, lab=lab, 
                     threshold_method=ref_ch_threshold_method, 
                     keep_only_largest_obj=is_ref_ch_single_obj,

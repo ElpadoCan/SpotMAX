@@ -139,7 +139,8 @@ def threshold_masked_by_obj(
 def local_semantic_segmentation(
         image, lab, threshold_func=None, lineage_table=None, return_image=False,
         nnet_model=None, nnet_params=None, nnet_input_data=None,
-        do_max_proj=True, clear_outside_objs=False, ridge_filter_sigmas=0
+        do_max_proj=True, clear_outside_objs=False, ridge_filter_sigmas=0,
+        return_only_output_mask=False
     ):
     # Get prediction mask by thresholding objects separately
     if threshold_func is None:
@@ -159,7 +160,6 @@ def local_semantic_segmentation(
         lab, lineage_table=lineage_table
     )
     aggr_rp = skimage.measure.regionprops(lab)
-    IDs = [obj.label for obj in aggr_rp]
     result = {}
     if return_image:
         result['input_image'] = image
