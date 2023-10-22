@@ -3058,13 +3058,6 @@ class Kernel(_ParamsParser):
             verbose=verbose
         )
         
-        # ref_ch_segm, df_agg = self._segment_ref_ch(
-        #     ref_ch_img, lab, lab_rp, df_agg, lineage_table, 
-        #     threshold_func, frame_i, keep_only_largest_obj, ref_ch_segm, 
-        #     thresh_val=thresh_val, vox_to_um3=vox_to_um3, verbose=verbose,
-        #     do_aggregate=do_aggregate, ridge_filter_sigmas=ridge_filter_sigmas
-        # )
-        
         import pdb; pdb.set_trace()
 
         return ref_ch_segm, df_agg
