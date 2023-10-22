@@ -55,6 +55,11 @@ html_path = os.path.join(spotmax_path, 'html_files')
 
 home_path = pathlib.Path.home()
 spotmax_appdata_path = os.path.join(home_path, 'spotmax_appdata')
+unet_checkpoints_path = os.path.join(spotmax_appdata_path, 'unet_checkpoints')
+unet2D_checkpoint_path = os.path.join(unet_checkpoints_path, 'unet2D')
+unet3D_checkpoint_path = os.path.join(
+    unet_checkpoints_path, 'unet3D', 'normal_30_250_250_20_100_100'
+)
 last_used_ini_text_filepath = os.path.join(
     spotmax_appdata_path, 'last_used_ini_filepath.txt'
 )

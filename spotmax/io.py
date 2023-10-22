@@ -2250,3 +2250,37 @@ def browse_last_used_ini_folderpath():
 def save_last_used_ini_filepath(params_path: os.PathLike):
     with open(last_used_ini_text_filepath, 'w') as txt:
         txt.write(params_path)
+
+def download_unet_models():
+    from . import unet2D_checkpoint_path, unet3D_checkpoint_path
+    unet2D_url = 'https://hmgubox2.helmholtz-muenchen.de/index.php/s/4dxeHSLDfAbC8dA/download/unet_best.pth'
+    unet2D_filename = 'unet_best.pth'
+    unet2D_filesize_bytes = 69_124_096
+    
+    unet3D_url = 'https://hmgubox2.helmholtz-muenchen.de/index.php/s/eoeFcgsAMDsgTgw/download/best_checkpoint.pytorch'
+    unet3D_filename = 'best_checkpoint.pytorch'
+    unet3D_filesize_bytes = 49_049_600
+    
+    unet2D_filepath = os.path.join(unet2D_checkpoint_path, unet2D_filename)
+    if not os.path.exists(unet2D_filepath):
+        print('Downloading spotMAX U-Net 2D model...')
+        os.makedirs(unet2D_checkpoint_path, exist_ok=True)
+        cellacdc.myutils.download_url(
+            unet2D_url, unet2D_filepath, 
+            file_size=unet2D_filesize_bytes, 
+            desc='spotMAX U-Net 2D', 
+            verbose=False
+        )
+    
+    unet3D_filepath = os.path.join(unet3D_checkpoint_path, unet3D_filename)
+    if not os.path.exists(unet3D_filepath):
+        print('Downloading spotMAX U-Net 3D model...')
+        os.makedirs(unet3D_checkpoint_path, exist_ok=True)
+        cellacdc.myutils.download_url(
+            unet3D_url, unet3D_filepath, 
+            file_size=unet3D_filesize_bytes, 
+            desc='spotMAX U-Net 3D', 
+            verbose=False
+        )
+    
+        
