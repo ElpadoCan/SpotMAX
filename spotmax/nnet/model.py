@@ -71,6 +71,7 @@ class Model:
         self._batch_preprocess = (
             preprocess_across_experiment or preprocess_across_timepoints
         )
+        self.model_type = model_type
         self.model = self._init_model(model_type)
     
     def _load_config(self, config_yaml_filepath):
@@ -118,6 +119,22 @@ class Model:
         )
         return model
     
+    def pad_if_smaller_than_patch_shape(self, patch_shape, image):
+        Y, X = image.shape[-2:]
+        patch_y, patch_x = patch_shape[-2:]
+        if Y >= patch_y and X > patch_x:
+            return image, None
+        
+        pad_y = patch_y - Y
+        pad_x = patch_x - X
+        pad_y = pad_y if pad_y >= 0 else 0     
+        pad_x = pad_x if pad_x >= 0 else 0  
+        
+        pad_width = ((0, 0), (0, pad_y), (0, pad_x))
+        pad_value = image.min()
+        image = np.pad(image, pad_width=pad_width, constant_values=pad_value)
+        return image, pad_width
+    
     def preprocess(self, images):
         transformed_data = self.x_transformer.transform(images)
         return transformed_data
@@ -162,6 +179,11 @@ class Model:
             '`preprocess_across_timepoints=False` when you initialize the model.'
         )
     
+    def remove_padding(self, pad_width, image):
+        y1, x1 = pad_width[1][1], pad_width[2][1]
+        cropped = image[:, :-y1, :-x1]
+        return cropped
+    
     def segment(
             self, image,
             threshold_value=0.9,
@@ -175,10 +197,24 @@ class Model:
         self._check_input_dtype_is_float(image)
         
         rescaled = self.rescale_to_base_pixel_width(image)
+
+        pad_width = None
+        if self.model_type == '3D':
+            loaders_config = self._config['unet3D']['predict']['loaders']
+            slice_builder_config = loaders_config['test']['slice_builder']
+            patch_shape = slice_builder_config['patch_shape']
+            rescaled, pad_width = self.pad_if_smaller_than_patch_shape(
+                patch_shape, rescaled
+            )
+                
         input_data = Data(
             images=rescaled, masks=None, val_images=None, val_masks=None
         )
         prediction, _ = self.model(input_data, verbose=verbose)
+        
+        if pad_width is not None:
+            prediction = self.remove_padding(pad_width, prediction)
+        
         thresh = prediction > threshold_value
         thresh = self.resize_to_orig_shape(thresh, orig_yx_shape)
         

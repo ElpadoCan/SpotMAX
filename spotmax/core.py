@@ -746,7 +746,7 @@ class _ParamsParser(_DataLoader):
             f'File path: "{ini_filepath}"'
         )
         if self._force_default:
-            self.logger.info('*'*50)
+            self.logger.info('*'*60)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
             answer = default_option
@@ -843,7 +843,7 @@ class _ParamsParser(_DataLoader):
             f'{exp_path}'
         )
         if self._force_default:
-            self.logger.info('*'*50)
+            self.logger.info('*'*60)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
             return user_run_num
@@ -870,7 +870,7 @@ class _ParamsParser(_DataLoader):
             f'{exp_path}'
         )
         if self._force_default:
-            self.logger.info('*'*50)
+            self.logger.info('*'*60)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
             return new_run_num
@@ -1152,7 +1152,7 @@ class _ParamsParser(_DataLoader):
         
         missing_metadata_str = [f'    * {v}' for v in missing_metadata]
         missing_metadata_format = '\n'.join(missing_metadata_str)
-        print('*'*50)
+        print('*'*60)
         err_msg = (
             f'The parameters file "{self.ini_params_filename}" is missing '
             'the following REQUIRED metadata:\n\n'
@@ -1165,7 +1165,7 @@ class _ParamsParser(_DataLoader):
         )
         self.logger.info(err_msg)
         if self.is_cli:
-            print('*'*50)
+            print('*'*60)
             self.logger.info(
                 'spotMAX execution aborted because some metadata are missing. '
                 'See details above.'
@@ -1260,7 +1260,7 @@ class _ParamsParser(_DataLoader):
             'Display default values'
         )
         if self._force_default:
-            self.logger.info('*'*50)
+            self.logger.info('*'*60)
             self.logger.info(info_txt)
             io._log_forced_default(options[0], self.logger.info)
             self._set_default_val_params(missing_params)
@@ -1284,7 +1284,7 @@ class _ParamsParser(_DataLoader):
                 self.logger.info(
                     f'Default values:\n\n{default_values_format}'
                 )
-                print('-'*50)
+                print('-'*60)
                 info_txt = ''
     
     def _check_correlated_missing_ref_ch_params(self, missing_params):
@@ -1379,7 +1379,7 @@ class _ParamsParser(_DataLoader):
             )
             self.logger.info(err_msg)
             if self.is_cli:
-                print('*'*50)
+                print('*'*60)
                 self.logger.info(
                     'spotMAX execution aborted because some parameters are missing. '
                     'See details above.'
@@ -1416,7 +1416,7 @@ class _ParamsParser(_DataLoader):
             f'but ALSO to segment the ref. channel.'
         )
         if self._force_default:
-            self.logger.info('*'*50)
+            self.logger.info('*'*60)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
             return 'do_not_segment_ref_ch'
@@ -1432,6 +1432,7 @@ class _ParamsParser(_DataLoader):
     
     def check_init_neural_network(self):
         self.nnet_params = None
+        self.nnet_model = None
         
         SECTION = 'File paths and channels'
         ANCHOR = 'spotChSegmEndName'
@@ -1450,7 +1451,7 @@ class _ParamsParser(_DataLoader):
             return
         
         try:
-            self.logger.info('-'*50)                
+            self.logger.info('-'*60)                
             self.logger.info('Initializing neural network...')
             from spotmax.nnet import model
             self.nnet_params = model.get_nnet_params_from_ini_params(
@@ -1527,7 +1528,7 @@ class _ParamsParser(_DataLoader):
         loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
         for exp_path in loaded_exp_paths:
             if not os.path.exists(exp_path):
-                self.logger.info('='*50)
+                self.logger.info('='*60)
                 txt = (
                     '[ERROR]: The provided experiment path does not exist: '
                     f'{exp_path}{error_up_str}'
@@ -1536,7 +1537,7 @@ class _ParamsParser(_DataLoader):
                 self.logger.info('spotMAX aborted due to ERROR. See above more details.')
                 return False
             if not os.path.isdir(exp_path):
-                self.logger.info('='*50)
+                self.logger.info('='*60)
                 txt = (
                     '[ERROR]: The provided experiment path is not a folder: '
                     f'{exp_path}{error_up_str}'
@@ -2984,8 +2985,9 @@ class Kernel(_ParamsParser):
             leave=False
         )
         for obj in lab_rp:
-            ref_ch_mask_local = ref_ch_segm[obj.slice] > 0
-            ref_ch_mask_local[ref_ch_mask_local!=obj.label] = 0
+            ref_ch_lab_local = ref_ch_segm[obj.slice].copy()
+            ref_ch_lab_local[ref_ch_lab_local!=obj.label] = 0
+            ref_ch_mask_local = ref_ch_lab_local > 0
 
             # Add numerical features
             df_agg = self._add_aggregated_ref_ch_features(
@@ -3047,8 +3049,10 @@ class Kernel(_ParamsParser):
             logger_func=self.logger.info,
             thresholding_method=threshold_func,
             ridge_filter_sigmas=ridge_filter_sigmas,
-            keep_input_shape=False,
-            do_preprocess=False
+            keep_input_shape=True,
+            do_preprocess=False,
+            return_only_segm=True,
+            do_try_all_thresholds=False,
         )
         
         df_agg = self.add_ref_ch_features(
@@ -3058,8 +3062,6 @@ class Kernel(_ParamsParser):
             verbose=verbose
         )
         
-        import pdb; pdb.set_trace()
-
         return ref_ch_segm, df_agg
     
     def _raise_norm_value_zero(self):
@@ -3205,29 +3207,6 @@ class Kernel(_ParamsParser):
                 df_spots_det, df_spots_gop, df_agg
             )
             return df_spots_det, df_spots_gop, *dfs_segm_obj
-    
-    def _get_peak_local_max_labels_thresholding(
-            self, aggr_spots_img, aggregated_lab, threshold_func, 
-            do_aggregate, lineage_table=None
-        ):
-        if do_aggregate:
-            threshold_val = threshold_func(aggr_spots_img.max(axis=0))
-            prediction_mask = aggr_spots_img>threshold_val
-            labels = prediction_mask.astype(np.uint8)
-            
-            # from . import _debug
-            # _debug._threshold_spots_img(aggr_spots_img)
-            # from cellacdc.plot import imshow
-            # imshow(aggr_spots_img, labels)
-            # import pdb; pdb.set_trace()
-            
-            return labels
-
-        labels = filters.local_semantic_segmentation(
-            aggr_spots_img, aggregated_lab, threshold_func, 
-            lineage_table=lineage_table, do_max_proj=True
-        )
-        return labels
 
     def _add_local_coords_from_aggr(
             self, aggr_spots_coords, aggregated_lab, spots_objs=None
@@ -3276,34 +3255,6 @@ class Kernel(_ParamsParser):
 
         return df_spots_coords, num_spots_objs_txts
     
-    def _spots_prediction(
-            self, prediction_method, threshold_method, do_aggregate, 
-            aggr_spots_img, aggregated_lab, aggr_spots_ch_segm_mask, 
-            lineage_table, aggr_transf_spots_nnet_img
-        ):
-        if aggr_spots_ch_segm_mask is not None:
-            labels = aggr_spots_ch_segm_mask.astype(np.uint8)
-        elif prediction_method == 'Thresholding':
-            if isinstance(threshold_method, str):
-                threshold_func = getattr(skimage.filters, threshold_method)
-            else:
-                threshold_func = threshold_method
-            
-            labels = self._get_peak_local_max_labels_thresholding(
-                aggr_spots_img, aggregated_lab, threshold_func, 
-                do_aggregate, lineage_table=lineage_table
-            )
-        elif prediction_method == 'Neural network':
-            if aggr_transf_spots_nnet_img is None:
-                nnet_input_img = aggr_spots_img
-            else:
-                nnet_input_img = aggr_transf_spots_nnet_img
-            labels = self.nnet_model.segment(
-                nnet_input_img, **self.nnet_params['segment']
-            )
-        
-        return labels
-    
     def _spots_detection(
             self, sharp_spots_img, lab, 
             detection_method, 
@@ -3322,6 +3273,7 @@ class Kernel(_ParamsParser):
 
         spots_objs = None
         
+        # Detect peaks on aggregated image
         aggregated = transformations.aggregate_objs(
             sharp_spots_img, lab, lineage_table=lineage_table, 
             zyx_tolerance=self.metadata['deltaTolerance'],
@@ -3332,11 +3284,27 @@ class Kernel(_ParamsParser):
         aggr_spots_ch_segm_mask = aggr_imgs[0]
         aggr_transf_spots_nnet_img = aggr_imgs[1]
         
-        labels = self._spots_prediction(
-            prediction_method, threshold_method, do_aggregate, 
-            aggr_spots_img, aggregated_lab, aggr_spots_ch_segm_mask, 
-            lineage_table, aggr_transf_spots_nnet_img
-        )
+        if aggr_spots_ch_segm_mask is not None:
+            labels = aggr_spots_ch_segm_mask.astype(np.uint8)
+        else:
+            labels = pipe.spots_semantic_segmentation(
+                aggr_spots_img, 
+                lab=aggregated_lab, 
+                spots_zyx_radii=self.metadata['deltaTolerance'],
+                lineage_table=lineage_table,
+                do_aggregate=do_aggregate,
+                logger_func=self.logger.info,
+                thresholding_method=threshold_method,
+                nnet_model=self.nnet_model,
+                nnet_params=self.nnet_params,
+                nnet_input_data=aggr_transf_spots_nnet_img,
+                do_preprocess=False,
+                do_try_all_thresholds=False,
+                keep_input_shape=True,
+                return_only_segm=True,
+                pre_aggregated=True
+            )
+            import pdb; pdb.set_trace()
         
         if detection_method == 'peak_local_max':
             aggr_spots_coords = skimage.feature.peak_local_max(
@@ -4009,7 +3977,7 @@ class Kernel(_ParamsParser):
         return df.query(query)
 
     def _warn_feature_is_missing(self, missing_feature, df):
-        self.logger.info(f"\n{'='*50}")
+        self.logger.info(f"\n{'='*60}")
         txt = (
             f'[WARNING]: The feature name "{missing_feature}" is not present '
             'in the table. It cannot be used for filtering spots at '
@@ -4020,7 +3988,7 @@ class Kernel(_ParamsParser):
     def _critical_feature_is_missing(self, missing_feature, df):
         format_colums = [f'    * {col}' for col in df.columns]
         format_colums = '\n'.join(format_colums)
-        self.logger.info(f"\n{'='*50}")
+        self.logger.info(f"\n{'='*60}")
         txt = (
             f'[ERROR]: The feature name "{missing_feature}" is not present in the table.\n\n'
             f'Available features are:\n\n{format_colums}{error_up_str}'
@@ -4152,11 +4120,11 @@ class Kernel(_ParamsParser):
         report_filepath = self._report['report_filepath']
         with open(report_filepath, 'w') as rst:
             rst.write(report_formatted) 
-        self.logger.info('#'*50)
+        self.logger.info('#'*60)
         self.logger.info(
             f'Final report saved to "{report_filepath}"'
         )
-        self.logger.info('#'*50)
+        self.logger.info('#'*60)
 
     def log_warning_report(self, warning_txt):
         if self._current_pos_path not in self._report['pos_info']:
@@ -4857,7 +4825,7 @@ class Kernel(_ParamsParser):
         if not self.is_cli and error is not None:
             raise error
 
-        self.logger.info('='*50)
+        self.logger.info('='*60)
         if error is not None:
             self.logger.exception(traceback.format_exc())
             print('-'*60)
@@ -4878,7 +4846,7 @@ class Kernel(_ParamsParser):
                 'spotMAX command-line interface closed. '
                 f'{utils.get_salute_string()}'
             )
-        self.logger.info('='*50)
+        self.logger.info('='*60)
         exit()
 
 def eucl_dist_point_2Dyx(points, all_others):

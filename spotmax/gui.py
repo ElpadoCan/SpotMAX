@@ -547,7 +547,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         refChannelData = self.loadImageDataFromChannelName(refChEndName) 
         
         args = [module_func, anchor]
-        all_kwargs = self.paramsToKwargs()
+        all_kwargs = self.paramsToKwargs(is_spots_ch_required=False)
         if all_kwargs is None:
             self.logger.info('Process cancelled.')
             return
@@ -584,7 +584,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         refChannelData = self.loadImageDataFromChannelName(refChEndName) 
         
         args = [module_func, anchor]
-        all_kwargs = self.paramsToKwargs()
+        all_kwargs = self.paramsToKwargs(is_spots_ch_required=False)
         if all_kwargs is None:
             self.logger.info('Process cancelled.')
             return
@@ -835,6 +835,57 @@ class spotMAX_Win(acdc_gui.guiWin):
         )    
         return proceed
     
+    def checkRequestedSpotsChEndname(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        spotChEndnameWidget = filePathParams['spotsEndName']['widget']
+        spotChEndname = spotChEndnameWidget.text()
+        if not spotChEndname:
+            return self.warnSpotsChNotProvided()
+
+        posData = self.data[self.pos_i]
+        spotChEndname, _ = os.path.splitext(spotChEndname)
+        
+        if posData.user_ch_name == spotChEndname:
+            return True
+        
+        return self.warnSpotsChWillBeIgnored(posData.user_ch_name, spotChEndname)
+        
+    def warnSpotsChWillBeIgnored(self, loaded, requested):
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph(f"""
+            You requested <code>{requested}</code> channel for the spots 
+            image data (parameter `Spots channel end name or path`),<br>
+            but you loaded the channel <code>{loaded}</code>.<br><br>
+            How do you want to proceed?
+        """)
+        continueWithLoadedButton = acdc_widgets.okPushButton(
+            f'Continue with `{loaded}` data'
+        )
+        msg.warning(
+            self, 'Spots channel name not provided', txt,
+            buttonsTexts=('Cancel', continueWithLoadedButton)
+        )
+        return not msg.cancel    
+        
+    def warnSpotsChNotProvided(self):
+        posData = self.data[self.pos_i]
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph(f"""
+            You did not provide <b>any channel name for the spots image data</b>, 
+            (parameter `Spots channel end name or path`).<br><br>
+            How do you want to proceed?
+        """)
+        continueWithLoadedButton = acdc_widgets.okPushButton(
+            f'Continue with `{posData.user_ch_name}` data'
+        )
+        msg.warning(
+            self, 'Spots channel name not provided', txt,
+            buttonsTexts=('Cancel', continueWithLoadedButton)
+        )
+        return not msg.cancel
+    
     def warnLoadedSegmDifferentFromRequested(self, loaded, requested):
         msg = acdc_widgets.myMessageBox(wrapText=False)
         txt = html_func.paragraph(f"""
@@ -884,8 +935,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         return posData.acdc_df[LINEAGE_COLUMNS].copy(), True
     
-    def paramsToKwargs(self):
+    def paramsToKwargs(self, is_spots_ch_required=True):
         posData = self.data[self.pos_i]
+        
+        if is_spots_ch_required:
+            proceed = self.checkRequestedSpotsChEndname()
+            if not proceed:
+                return
+        
         lineage_table = None
         if posData.acdc_df is not None:
             acdc_df, proceed = self.getLineageTable()
@@ -1011,7 +1068,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         kwargs = self.addNnetKwargs(kwargs)
         
-        self.logNnetParams(kwargs['nnet_params'])
+        self.logNnetParams(kwargs.get('nnet_params'))
         
         on_finished_callback = (
             self.startComputeAnalysisStepWorker, args, kwargs
@@ -1023,6 +1080,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def logNnetParams(self, nnet_params):
+        if nnet_params is None:
+            return
         text = '-'*60
         text = (
             f'{text}\nRunning neural network with the following parameters:\n'
@@ -1262,14 +1321,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         keys = [
             'lab', 'ref_ch_gauss_sigma', 'do_remove_hot_pixels', 'lineage_table',
-            'do_aggregate', 'use_gpu'
+            'do_aggregate', 'use_gpu', 'ref_ch_ridge_sigmas'
         ]
-        all_kwargs = self.paramsToKwargs()
+        all_kwargs = self.paramsToKwargs(is_spots_ch_required=False)
         if all_kwargs is None:
             self.logger.info('Process cancelled.')
             return
         kwargs = {key:all_kwargs[key] for key in keys}
         kwargs['gauss_sigma'] = kwargs.pop('ref_ch_gauss_sigma')
+        kwargs['ridge_filter_sigmas'] = kwargs.pop('ref_ch_ridge_sigmas')
         
         args = [module_func, anchor]
         

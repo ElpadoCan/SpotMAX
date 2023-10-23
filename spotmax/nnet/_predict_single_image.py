@@ -9,17 +9,16 @@ from cellacdc.plot import imshow
 
 def main():
     # Pre-trained model was trained with images scaled to 73 nm pixel size
-    REMOVE_HOT_PIXELS = False
-    INPUT_PIXEL_SIZE = 72.06
-
     img_data_path = os.path.join(data_path, 'single_volume.tiff')
     lab_data_path = os.path.join(data_path, 'single_volume_label.tiff')
 
     print('Loading image data...')
-    img_data = skimage.io.imread(img_data_path)
-    lab_data = skimage.io.imread(lab_data_path)
+    img_data = skimage.io.imread(img_data_path)[:, 235:367, 465:638]
+    lab_data = skimage.io.imread(lab_data_path)[:, 235:367, 465:638]
 
+    print(f'Image shape = {img_data.shape}')
     imshow(img_data, lab_data)
+    import pdb; pdb.set_trace()
 
     model = Model(
         model_type='3D',

@@ -43,7 +43,7 @@ def gaussian(image, sigma, use_gpu=False, logger_func=print):
             filtered = gpu_gaussian_filter(image, sigma)
             filtered = cp.asnumpy(filtered)
         except Exception as err:
-            logger_func('*'*50)
+            logger_func('*'*60)
             logger_func(err)
             logger_func(
                 '[WARNING]: GPU acceleration of the gaussian filter failed. '
@@ -82,51 +82,35 @@ def DoG_spots(image, spots_zyx_radii, use_gpu=False, logger_func=print):
     )
     return sharp_rescaled
 
-def try_all_thresholds(image, logger_func=print):
-    methods = config.skimageAutoThresholdMethods()
-    result = {}
-    if image.ndim == 3:
+def threshold(
+        image, threshold_func, do_max_proj=False, logger_func=print
+    ):
+    if do_max_proj and image.ndim == 3:
         input_image = image.max(axis=0)
     else:
         input_image = image
-    for method in tqdm(methods, desc='Thresholding', ncols=100):
-        threshold_func = getattr(skimage.filters, method)
-        try:
-            thresh_val = threshold_func(input_image)
-        except Exception as err:
-            print('')
-            logger_func('*'*50)
-            logger_func(f'[WARNING]: {err} ({method})')
-            thresh_val = np.inf
-        result[method] = image > thresh_val
-    return result
-
-def threshold(image, thresholding_method: str, logger_func=print):
-    if image.ndim == 3:
-        input_image = image.max(axis=0)
-    else:
-        input_image = image
-    threshold_func = getattr(skimage.filters, thresholding_method)
+    
     try:
         thresh_val = threshold_func(input_image)
     except Exception as e:
-        logger_func(f'{e} ({thresholding_method})')
+        logger_func(f'{e} ({threshold_func})')
         thresh_val = np.inf
+    
     return image > thresh_val
 
 def threshold_masked_by_obj(
-        img, mask, threshold_func, do_max_proj=False, return_thresh_val=False
+        image, mask, threshold_func, do_max_proj=False, return_thresh_val=False
     ):
-    if do_max_proj:
-        input_img = img.max(axis=0)
+    if do_max_proj and image.ndim == 3:
+        input_img = image.max(axis=0)
         mask = mask.max(axis=0)
     else:
-        input_img = img
+        input_img = image
         
     masked = input_img[mask>0]
     try:
         thresh_val = threshold_func(masked)
-        thresholded = img > thresh_val
+        thresholded = image > thresh_val
     except Exception as err:
         thresh_val = np.nan
         thresholded = np.zeros(img.shape, dtype=bool)
@@ -136,25 +120,34 @@ def threshold_masked_by_obj(
     else:
         return thresholded
 
-def local_semantic_segmentation(
-        image, lab, threshold_func=None, lineage_table=None, return_image=False,
-        nnet_model=None, nnet_params=None, nnet_input_data=None,
-        do_max_proj=True, clear_outside_objs=False, ridge_filter_sigmas=0,
-        return_only_output_mask=False
-    ):
-    # Get prediction mask by thresholding objects separately
-    if threshold_func is None:
+def _get_threshold_funcs(threshold_func=None, try_all=True):
+    if threshold_func is None and try_all:
         threshold_funcs = {
             method:getattr(skimage.filters, method) for 
             method in config.skimageAutoThresholdMethods()
         }
     elif isinstance(threshold_func, str):
         threshold_funcs = {'custom': getattr(skimage.filters, threshold_func)}
-    else:
+    elif threshold_func is not None:
         threshold_funcs = {'custom': threshold_func}
+    else:
+        threshold_funcs = {}
+    return threshold_funcs
+
+def local_semantic_segmentation(
+        image, lab, threshold_func=None, lineage_table=None, return_image=False,
+        nnet_model=None, nnet_params=None, nnet_input_data=None,
+        do_max_proj=True, clear_outside_objs=False, ridge_filter_sigmas=0,
+        return_only_output_mask=False, do_try_all_thresholds=True
+    ):
+    # Get prediction mask by thresholding objects separately
+    threshold_funcs = _get_threshold_funcs(
+        threshold_func=threshold_func, try_all=do_try_all_thresholds
+    )
     
+    # Add neural network method if required (we just need the key for the loop)
     if nnet_model is not None:
-        threshold_funcs['neural_network'] = 'placeholder'
+        threshold_funcs['neural_network'] = None
     
     slicer = transformations.SliceImageFromSegmObject(
         lab, lineage_table=lineage_table
@@ -164,7 +157,7 @@ def local_semantic_segmentation(
     if return_image:
         result['input_image'] = image
     
-    if threshold_func is None:
+    if do_try_all_thresholds:
         pbar = tqdm(total=len(threshold_funcs), ncols=100)
     for method, thresh_func in threshold_funcs.items():
         labels = np.zeros_like(lab)
@@ -206,58 +199,71 @@ def local_semantic_segmentation(
             
             # Iterate eventually merged (mother-bud) objects
             for obj_local in skimage.measure.regionprops(obj_mask_lab):  
-                predict_mask_obj = predict_mask_merged[obj_local.slice].copy()
+                predict_mask_obj = np.logical_and(
+                    predict_mask_merged[obj_local.slice], 
+                    obj_local.image
+                )
                 id = obj_local.label
                 labels[merged_obj_slice][obj_local.slice][predict_mask_obj] = id
         
         result[method] = labels.astype(np.int32)
-        if threshold_func is None:
+        if do_try_all_thresholds:
             pbar.update()
-    if threshold_func is None:
+    if do_try_all_thresholds:
         pbar.close()
     
-    if threshold_func is not None:
-        return result['custom']
+    if return_only_output_mask:
+        if nnet_model is not None:
+            return result['neural_network']
+        else:
+            return result['custom']
     else:
         return result
 
 def global_semantic_segmentation(
         image, lab, lineage_table=None, zyx_tolerance=None, 
-        thresholding_method='', logger_func=print, return_image=False,
+        threshold_func='', logger_func=print, return_image=False,
         keep_input_shape=True, nnet_model=None, nnet_params=None,
-        nnet_input_data=None, ridge_filter_sigmas=0
-    ):
-    if image.ndim == 2:
-        image = image[np.newaxis]
-    
-    if lab.ndim == 2 and image.ndim == 3:
-        # Stack 2D lab into 3D z-stack
-        lab = np.array([lab]*len(image))
-    
-    if image.ndim != 3:
+        nnet_input_data=None, ridge_filter_sigmas=0,
+        return_only_output_mask=False, do_try_all_thresholds=True,
+        pre_aggregated=False
+    ):    
+    if image.ndim != 3 or image.ndim != 3:
         ndim = image.ndim
         raise TypeError(
             f'Input image has {ndim} dimensions. Only 2D and 3D is supported.'
         )
     
-    aggregated = transformations.aggregate_objs(
-        image, lab, lineage_table=lineage_table, zyx_tolerance=zyx_tolerance,
-        additional_imgs_to_aggr=[nnet_input_data]
+    threshold_funcs = _get_threshold_funcs(
+        threshold_func=threshold_func, try_all=do_try_all_thresholds
     )
-    aggr_spots_img, aggregated_lab, aggr_imgs = aggregated
+    
+    if pre_aggregated:
+        aggr_spots_img = image
+        aggregated_lab = lab
+        aggr_transf_spots_nnet_img = nnet_input_data
+    else:
+        aggregated = transformations.aggregate_objs(
+            image, lab, lineage_table=lineage_table, 
+            zyx_tolerance=zyx_tolerance,
+            additional_imgs_to_aggr=[nnet_input_data]
+        )
+        aggr_spots_img, aggregated_lab, aggr_imgs = aggregated
+        aggr_transf_spots_nnet_img = aggr_imgs[0]
     
     if ridge_filter_sigmas:
         aggr_spots_img = ridge(aggr_spots_img, ridge_filter_sigmas)
     
-    aggr_transf_spots_nnet_img = aggr_imgs[0]
-    if thresholding_method is not None:
+    # Thresholding
+    result = {}
+    for method, thresh_func in threshold_funcs.items():
         thresholded = threshold(
-            aggr_spots_img, thresholding_method, logger_func=logger_func
+            aggr_spots_img, thresh_func, logger_func=logger_func,
+            do_max_proj=True
         )
-        result = {thresholding_method: thresholded}
-    else:
-        result = try_all_thresholds(aggr_spots_img, logger_func=print)
+        result[method] = thresholded
     
+    # Neural network
     if nnet_model is not None:
         if aggr_transf_spots_nnet_img is None:
             nnet_input_img = aggr_spots_img
@@ -284,16 +290,32 @@ def global_semantic_segmentation(
         result = {**input_image_dict, **result}
     
     result = {key:np.squeeze(img) for key, img in result.items()}
-    return result
+    
+    if return_only_output_mask:
+        if nnet_model is not None:
+            return result['neural_network']
+        else:
+            return result['custom']
+    else:
+        return result
 
 def filter_largest_obj(mask_or_labels):
     lab = skimage.measure.label(mask_or_labels)
-    positive_mask = lab > 0
-    counts = np.bincount(positive_mask)
+    positive_values = lab[lab > 0]
+    counts = np.bincount(positive_values)
+    
+    if len(counts) == 0:
+        if mask_or_labels.dtype == bool:
+            return lab > 0 
+        else:
+            lab[lab>0] = mask_or_labels[lab>0]
+            return lab
+    
     largest_obj_id = np.argmax(counts)
     lab[lab != largest_obj_id] = 0
     if mask_or_labels.dtype == bool:
         return lab > 0
+    lab[lab>0] = mask_or_labels[lab>0]
     return lab
 
 def filter_largest_sub_obj_per_obj(mask_or_labels, lab):
@@ -303,9 +325,6 @@ def filter_largest_sub_obj_per_obj(mask_or_labels, lab):
         obj_mask_to_filter = np.zeros_like(obj.image)
         mask_obj_sub_obj = np.logical_and(obj.image, mask_or_labels[obj.slice])
         obj_mask_to_filter[mask_obj_sub_obj] = True
-        filtered_obj = filter_largest_obj(obj_mask_to_filter)
-        filtered[obj.slice] = filtered_obj
+        filtered_obj_mask = filter_largest_obj(obj_mask_to_filter)
+        filtered[obj.slice][filtered_obj_mask] = obj.label
     return filtered
-
-def segment_reference_channel():
-    pass

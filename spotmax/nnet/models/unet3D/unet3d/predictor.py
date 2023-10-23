@@ -121,7 +121,8 @@ class NumpyPredictor(_AbstractPredictor):
         
         with torch.no_grad():            
             for batch, indices in tqdm(
-                    test_loader, desc=desc, total=len(test_loader), ncols=100
+                    test_loader, desc=desc, total=len(test_loader), ncols=100,
+                    leave=False
                 ):
                 # send batch to device
                 batch = batch.to(device)

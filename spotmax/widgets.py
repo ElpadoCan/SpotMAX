@@ -772,7 +772,9 @@ class SpotPredictionMethodWidget(QWidget):
     
     def nnet_params_from_ini_sections(self, ini_params):
         from spotmax.nnet.model import get_nnet_params_from_ini_params
-        self.nnetParams = get_nnet_params_from_ini_params(ini_params)
+        self.nnetParams = get_nnet_params_from_ini_params(
+            ini_params, use_default_for_missing=True
+        )
 
 class _spotMinSizeLabels(QWidget):
     def __init__(self):
@@ -1258,7 +1260,7 @@ class VectorLineEdit(QLineEdit):
         super().__init__(parent)
         
         float_re = float_regex()
-        vector_regex = fr'\(?\[?{float_re},\s?{float_re},\s?{float_re}\)?\]?'
+        vector_regex = fr'\(?\[?{float_re}(,\s?{float_re})+\)?\]?'
         regex = fr'^{vector_regex}$|^{float_re}$'
         self.validRegex = regex
         
@@ -1305,7 +1307,20 @@ class VectorLineEdit(QLineEdit):
                 text = text.replace(']', '')
                 values = text.split(',')
                 return [float(value) for value in values]
+
+class Gaussian3SigmasLineEdit(VectorLineEdit):
+    def __init__(self, parent=None, initial=None):
+        super().__init__(parent=parent, initial=initial)
         
+        float_re = float_regex()
+        vector_regex = fr'\(?\[?{float_re},\s?{float_re},\s?{float_re}\)?\]?'
+        regex = fr'^{vector_regex}$|^{float_re}$'
+        self.validRegex = regex
+        
+        regExp = QRegularExpression(regex)
+        self.setValidator(QRegularExpressionValidator(regExp))
+        self.setAlignment(Qt.AlignCenter)
+
 def getOpenImageFileName(parent=None, mostRecentPath=''):
     file_path = QFileDialog.getOpenFileName(
         parent, 'Select image file', mostRecentPath,

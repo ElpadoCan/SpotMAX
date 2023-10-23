@@ -76,15 +76,16 @@ class NumpyDataset(ConfigDataset):
                 else:
                     self.raw = np.pad(self.raw, pad_width=pad_width, mode='reflect')
 
-        # build slice indices for raw and label data sets
-        slice_builder = get_slice_builder(self.raw, self.label, self.weight_map, slice_builder_config)
+        slice_builder = get_slice_builder(
+            self.raw, self.label, self.weight_map, slice_builder_config
+        )
         self.raw_slices = slice_builder.raw_slices
         self.label_slices = slice_builder.label_slices
         self.weight_slices = slice_builder.weight_slices
 
         self.patch_count = len(self.raw_slices)
         logger.info(f'Number of patches: {self.patch_count}')
-
+    
     @staticmethod
     def fetch_and_check(array):
         if array.ndim == 2:

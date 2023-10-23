@@ -13,7 +13,7 @@ def _get_predictor(model, output_dir, config):
     predictor_config = config.get('predictor', {})
     class_name = predictor_config.get('name', 'StandardPredictor')
 
-    m = importlib.import_module('models.unet3D.unet3d.predictor')
+    m = importlib.import_module('spotmax.nnet.models.unet3D.unet3d.predictor')
     predictor_class = getattr(m, class_name)
 
     return predictor_class(model, output_dir, config, **predictor_config)

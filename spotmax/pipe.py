@@ -18,10 +18,12 @@ effect_size_func = features.get_effect_size_func()
 def preprocess_image(
         image, 
         lab=None, 
-        do_remove_hot_pixels=False, 
+        do_remove_hot_pixels=False,
         gauss_sigma=0.0,
         use_gpu=True, 
         return_lab=False,
+        do_sharpen=False,
+        spots_zyx_radii=None,
         logger_func=print
     ):
     _, image = transformations.reshape_lab_image_to_3D(lab, image)
@@ -31,7 +33,12 @@ def preprocess_image(
     else:
         image = image
     
-    if gauss_sigma>0:
+    if do_sharpen and spots_zyx_radii is not None:
+        image = filters.DoG_spots(
+            image, spots_zyx_radii, use_gpu=use_gpu, 
+            logger_func=logger_func
+        )
+    elif gauss_sigma>0:
         image = filters.gaussian(
             image, gauss_sigma, use_gpu=use_gpu, logger_func=logger_func
         )
@@ -64,7 +71,6 @@ def ridge_filter(
         image = image
     return image
 
-
 def spots_semantic_segmentation(
         image, 
         lab=None,
@@ -80,26 +86,24 @@ def spots_semantic_segmentation(
         keep_input_shape=True,
         nnet_model=None,
         nnet_params=None,
-        nnet_input_data=None
+        nnet_input_data=None,
+        do_preprocess=True,
+        do_try_all_thresholds=True,
+        return_only_segm=False,
+        pre_aggregated=False
     ):  
-    lab, image = transformations.reshape_lab_image_to_3D(lab, image)
-    
-    if do_remove_hot_pixels:
-        image = filters.remove_hot_pixels(image)
-    else:
-        image = image
-        
-    if do_sharpen and spots_zyx_radii is not None:
-        image = filters.DoG_spots(
-            image, spots_zyx_radii, use_gpu=use_gpu, 
+    if do_preprocess:
+        image, lab = preprocess_image(
+            image, 
+            lab=lab, 
+            do_remove_hot_pixels=do_remove_hot_pixels, 
+            gauss_sigma=gauss_sigma,
+            use_gpu=use_gpu, 
+            return_lab=True,
+            do_sharpen=do_sharpen,
+            spots_zyx_radii=spots_zyx_radii,
             logger_func=logger_func
         )
-    elif gauss_sigma>0:
-        image = filters.gaussian(
-            image, gauss_sigma, use_gpu=use_gpu, logger_func=logger_func
-        )
-    else:
-        image = image
 
     if not np.any(lab):
         result = {
@@ -115,18 +119,24 @@ def spots_semantic_segmentation(
         result = filters.global_semantic_segmentation(
             image, lab, lineage_table=lineage_table, 
             zyx_tolerance=zyx_tolerance, 
-            thresholding_method=thresholding_method, 
+            threshold_func=thresholding_method, 
             logger_func=logger_func, return_image=True,
             keep_input_shape=keep_input_shape,
             nnet_model=nnet_model, nnet_params=nnet_params,
-            nnet_input_data=nnet_input_data
+            nnet_input_data=nnet_input_data,
+            do_try_all_thresholds=do_try_all_thresholds,
+            return_only_output_mask=return_only_segm,
+            pre_aggregated=pre_aggregated
         )
     else:
         result = filters.local_semantic_segmentation(
             image, lab, threshold_func=thresholding_method, 
             lineage_table=lineage_table, return_image=True,
             nnet_model=nnet_model, nnet_params=nnet_params,
-            nnet_input_data=nnet_input_data
+            nnet_input_data=nnet_input_data,
+            do_try_all_thresholds=do_try_all_thresholds,
+            return_only_output_mask=return_only_segm,
+            do_max_proj=True
         )
     
     return result
@@ -144,10 +154,12 @@ def reference_channel_semantic_segm(
         thresholding_method=None,
         ridge_filter_sigmas=0,
         keep_input_shape=True,
-        do_preprocess=True
+        do_preprocess=True,
+        return_only_segm=False,
+        do_try_all_thresholds=True
     ):    
     if do_preprocess:
-        lab, image = preprocess_image(
+        image, lab = preprocess_image(
             image, 
             lab=lab, 
             do_remove_hot_pixels=do_remove_hot_pixels, 
@@ -159,7 +171,7 @@ def reference_channel_semantic_segm(
     
     if not np.any(lab):
         empty_segm = np.zeros(image.shape, dtype=np.uint8)
-        if thresholding_method is not None:
+        if thresholding_method is not None or return_only_segm:
             return empty_segm
         else:
             result = {
@@ -171,17 +183,21 @@ def reference_channel_semantic_segm(
     if do_aggregate:
         result = filters.global_semantic_segmentation(
             image, lab, lineage_table=lineage_table, 
-            thresholding_method=thresholding_method, 
+            threshold_func=thresholding_method, 
             logger_func=logger_func, return_image=True,
             keep_input_shape=keep_input_shape,
-            ridge_filter_sigmas=ridge_filter_sigmas
+            ridge_filter_sigmas=ridge_filter_sigmas,
+            return_only_output_mask=return_only_segm,
+            do_try_all_thresholds=do_try_all_thresholds
         )
     else:
         result = filters.local_semantic_segmentation(
             image, lab, threshold_func=thresholding_method, 
             lineage_table=lineage_table, return_image=True,
             do_max_proj=False, clear_outside_objs=True,
-            ridge_filter_sigmas=ridge_filter_sigmas
+            ridge_filter_sigmas=ridge_filter_sigmas,
+            return_only_output_mask=return_only_segm,
+            do_try_all_thresholds=do_try_all_thresholds
         )
     
     if not keep_only_largest_obj:
@@ -190,12 +206,15 @@ def reference_channel_semantic_segm(
     if not np.any(lab):
         return result
     
-    input_image = result.pop('input_image')
-    result = {
-        key:filters.filter_largest_sub_obj_per_obj(img, lab) 
-        for key, img in result.items()
-    }
-    result = {**{'input_image': input_image}, **result}
+    if not return_only_segm:
+        input_image = result.pop('input_image')
+        result = {
+            key:filters.filter_largest_sub_obj_per_obj(img, lab) 
+            for key, img in result.items()
+        }
+        result = {**{'input_image': input_image}, **result}
+    else:
+        result = filters.filter_largest_sub_obj_per_obj(result, lab)
     
     return result
 

@@ -737,7 +737,7 @@ def _pre_processing_params():
             'addInfoButton': True,
             'addComputeButton': True,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.VectorLineEdit',
+            'formWidgetFunc': 'widgets.Gaussian3SigmasLineEdit',
             'actions': None,
             'dtype': get_gauss_sigma
         },
@@ -808,13 +808,13 @@ def _ref_ch_params():
             'addInfoButton': True,
             'addComputeButton': True,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.VectorLineEdit',
+            'formWidgetFunc': 'widgets.Gaussian3SigmasLineEdit',
             'actions': None,
             'dtype': get_gauss_sigma
         },
         'refChRidgeFilterSigmas': {
             'desc': 'Sigmas used to enhance network-like structures',
-            'initialVal': 1.0,
+            'initialVal': 0.0,
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': True,
@@ -825,7 +825,7 @@ def _ref_ch_params():
         },
         'refChThresholdFunc': {
             'desc': 'Ref. channel threshold function',
-            'initialVal': 'threshold_li',
+            'initialVal': 'threshold_otsu',
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': True,

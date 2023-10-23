@@ -126,9 +126,9 @@ base_lineage_table_values = {
     'is_cell_excluded': 0
 }
 
-error_up_str = '^'*50
+error_up_str = '^'*60
 error_up_str = f'\n{error_up_str}'
-error_down_str = '^'*50
+error_down_str = '^'*60
 error_down_str = f'\n{error_down_str}'
 
 ZYX_GLOBAL_COLS = ['z', 'y', 'x']
