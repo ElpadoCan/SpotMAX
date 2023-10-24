@@ -3,7 +3,7 @@ import skimage.filters as filters
 import numpy as np
 from skimage.transform import rescale
 from sklearn.preprocessing import MinMaxScaler
-import cv2
+from skimage.morphology import opening
 import numba
 
 
@@ -187,8 +187,7 @@ def _opening(images: np.ndarray, **kwargs) -> np.ndarray:
     Returns:
         np.ndarray: Images after applying opening filter
     """
-    kernel = kwargs.get("kernel", (2, 2))
-    return np.asarray([cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel) for img in images])
+    return np.asarray([opening(img) for img in images])
 
 
 def _gaussian_filter(images: np.ndarray, **kwargs) -> np.ndarray:
