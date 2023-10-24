@@ -1,5 +1,4 @@
 import os
-from matplotlib.style import use
 import numpy as np
 import skimage
 import yaml

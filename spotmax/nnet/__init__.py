@@ -22,4 +22,11 @@ check_install_package(
     caller_name='spotMAX'
 )
 
+check_install_package(
+    'yaml', 
+    pypi_name='pyyaml',
+    is_cli=is_cli,
+    caller_name='spotMAX'
+)
+
 io.download_unet_models()

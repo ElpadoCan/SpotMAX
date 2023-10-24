@@ -3,7 +3,12 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.utils.tensorboard import SummaryWriter
+
+try:
+    from torch.utils.tensorboard import SummaryWriter
+    TENSORBOARD_INSTALLED = True
+except Exception as err:
+    TENSORBOARD_INSTALLED = False
 
 from ..datasets.utils import get_train_loaders
 from .losses import get_loss_criterion

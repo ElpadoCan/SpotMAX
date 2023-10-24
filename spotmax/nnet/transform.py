@@ -1,13 +1,16 @@
-from matplotlib.pyplot import sca
 import skimage.filters as filters
 import numpy as np
 from skimage.transform import rescale
 from sklearn.preprocessing import MinMaxScaler
 from skimage.morphology import opening
-import numba
 
+try:
+    import numba
+    from numba import njit
+except Exception as e:
+    from ..utils import njit_replacement as njit
 
-@numba.jit(nopython=True)
+@njit
 def crop_single(img: np.ndarray, final_size: tuple) -> np.ndarray:
     """Function to crop an image to a final size.
 
@@ -27,7 +30,7 @@ def crop_single(img: np.ndarray, final_size: tuple) -> np.ndarray:
         return img[y_size:-y_size, x_size:-x_size]
 
 
-@numba.jit(nopython=True)
+@njit
 def _get_xy_pads(final_size: tuple, img: np.ndarray) -> tuple:
     """Function to get x and y pads.
 
@@ -274,7 +277,7 @@ def _to_float_32(images: np.ndarray, **kwargs) -> np.ndarray:
     return images.astype(np.float32)
 
 
-@numba.jit(nopython=True)
+@njit
 def _remove_padding(image):
     """Function to remove padding from an image.
 
