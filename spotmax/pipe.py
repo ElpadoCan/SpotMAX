@@ -6,6 +6,10 @@ import pandas as pd
 import skimage.measure
 import skimage.filters
 
+from . import GUI_INSTALLED
+if GUI_INSTALLED:
+    from cellacdc.plot import imshow
+
 from . import filters
 from . import transformations
 from . import printl
@@ -92,6 +96,7 @@ def spots_semantic_segmentation(
         return_only_segm=False,
         pre_aggregated=False
     ):  
+    raw_image = image.copy()
     if do_preprocess:
         image, lab = preprocess_image(
             image, 
@@ -111,6 +116,10 @@ def spots_semantic_segmentation(
             'Segmentation_data_is_empty': np.zeros(image.shape, dtype=np.uint8)
         }
         return result
+    
+    if nnet_model is not None and nnet_input_data is None:
+        # Use raw image as input to neural network if nnet_input_data is None
+        nnet_input_data = raw_image
     
     if do_aggregate:
         zyx_tolerance = transformations.get_expand_obj_delta_tolerance(

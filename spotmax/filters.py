@@ -14,6 +14,10 @@ import skimage.morphology
 import skimage.filters
 import skimage.measure
 
+from . import GUI_INSTALLED
+if GUI_INSTALLED:
+    from cellacdc.plot import imshow
+
 from . import error_up_str, printl
 from . import config, transformations
 
@@ -269,6 +273,7 @@ def global_semantic_segmentation(
             nnet_input_img = aggr_spots_img
         else:
             nnet_input_img = aggr_transf_spots_nnet_img
+
         nnet_labels = nnet_model.segment(
             nnet_input_img, **nnet_params['segment']
         )

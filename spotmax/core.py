@@ -3133,22 +3133,6 @@ class Kernel(_ParamsParser):
             save_spots_mask=True,
             verbose=True,
         ):
-        if spots_img.ndim == 2:
-            spots_img = spots_img[np.newaxis]
-            if lab is not None:
-                lab = lab[np.newaxis]
-                rp = skimage.measure.regionprops(lab)
-            if ref_ch_img is not None:
-                ref_ch_img = ref_ch_img[np.newaxis]
-            if ref_ch_mask_or_labels is not None:
-                ref_ch_mask_or_labels = ref_ch_mask_or_labels[np.newaxis]
-            if raw_spots_img is not None:
-                raw_spots_img = raw_spots_img[np.newaxis]
-            if min_size_spheroid_mask is not None:
-                min_size_spheroid_mask = min_size_spheroid_mask[np.newaxis]
-            if spot_footprint is not None:
-                spot_footprint = spot_footprint[np.newaxis]
-
         if sharp_spots_img is None:
             sharp_spots_img = spots_img
 
@@ -3174,10 +3158,14 @@ class Kernel(_ParamsParser):
         
         if gop_filtering_thresholds is None:
             gop_filtering_thresholds = {}
-
+        
+        if self.nnet_model is not None and transf_spots_nnet_img is None:
+            # Use raw image for neural network if not data was explicity passed
+            transf_spots_nnet_img = raw_spots_img
+        
         df_spots_coords = self._spots_detection(
             sharp_spots_img, lab, detection_method,
-            threshold_method, prediction_method, do_aggregate, spot_footprint,
+            threshold_method, do_aggregate, spot_footprint,
             transf_spots_nnet_img=transf_spots_nnet_img,
             spots_ch_segm_mask=spots_ch_segm_mask, 
             lineage_table=lineage_table, 
@@ -3259,7 +3247,6 @@ class Kernel(_ParamsParser):
             self, sharp_spots_img, lab, 
             detection_method, 
             threshold_method, 
-            prediction_method, 
             do_aggregate, footprint, 
             transf_spots_nnet_img=None,
             spots_ch_segm_mask=None,
@@ -3304,7 +3291,6 @@ class Kernel(_ParamsParser):
                 return_only_segm=True,
                 pre_aggregated=True
             )
-            import pdb; pdb.set_trace()
         
         if detection_method == 'peak_local_max':
             aggr_spots_coords = skimage.feature.peak_local_max(
@@ -3579,12 +3565,6 @@ class Kernel(_ParamsParser):
             rp=None, dfs_lists=None, lab=None, frame_i=0, 
             ref_ch_mask_or_labels=None, verbose=True
         ):
-        if spots_img.ndim == 2:
-            spots_img = spots_img[np.newaxis]
-            if lab is not None:
-                lab = lab[np.newaxis]
-                rp = skimage.measure.regionprops(lab)
-        
         if lab is None:
             lab = np.ones(spots_img.shape, dtype=np.uint8)
 
