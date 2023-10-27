@@ -1,0 +1,54 @@
+.. role:: m(math)
+
+Aggregated features description
+===============================
+
+Description of all the features saved by spotMAX for each segmented object 
+(aggregated) and the corresponding column name.
+
+.. contents::
+
+.. _Spot detection:
+
+Spot detection
+--------------
+* **Number of spots**: column name ``num_spots``.
+* **Number of spots inside ref. ch.**: column name ``num_spots_inside_ref_ch``.
+
+Spotfit size metric
+-------------------
+* **Mean radius x- direction**: column name ``mean_sigma_x_fit``.
+* **Mean radius y- direction**: column name ``mean_sigma_y_fit``.
+* **Mean radius z- direction**: column name ``mean_sigma_z_fit``.
+* **Std. dev. radius x- direction**: column name ``std_sigma_z_fit``.
+* **Std. dev. radius y- direction**: column name ``std_sigma_y_fit``.
+* **Std. dev. radius z- direction**: column name ``std_sigma_x_fit``.
+
+
+Spotfit intens. metric
+----------------------
+* **Sum of total integral gauss. peak**: column name ``sum_tot_integral_fit``.
+* **Sum of foregr. integral gauss. peak**: column name ``sum_foregr_integral_fit``.
+* **Sum of amplitude gauss. peak**: column name ``sum_A_fit_fit``.
+* **Mean backgr. level gauss. peak**: column name ``mean_B_fit_fit``.
+
+
+Spotfit Goodness-of-fit
+-----------------------
+* **Mean RMS error gauss. fit**: column name ``mean_RMSE_fit``.
+* **Mean normalised RMS error gauss. fit**: column name ``mean_NRMSE_fit``.
+* **Mean F-norm. RMS error gauss. fit**: column name ``mean_F_NRMSE_fit``.
+  
+Reference channel
+-----------------
+* **Ref. channel volume**: column name ``ref_ch_vol_``
+* **Ref. ch. number of fragments**: column name ``ref_ch_num_fragments``
+  
+Segmented objects size
+----------------------
+* **Area of the segmented object (pixel)**: column name ``cell_area_pxl``
+* **Area of the segmented object (micro-m^2)**: column name ``cell_area_um2``
+* **Estimated 3D volume from 2D mask (pixel)**: column name ``cell_vol_vox``
+* **Estimated 3D volume from 2D mask (fl)**: column name ``cell_vol_fl``
+* **3D volume from 3D mask (voxel)**: column name ``cell_vol_vox_3D``
+* **3D volume from 3D mask (fl)**: column name ``cell_vol_fl_3D``

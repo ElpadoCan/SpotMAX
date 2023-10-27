@@ -1669,7 +1669,7 @@ class _GaussianModel:
             chisq = 0
             p_chisq = 1
             reduced_chisq = 0
-            print('WARNING: error calculating chisquare')
+            # print('WARNING: error calculating chisquare')
 
         # Sum of squared errors
         SSE = np.sum(np.square(y_obs-y_model))
@@ -3021,7 +3021,6 @@ class Kernel(_ParamsParser):
             verbose=True
         ):
         if self._is_lab_all_zeros(lab):
-            df_agg['ref_ch_threshold_value'] = np.nan
             df_agg['ref_ch_vol_vox'] = np.nan
             df_agg['ref_ch_num_fragments'] = np.nan
             ref_ch_segm = np.zeros(lab.shape, dtype=bool)
@@ -4617,6 +4616,7 @@ class Kernel(_ParamsParser):
                     continue
                 self.add_post_analysis_features(dfs)
                 dfs = self.filter_requested_features(dfs)
+                dfs = self.filter_requested_features(dfs, on_aggr=True)
                 self.save_dfs_and_spots_masks(
                     pos_path, dfs, 
                     images_path=images_path,
@@ -4668,16 +4668,28 @@ class Kernel(_ParamsParser):
                 df, zyx_voxel_size, suffix='_fit'
             )
     
-    def filter_requested_features(self, dfs):
-        section = 'Measurements to save'
+    def filter_requested_features(self, dfs, on_aggr=False):
+        if on_aggr:
+            df_key_startswith = 'agg_'
+            section = 'Aggregated measurements to save'
+        else:
+            df_key_startswith = 'spots_'
+            section = 'Single-spot measurements to save'
+        
         if not self.configPars.has_section(section):
             return dfs
+        
         columns_regexes = self.configPars.options(section)
         filtered_dfs = {}
         for key, df in dfs.items():
             if df is None:
-                filtered_dfs[df] = None
+                filtered_dfs[key] = None
                 continue
+            
+            if not key.startswith(df_key_startswith):
+                filtered_dfs[key] = df
+                continue
+            
             columns_to_filter = BASE_COLUMNS.copy()
             for regex in columns_regexes:
                 pattern = rf'^{regex}'

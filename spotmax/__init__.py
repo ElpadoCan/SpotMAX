@@ -142,6 +142,15 @@ base_lineage_table_values = {
     'is_cell_excluded': 0
 }
 
+CELL_SIZE_COLUMNS = [
+    'cell_area_pxl',
+    'cell_area_um2',
+    'cell_vol_vox',
+    'cell_vol_fl',
+    'cell_vol_vox_3D',
+    'cell_vol_fl_3D'
+]
+
 error_up_str = '^'*60
 error_up_str = f'\n{error_up_str}'
 error_down_str = '^'*60
@@ -156,10 +165,13 @@ ZYX_LOCAL_EXPANDED_COLS = [
 ZYX_FIT_COLS = ['z_fit', 'y_fit', 'x_fit']
 ZYX_RESOL_COLS = ['z_resolution_pxl', 'y_resolution_pxl', 'x_resolution_pxl']
 
+
 BASE_COLUMNS = ZYX_GLOBAL_COLS.copy()
 BASE_COLUMNS.extend(ZYX_LOCAL_COLS)
 BASE_COLUMNS.extend(ZYX_FIT_COLS)
 BASE_COLUMNS.extend(ZYX_RESOL_COLS)
+BASE_COLUMNS.extend(base_lineage_table_values.keys())
+BASE_COLUMNS.extend(CELL_SIZE_COLUMNS)
 
 DFs_FILENAMES = {
     'spots_detection': '*rn*_0_detected_spots*desc*',

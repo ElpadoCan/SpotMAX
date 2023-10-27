@@ -1,7 +1,10 @@
+.. role:: m(math)
+
 Features description
 ====================
 
-Description of all the features saved by spotMAX and the corresponding column name.
+Description of all the features saved by spotMAX for each single spot and the 
+corresponding column name.
 
 .. contents::
 
@@ -32,17 +35,22 @@ background. As a rule of thumb, 0.2 is a small effect, while 0.8 could mean
 a large effect. However, make sure that you explore your data before deciding 
 on a threshold to filter out false positives.
 
-Given ``P`` the pixels intensities inside the spot, ``N`` the background 
-intensities, and ``std`` the standard deviation, spotMAX will compute the following 
+Given :m:`P` the pixels intensities inside the spot, :m:`N` the background 
+intensities, and :m:`std` the standard deviation, spotMAX will compute the following 
 effect sizes:
 
-* **Glass**: column name ``spot_vs_backgr_effect_size_glass``. Formula: ``(mean(P) - mean(N))/std(N)``
-* **Cohen**: column name ``spot_vs_backgr_effect_size_cohen``. Formula: ``(mean(P) - mean(N))/std(N+P)`` 
-  where ``std(N+P)`` is the standard deviation of the spots and background 
+* **Glass**: column name ``spot_vs_backgr_effect_size_glass``. 
+  Formula: :m:`(\overline{P} - \overline{N})/std(N)`
+
+* **Cohen**: column name ``spot_vs_backgr_effect_size_cohen``. 
+  Formula: :m:`(\overline{P} - \overline{N})/std(N+P)`
+  where :m:`std(N+P)` is the standard deviation of the spots and background 
   intensities pooled together. 
-* **Hedge**: column name ``spot_vs_backgr_effect_size_hedge``. Formula: ``cohen_effect_size * correction_factor`` 
-  where ``correction_factor = 1 - 3/(4 * Dn - 9)`` with ``Dn`` being the 
-  difference number of background's and spots' pixels. 
+
+* **Hedge**: column name ``spot_vs_backgr_effect_size_hedge``. 
+  Formula: :m:`d * c_f` where :m:`d` is the Cohen's effect size and 
+  :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n`being the 
+  difference between the background's and spots' number of pixels. 
 
 
 .. _Effect size (vs. ref. ch.):
@@ -75,18 +83,23 @@ reference channel. As a rule of thumb, 0.2 is a small effect, while 0.8 could me
 a large effect. However, make sure that you explore your data before deciding 
 on a threshold to filter out false positives.
 
-Given ``P`` the pixels intensities inside the spot, ``N`` the background 
-intensities, and ``std`` the standard deviation, spotMAX will compute the following 
+Given :m:`P` the pixels intensities inside the spot, :m:`R` the reference channel  
+intensities, and :m:`std` the standard deviation, spotMAX will compute the following 
 effect sizes:
 
-* **Glass**: column name ``spot_vs_ref_ch_effect_size_glass``. Formula: ``(mean(P) - mean(N))/std(N)``
-* **Cohen**: column name ``spot_vs_ref_ch_effect_size_cohen``. Formula: ``(mean(P) - mean(N))/std(N+P)`` 
-  where ``std(N+P)`` is the standard deviation of the spots and background 
-  intensities pooled together. 
-* **Hedge**: column name ``spot_vs_ref_ch_effect_size_hedge``. Formula: ``cohen_effect_size * correction_factor`` 
-  where ``correction_factor = 1 - 3/(4 * Dn - 9)`` with ``Dn`` being the 
-  difference number of background's and spots' pixels. 
+* **Glass**: column name ``spot_vs_ref_ch_effect_size_glass``. 
+  Formula: :m:`(\overline{P} - \overline{N})/std(N)`
 
+* **Cohen**: column name ``spot_vs_ref_ch_effect_size_cohen``. 
+  Formula: :m:`(\overline{P} - \overline{N})/std(N+P)`
+  where :m:`std(N+P)` is the standard deviation of the spots and reference channel 
+  intensities pooled together.
+
+  
+* **Hedge**: column name ``spot_vs_ref_ch_effect_size_hedge``. 
+  Formula: :m:`d * c_f` where :m:`d` is the Cohen's effect size and 
+  :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n` being the 
+  difference between the reference channel's and spots' number of pixels. 
 
 Statistical test (vs. backgr.)
 ------------------------------

@@ -123,8 +123,8 @@ def _try_combine_pvalues(*args, **kwargs):
 
 def get_aggregating_spots_feature_func():
     func = {
-        'num_spots_inside_ref_ch': ('is_spot_inside_ref_ch', 'sum', 0),
         'num_spots': ('x', 'count', 0),
+        'num_spots_inside_ref_ch': ('is_spot_inside_ref_ch', 'sum', 0),
         'sum_foregr_integral_fit': ('foreground_integral_fit', 'sum', np.nan),
         'sum_tot_integral_fit': ('total_integral_fit', 'sum', np.nan),
         'mean_sigma_z_fit': ('sigma_z_fit', 'mean', np.nan),
@@ -231,7 +231,14 @@ def get_effect_size_func():
     return effect_size_func
 
 def get_features_groups():
-    return docs.parse_features_groups()
+    return docs.parse_single_spot_features_groups()
+
+def get_aggr_features_groups():
+    return docs.parse_aggr_features_groups()
+
+def aggr_feature_names_to_col_names_mapper():
+    return docs.parse_aggr_features_column_names()
+            
 
 def _feature_types_to_col_endname_mapper():
     mapper = {

@@ -333,14 +333,12 @@ class guiTabControl(QTabWidget):
         )
         self.saveParamsButton.clicked.connect(self.saveParamsFile)
         self.runSpotMaxButton.clicked.connect(self.runAnalysis)
-        self.setMeasurementsButton.clicked.connect(self.emitSetMeasurements)
+        self.setMeasurementsButton.clicked.connect(self.setMeasurementsClicked)
 
         self.addTab(containerWidget, 'Analysis paramenters')
     
-    def emitSetMeasurements(self):
-        self.sigSetMeasurements.emit()
-    
     def confirmMeasurementsSet(self):
+        self.setMeasurementsButton.setText('Measurements are set. View or edit...')
         QTimer.singleShot(100, self.setMeasurementsButton.confirmAction)
     
     def runAnalysis(self):
@@ -461,10 +459,65 @@ class guiTabControl(QTabWidget):
         self.setValuesFromParams(params)
         self.parametersQGBox.setSelectedMeasurements(filePath)
         if self.parametersQGBox.selectedMeasurements is None:
+            QTimer.singleShot(100, self.loadPreviousParamsButton.confirmAction)
             return
+        self.confirmMeasurementsSet()
+        QTimer.singleShot(100, self.loadPreviousParamsButton.confirmAction)
+    
+    def askSetMeasurements(self):
+        if self.setMeasurementsButton.text().find('are set.') != -1:
+            msg_type = 'warning'
+            txt = html_func.paragraph(
+                'There are <b>measurements that have previously set</b> '
+                'and will be saved along with the parameters.<br><br>'
+                'Do you want to edit or view which <b>measurements will be '
+                'saved</b>?<br>'
+            )
+            noText = 'No, save the set measurements'
+        else:
+            msg_type = 'question'
+            txt = html_func.paragraph(
+                'Do you want to select which <b>measurements to save?</b><br>'
+            )
+            noText = 'No'
+
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        _, noButton, yesButton = getattr(msg, msg_type)(
+            self, 'Set measurements?', txt, 
+            buttonsTexts=('Cancel', noText, 'Yes, view set measurments.')
+        )
+        return msg.clickedButton == yesButton, msg.cancel
+    
+    def setMeasurementsClicked(self):
+        parametersGroupBox = self.parametersQGBox
+        
+        spotsParams = parametersGroupBox.params['Spots channel']
+        anchor = 'doSpotFit'
+        isSpotFitRequested = spotsParams[anchor]['widget'].isChecked()
+        
+        win = SetMeasurementsDialog(
+            parent=self, 
+            selectedMeasurements=parametersGroupBox.selectedMeasurements,
+            isSpotFitRequested=isSpotFitRequested
+        )
+        win.sigOk.connect(self.setSpotmaxMeasurements)
+        win.exec_()
+        return win.cancel
+    
+    def setSpotmaxMeasurements(self, selectedMeasurements):
+        self.parametersQGBox.selectedMeasurements = selectedMeasurements
         self.confirmMeasurementsSet()
     
     def saveParamsFile(self):
+        showSetMeas, cancel = self.askSetMeasurements()
+        if cancel:
+            return ''
+        
+        if showSetMeas:
+            cancel = self.setMeasurementsClicked()
+            if cancel:
+                return ''
+        
         if self.loadedFilename:
             entry = self.loadedFilename
         elif self.lastEntry is not None:
@@ -517,6 +570,8 @@ class guiTabControl(QTabWidget):
                     return ''
                 if msg.clickedButton == yesButton:
                     break
+        
+        self.loadedFilename, ext = os.path.splitext(os.path.basename(filePath))
         self.parametersQGBox.saveToIniFile(filePath)
         self.lastSavedIniFilePath = filePath
         self.savingParamsFileDone(filePath)
@@ -1348,9 +1403,15 @@ class ParamsGroupBox(QGroupBox):
         if self.selectedMeasurements is None:
             return
 
-        configPars['Measurements to save'] = {}
-        for key, value in self.selectedMeasurements.items():
-            configPars['Measurements to save'][key] = value
+        section = 'Single-spot measurements to save'
+        configPars[section] = {}
+        for key, value in self.selectedMeasurements['single_spot'].items():
+            configPars[section][key] = value
+        
+        section = 'Aggregated measurements to save'
+        configPars[section] = {}
+        for key, value in self.selectedMeasurements['aggr'].items():
+            configPars[section][key] = value
         
         with open(ini_filepath, 'w', encoding="utf-8") as file:
             configPars.write(file)
@@ -1358,11 +1419,20 @@ class ParamsGroupBox(QGroupBox):
     def setSelectedMeasurements(self, ini_filepath):
         cp = config.ConfigParser()
         cp.read(ini_filepath)
-        if not cp.has_section('Measurements to save'):
+        tabKeys_sections = [
+            ('single_spot', 'Single-spot measurements to save'),
+            ('aggr', 'Aggregated measurements to save')
+        ]
+        self.selectedMeasurements = {}
+        for tabKey, section in tabKeys_sections:
+            if not cp.has_section(section):
+                continue
+            
+            self.selectedMeasurements[tabKey] = dict(cp[section])
+            
+        if not self.selectedMeasurements:
             self.selectedMeasurements = None
-            return
         
-        self.selectedMeasurements = dict(cp['Measurements to save'])
     
     def saveToIniFile(self, ini_filepath):
         params = self.configIniParams()
@@ -3123,10 +3193,14 @@ class SetMeasurementsDialog(QBaseDialog):
         
         super().__init__(parent=parent)
         
-        lastSelectionCp = None
+        self.setWindowTitle('Set spotMAX measurements to save')
+        
+        self.tabWidget = QTabWidget()
+        
+        self.lastSelectionCp = None
         if os.path.exists(last_selection_meas_filepath):
-            lastSelectionCp = config.ConfigParser()
-            lastSelectionCp.read(last_selection_meas_filepath)
+            self.lastSelectionCp = config.ConfigParser()
+            self.lastSelectionCp.read(last_selection_meas_filepath)
         
         mainLayout = QVBoxLayout()
         
@@ -3142,44 +3216,34 @@ class SetMeasurementsDialog(QBaseDialog):
         searchLayout.addWidget(searchLineEdit)
         searchLayout.setStretch(3, 1)
         
-        self.featuresGroups = features.get_features_groups()
-        self.featuresToColMapper = features.feature_names_to_col_names_mapper()
+        self.groupBoxes = {'single_spot': {}, 'aggr': {}}
         
-        self.groupBoxes = {}
-        groupBoxesLayout = QGridLayout()
-        maxRows = 12
-        col = 0
-        row = 0
-        for groupName, metrics in self.featuresGroups.items():
-            rowSpan = len(metrics)
-            nextRow = row + rowSpan
-            if nextRow >= maxRows:
-                col += 1
-                row = 0
-            
-            infoUrl = docs.feature_group_name_to_url(groupName)
-            itemsInfoUrls = {name:infoUrl for name in metrics}
-            
-            lastSelection = self.getLastSelectionSection(
-                lastSelectionCp, groupName
-            )      
-            
-            groupbox = acdc_widgets.SetMeasurementsGroupBox(
-                groupName, metrics, parent=self, lastSelection=lastSelection,
-                itemsInfoUrls=itemsInfoUrls
-            )
-            groupBoxesLayout.addWidget(groupbox, row, col, rowSpan, 1)
-            self.groupBoxes[groupName] = groupbox
-            
-            if not isSpotFitRequested and groupName.startswith('Spotfit'):
-                groupbox.setChecked(False)
-                groupbox.setDisabled(True)
-                groupbox.setToolTip(
-                    'Spotfit metrics cannot be saved because you did not '
-                    'activate the parameter "Compute spots size".'
-                )
-            
-            row += rowSpan
+        self.singleSpotFeatGroups = features.get_features_groups()
+        self.singleSpotFeatToColMapper = (
+            features.feature_names_to_col_names_mapper()
+        )
+        singleSpotTab = self.buildTab(
+            isSpotFitRequested, self.singleSpotFeatGroups, 'single_spot'
+        )        
+        self.tabWidget.addTab(singleSpotTab, 'Single-spot measurements')
+        
+        self.aggrFeatGroups = features.get_aggr_features_groups()
+        self.aggrFeatToColMapper = (
+            features.aggr_feature_names_to_col_names_mapper()
+        )
+        aggrTab = self.buildTab(
+            isSpotFitRequested, self.aggrFeatGroups, 'aggr'
+        )        
+        self.tabWidget.addTab(aggrTab, 'Aggregated measurements')
+        
+        self.mappers = {
+            'single_spot': self.singleSpotFeatToColMapper,
+            'aggr': self.aggrFeatToColMapper
+        }
+        self.groups = {
+            'single_spot': self.singleSpotFeatGroups,
+            'aggr': self.aggrFeatGroups
+        }
         
         self.setSelectedMeasurementsChecked(selectedMeasurements)
         
@@ -3188,7 +3252,7 @@ class SetMeasurementsDialog(QBaseDialog):
         self.selectAllButton.sigClicked.connect(self.setCheckedAll)
         additionalButtons.append(self.selectAllButton)
         
-        if lastSelectionCp is not None:
+        if self.lastSelectionCp is not None:
             self.loadLastSelButton = acdc_widgets.reloadPushButton(
                 '  Load last selection...  '
             )
@@ -3204,7 +3268,7 @@ class SetMeasurementsDialog(QBaseDialog):
         
         mainLayout.addLayout(searchLayout)
         mainLayout.addSpacing(20)
-        mainLayout.addLayout(groupBoxesLayout)
+        mainLayout.addWidget(self.tabWidget)
         mainLayout.addSpacing(20)
         mainLayout.addLayout(buttonsLayout)
         
@@ -3214,14 +3278,73 @@ class SetMeasurementsDialog(QBaseDialog):
         searchLineEdit.textEdited.connect(self.searchAndHighlight)
         colNamesToggle.toggled.connect(self.showColNamesToggled)
     
+    def buildTab(self, isSpotFitRequested, featGroups, tabKey):
+        maxNumElementsPerVBox = 15
+        rowNumElements = 0
+        row = 0
+        groupBoxesHLayout = QHBoxLayout()
+        groupBoxesVLayout = QVBoxLayout()
+        for groupName, metrics in featGroups.items():
+            rowSpan = len(metrics) + 1
+            rowNumElements += rowSpan
+            if rowNumElements >= maxNumElementsPerVBox:
+                groupBoxesHLayout.addLayout(groupBoxesVLayout) 
+                groupBoxesVLayout = QVBoxLayout()
+                rowNumElements = 0
+                row = 0
+            
+            if tabKey == 'single_spot':
+                infoUrl = docs.single_spot_feature_group_name_to_url(groupName)
+            else:
+                infoUrl = docs.aggr_feature_group_name_to_url(groupName)
+                
+            itemsInfoUrls = {name:infoUrl for name in metrics}
+            
+            lastSelection = self.getLastSelectionSection(
+                self.lastSelectionCp, f'{tabKey};;{groupName}'
+            )      
+            
+            groupbox = acdc_widgets.SetMeasurementsGroupBox(
+                groupName, metrics, parent=self, lastSelection=lastSelection,
+                itemsInfoUrls=itemsInfoUrls
+            )
+            groupBoxesVLayout.addWidget(groupbox)
+            groupBoxesVLayout.setStretch(row, rowSpan)
+            row += 1
+            # printl(groupName, row, col, rowSpan)
+            # groupBoxesLayout.addWidget(groupbox, row, col, rowSpan, 1)           
+            self.groupBoxes[tabKey][groupName] = groupbox
+            
+            if not isSpotFitRequested and groupName.startswith('Spotfit'):
+                groupbox.setChecked(False)
+                groupbox.setDisabled(True)
+                groupbox.setToolTip(
+                    'Spotfit metrics cannot be saved because you did not '
+                    'activate the parameter "Compute spots size".'
+                )
+        
+        # Add last layout
+        groupBoxesHLayout.addLayout(groupBoxesVLayout)
+        
+        widget = QWidget()
+        widget.setLayout(groupBoxesHLayout)
+        return widget
+    
     def setSelectedMeasurementsChecked(self, selectedMeasurements):
         if selectedMeasurements is None:
             return
-        for groupName, groupbox in self.groupBoxes.items():
-            for checkbox in groupbox.checkboxes.values():
-                key = f'{groupName}, {checkbox.text()}'
-                colname = self.featuresToColMapper[key]
-                checkbox.setChecked(colname in selectedMeasurements)
+        for tabKey, groupboxes in self.groupBoxes.items():
+            if tabKey not in selectedMeasurements:
+                continue
+            
+            mapper = self.mappers[tabKey]
+            for groupName, groupbox in groupboxes.items():
+                for checkbox in groupbox.checkboxes.values():
+                    key = f'{groupName}, {checkbox.text()}'
+                    colname = mapper[key]
+                    checkbox.setChecked(
+                        colname in selectedMeasurements[tabKey]
+                    )
     
     def getLastSelectionSection(self, lastSelectionCp, sectionName):
         if lastSelectionCp is None:
@@ -3242,57 +3365,68 @@ class SetMeasurementsDialog(QBaseDialog):
         if len(text) == 1:
             return
         
-        for groupName, groupbox in self.groupBoxes.items():
-            groupbox.highlightCheckboxesFromSearchText(text)
+        for tabKey, groupboxes in self.groupBoxes.items():
+            for groupName, groupbox in groupboxes.items():
+                groupbox.highlightCheckboxesFromSearchText(text)
     
     def setCheckedAll(self, checked):
-        for groupName, groupbox in self.groupBoxes.items():
-            groupbox.selectAllButton.setChecked(checked)
+        for tabKey, groupboxes in self.groupBoxes.items():
+            for groupName, groupbox in groupboxes.items():
+                groupbox.selectAllButton.setChecked(checked)
     
     def loadLastSelection(self):
-        for groupName, groupbox in self.groupBoxes.items():
-            if not hasattr(groupbox, 'loadLastSelButton'):
-                continue
-            groupbox.loadLastSelButton.click()
+        for tabKey, groupboxes in self.groupBoxes.items():
+            for groupName, groupbox in groupboxes.items():
+                if not hasattr(groupbox, 'loadLastSelButton'):
+                    continue
+                groupbox.loadLastSelButton.click()
     
     def showColNamesToggled(self, checked):
-        for groupName, groupbox in self.groupBoxes.items():
-            for c, checkbox in enumerate(groupbox.checkboxes.values()):
-                if checked:
-                    key = f'{groupName}, {checkbox.text()}'
-                    colname = self.featuresToColMapper[key]
-                    newText = colname
-                else:
-                    newText = self.featuresGroups[groupName][c]
-                checkbox.setText(newText)
+        for tabKey, groupboxes in self.groupBoxes.items():
+            mapper = self.mappers[tabKey]
+            groups = self.groups[tabKey]
+            for groupName, groupbox in groupboxes.items():
+                for c, checkbox in enumerate(groupbox.checkboxes.values()):
+                    if checked:
+                        key = f'{groupName}, {checkbox.text()}'
+                        colname = mapper[key]
+                        newText = colname
+                    else:
+                        newText = groups[groupName][c]
+                    checkbox.setText(newText)
         QTimer.singleShot(200, self.resizeGroupBoxes)
     
     def resizeGroupBoxes(self):
-        for groupName, groupbox in self.groupBoxes.items():
-            groupbox.resizeWidthNoScrollBarNeeded()
+        for tabKey, groupboxes in self.groupBoxes.items():
+            for groupName, groupbox in groupboxes.items():
+                groupbox.resizeWidthNoScrollBarNeeded()
     
     def saveLastSelection(self):
         cp = config.ConfigParser()
-        for groupName, groupbox in self.groupBoxes.items():
-            cp[groupName] = {}
-            if not groupbox.isChecked():
-                continue
-            for name, checkbox in groupbox.checkboxes.items():
-                cp[groupName][name] = str(checkbox.isChecked())
+        for tabKey, groupboxes in self.groupBoxes.items():
+            for groupName, groupbox in groupboxes.items():
+                if not groupbox.isChecked():
+                    continue
+                cp[f'{tabKey};;{groupName}'] = {}
+                for name, checkbox in groupbox.checkboxes.items():
+                    cp[f'{tabKey};;{groupName}'][name] = str(checkbox.isChecked())
         with open(last_selection_meas_filepath, 'w') as ini:
             cp.write(ini)
     
     def getSelectedMeasurements(self):
         selectedMeasurements = {}
-        for groupName, groupbox in self.groupBoxes.items():
-            if not groupbox.isChecked():
-                continue
-            for c, checkbox in enumerate(groupbox.checkboxes.values()):
-                if not checkbox.isChecked():
+        for tabKey, groupboxes in self.groupBoxes.items():
+            selectedMeasurements[tabKey] = {}
+            mapper = self.mappers[tabKey]
+            for groupName, groupbox in groupboxes.items():
+                if not groupbox.isChecked():
                     continue
-                key = f'{groupName}, {checkbox.text()}'
-                colname = self.featuresToColMapper[key]
-                selectedMeasurements[colname] = key
+                for c, checkbox in enumerate(groupbox.checkboxes.values()):
+                    if not checkbox.isChecked():
+                        continue
+                    key = f'{groupName}, {checkbox.text()}'
+                    colname = mapper[key]
+                    selectedMeasurements[tabKey][colname] = key
         return selectedMeasurements
                 
     def ok_cb(self):
@@ -3304,6 +3438,15 @@ class SetMeasurementsDialog(QBaseDialog):
     
     def show(self, block=False):
         super().show(block=False)
+        topScreen = self.screen().geometry().top()
+        leftScreen = self.screen().geometry().left()
+        screenHeight = self.screen().size().height()
+        screenWidth = self.screen().size().width()
+        topWindow = round(topScreen + (0.15*screenHeight/2))
+        leftWindow = round(leftScreen + (0.3*screenWidth/2))
+        widthWindow = round(0.7*screenWidth)
+        heightWindow = round(0.85*screenHeight)
+        self.setGeometry(leftWindow, topWindow, widthWindow, heightWindow)
         QTimer.singleShot(200, self.resizeGroupBoxes)
         super().show(block=block)
         

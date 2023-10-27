@@ -9,6 +9,7 @@ spotmax/qtest.py
 spotmax/test.py
 spotmax/test1.py
 spotmax/deprecated.py
+spotmax/docs/deprecated.py
 spotmax/_version.py
 spotmax/_tests
 spotmax/_nnet
