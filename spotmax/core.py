@@ -51,6 +51,7 @@ from . import filters
 from . import pipe
 from . import ZYX_GLOBAL_COLS, ZYX_LOCAL_COLS, ZYX_AGGR_COLS
 from . import ZYX_LOCAL_EXPANDED_COLS, ZYX_FIT_COLS, ZYX_RESOL_COLS
+from . import BASE_COLUMNS
 from . import DFs_FILENAMES
 
 import math
@@ -712,6 +713,9 @@ class _ParamsParser(_DataLoader):
             self.logger.info(
                 f'New parameters file created: "{self.ini_params_file_path}"'
             )
+        
+        self.configPars = config.ConfigParser()
+        self.configPars.read(self.ini_params_file_path, encoding="utf-8")
         
         self.check_metadata()
         proceed, missing_params = self.check_missing_params()
@@ -3160,7 +3164,7 @@ class Kernel(_ParamsParser):
             gop_filtering_thresholds = {}
         
         if self.nnet_model is not None and transf_spots_nnet_img is None:
-            # Use raw image for neural network if not data was explicity passed
+            # Use raw image for neural network if no data was explicity passed
             transf_spots_nnet_img = raw_spots_img
         
         df_spots_coords = self._spots_detection(
@@ -4611,7 +4615,8 @@ class Kernel(_ParamsParser):
                 if dfs is None:
                     # Error raised, logged while dfs is None
                     continue
-                self.add_post_detection_features(dfs)
+                self.add_post_analysis_features(dfs)
+                dfs = self.filter_requested_features(dfs)
                 self.save_dfs_and_spots_masks(
                     pos_path, dfs, 
                     images_path=images_path,
@@ -4648,7 +4653,7 @@ class Kernel(_ParamsParser):
         df_agg_dst.loc[missing_idx_df_agg_dst, cols] = vals
         return df_agg_dst
 
-    def add_post_detection_features(self, dfs):
+    def add_post_analysis_features(self, dfs):
         zyx_voxel_size = self.metadata['zyxVoxelSize']
         for key, df in dfs.items():
             if df is None:
@@ -4662,6 +4667,24 @@ class Kernel(_ParamsParser):
             features.add_consecutive_spots_distance(
                 df, zyx_voxel_size, suffix='_fit'
             )
+    
+    def filter_requested_features(self, dfs):
+        section = 'Measurements to save'
+        if not self.configPars.has_section(section):
+            return dfs
+        columns_regexes = self.configPars.options(section)
+        filtered_dfs = {}
+        for key, df in dfs.items():
+            if df is None:
+                filtered_dfs[df] = None
+                continue
+            columns_to_filter = BASE_COLUMNS.copy()
+            for regex in columns_regexes:
+                pattern = rf'^{regex}'
+                filtered_df = df.filter(regex=pattern)
+                columns_to_filter.extend(filtered_df.columns)
+            filtered_dfs[key] = df.filter(columns_to_filter)
+        return filtered_dfs
 
     def _copy_ini_params_to_spotmax_out(
             self, spotmax_out_path, run_number, text_to_append
@@ -4751,10 +4774,6 @@ class Kernel(_ParamsParser):
 
             if df_agg is not None:
                 df_agg.to_csv(os.path.join(spotmax_out_path, agg_filename))
-
-    @exception_handler_cli
-    def _run_single_path(self, single_path_info):
-        pass
 
     @exception_handler_cli
     def run(

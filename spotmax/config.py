@@ -983,7 +983,7 @@ def _spots_ch_params():
 def analysisInputsParams(params_path=default_ini_path, cast_dtypes=True):
     # NOTE: if you change the anchors (i.e., the key of each second level
     # dictionary, e.g., 'spotsEndName') remember to change them also in
-    # docs.paramsInfoText dictionary keys
+    # _docs.paramsInfoText dictionary keys
     params = {
         'File paths and channels': _filepaths_params(),
         'METADATA': _metadata_params(),

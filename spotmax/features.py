@@ -5,6 +5,7 @@ import pandas as pd
 
 import scipy.stats
 
+from . import docs
 from . import printl
 
 def normalise_by_dist_transform_simple(
@@ -215,6 +216,12 @@ def spotfit_gof_metrics_names():
     }
     return metrics_names
 
+def post_analysis_metrics_names():
+    metrics_names = {
+        'Consecutive spots distance': 'consecutive_spots_distance'
+    }
+    return metrics_names
+
 def get_effect_size_func():
     effect_size_func = {
         'cohen': cohen_effect_size,
@@ -224,27 +231,7 @@ def get_effect_size_func():
     return effect_size_func
 
 def get_features_groups():
-    features_groups = {
-        'Effect size (vs. backgr.)': 
-            ['Glass', 'Cohen', 'Hedge'],
-        'Effect size (vs. ref. ch.)': 
-            ['Glass', 'Cohen', 'Hedge'],
-        'Statistical test (vs. backgr.)': 
-            ['t-statistic', 'p-value (t-test)'],
-        'Statistical test (vs. ref. ch.)': 
-            ['t-statistic', 'p-value (t-test)'],
-        'Raw intens. metric': 
-           list( distrubution_metrics_names().keys()),
-        'Preprocessed intens. metric': 
-            list(distrubution_metrics_names().keys()), 
-        'Spotfit size metric':
-            list(spotfit_size_metrics_names().keys()),
-        'Spotfit intens. metric':
-            list(spotfit_intensities_metrics_names().keys()),
-        'Goodness-of-fit':
-            list(spotfit_gof_metrics_names().keys()),
-    }
-    return features_groups
+    return docs.parse_features_groups()
 
 def _feature_types_to_col_endname_mapper():
     mapper = {
@@ -260,6 +247,7 @@ def _feature_types_to_col_endname_mapper():
         **spotfit_size_metrics_names(),
         **spotfit_intensities_metrics_names(),
         **spotfit_gof_metrics_names(),
+        **post_analysis_metrics_names(),
     }
     return mapper
 

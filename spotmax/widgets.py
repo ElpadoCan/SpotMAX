@@ -40,7 +40,7 @@ from cellacdc import myutils as acdc_myutils
 from cellacdc.regex import float_regex
 
 from . import is_mac, is_win, printl, font, font_small
-from . import dialogs, config, html_func, docs
+from . import dialogs, config, html_func, _docs
 from . import utils
 from . import features, io
 
@@ -1014,7 +1014,7 @@ class formWidget(QWidget):
     def showInfo(self):
         anchor = self.anchor
         txt = html_func.paragraph(
-            docs.paramsInfoText().get(anchor, docs.notDocumentedYetText())
+            _docs.paramsInfoText().get(anchor, _docs.notDocumentedYetText())
         )
         if not txt:
             return

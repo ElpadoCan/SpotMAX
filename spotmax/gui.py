@@ -260,6 +260,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.computeDockWidget.widget().sigRunAnalysis.connect(
             self.runAnalysis
         )
+        self.computeDockWidget.widget().sigSetMeasurements.connect(
+            self.setSpotmaxMeasActionTriggered
+        )
         self.addSpotsCoordinatesAction.triggered.connect(
             self.addSpotsCoordinatesTriggered
         )
@@ -356,6 +359,12 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.newAction, self.manageVersionsAction, self.openFileAction
         )
         self.ax2.hide()
+        
+        self.setMeasurementsAction.setText('Set Cell-ACDC measurements...')
+        self.setSpotmaxMeasAction = QAction('Set spotMAX measurements...')
+        self.measurementsMenu.insertAction(
+            self.setMeasurementsAction, self.setSpotmaxMeasAction
+        )
     
     def showComputeDockWidget(self, checked=False):
         if self.showParamsDockButton.isExpand:
@@ -462,6 +471,36 @@ class spotMAX_Win(acdc_gui.guiWin):
     def gui_addTopLayerItems(self):
         super().gui_addTopLayerItems()
 
+    def gui_connectEditActions(self):
+        super().gui_connectEditActions()
+
+        self.setSpotmaxMeasAction.triggered.connect(
+            self.setSpotmaxMeasActionTriggered
+        )
+    
+    def setSpotmaxMeasActionTriggered(self):
+        guiTabControl = self.computeDockWidget.widget()
+        parametersGroupBox = guiTabControl.parametersQGBox
+        selectedMeasurements = parametersGroupBox.selectedMeasurements
+        
+        spotsParams = parametersGroupBox.params['Spots channel']
+        anchor = 'doSpotFit'
+        isSpotFitRequested = spotsParams[anchor]['widget'].isChecked()
+        
+        win = dialogs.SetMeasurementsDialog(
+            parent=self, selectedMeasurements=selectedMeasurements,
+            isSpotFitRequested=isSpotFitRequested
+        )
+        win.sigOk.connect(self.setSpotmaxMeasurements)
+        win.exec_()
+    
+    def setSpotmaxMeasurements(self, selectedMeasurements):
+        guiTabControl = self.computeDockWidget.widget()
+        parametersGroupBox = guiTabControl.parametersQGBox
+        parametersGroupBox.selectedMeasurements = selectedMeasurements
+        guiTabControl = self.computeDockWidget.widget()
+        guiTabControl.confirmMeasurementsSet()
+    
     def loadingDataCompleted(self):
         super().loadingDataCompleted()
         posData = self.data[self.pos_i]

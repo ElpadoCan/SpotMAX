@@ -8,7 +8,7 @@ import tempfile
 from tkinter import ANCHOR
 import traceback
 from pprint import pprint
-import typing
+from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -17,7 +17,7 @@ from natsort import natsorted
 from collections import defaultdict
 
 from qtpy import QtCore
-from qtpy.QtCore import Qt, Signal, QEventLoop, QPointF
+from qtpy.QtCore import Qt, Signal, QEventLoop, QPointF, QTimer
 from qtpy.QtGui import (
     QFont, QFontMetrics, QTextDocument, QPalette, QColor,
     QIcon
@@ -40,11 +40,10 @@ from cellacdc import html_utils as acdc_html
 
 from . import html_func, io, widgets, utils, config
 from . import core, features
-
-# NOTE: Enable icons
 from . import printl, font
-from . import tune
+from . import tune, docs
 from . import gui_settings_csv_path as settings_csv_path
+from . import last_selection_meas_filepath
 
 class QBaseDialog(QDialog):
     def __init__(self, parent=None):
@@ -275,6 +274,7 @@ class guiQuickSettingsGroupbox(QGroupBox):
 
 class guiTabControl(QTabWidget):
     sigRunAnalysis = Signal(str, bool)
+    sigSetMeasurements = Signal()
 
     def __init__(self, parent=None, logging_func=print):
         super().__init__(parent)
@@ -290,6 +290,8 @@ class guiTabControl(QTabWidget):
             debug=True,
             logging_func=logging_func
         )
+        self.parametersTab.setWidget(self.parametersQGBox)        
+        
         self.logging_func = logging_func
         containerWidget = QWidget()
         containerLayout = QVBoxLayout()
@@ -311,11 +313,18 @@ class guiTabControl(QTabWidget):
 
         self.runSpotMaxButton = widgets.RunSpotMaxButton('  Run analysis...')
         buttonsLayout.addWidget(self.runSpotMaxButton)
+        
+        buttonsBottomLayout = QHBoxLayout()
+        
+        self.setMeasurementsButton = acdc_widgets.setPushButton(
+            'Set measurements to save...'
+        )
+        buttonsBottomLayout.addWidget(self.setMeasurementsButton)
+        buttonsBottomLayout.addStretch(1)
 
         containerLayout.addLayout(buttonsLayout)
-        
-        self.parametersTab.setWidget(self.parametersQGBox)
         containerLayout.addWidget(self.parametersTab)
+        containerLayout.addLayout(buttonsBottomLayout)
         
         containerWidget.setLayout(containerLayout)
 
@@ -324,8 +333,15 @@ class guiTabControl(QTabWidget):
         )
         self.saveParamsButton.clicked.connect(self.saveParamsFile)
         self.runSpotMaxButton.clicked.connect(self.runAnalysis)
+        self.setMeasurementsButton.clicked.connect(self.emitSetMeasurements)
 
         self.addTab(containerWidget, 'Analysis paramenters')
+    
+    def emitSetMeasurements(self):
+        self.sigSetMeasurements.emit()
+    
+    def confirmMeasurementsSet(self):
+        QTimer.singleShot(100, self.setMeasurementsButton.confirmAction)
     
     def runAnalysis(self):
         txt = html_func.paragraph("""
@@ -443,7 +459,11 @@ class guiTabControl(QTabWidget):
         self.loadedFilename, ext = os.path.splitext(os.path.basename(filePath))
         params = config.analysisInputsParams(filePath, cast_dtypes=False)
         self.setValuesFromParams(params)
-        
+        self.parametersQGBox.setSelectedMeasurements(filePath)
+        if self.parametersQGBox.selectedMeasurements is None:
+            return
+        self.confirmMeasurementsSet()
+    
     def saveParamsFile(self):
         if self.loadedFilename:
             entry = self.loadedFilename
@@ -1117,6 +1137,7 @@ class ParamsGroupBox(QGroupBox):
     def __init__(self, parent=None, debug=False, logging_func=print):
         super().__init__(parent)
 
+        self.selectedMeasurements = None
         # mainLayout = QGridLayout(self)
         mainLayout = QVBoxLayout()
 
@@ -1323,9 +1344,30 @@ class ParamsGroupBox(QGroupBox):
             }
         return ini_params
     
+    def saveSelectedMeasurements(self, configPars, ini_filepath):
+        if self.selectedMeasurements is None:
+            return
+
+        configPars['Measurements to save'] = {}
+        for key, value in self.selectedMeasurements.items():
+            configPars['Measurements to save'][key] = value
+        
+        with open(ini_filepath, 'w', encoding="utf-8") as file:
+            configPars.write(file)
+    
+    def setSelectedMeasurements(self, ini_filepath):
+        cp = config.ConfigParser()
+        cp.read(ini_filepath)
+        if not cp.has_section('Measurements to save'):
+            self.selectedMeasurements = None
+            return
+        
+        self.selectedMeasurements = dict(cp['Measurements to save'])
+    
     def saveToIniFile(self, ini_filepath):
         params = self.configIniParams()
-        io.writeConfigINI(params, ini_filepath)
+        configPars = io.writeConfigINI(params, ini_filepath)
+        self.saveSelectedMeasurements(configPars, ini_filepath)
         print('-'*60)
         print(f'Configuration file saved to: "{ini_filepath}"')
         print('*'*60)
@@ -3069,3 +3111,199 @@ class SelectFolderToAnalyse(QBaseDialog):
         for item in self.listWidget.selectedItems():
             row = self.listWidget.row(item)
             self.listWidget.takeItem(row)
+
+class SetMeasurementsDialog(QBaseDialog):
+    sigOk = Signal(object)
+    
+    def __init__(
+            self, parent=None, selectedMeasurements=None, 
+            isSpotFitRequested=False
+        ):
+        self.cancel = True
+        
+        super().__init__(parent=parent)
+        
+        lastSelectionCp = None
+        if os.path.exists(last_selection_meas_filepath):
+            lastSelectionCp = config.ConfigParser()
+            lastSelectionCp.read(last_selection_meas_filepath)
+        
+        mainLayout = QVBoxLayout()
+        
+        searchLineEdit = acdc_widgets.SearchLineEdit()
+        
+        showColNamesLabel = QLabel('Show column names')
+        colNamesToggle = acdc_widgets.Toggle()
+        
+        searchLayout = QHBoxLayout()
+        searchLayout.addWidget(showColNamesLabel)
+        searchLayout.addWidget(colNamesToggle)
+        searchLayout.addStretch(2)
+        searchLayout.addWidget(searchLineEdit)
+        searchLayout.setStretch(3, 1)
+        
+        self.featuresGroups = features.get_features_groups()
+        self.featuresToColMapper = features.feature_names_to_col_names_mapper()
+        
+        self.groupBoxes = {}
+        groupBoxesLayout = QGridLayout()
+        maxRows = 12
+        col = 0
+        row = 0
+        for groupName, metrics in self.featuresGroups.items():
+            rowSpan = len(metrics)
+            nextRow = row + rowSpan
+            if nextRow >= maxRows:
+                col += 1
+                row = 0
+            
+            infoUrl = docs.feature_group_name_to_url(groupName)
+            itemsInfoUrls = {name:infoUrl for name in metrics}
+            
+            lastSelection = self.getLastSelectionSection(
+                lastSelectionCp, groupName
+            )      
+            
+            groupbox = acdc_widgets.SetMeasurementsGroupBox(
+                groupName, metrics, parent=self, lastSelection=lastSelection,
+                itemsInfoUrls=itemsInfoUrls
+            )
+            groupBoxesLayout.addWidget(groupbox, row, col, rowSpan, 1)
+            self.groupBoxes[groupName] = groupbox
+            
+            if not isSpotFitRequested and groupName.startswith('Spotfit'):
+                groupbox.setChecked(False)
+                groupbox.setDisabled(True)
+                groupbox.setToolTip(
+                    'Spotfit metrics cannot be saved because you did not '
+                    'activate the parameter "Compute spots size".'
+                )
+            
+            row += rowSpan
+        
+        self.setSelectedMeasurementsChecked(selectedMeasurements)
+        
+        additionalButtons = []
+        self.selectAllButton = acdc_widgets.selectAllPushButton()
+        self.selectAllButton.sigClicked.connect(self.setCheckedAll)
+        additionalButtons.append(self.selectAllButton)
+        
+        if lastSelectionCp is not None:
+            self.loadLastSelButton = acdc_widgets.reloadPushButton(
+                '  Load last selection...  '
+            )
+            self.loadLastSelButton.clicked.connect(self.loadLastSelection)
+            additionalButtons.append(self.loadLastSelButton)
+            
+        buttonsLayout = acdc_widgets.CancelOkButtonsLayout(
+            additionalButtons=additionalButtons
+        )
+            
+        buttonsLayout.okButton.clicked.connect(self.ok_cb)
+        buttonsLayout.cancelButton.clicked.connect(self.close)
+        
+        mainLayout.addLayout(searchLayout)
+        mainLayout.addSpacing(20)
+        mainLayout.addLayout(groupBoxesLayout)
+        mainLayout.addSpacing(20)
+        mainLayout.addLayout(buttonsLayout)
+        
+        self.setFont(font)
+        self.setLayout(mainLayout)       
+        
+        searchLineEdit.textEdited.connect(self.searchAndHighlight)
+        colNamesToggle.toggled.connect(self.showColNamesToggled)
+    
+    def setSelectedMeasurementsChecked(self, selectedMeasurements):
+        if selectedMeasurements is None:
+            return
+        for groupName, groupbox in self.groupBoxes.items():
+            for checkbox in groupbox.checkboxes.values():
+                key = f'{groupName}, {checkbox.text()}'
+                colname = self.featuresToColMapper[key]
+                checkbox.setChecked(colname in selectedMeasurements)
+    
+    def getLastSelectionSection(self, lastSelectionCp, sectionName):
+        if lastSelectionCp is None:
+            return
+        
+        if not lastSelectionCp.has_section(sectionName):
+            return
+        
+        lastSelection = {}
+        for option in lastSelectionCp.options(sectionName):
+            lastSelection[option] = lastSelectionCp.getboolean(
+                sectionName, option
+            )
+        
+        return lastSelection
+    
+    def searchAndHighlight(self, text):
+        if len(text) == 1:
+            return
+        
+        for groupName, groupbox in self.groupBoxes.items():
+            groupbox.highlightCheckboxesFromSearchText(text)
+    
+    def setCheckedAll(self, checked):
+        for groupName, groupbox in self.groupBoxes.items():
+            groupbox.selectAllButton.setChecked(checked)
+    
+    def loadLastSelection(self):
+        for groupName, groupbox in self.groupBoxes.items():
+            if not hasattr(groupbox, 'loadLastSelButton'):
+                continue
+            groupbox.loadLastSelButton.click()
+    
+    def showColNamesToggled(self, checked):
+        for groupName, groupbox in self.groupBoxes.items():
+            for c, checkbox in enumerate(groupbox.checkboxes.values()):
+                if checked:
+                    key = f'{groupName}, {checkbox.text()}'
+                    colname = self.featuresToColMapper[key]
+                    newText = colname
+                else:
+                    newText = self.featuresGroups[groupName][c]
+                checkbox.setText(newText)
+        QTimer.singleShot(200, self.resizeGroupBoxes)
+    
+    def resizeGroupBoxes(self):
+        for groupName, groupbox in self.groupBoxes.items():
+            groupbox.resizeWidthNoScrollBarNeeded()
+    
+    def saveLastSelection(self):
+        cp = config.ConfigParser()
+        for groupName, groupbox in self.groupBoxes.items():
+            cp[groupName] = {}
+            if not groupbox.isChecked():
+                continue
+            for name, checkbox in groupbox.checkboxes.items():
+                cp[groupName][name] = str(checkbox.isChecked())
+        with open(last_selection_meas_filepath, 'w') as ini:
+            cp.write(ini)
+    
+    def getSelectedMeasurements(self):
+        selectedMeasurements = {}
+        for groupName, groupbox in self.groupBoxes.items():
+            if not groupbox.isChecked():
+                continue
+            for c, checkbox in enumerate(groupbox.checkboxes.values()):
+                if not checkbox.isChecked():
+                    continue
+                key = f'{groupName}, {checkbox.text()}'
+                colname = self.featuresToColMapper[key]
+                selectedMeasurements[colname] = key
+        return selectedMeasurements
+                
+    def ok_cb(self):
+        self.cancel = False
+        self.saveLastSelection()
+        selectedMeasurements = self.getSelectedMeasurements()
+        self.close()
+        self.sigOk.emit(selectedMeasurements)
+    
+    def show(self, block=False):
+        super().show(block=False)
+        QTimer.singleShot(200, self.resizeGroupBoxes)
+        super().show(block=block)
+        

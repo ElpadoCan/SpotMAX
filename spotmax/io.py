@@ -487,6 +487,8 @@ def writeConfigINI(params=None, ini_path=None):
     # Write config to file
     with open(ini_path, 'w', encoding="utf-8") as file:
         configPars.write(file)
+    
+    return configPars
 
 def _load_spots_table_h5(filepath):
     with pd.HDFStore(filepath, mode='r') as store:

@@ -13,6 +13,17 @@ from functools import wraps
 is_cli = True
 
 try:
+    from setuptools_scm import get_version
+    __version__ = get_version(root='..', relative_to=__file__)
+except Exception as e:
+    try:
+        from ._version import version as __version__
+    except ImportError:
+        __version__ = "not-installed"
+
+__author__ = 'Francesco Padovani'
+
+try:
     from cellacdc import gui as acdc_gui
     from qtpy.QtGui import QFont
     font = QFont()
@@ -60,6 +71,9 @@ unet2D_checkpoint_path = os.path.join(unet_checkpoints_path, 'unet2D')
 unet3D_checkpoint_path = os.path.join(
     unet_checkpoints_path, 'unet3D', 'normal_30_250_250_20_100_100'
 )
+last_selection_meas_filepath = os.path.join(
+    spotmax_appdata_path, 'last_selection_meas.ini'
+)
 last_used_ini_text_filepath = os.path.join(
     spotmax_appdata_path, 'last_used_ini_filepath.txt'
 )
@@ -93,6 +107,8 @@ def printl(*objects, pretty=False, is_decorator=False, **kwargs):
     filpath = callingframe_info.filename
     filename = os.path.basename(filpath)
     print_func = pprint if pretty else print
+    if pretty:
+        kwargs['sort_dicts'] = False
     print('*'*30)
     print(f'{timestap} - File "{filename}", line {callingframe_info.lineno}:')
     print_func(*objects, **kwargs)
@@ -139,6 +155,11 @@ ZYX_LOCAL_EXPANDED_COLS = [
 ]
 ZYX_FIT_COLS = ['z_fit', 'y_fit', 'x_fit']
 ZYX_RESOL_COLS = ['z_resolution_pxl', 'y_resolution_pxl', 'x_resolution_pxl']
+
+BASE_COLUMNS = ZYX_GLOBAL_COLS.copy()
+BASE_COLUMNS.extend(ZYX_LOCAL_COLS)
+BASE_COLUMNS.extend(ZYX_FIT_COLS)
+BASE_COLUMNS.extend(ZYX_RESOL_COLS)
 
 DFs_FILENAMES = {
     'spots_detection': '*rn*_0_detected_spots*desc*',

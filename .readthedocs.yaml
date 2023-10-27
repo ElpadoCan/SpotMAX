@@ -1,0 +1,20 @@
+version: "2"
+
+build:
+  os: "ubuntu-22.04"
+  tools:
+    python: "3.9"
+
+python:
+  install:
+    - requirements: spotmax/docs/requirements.txt
+    # Install our python package before building the docs
+    - method: pip
+      path: .
+
+sphinx:
+  configuration: spotmax/docs/source/conf.py
+
+formats:
+  - pdf
+  - epub
