@@ -980,6 +980,13 @@ def _spots_ch_params():
     }
     return spots_ch_params
 
+def get_section_from_anchor(anchor_to_search):
+    params = analysisInputsParams()
+    for section, section_params in params.items():
+        for anchor in section_params.keys():
+            if anchor == anchor_to_search:
+                return section
+
 def analysisInputsParams(params_path=default_ini_path, cast_dtypes=True):
     # NOTE: if you change the anchors (i.e., the key of each second level
     # dictionary, e.g., 'spotsEndName') remember to change them also in
