@@ -1,7 +1,9 @@
 .. role:: m(math)
 
-Features description
-====================
+.. _Single-spot features description:
+
+Single-spot features description
+================================
 
 Description of all the features saved by spotMAX for each single spot and the 
 corresponding column name.
@@ -124,6 +126,8 @@ greater than the background given the statistical significance level of 0.025.
   associated with the alternative hypothesis.
 
 
+.. _Statistical test (vs. ref. ch.):
+
 Statistical test (vs. ref. ch.)
 -------------------------------
 
@@ -150,7 +154,12 @@ greater than the reference channel given the statistical significance level of 0
 Raw intens. metric
 ------------------
 
-Raw spots intensities distribution metrics.
+Raw spots intensities distribution metrics. As the name suggested, these are 
+calculated on the raw image without any filter applied to it. Note that intensities 
+are converted to float data type and scaled to the range 0-1 by dividing by the maximum intensity value according 
+to the data type of the image (e.g., for 8-bit the maximum is 255). This scaling, 
+does not affect the relative differences between intensities. The pixels belonging to 
+a specific spot are determined by constructing a spehroid with size 
 
 * **Mean**: column name ``spot_raw_mean_in_spot_minimumsize_vol``.
 * **Sum**: column name ``spot_raw_sum_in_spot_minimumsize_vol``.
@@ -165,6 +174,12 @@ Raw spots intensities distribution metrics.
 
 Preprocessed intens. metric
 ---------------------------
+
+Preprocessed spots intensities distribution metrics. These features are 
+calculated on the image after it went through the gaussian filter. 
+Note that the gaussian filter also scales the intensities to the range
+0-1. 
+
 * **Mean**: column name ``spot_preproc_mean_in_spot_minimumsize_vol``.
 * **Sum**: column name ``spot_preproc_sum_in_spot_minimumsize_vol``.
 * **Median**: column name ``spot_preproc_median_in_spot_minimumsize_vol``.
@@ -175,9 +190,13 @@ Preprocessed intens. metric
 * **5 percentile**: column name ``spot_preproc_q05_in_spot_minimumsize_vol``.
 * **95 percentile**: column name ``spot_preproc_q95_in_spot_minimumsize_vol``.
 
+.. _Spotfit features:
 
 Spotfit size metric
 -------------------
+
+Features that are computed during the gaussian fit procedure. 
+
 * **Radius x- direction**: column name ``sigma_x_fit``.
 * **Radius y- direction**: column name ``sigma_y_fit``.
 * **Radius z- direction**: column name ``sigma_z_fit``.
@@ -187,19 +206,31 @@ Spotfit size metric
 
 Spotfit intens. metric
 ----------------------
-* **Total integral gauss. peak**: column name ``total_integral_fit``.
-* **Foregr. integral gauss. peak**: column name ``foreground_integral_fit``.
+
+* **Total integral gauss. peak**: column name ``total_integral_fit``. This is 
+  the result of the analytical integration of the gaussian curve including 
+  the background. 
+* **Foregr. integral gauss. peak**: column name ``foreground_integral_fit``. This is 
+  the result of the analytical integration of the gaussian curve excluding  
+  the background.
 * **Amplitude gauss. peak**: column name ``A_fit``.
 * **Backgr. level gauss. peak**: column name ``B_fit``.
 
 
 Spotfit Goodness-of-fit
 -----------------------
-* **RMS error gauss. fit**: column name ``RMSE_fit``.
-* **Normalised RMS error gauss. fit**: column name ``NRMSE_fit``.
-* **F-norm. RMS error gauss. fit**: column name ``F_NRMSE_fit``.
+* **RMS error gauss. fit**: column name ``RMSE_fit``. Root mean squared error 
+  betweed fitted and predicted data. The lower this value, the better was the fit. 
+* **Normalised RMS error gauss. fit**: column name ``NRMSE_fit``. RMS error 
+  divided by the mean of the fitted data.
+* **F-norm. RMS error gauss. fit**: column name ``F_NRMSE_fit``. Normalised RMS 
+  scaled to the range 0-1 using a modified sigmoid function:
+  
+  .. math::
+    F_{NRMSE} = \frac{2}{1 + e^{NRMSE}}
 
 Post-analysis metrics
 ---------------------
 
-* **Consecutive spots distance**: column_name ``consecutive_spots_distance_``.
+* **Consecutive spots distance**: column_name ``consecutive_spots_distance_``. 
+  Euclidean distance between consecutive pairs of spots without a specific order.

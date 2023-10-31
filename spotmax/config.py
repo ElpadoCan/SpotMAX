@@ -835,17 +835,17 @@ def _ref_ch_params():
             'dtype': get_threshold_func,
             'parser': parse_threshold_func
         },
-        'calcRefChNetLen': {
-            'desc': 'Calculate reference channel network length',
-            'initialVal': False,
-            'stretchWidget': False,
-            'addInfoButton': True,
-            'addComputeButton': False,
-            'addApplyButton': False,
-            'formWidgetFunc': 'acdc_widgets.Toggle',
-            'actions': None,
-            'dtype': get_bool
-        },
+        # 'calcRefChNetLen': {
+        #     'desc': 'Calculate reference channel network length',
+        #     'initialVal': False,
+        #     'stretchWidget': False,
+        #     'addInfoButton': True,
+        #     'addComputeButton': False,
+        #     'addApplyButton': False,
+        #     'formWidgetFunc': 'acdc_widgets.Toggle',
+        #     'actions': None,
+        #     'dtype': get_bool
+        # },
         'saveRefChMask': {
             'desc': 'Save reference channel segmentation masks',
             'initialVal': False,

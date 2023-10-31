@@ -2267,10 +2267,10 @@ class _spotFIT(spheroid):
                 if id in stop_grow_ids:
                     continue
                 
-                exanped_spot_mask = expanded_labels[s_obj.slice]==id
+                expanded_spot_mask = expanded_labels[s_obj.slice]==id
                 prev_iter_spot_mask = prev_iter_expanded_lab[s_obj.slice]==id
                 local_spot_surf_mask = np.logical_xor(
-                    exanped_spot_mask, prev_iter_spot_mask
+                    expanded_spot_mask, prev_iter_spot_mask
                 )
                 surf_vals = spots_img_denoise[s_obj.slice][local_spot_surf_mask]
                 if len(surf_vals) == 0:

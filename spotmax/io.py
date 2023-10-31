@@ -268,8 +268,8 @@ def load_image_data(path: os.PathLike, to_float=False, return_dtype=False):
 def readStoredParamsCSV(csv_path, params):
     """Read old format of analysis_inputs.csv file from spotMAX v1"""
     old_csv_options_to_anchors = {
-        'Calculate ref. channel network length?':
-            ('Reference channel', 'calcRefChNetLen'),
+        # 'Calculate ref. channel network length?':
+        #     ('Reference channel', 'calcRefChNetLen'),
         'Compute spots size?':
             ('Spots channel', 'doSpotFit'),
         'emission wavelength (nm):':
