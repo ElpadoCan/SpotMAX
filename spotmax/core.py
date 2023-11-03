@@ -35,12 +35,12 @@ if GUI_INSTALLED:
     import matplotlib.pyplot as plt
     import matplotlib
 
+NUMBA_INSTALLED = False
 try:
     import numba
     from numba import njit, prange
     NUMBA_INSTALLED = True
 except Exception as e:
-    NUMBA_INSTALLED = False
     from .utils import njit_replacement as njit
     prange = range
 

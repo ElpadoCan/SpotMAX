@@ -110,6 +110,9 @@ def spots_semantic_segmentation(
             logger_func=logger_func
         )
 
+    if lab is None:
+        lab = np.ones(image.shape, dtype=np.uint8)
+    
     if not np.any(lab):
         result = {
             'input_image': image,

@@ -458,11 +458,19 @@ class guiTabControl(QTabWidget):
         params = config.analysisInputsParams(filePath, cast_dtypes=False)
         self.setValuesFromParams(params)
         self.parametersQGBox.setSelectedMeasurements(filePath)
+        self.showParamsLoadedMessageBox()
         if self.parametersQGBox.selectedMeasurements is None:
             QTimer.singleShot(100, self.loadPreviousParamsButton.confirmAction)
             return
         self.confirmMeasurementsSet()
         QTimer.singleShot(100, self.loadPreviousParamsButton.confirmAction)
+    
+    def showParamsLoadedMessageBox(self):
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph("""
+            Parameters have been loaded.<br>
+        """)
+        msg.information(self, 'Parameters loaded', txt)
     
     def askSetMeasurements(self):
         if self.setMeasurementsButton.text().find('are set.') != -1:
@@ -1158,7 +1166,7 @@ class AutoTuneTabWidget(QWidget):
             item.setPen(pens)
             
     def setAutoTunePointSize(self, size):
-        self.autoTuneGroupbox.trueItem.setSize((size))
+        self.autoTuneGroupbox.trueItem.setSize(size)
         self.autoTuneGroupbox.falseItem.setSize(size)
     
     def showHelp(self):

@@ -110,9 +110,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         ANCHOR = 'numbaNumThreads'
         paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
         widget = paramsGroupbox.params[SECTION][ANCHOR]['widget']
-        if core.NUMBA_INSTALLED:
+        if not core.NUMBA_INSTALLED:
             widget.setDisabled(True)
         else:
+            import numba
             widget.setMaximum(numba.config.NUMBA_NUM_THREADS)
     
     def createThreadPool(self):
@@ -123,7 +124,6 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
-            from spotmax.nnet import model
             pass
         super().keyPressEvent(event)
     
@@ -751,6 +751,18 @@ class spotMAX_Win(acdc_gui.guiWin):
             size=size
         )
     
+    def copyParamsToAutoTuneWidget(self):
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        section = 'METADATA'
+        anchor = 'yxResolLimitMultiplier'
+        autoTuneGroupbox.params[section][anchor]['widget'].setValue(
+            ParamsGroupBox.params[section][anchor]['widget'].value()
+        )
+    
     def tabControlPageChanged(self, index):
         if not self.dataIsLoaded:
             return
@@ -758,6 +770,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.isAutoTuneTabActive = False
         if index == 1:
             # AutoTune tab toggled
+            self.copyParamsToAutoTuneWidget()
             self.setAutoTunePointSize()
             self.initTuneKernel()
             self.isAutoTuneTabActive = True
@@ -1733,7 +1746,6 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.startTuneKernelWorker(kernel)
         
     def startTuneKernelWorker(self, kernel):
-        posData = self.data[self.pos_i]
         worker = qtworkers.TuneKernelWorker(kernel)
         self.connectDefaultWorkerSlots(worker)
         worker.signals.finished.connect(self.tuneKernelWorkerFinished)
@@ -1752,6 +1764,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.autoTuningButton.setChecked(False)
         autoTuneTabWidget.setTuneResult(result)
+        
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph("""
+            Auto-tuning process finished. Results will be displayed on the 
+            `Tune parameters` tab.<br>
+        """)
+        msg.information(self, 'Auto-tuning finished', txt)
         
     def initAutoTuneColors(self):
         setting_name = 'autoTuningTrueSpotsColor'
@@ -1920,6 +1939,9 @@ class spotMAX_Win(acdc_gui.guiWin):
     def setAnalysisParameters(self):
         paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
         posData = self.data[self.pos_i]
+        self.computeDockWidget.widget().loadPreviousParamsButton.setStartPath(
+            posData.pos_path
+        )
         segmFilename = os.path.basename(posData.segm_npz_path)
         segmEndName = segmFilename[len(posData.basename):]
         runNum = max(self.loaded_exp_run_nums, default=0) + 1
