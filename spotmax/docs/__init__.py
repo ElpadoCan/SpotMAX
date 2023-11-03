@@ -1,7 +1,7 @@
 import os
 import re
 
-from ..html_func import simple_rst_to_html
+from urllib.parse import urlparse
 
 # Paths
 docs_path = os.path.dirname(os.path.abspath(__file__))
@@ -15,14 +15,20 @@ single_spot_features_rst_filepath = os.path.join(
 aggr_features_filename = 'aggr_features_description.rst'
 aggr_features_rst_filepath = os.path.join(source_path, aggr_features_filename)
 
+params_desc_filename = 'parameters_description.rst'
+params_desc_rst_filepath = os.path.join(source_path, params_desc_filename)
+
 # Urls
-readthedocs_url = 'spotmax.rtfd.io/en/latest'
+readthedocs_url = 'https://spotmax.readthedocs.io/'
 
 single_spot_features_desc_url = (
     f'{readthedocs_url}/{single_spot_features_filename}.html'
 )
 aggr_features_desc_url = (
     f'{readthedocs_url}/{aggr_features_filename}.html'
+)
+params_desc_desc_url = (
+    f'{readthedocs_url}/{params_desc_filename}.html'
 )
 
 # Regex patterns
@@ -48,6 +54,11 @@ def single_spot_feature_group_name_to_url(group_name):
 def aggr_feature_group_name_to_url(group_name):
     url_tag = re.sub(r'[^a-zA-Z0-9]+', '-', group_name.lower()).strip('-')
     infoUrl = f'{aggr_features_desc_url}#{url_tag}'
+    return infoUrl
+
+def params_desc_section_to_url(section):
+    url_tag = re.sub(r'[^a-zA-Z0-9]+', '-', section.lower()).strip('-')
+    infoUrl = f'{params_desc_desc_url}#{url_tag}'
     return infoUrl
 
 def _parse_features_groups(rst_text):

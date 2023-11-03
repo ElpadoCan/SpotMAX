@@ -835,17 +835,17 @@ def _ref_ch_params():
             'dtype': get_threshold_func,
             'parser': parse_threshold_func
         },
-        'calcRefChNetLen': {
-            'desc': 'Calculate reference channel network length',
-            'initialVal': False,
-            'stretchWidget': False,
-            'addInfoButton': True,
-            'addComputeButton': False,
-            'addApplyButton': False,
-            'formWidgetFunc': 'acdc_widgets.Toggle',
-            'actions': None,
-            'dtype': get_bool
-        },
+        # 'calcRefChNetLen': {
+        #     'desc': 'Calculate reference channel network length',
+        #     'initialVal': False,
+        #     'stretchWidget': False,
+        #     'addInfoButton': True,
+        #     'addComputeButton': False,
+        #     'addApplyButton': False,
+        #     'formWidgetFunc': 'acdc_widgets.Toggle',
+        #     'actions': None,
+        #     'dtype': get_bool
+        # },
         'saveRefChMask': {
             'desc': 'Save reference channel segmentation masks',
             'initialVal': False,
@@ -979,6 +979,13 @@ def _spots_ch_params():
         # }
     }
     return spots_ch_params
+
+def get_section_from_anchor(anchor_to_search):
+    params = analysisInputsParams()
+    for section, section_params in params.items():
+        for anchor in section_params.keys():
+            if anchor == anchor_to_search:
+                return section
 
 def analysisInputsParams(params_path=default_ini_path, cast_dtypes=True):
     # NOTE: if you change the anchors (i.e., the key of each second level

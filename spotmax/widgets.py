@@ -16,10 +16,11 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 from qtpy.QtCore import (
     Signal, QTimer, Qt, QRegularExpression, QEvent, QPropertyAnimation,
-    QPointF
+    QPointF, QUrl
 )
 from qtpy.QtGui import (
-    QFont,  QPainter, QRegularExpressionValidator, QIcon, QColor, QPalette
+    QFont,  QPainter, QRegularExpressionValidator, QIcon, QColor, QPalette,
+    QDesktopServices
 )
 from qtpy.QtWidgets import (
     QTextEdit, QLabel, QProgressBar, QHBoxLayout, QToolButton, QCheckBox,
@@ -40,7 +41,7 @@ from cellacdc import myutils as acdc_myutils
 from cellacdc.regex import float_regex
 
 from . import is_mac, is_win, printl, font, font_small
-from . import dialogs, config, html_func, _docs
+from . import dialogs, config, html_func, docs
 from . import utils
 from . import features, io
 
@@ -839,6 +840,7 @@ class formWidget(QWidget):
         super().__init__(parent)
         self.widget = widget
         self.anchor = anchor
+        self.section = config.get_section_from_anchor(anchor)
         self.key = key
         self.addLabel = addLabel
         self.labelTextLeft = labelTextLeft
@@ -1012,24 +1014,26 @@ class formWidget(QWidget):
             self.sigLinkClicked.emit(link)
 
     def showInfo(self):
-        anchor = self.anchor
-        txt = html_func.paragraph(
-            _docs.paramsInfoText().get(anchor, _docs.notDocumentedYetText())
-        )
-        if not txt:
-            return
-        msg = acdc_widgets.myMessageBox(parent=self, showCentered=False)
-        msg.setIcon(iconName='SP_MessageBoxInformation')
-        msg.setWindowTitle(f'{self.labelLeft.text()} info')
-        msg.addText(txt)
-        msg.setWidth(600)
-        msg.addButton('  Ok  ')
-        for label in msg.labels:
-            label.setOpenExternalLinks(False)
-            label.linkActivated.connect(self.linkActivatedCallBack)
-        msg.exec_()
-        # Here show user manual already scrolled at anchor
-        # see https://stackoverflow.com/questions/20678610/qtextedit-set-anchor-and-scroll-to-it
+        url = docs.params_desc_section_to_url(self.section)
+        QDesktopServices.openUrl(QUrl(url))
+        
+        # txt = html_func.paragraph(
+        #     _docs.paramsInfoText().get(anchor, _docs.notDocumentedYetText())
+        # )
+        # if not txt:
+        #     return
+        # msg = acdc_widgets.myMessageBox(parent=self, showCentered=False)
+        # msg.setIcon(iconName='SP_MessageBoxInformation')
+        # msg.setWindowTitle(f'{self.labelLeft.text()} info')
+        # msg.addText(txt)
+        # msg.setWidth(600)
+        # msg.addButton('  Ok  ')
+        # for label in msg.labels:
+        #     label.setOpenExternalLinks(False)
+        #     label.linkActivated.connect(self.linkActivatedCallBack)
+        # msg.exec_()
+        # # Here show user manual already scrolled at anchor
+        # # see https://stackoverflow.com/questions/20678610/qtextedit-set-anchor-and-scroll-to-it
 
 class FormLayout(QGridLayout):
     def __init__(self):

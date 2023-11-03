@@ -1,7 +1,3 @@
-# print('Setting up required libraries...')
-from cellacdc._run import _install_tables
-_install_tables(parent_software='SpotMAX')
-
 import os
 import sys
 import traceback

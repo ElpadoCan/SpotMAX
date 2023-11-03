@@ -127,6 +127,16 @@ def cli_parser():
     return vars(ap.parse_args())
 
 def run():
+    # print('Setting up required libraries...')
+    from cellacdc._run import _install_tables
+    requires_restart = _install_tables(parent_software='SpotMAX')
+    if requires_restart:
+        input(
+            'SpotMAX had to install a required library and needs to be '
+            'restarted. Thank you for you patience! (press any key to exit). '
+        )
+        return
+
     parser_args = cli_parser()
 
     PARAMS_PATH = parser_args['params']

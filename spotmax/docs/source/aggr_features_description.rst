@@ -4,7 +4,9 @@ Aggregated features description
 ===============================
 
 Description of all the features saved by spotMAX for each segmented object 
-(aggregated) and the corresponding column name.
+(aggregated) and the corresponding column name. These are simple aggregations 
+like averaging and sum. See the related feature in the `Single-spot features description`_ 
+section for more details.
 
 .. contents::
 
@@ -41,14 +43,23 @@ Spotfit Goodness-of-fit
   
 Reference channel
 -----------------
-* **Ref. channel volume**: column name ``ref_ch_vol_``
-* **Ref. ch. number of fragments**: column name ``ref_ch_num_fragments``
+* **Ref. channel volume**: column name ``ref_ch_vol_``.
+* **Ref. ch. number of fragments**: column name ``ref_ch_num_fragments``.
   
 Segmented objects size
 ----------------------
-* **Area of the segmented object (pixel)**: column name ``cell_area_pxl``
-* **Area of the segmented object (micro-m^2)**: column name ``cell_area_um2``
-* **Estimated 3D volume from 2D mask (pixel)**: column name ``cell_vol_vox``
-* **Estimated 3D volume from 2D mask (fl)**: column name ``cell_vol_fl``
-* **3D volume from 3D mask (voxel)**: column name ``cell_vol_vox_3D``
-* **3D volume from 3D mask (fl)**: column name ``cell_vol_fl_3D``
+* **Area of the segmented object (pixel)**: column name ``cell_area_pxl``.
+* **Area of the segmented object (micro-m^2)**: column name ``cell_area_um2``.
+* **Estimated 3D volume from 2D mask (pixel)**: column name ``cell_vol_vox``. 
+  To calculate cell volume from a 2D mask, the mask is first aligned along its 
+  major axis. Next, it is divided into slices perpendicular to the major axis, 
+  each slice with width equal to 1 pixel. 
+  Assuming rotational symmetry of each 
+  slice around its middle axis parallel to the mask's major axis, spotMAX computes 
+  the volume of the resulting cylinder. Finally, the volumes of each cylinder 
+  are summed to obtain the total volume.
+* **Estimated 3D volume from 2D mask (fl)**: column name ``cell_vol_fl``. 
+  Estimated 3D volume from 2D mask in pixels converted to femtoliters (equivalent 
+  to :m:`\mu m^3`) using the pixel size provided in the parameters.
+* **3D volume from 3D mask (voxel)**: column name ``cell_vol_vox_3D``.
+* **3D volume from 3D mask (fl)**: column name ``cell_vol_fl_3D``.
