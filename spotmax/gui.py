@@ -161,7 +161,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             )
         
         self.onHoverAutoTunePoints(x, y)
-        self.onkHoverInspectPoints(x, y)
+        self.onHoverInspectPoints(x, y)
     
     def onHoverAutoTunePoints(self, x, y):
         if not self.isAutoTuneTabActive:
@@ -175,7 +175,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.setInspectFeatures(hoveredPoints)
     
-    def onkHoverInspectPoints(self, x, y):
+    def onHoverInspectPoints(self, x, y):
         z = self.currentZ()
         frame_i = self.data[self.pos_i].frame_i
         point_features = self.spotsItems.getHoveredPointData(frame_i, z, y, x)
@@ -263,6 +263,34 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.addSpotsCoordinatesAction.triggered.connect(
             self.addSpotsCoordinatesTriggered
         )
+        
+        inspectTabWidget = self.computeDockWidget.widget().inspectResultsTab
+        inspectTabWidget.loadAnalysisButton.clicked.connect(
+            self.loadAnalysisPathSelected
+        )
+    
+    def checkDataLoaded(self):
+        if self.dataIsLoaded:
+            return True
+        
+        txt = html_func.paragraph("""
+            Before visualizing results from a previous analysis you need to <b>load some 
+            image data</b>.<br><br>
+            To do so, click on the <code>Open folder</code> button on the left of 
+            the top toolbar (Ctrl+O) and choose an experiment folder to load. 
+        """)
+        msg = acdc_widgets.myMessageBox()
+        msg.warning(self, 'Data not loaded', txt)
+        
+        return False
+        
+    
+    def loadAnalysisPathSelected(self):
+        proceed = self.checkDataLoaded()
+        if not proceed:
+            return
+        
+        self.addSpotsCoordinatesAction.trigger()        
     
     def addSpotsCoordinatesTriggered(self):
         posData = self.data[self.pos_i]
@@ -274,7 +302,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 'Add spots layer process cancelled.'
             )
             return
-        self.spotmaxToolbar.addWidget(toolbutton)
+        toolbutton.action = self.spotmaxToolbar.addWidget(toolbutton)
         self.ax1.addItem(toolbutton.item)
 
         self.spotsItems.setData(
@@ -337,6 +365,15 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def reInitGui(self):
         super().reInitGui()
+        
+        self.annotateToolbar.setDisabled(True)
+        self.annotateToolbar.setVisible(False)
+        
+        for toolButton in self.spotsItems.buttons:
+            self.spotmaxToolbar.removeAction(toolButton.action)
+            
+        self.spotsItems = widgets.SpotsItems()
+        
         try:
             self.disconnectParamsGroupBoxSignals()
         except Exception as e:
@@ -767,13 +804,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not self.dataIsLoaded:
             return
         
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget        
         self.isAutoTuneTabActive = False
         if index == 1:
             # AutoTune tab toggled
+            autoTuneTabWidget.setAutoTuneItemsVisible(True)
             self.copyParamsToAutoTuneWidget()
             self.setAutoTunePointSize()
             self.initTuneKernel()
             self.isAutoTuneTabActive = True
+        elif index == 2:
+            autoTuneTabWidget.setAutoTuneItemsVisible(False)
     
     def setAutoTunePointSize(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox

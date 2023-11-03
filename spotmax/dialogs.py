@@ -606,7 +606,15 @@ class InspectResultsTabWidget(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
-        layout = QVBoxLayout()
+        mainLayout = QVBoxLayout()
+        
+        buttonsLayout = QHBoxLayout()
+        
+        self.loadAnalysisButton = acdc_widgets.OpenFilePushButton(
+            'Load results from previous analysis...'
+        )
+        buttonsLayout.addWidget(self.loadAnalysisButton)
+        buttonsLayout.addStretch(1)
         
         scrollArea = QScrollArea(self)
         scrollArea.setWidgetResizable(True)
@@ -616,10 +624,10 @@ class InspectResultsTabWidget(QWidget):
         )
         scrollArea.setWidget(self.viewFeaturesGroupbox)
         
-        layout.addWidget(scrollArea)
-        # layout.addStretch(1)
+        mainLayout.addLayout(buttonsLayout)
+        mainLayout.addWidget(scrollArea)
         
-        self.setLayout(layout)
+        self.setLayout(mainLayout)
     
     def setInspectFeatures(self, point_features):
         if point_features is None:
@@ -822,12 +830,16 @@ class AutoTuneSpotProperties(QGroupBox):
         self.sigColorChanged.emit((r, g, b, a), True)
     
     def clearFalsePoints(self):
+        self.trueItem.setVisible(False)
         self.trueItem.clear()
     
     def clearTruePoints(self):
+        self.falseItem.setVisible(False)
         self.falseItem.clear()
 
     def clearAllPoints(self):
+        self.trueItem.setVisible(False)
+        self.falseItem.setVisible(False)
         self.trueItem.clear()
         self.falseItem.clear()
 
@@ -1002,6 +1014,7 @@ class AutoTuneTabWidget(QWidget):
         buttonsLayout.addWidget(autoTuningButton)
         self.autoTuningButton = autoTuningButton
         
+        # Start adding points autotune button
         self.addAutoTunePointsButton = widgets.AddAutoTunePointsButton()
         buttonsLayout.addWidget(self.addAutoTunePointsButton)
 
@@ -1042,6 +1055,7 @@ class AutoTuneTabWidget(QWidget):
         self.sigFeatureSelected.emit(button, featureText, colName)
     
     def emitAddAutoTunePointsToggle(self, button, checked):
+        self.setAutoTuneItemsVisible(True)
         self.sigAddAutoTunePointsToggle.emit(checked)
     
     def emitColorChanged(self, color: tuple, true_spots: bool):
@@ -1053,6 +1067,10 @@ class AutoTuneTabWidget(QWidget):
             self.sigStartAutoTune.emit(self)
         else:
             self.sigStopAutoTune.emit(self)
+    
+    def setAutoTuneItemsVisible(self, visible):
+        self.autoTuneGroupbox.trueItem.setVisible(visible)
+        self.autoTuneGroupbox.falseItem.setVisible(visible)
     
     def setInspectFeatures(self, points):
         if self.df_features is None:
@@ -1124,8 +1142,10 @@ class AutoTuneTabWidget(QWidget):
     def addAutoTunePoint(self, frame_i, z, x, y):
         if self.autoTuneGroupbox.trueFalseToggle.isChecked():
             item = self.autoTuneGroupbox.trueItem
+            item.setVisible(True)
         else:
             item = self.autoTuneGroupbox.falseItem
+            item.setVisible(True)
         hoveredMask = item._maskAt(QPointF(x, y))
         points = item.points()[hoveredMask][::-1]
         if len(points) > 0:

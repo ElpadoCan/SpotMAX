@@ -1712,7 +1712,12 @@ class SpotsItems:
             point = points[0]
             pos = point.pos()
             x, y = int(pos.x()-0.5), int(pos.y()-0.5)
-            df = df.loc[[(frame_i, z)]].reset_index().set_index(['x', 'y'])
+            try:
+                df = df.loc[[(frame_i, z)]].reset_index().set_index(['x', 'y'])
+            except Exception as err:
+                # This happens when hovering points in projections where they 
+                # are all visibile and the z is unknown
+                df = df.loc[[frame_i]].reset_index().set_index(['x', 'y'])
             point_df = df.loc[[(x, y)]].reset_index()
             point_features = point_df.set_index(['frame_i', 'z', 'y', 'x']).iloc[0]
             return point_features
