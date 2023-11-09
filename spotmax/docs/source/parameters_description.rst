@@ -251,7 +251,7 @@ Spots channel
   all separated. If some spots are merged, the only way to separate them is to detect 
   the local peaks. See **Spots segmentation method** for more information. 
 
-* **Spots segmentation method**: either 'Thresholding' or 'Neural network'. If you 
+* **Spots segmentation method**: either 'Thresholding' or 'spotMAX AI'. If you 
   choose neural network you will need to pass additional parameters for the model. 
   In the GUI you can do so by clicking on the cog button just besides the method 
   selector. If you choose thresholding, you will also need to select which thresholding 
@@ -267,7 +267,7 @@ Spots channel
 * **Spot detection threshold function**: automatic thresholding algorithm to use 
   in case the Spots segmentation method is 'Thresholding'. You can find more 
   details about the available algorithms on the scikit-image webpage at 
-  the `filters section`_. If the Spots segmentation method is 'Neural network' 
+  the `filters section`_. If the Spots segmentation method is 'spotMAX AI' 
   here you can select which thresholding algorithm to compare to the neural 
   network output.
 

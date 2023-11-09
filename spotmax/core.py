@@ -1450,7 +1450,7 @@ class _ParamsParser(_DataLoader):
         ANCHOR = 'spotPredictionMethod'
         section_params = self._params[SECTION]
         spots_prediction_method = section_params[ANCHOR].get('loadedVal')
-        if spots_prediction_method != 'Neural network':
+        if spots_prediction_method != 'spotMAX AI':
             # Neural network is not required
             return
         

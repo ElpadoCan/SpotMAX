@@ -32,6 +32,7 @@ from qtpy.QtWidgets import (
 )
 
 import pyqtgraph as pg
+from torch import NoneType
 
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
@@ -450,6 +451,7 @@ class guiTabControl(QTabWidget):
         spotsParams = self.parametersQGBox.params['Spots channel']
         spotPredMethodWidget = spotsParams['spotPredictionMethod']['widget']
         spotPredMethodWidget.nnet_params_from_ini_sections(params)
+        spotPredMethodWidget.bioimageio_params_from_ini_sections(params)
     
     def loadPreviousParams(self, filePath):
         self.logging_func(f'Loading analysis parameters from "{filePath}"...')
@@ -1405,12 +1407,21 @@ class ParamsGroupBox(QGroupBox):
     def addNNetParams(self, ini_params):
         spotsParams = self.params['Spots channel']
         anchor = 'spotPredictionMethod'
-        nnet_params = spotsParams[anchor]['widget'].nnet_params_to_ini_sections()
-        if nnet_params is None:
+        widget = spotsParams[anchor]['widget']
+        nnet_params = widget.nnet_params_to_ini_sections()
+        bioimageio_model_params = (
+            widget.bioimageio_model_params_to_ini_sections()
+        )
+        if nnet_params is None and bioimageio_model_params is None:
             return ini_params
 
+        if bioimageio_model_params is None:
+            section_id_name = 'neural_network'
+        else:
+            section_id_name = 'bioimageio_model'
+        
         init_model_params, segment_model_params = nnet_params
-        SECTION = 'neural_network.init'
+        SECTION = f'{section_id_name}.init'
         for key, value in init_model_params.items():
             if SECTION not in ini_params:
                 ini_params[SECTION] = {}
@@ -1418,7 +1429,7 @@ class ParamsGroupBox(QGroupBox):
                 'desc': key, 'loadedVal': value, 'isParam': True
             }
         
-        SECTION = 'neural_network.segment'
+        SECTION = f'{section_id_name}.segment'
         for key, value in segment_model_params.items():
             if SECTION not in ini_params:
                 ini_params[SECTION] = {}

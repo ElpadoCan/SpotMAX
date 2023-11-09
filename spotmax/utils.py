@@ -1008,6 +1008,5 @@ def to_dtype(value, dtype):
     
     raise TypeError(error)
 
-
 if __name__ == '__main__':
     df = get_sizes_path(r'C:\Users\Frank', return_df=True)

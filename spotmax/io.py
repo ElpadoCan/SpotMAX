@@ -2284,5 +2284,70 @@ def download_unet_models():
             desc='spotMAX U-Net 3D', 
             verbose=False
         )
+
+
+def _raise_missing_param_ini(missing_option):
+    raise KeyError(
+        'The following parameter is missing from the INI configuration file: '
+        f'`{missing_option}`. You can force using default value by setting '
+        '`Use default values for missing parameters = True` in the '
+        'INI file.'
+    )
+
+def nnet_params_from_init_params(
+        ini_params, sections, model_module, use_default_for_missing=False
+    ):
+    init_params, segment_params = cellacdc.myutils.getModelArgSpec(model_module)
+    params = {'init': {}, 'segment': {}}
     
-        
+    for section in sections:
+        if section not in ini_params:
+            continue
+    
+    section = sections[0]
+    if section in ini_params:
+        section_params = ini_params[section]
+        for argWidget in init_params:
+            try:
+                not_a_param = argWidget.type().not_a_param
+                continue
+            except Exception as err:
+                pass
+            option = section_params.get(argWidget.name)
+            if option is None:
+                if use_default_for_missing:
+                    continue
+                else:
+                    _raise_missing_param_ini(argWidget.name)
+            value = option['loadedVal']
+            if not isinstance(argWidget.default, str):
+                try:
+                    value = utils.to_dtype(value, type(argWidget.default))
+                except Exception as err:
+                    value = argWidget.default
+            params['init'][argWidget.name] = value
+    
+    section = sections[1]
+    if section in ini_params:
+        section_params = ini_params[section]
+        for argWidget in segment_params:
+            try:
+                not_a_param = argWidget.type().not_a_param
+                continue
+            except Exception as err:
+                pass
+                
+            option = section_params.get(argWidget.name)
+            if option is None:
+                if use_default_for_missing:
+                    continue
+                else:
+                    _raise_missing_param_ini(argWidget.name)
+            value = option['loadedVal']
+            if not isinstance(argWidget.default, str):
+                try:
+                    value = utils.to_dtype(value, type(argWidget.default))
+                except Exception as err:
+                    value = argWidget.default
+            params['segment'][argWidget.name] = value
+    return params

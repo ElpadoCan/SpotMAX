@@ -335,7 +335,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         spotsParams = ParamsGroupBox.params['Spots channel']
         anchor = 'spotPredictionMethod'
-        return spotsParams[anchor]['widget'].currentText() == 'Neural network'
+        return spotsParams[anchor]['widget'].currentText() == 'spotMAX AI'
+    
+    def isBioImageIOModelRequested(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        return spotsParams[anchor]['widget'].currentText() == 'BioImage.IO'
     
     def isPreprocessAcrossExpRequired(self):
         if not self.isNeuralNetworkRequested():
@@ -1127,6 +1133,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs = {key:all_kwargs[key] for key in keys}
         
         kwargs = self.addNnetKwargs(kwargs)
+        kwargs = self.addBioImageIOModelKwargs(kwargs)
         
         self.logNnetParams(kwargs.get('nnet_params'))
         
@@ -1167,6 +1174,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs['nnet_input_data'] = self.getNeuralNetInputData()
         
         return kwargs
+    
+    def addBioImageIOModelKwargs(self, kwargs):
+        if not self.isBioImageIOModelRequested():
+            return kwargs
+        
+        kwargs['bioimageio_model'] = self.getBioImageIOModel()
+        kwargs['bioimageio_params'] = self.getBioImageIOParams()
     
     def getNeuralNetInputData(self):
         useTranformedDataTime = (
@@ -1476,7 +1490,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         if 'neural_network' in result:
             selected_threshold_method = self.getThresholdMethod()
             titles = [
-                'Input image', f'{selected_threshold_method}', 'Neural network'
+                'Input image', f'{selected_threshold_method}', 'spotMAX AI'
             ]
             prediction_images = [
                 result['input_image'], 
@@ -1604,6 +1618,22 @@ class spotMAX_Win(acdc_gui.guiWin):
             )
         
         return spotPredictionMethodWidget.nnetModel    
+
+    @exception_handler
+    def getBioImageIOModel(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        if spotPredictionMethodWidget.bioImageIOModel is None:
+            raise ValueError(
+                'BioImage.IO model parameters were not initialized. Before trying '
+                'to use it, you need to initialize the model\'s parameters by '
+                'clicking on the settings button on the right of the selection '
+                'box at the "Spots segmentation method" parameter.'
+            )
+        
+        return spotPredictionMethodWidget.bioImageIOModel   
     
     def getThresholdMethod(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -1657,7 +1687,23 @@ class spotMAX_Win(acdc_gui.guiWin):
                 'box at the "Spots segmentation method" parameter.'
             )
         
-        return spotPredictionMethodWidget.nnetParams    
+        return spotPredictionMethodWidget.nnetParams  
+    
+    @exception_handler
+    def getBioImageIOParams(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        if spotPredictionMethodWidget.bioImageIOModel is None:
+            raise ValueError(
+                'BioImage.IO model parameters were not initialized. Before trying '
+                'to use it, you need to initialize the model\'s parameters by '
+                'clicking on the settings button on the right of the selection '
+                'box at the "Spots segmentation method" parameter.'
+            )
+        
+        return spotPredictionMethodWidget.bioImageIOModel  
     
     def onRemoveHotPixelsToggled(self, checked):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox

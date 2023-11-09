@@ -8,8 +8,7 @@ import skimage.transform
 
 import torch
 
-from cellacdc import myutils as acdc_myutils
-from .. import utils
+from .. import io
 
 from . import config_yaml_path
 from . import transform
@@ -224,73 +223,16 @@ class Model:
             
         return lab
 
-def _raise_missing_param_ini(missing_option):
-    raise KeyError(
-        'The following parameter is missing from the INI configuration file: '
-        f'`{missing_option}`. You can force using default value by setting '
-        '`Use default values for missing parameters = True` in the '
-        'INI file.'
-    )
-
 def get_nnet_params_from_ini_params(ini_params, use_default_for_missing=False):
     sections = ['neural_network.init', 'neural_network.segment']
     if not any([section in ini_params for section in sections]):
         return 
     
     import spotmax.nnet.model as model_module
-    init_params, segment_params = acdc_myutils.getModelArgSpec(model_module)
-    params = {'init': {}, 'segment': {}}
-    
-    for section in sections:
-        if section not in ini_params:
-            continue
-    
-    section = sections[0]
-    if section in ini_params:
-        section_params = ini_params[section]
-        for argWidget in init_params:
-            try:
-                not_a_param = argWidget.type().not_a_param
-                continue
-            except Exception as err:
-                pass
-            option = section_params.get(argWidget.name)
-            if option is None:
-                if use_default_for_missing:
-                    continue
-                else:
-                    _raise_missing_param_ini(argWidget.name)
-            value = option['loadedVal']
-            if not isinstance(argWidget.default, str):
-                try:
-                    value = utils.to_dtype(value, type(argWidget.default))
-                except Exception as err:
-                    value = argWidget.default
-            params['init'][argWidget.name] = value
-    
-    section = sections[1]
-    if section in ini_params:
-        section_params = ini_params[section]
-        for argWidget in segment_params:
-            try:
-                not_a_param = argWidget.type().not_a_param
-                continue
-            except Exception as err:
-                pass
-                
-            option = section_params.get(argWidget.name)
-            if option is None:
-                if use_default_for_missing:
-                    continue
-                else:
-                    _raise_missing_param_ini(argWidget.name)
-            value = option['loadedVal']
-            if not isinstance(argWidget.default, str):
-                try:
-                    value = utils.to_dtype(value, type(argWidget.default))
-                except Exception as err:
-                    value = argWidget.default
-            params['segment'][argWidget.name] = value
+    params = io.nnet_params_from_init_params(
+        ini_params, sections, model_module, 
+        use_default_for_missing=use_default_for_missing
+    )
     
     return params
 

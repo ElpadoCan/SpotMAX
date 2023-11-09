@@ -615,7 +615,7 @@ class _spotDetectionMethod(myQComboBox):
 
 def _spotPredictionMethod():
     widget = myQComboBox()
-    items = ['Thresholding', 'Neural network']
+    items = ['Thresholding', 'spotMAX AI']
     widget.addItems(items)
     return widget
 
@@ -627,12 +627,13 @@ class SpotPredictionMethodWidget(QWidget):
         self.metadata_df = None
         self.nnetParams = None
         self.nnetModel = None
+        self.bioImageIOModel = None
         
         layout = QHBoxLayout()
         self.setLayout(layout)
         
         self.combobox = myQComboBox()
-        items = ['Thresholding', 'Neural network']
+        items = ['Thresholding', 'spotMAX AI', 'BioImage.IO model']
         self.combobox.addItems(items)
         
         self.configButton = acdc_widgets.setPushButton()
@@ -752,15 +753,48 @@ class SpotPredictionMethodWidget(QWidget):
         }
         self.configButton.confirmAction()
     
+    def _promptConfigBioImageIOModel(self):
+        from spotmax.BioImageIO import model
+        init_params, segment_params = acdc_myutils.getModelArgSpec(model)
+        url = model.url_help()
+        win = acdc_apps.QDialogModelParams(
+            init_params,
+            segment_params,
+            'BioImageIO model', 
+            parent=self,
+            url=url, 
+            initLastParams=True, 
+            posData=self.posData,
+            df_metadata=self.metadata_df,
+            force_postprocess_2D=False,
+            is_tracker=True,
+            model_module=model
+        )
+        if self.bioImageIOParams is not None:
+            win.setValuesFromParams(
+                self.bioImageIOParams['init'], self.bioImageIOParams['segment']
+            )
+        win.exec_()
+        if win.cancel:
+            return
+        
+        self.bioImageIOModel = model.Model(**win.init_kwargs)
+        self.bioImageIOParams = {
+            'init': win.init_kwargs, 'segment': win.model_kwargs
+        }
+        self.configButton.confirmAction()
+    
     def promptConfigModel(self):
-        if self.value() == 'Neural network':
+        if self.value() == 'spotMAX AI':
             self._promptConfigNeuralNet()
+        elif self.value() == 'BioImage.IO':
+            self._promptConfigBioImageIOModel()
     
     def nnet_params_to_ini_sections(self):
         if self.nnetParams is None:
             return
 
-        if self.value() != 'Neural network':
+        if self.value() != 'spotMAX AI':
             return 
         
         init_model_params = {
@@ -770,10 +804,33 @@ class SpotPredictionMethodWidget(QWidget):
             key:str(value) for key, value in self.nnetParams['segment'].items()
         }
         return init_model_params, segment_model_params
+
+    def bioimageio_model_params_to_ini_sections(self):
+        if self.bioImageIOParams is None:
+            return
+
+        if self.value() != 'BioImage.IO':
+            return 
+        
+        init_model_params = {
+            key:str(value) 
+            for key, value in self.bioImageIOParams['init'].items()
+        }
+        segment_model_params = {
+            key:str(value) 
+            for key, value in self.bioImageIOParams['segment'].items()
+        }
+        return init_model_params, segment_model_params
     
     def nnet_params_from_ini_sections(self, ini_params):
         from spotmax.nnet.model import get_nnet_params_from_ini_params
         self.nnetParams = get_nnet_params_from_ini_params(
+            ini_params, use_default_for_missing=True
+        )
+    
+    def bioimageio_params_from_ini_sections(self, ini_params):
+        from spotmax.BioImageIO.model import get_model_params_from_ini_params
+        self.bioImageIOParams = get_model_params_from_ini_params(
             ini_params, use_default_for_missing=True
         )
 
