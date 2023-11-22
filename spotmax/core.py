@@ -164,6 +164,7 @@ class _DataLoader:
             data[key] = ch_data
             data[f'{key}.shape'] = ch_data.shape
             data[f'{key}.channel_name'] = channel
+            data[f'{key}.filepath'] = ch_path
 
         data = self._init_reshape_segm_data(data)
 
@@ -728,7 +729,12 @@ class _ParamsParser(_DataLoader):
         self.cast_loaded_values_dtypes()
         self.set_abs_exp_paths()
         self.set_metadata()
-        self.check_init_neural_network()
+        self.nnet_model, self.nnet_params = self.check_init_neural_network(
+            'spotMAX AI'
+        )
+        self.bioimageio_model, self.bioimageio_params = (
+            self.check_init_neural_network('BioImage.IO model')
+        )
         proceed = self.check_contradicting_params()
         if not proceed:
             return False, None
@@ -1434,38 +1440,37 @@ class _ParamsParser(_DataLoader):
         elif answer == options[1]:
             return 'do_not_segment_ref_ch'
     
-    def check_init_neural_network(self):
-        self.nnet_params = None
-        self.nnet_model = None
-        
+    def check_init_neural_network(self, init_if_str):        
         SECTION = 'File paths and channels'
         ANCHOR = 'spotChSegmEndName'
         section_params = self._params[SECTION]
         spots_ch_segm_endname = section_params[ANCHOR].get('loadedVal', '')
         if spots_ch_segm_endname:
             # User provided a segm mask --> no need to use neural net
-            return        
+            return None, None    
         
         SECTION = 'Spots channel'
         ANCHOR = 'spotPredictionMethod'
         section_params = self._params[SECTION]
         spots_prediction_method = section_params[ANCHOR].get('loadedVal')
-        if spots_prediction_method != 'spotMAX AI':
+        if spots_prediction_method != init_if_str:
             # Neural network is not required
-            return
+            return None, None
         
         try:
             self.logger.info('-'*60)                
             self.logger.info('Initializing neural network...')
             from spotmax.nnet import model
-            self.nnet_params = model.get_nnet_params_from_ini_params(
+            model_params = model.get_model_params_from_ini_params(
                 self._params, use_default_for_missing=self._force_default
             )
-            self.nnet_model = model.Model(**self.nnet_params['init'])
-            self.nnet_params['segment']['verbose'] = False
+            model_class = model.Model(**model_params['init'])
+            model_params['segment']['verbose'] = False
         except Exception as err:
             self.logger.exception(traceback.format_exc())
             raise err
+
+        return model_class, model_params
     
     @exception_handler_cli
     def check_contradicting_params(self):
@@ -3018,7 +3023,7 @@ class Kernel(_ParamsParser):
             lab=None, lineage_table=None, keep_only_largest_obj=False, 
             do_aggregate=False, df_agg=None, frame_i=0, 
             vox_to_um3=None, zyx_tolerance=None, ridge_filter_sigmas=0.0, 
-            verbose=True
+            verbose=True, raw_ref_ch_img=None, return_filtered_img=False   
         ):
         if self._is_lab_all_zeros(lab):
             df_agg['ref_ch_vol_vox'] = np.nan
@@ -3043,7 +3048,7 @@ class Kernel(_ParamsParser):
         else:
             threshold_func = threshold_method
         
-        ref_ch_segm = pipe.reference_channel_semantic_segm(
+        result = pipe.reference_channel_semantic_segm(
             ref_ch_img, 
             lab=lab,
             keep_only_largest_obj=keep_only_largest_obj,
@@ -3054,9 +3059,18 @@ class Kernel(_ParamsParser):
             ridge_filter_sigmas=ridge_filter_sigmas,
             keep_input_shape=True,
             do_preprocess=False,
-            return_only_segm=True,
+            return_only_segm=return_filtered_img,
             do_try_all_thresholds=False,
+            bioimageio_model=self.bioimageio_model,
+            bioimageio_params=self.bioimageio_params,
+            raw_image=raw_ref_ch_img
         )
+        if return_filtered_img:
+            ref_ch_filtered_img = result.pop('input_image')
+            segm_key = list(result.keys())[0]
+            ref_ch_segm = result[segm_key]
+        else:
+            ref_ch_segm = result
         
         df_agg = self.add_ref_ch_features(
             df_agg, lab_rp, ref_ch_segm, 
@@ -3065,7 +3079,10 @@ class Kernel(_ParamsParser):
             verbose=verbose
         )
         
-        return ref_ch_segm, df_agg
+        if return_filtered_img:
+            return ref_ch_segm, ref_ch_filtered_img, df_agg
+        else:
+            return ref_ch_segm, df_agg
     
     def _raise_norm_value_zero(self):
         print('')
@@ -3173,7 +3190,8 @@ class Kernel(_ParamsParser):
             spots_ch_segm_mask=spots_ch_segm_mask, 
             lineage_table=lineage_table, 
             verbose=verbose, 
-            save_spots_mask=save_spots_mask
+            save_spots_mask=save_spots_mask,
+            raw_spots_img=raw_spots_img
         )
         
         df_spots_det, df_spots_gop = self._spots_filter(
@@ -3255,7 +3273,8 @@ class Kernel(_ParamsParser):
             spots_ch_segm_mask=None,
             save_spots_mask=True,
             lineage_table=None, 
-            verbose=True
+            verbose=True,
+            raw_spots_img=None
         ):
         if verbose:
             print('')
@@ -3288,11 +3307,14 @@ class Kernel(_ParamsParser):
                 nnet_model=self.nnet_model,
                 nnet_params=self.nnet_params,
                 nnet_input_data=aggr_transf_spots_nnet_img,
+                bioimageio_model=self.bioimageio_model,
+                bioimageio_params=self.bioimageio_params,
                 do_preprocess=False,
                 do_try_all_thresholds=False,
                 keep_input_shape=True,
                 return_only_segm=True,
-                pre_aggregated=True
+                pre_aggregated=True,
+                raw_image=raw_spots_img
             )
         
         if detection_method == 'peak_local_max':
@@ -4273,8 +4295,13 @@ class Kernel(_ParamsParser):
             save_ref_ch_segm = (
                 self._params[SECTION]['saveRefChMask']['loadedVal']
             )
+            save_preproc_ref_ch_img = (
+                self._params[SECTION]['saveRefChPreprocImage']['loadedVal']
+            )
             vox_to_um3 = self.metadata.get('vox_to_um3_factor', 1)
             ref_ch_segm_data = np.zeros(ref_ch_data.shape, dtype=np.uint32)
+            if save_preproc_ref_ch_img:
+                preproc_ref_ch_data = np.zeros_like(ref_ch_data)
             desc = 'Frames completed (segm. ref. ch.)'
             pbar = tqdm(
                 total=stopFrameNum, ncols=100, desc=desc, position=2, 
@@ -4287,11 +4314,12 @@ class Kernel(_ParamsParser):
                     lineage_table = None
                 lab_rp = segm_rp[frame_i]
                 ref_ch_img = ref_ch_data[frame_i]
+                raw_ref_ch_img = ref_ch_img.copy()
                 ref_ch_img = self._preprocess(
                     ref_ch_img, is_ref_ch=True, verbose=frame_i==0
                 )
                 lab = segm_data[frame_i]
-                ref_ch_lab, df_agg = self.segment_quantify_ref_ch(
+                result, df_agg = self.segment_quantify_ref_ch(
                     ref_ch_img, lab_rp=lab_rp, lab=lab, 
                     threshold_method=ref_ch_threshold_method, 
                     keep_only_largest_obj=is_ref_ch_single_obj,
@@ -4302,8 +4330,15 @@ class Kernel(_ParamsParser):
                     vox_to_um3=vox_to_um3,
                     zyx_tolerance=self.metadata['deltaTolerance'],
                     ridge_filter_sigmas=ridge_filter_sigmas,
-                    verbose=verbose,                    
+                    verbose=verbose, 
+                    raw_ref_ch_img=raw_ref_ch_img,
+                    return_filtered_img=save_preproc_ref_ch_img           
                 )
+                if save_preproc_ref_ch_img:
+                    ref_ch_lab, ref_ch_filtered_img = result
+                    preproc_ref_ch_data[frame_i] = ref_ch_filtered_img
+                else:
+                    ref_ch_lab = result
                 ref_ch_segm_data[frame_i] = ref_ch_lab
                 pbar.update()
             pbar.close()
@@ -4313,6 +4348,14 @@ class Kernel(_ParamsParser):
                 io.save_ref_ch_mask(
                     ref_ch_segm_data, images_path, ref_ch_endname, basename,
                     text_to_append=text_to_append, pad_width=data['pad_width']
+                )
+            
+            if save_preproc_ref_ch_img:
+                raw_ref_ch_data_filepath = data['ref_ch.filepath']
+                io.save_preocessed_img(
+                    preproc_ref_ch_data, raw_ref_ch_data_filepath, 
+                    cast_to_dtype=data['ref_ch.dtype'], 
+                    pad_width=data['pad_width']
                 )
 
             df_agg = self.ref_ch_to_physical_units(df_agg, self.metadata)
@@ -4377,6 +4420,9 @@ class Kernel(_ParamsParser):
         save_spots_mask = (
             self._params[SECTION]['saveSpotsMask']['loadedVal']
         )
+        save_preproc_spots_img = (
+            self._params[SECTION]['saveSpotsPreprocImage']['loadedVal']
+        )
         dfs_lists = {
             'dfs_spots_detection': [], 'dfs_spots_gop_test': [], 'keys': []
         }
@@ -4389,6 +4435,8 @@ class Kernel(_ParamsParser):
         transformed_spots_ch_nnet = self.check_preprocess_data_nnet_across_time(
             spots_data, transformed_spots_ch_nnet=transformed_spots_ch_nnet
         )
+        if save_preproc_spots_img:
+            preproc_spots_data = np.zeros_like(spots_data)[:stopFrameNum]
         
         desc = 'Frames completed (spot detection)'
         pbar = tqdm(
@@ -4407,12 +4455,18 @@ class Kernel(_ParamsParser):
             else:
                 transf_spots_nnet_img = None
             preproc_spots_img = self._preprocess(raw_spots_img)
+            if save_preproc_spots_img:
+                preproc_spots_data[frame_i] = preproc_spots_img
             if do_sharpen_spots:
                 sharp_spots_img = self.sharpen_spots(
                     raw_spots_img, self.metadata
                 )
             else:
                 sharp_spots_img = None
+            
+            if save_preproc_spots_img and sharp_spots_img is not None:
+                preproc_spots_data[frame_i] = sharp_spots_img
+            
             lab = segm_data[frame_i]
             rp = segm_rp[frame_i]
             if ref_ch_data is not None:
@@ -4457,6 +4511,14 @@ class Kernel(_ParamsParser):
             )
             pbar.update()
         pbar.close()
+        
+        if save_preproc_spots_img:
+            raw_spots_data_filepath = data['spots_ch.filepath']
+            io.save_preocessed_img(
+                preproc_spots_data, raw_spots_data_filepath, 
+                cast_to_dtype=data['spots_ch.dtype'], 
+                pad_width=data['pad_width']
+            )
 
         if not dfs_lists['dfs_spots_detection']:
             missing_cols = list(aggregate_spots_feature_func.keys())

@@ -823,6 +823,16 @@ def _ref_ch_params():
             'actions': None,
             'dtype': get_ridge_sigmas
         },
+        'refChSegmentationMethod': {
+            'desc': 'Ref. channel segmentation method',
+            'initialVal': 'Thresholding',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.RefChPredictionMethodWidget',
+            'actions': None
+        },
         'refChThresholdFunc': {
             'desc': 'Ref. channel threshold function',
             'initialVal': 'threshold_otsu',
@@ -848,6 +858,17 @@ def _ref_ch_params():
         # },
         'saveRefChMask': {
             'desc': 'Save reference channel segmentation masks',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+        'saveRefChPreprocImage': {
+            'desc': 'Save pre-processed reference channel image',
             'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,
@@ -935,6 +956,17 @@ def _spots_ch_params():
         },
         'saveSpotsMask': {
             'desc': 'Save spots segmentation masks',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
+        'saveSpotsPreprocImage': {
+            'desc': 'Save pre-processed spots image',
             'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,

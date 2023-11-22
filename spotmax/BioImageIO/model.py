@@ -1,11 +1,10 @@
 import numpy as np
-import xarray as xr
 
 import skimage.measure
 
 from .. import io
 
-import bioimageio.core
+from . import install
 
 class Model:
     def __init__(self, model_doi_url_or_zip_path=''):
@@ -14,15 +13,25 @@ class Model:
         Parameters
         ----------
         model_doi_url_or_zip_path : str, optional
-            Bioimage.io models can be lodaded using different represantations.
+            Bioimage.io models can be lodaded using different representation.
             You can either provide the DOI of the model, the URL, or download it
             yourself (select "Ilastik" weight format) and provide the path to 
             the downloaded zip file.
+            
+            For more information and to visualize the available models 
+            visit the BioImage.IO website at the followng link `bioimage.io <https://bioimage.io/#/>`_.
         """       
-        self.model_resource = bioimageio.core.load_resource_description(
+        install()
+        import bioimageio.core
+        import xarray as xr
+        
+        self.bioimageio_core = bioimageio.core
+        self.xr = xr
+        
+        self.model_resource = self.bioimageio_core.load_resource_description(
             model_doi_url_or_zip_path
         )
-        self.prediction_pipeline = bioimageio.core.create_prediction_pipeline(
+        self.prediction_pipeline = self.bioimageio_core.create_prediction_pipeline(
             self.model_resource, devices=None, weight_format=None
         )
         self.dims = tuple(self.model_resource.inputs[0].axes)
@@ -36,7 +45,7 @@ class Model:
         The 'test_model' function returns a dict with 'status'='passed'/'failed' 
         and more detailed information.
         """
-        from bioimageio.core.resource_tests import test_model
+        from self.bioimageio_core.resource_tests import test_model
         test_result = test_model(self.model_resource)[0]
         if test_result["status"] == "failed":
             print("model test:", test_result["name"])
@@ -55,7 +64,7 @@ class Model:
         # Create an xarray.DataArray from the input image.
         # DataArrays are like numpy arrays, but they have annotated axes.
         # The axes are used to validate that the axes of the input image match the axes expected by a model.
-        input_array = xr.DataArray(
+        input_array = self.xr.DataArray(
             input_image, dims=tuple(self.model_resource.inputs[0].axes)
         )
         
@@ -82,7 +91,7 @@ class Model:
         # priority (as defined by bioimageio.core) will be used.
         weight_format = None
 
-        prediction_pipeline = bioimageio.core.create_prediction_pipeline(
+        prediction_pipeline = self.bioimageio_core.create_prediction_pipeline(
             self.model_resource, devices=devices, weight_format=weight_format
         )
         
@@ -94,7 +103,7 @@ class Model:
         # will fail.
         # Therefore, we can use the function `predict_with_padding`, 
         # which will pad the image to a shape that fits the model.
-        prediction_xarray = bioimageio.core.predict_with_padding(
+        prediction_xarray = self.bioimageio_core.predict_with_padding(
             prediction_pipeline, input_array
         )[0]
         prediction = prediction_xarray.to_numpy()
@@ -160,15 +169,15 @@ class Model:
         
         if 'z' in self.dims:
             # Add fake axis because we want to predict on 3D since the model 
-            # is 3D capable
+            # is 3D capable ('z' is in self.dimns)
             input_image = input_image[np.newaxis]
         
         thresholded = np.zeros(input_image.shape, dtype=bool)
         
         for i, img in enumerate(input_image):
             img = self.reshape_to_required_shape(img)
-            input_xarray = xr.DataArray(img, dims=self.dims)
-            prediction_xarray = bioimageio.core.predict_with_padding(
+            input_xarray = self.xr.DataArray(img, dims=self.dims)
+            prediction_xarray = self.bioimageio_core.predict_with_padding(
                 self.prediction_pipeline, input_xarray
             )[0]
             

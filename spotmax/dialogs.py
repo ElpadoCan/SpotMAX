@@ -470,7 +470,7 @@ class guiTabControl(QTabWidget):
     def showParamsLoadedMessageBox(self):
         msg = acdc_widgets.myMessageBox(wrapText=False)
         txt = html_func.paragraph("""
-            Parameters have been loaded.<br>
+            Parameters loaded!<br>
         """)
         msg.information(self, 'Parameters loaded', txt)
     

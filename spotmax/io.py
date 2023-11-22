@@ -7,7 +7,7 @@ import datetime
 import time
 import copy
 import logging
-import configparser
+import tifffile
 import json
 import traceback
 import cv2
@@ -42,11 +42,10 @@ if GUI_INSTALLED:
 
     from cellacdc import apps as acdc_apps
     from cellacdc import widgets as acdc_widgets
-    from cellacdc import myutils as acdc_utils
 
     from . import dialogs, html_func, qtworkers
 
-import cellacdc.myutils
+from cellacdc import myutils as acdc_myutils
 import cellacdc.features
 
 from . import utils, config
@@ -252,6 +251,8 @@ def load_image_data(path: os.PathLike, to_float=False, return_dtype=False):
             image_data = np.load(path)[key]
     elif ext == '.npy':
         image_data = np.load(path)
+    elif ext == '.tif' or ext == '.tiff':
+        image_data = tifffile.imread(path)
     else:
         try:
             image_data = skimage.io.imread(path)
@@ -259,11 +260,25 @@ def load_image_data(path: os.PathLike, to_float=False, return_dtype=False):
             image_data = _load_video(path)
     _dtype = image_data.dtype
     if to_float:
-        image_data = cellacdc.myutils.img_to_float(image_data)
+        image_data = acdc_myutils.img_to_float(image_data)
     if return_dtype:
         return image_data, _dtype
     else:
         return image_data
+
+def save_image_data(filepath, img_data):
+    filename, ext = os.path.splitext(filepath)
+    if ext == '.h5':
+        with h5py.File(filepath, "w") as h5f:
+            h5f.create_dataset("data", data=img_data)
+    elif ext == '.npz':
+        np.savez_compressed(filepath, img_data)
+    elif ext == '.npy':
+        np.save(filepath, img_data)
+    elif ext == '.tif' or ext == '.tiff':
+        tifffile.imsave(filepath, img_data)
+    else:
+        skimage.io.imsave(filepath, img_data)
 
 def readStoredParamsCSV(csv_path, params):
     """Read old format of analysis_inputs.csv file from spotMAX v1"""
@@ -413,10 +428,35 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
                 except Exception as e:
                     config_value = None
 
+            if option == 'Spots segmentation method':
+                if config_value == 'Neural network':
+                    # Keep compatibility with oldere ini files that had 
+                    # Spots segmentation method = Neural network
+                    config_value = 'spotMAX AI'
+            
             params[section][anchor]['loadedVal'] = config_value
     
     params = add_neural_network_params(params, configPars)
     return params
+
+def save_preocessed_img(
+        img_data, raw_img_filepath, cast_to_dtype=None, pad_width=None
+    ):
+    if cast_to_dtype is not None:
+        img_data = acdc_myutils.float_img_to_dtype(img_data)
+    
+    if pad_width is not None:
+        img_data = np.pad(img_data, pad_width)
+    
+    filename = os.path.basename(raw_img_filepath)
+    filename_noext, ext = os.path.splittext(filename)
+    
+    folderpath = os.path.dirname(raw_img_filepath)
+    
+    new_filename = f'{filename_noext}_preprocessed{ext}'
+    new_filepath = os.path.join(folderpath, new_filename)
+    
+    save_image_data(new_filepath, np.squeeze(img_data))
 
 def add_neural_network_params(params, configPars):
     sections = ['neural_network.init', 'neural_network.segment']
@@ -2200,7 +2240,7 @@ def getInfoPosStatus(expPaths):
         posFoldersInfo = {}
         for pos in posFoldernames:
             pos_path = os.path.join(exp_path, pos)
-            status = acdc_utils.get_pos_status(pos_path)
+            status = acdc_myutils.get_pos_status(pos_path)
             posFoldersInfo[pos] = status
         infoPaths[exp_path] = posFoldersInfo
     return infoPaths
@@ -2247,7 +2287,7 @@ class PathScanner:
 def browse_last_used_ini_folderpath():
     with open(last_used_ini_text_filepath, 'r') as txt:
         params_path = txt.read()
-    cellacdc.myutils.showInExplorer(os.path.dirname(params_path))
+    acdc_myutils.showInExplorer(os.path.dirname(params_path))
 
 def save_last_used_ini_filepath(params_path: os.PathLike):
     with open(last_used_ini_text_filepath, 'w') as txt:
@@ -2267,7 +2307,7 @@ def download_unet_models():
     if not os.path.exists(unet2D_filepath):
         print('Downloading spotMAX U-Net 2D model...')
         os.makedirs(unet2D_checkpoint_path, exist_ok=True)
-        cellacdc.myutils.download_url(
+        acdc_myutils.download_url(
             unet2D_url, unet2D_filepath, 
             file_size=unet2D_filesize_bytes, 
             desc='spotMAX U-Net 2D', 
@@ -2278,7 +2318,7 @@ def download_unet_models():
     if not os.path.exists(unet3D_filepath):
         print('Downloading spotMAX U-Net 3D model...')
         os.makedirs(unet3D_checkpoint_path, exist_ok=True)
-        cellacdc.myutils.download_url(
+        acdc_myutils.download_url(
             unet3D_url, unet3D_filepath, 
             file_size=unet3D_filesize_bytes, 
             desc='spotMAX U-Net 3D', 
@@ -2297,7 +2337,7 @@ def _raise_missing_param_ini(missing_option):
 def nnet_params_from_init_params(
         ini_params, sections, model_module, use_default_for_missing=False
     ):
-    init_params, segment_params = cellacdc.myutils.getModelArgSpec(model_module)
+    init_params, segment_params = acdc_myutils.getModelArgSpec(model_module)
     params = {'init': {}, 'segment': {}}
     
     for section in sections:

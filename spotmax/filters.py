@@ -139,10 +139,21 @@ def _get_threshold_funcs(threshold_func=None, try_all=True):
     return threshold_funcs
 
 def local_semantic_segmentation(
-        image, lab, threshold_func=None, lineage_table=None, return_image=False,
-        nnet_model=None, nnet_params=None, nnet_input_data=None,
-        do_max_proj=True, clear_outside_objs=False, ridge_filter_sigmas=0,
-        return_only_output_mask=False, do_try_all_thresholds=True
+        image, lab, 
+        threshold_func=None, 
+        lineage_table=None, 
+        return_image=False,
+        nnet_model=None, 
+        nnet_params=None, 
+        nnet_input_data=None,
+        do_max_proj=True, 
+        clear_outside_objs=False, 
+        ridge_filter_sigmas=0,
+        return_only_output_mask=False, 
+        do_try_all_thresholds=True,
+        bioimageio_model=None,
+        bioimageio_params=None,
+        bioimageio_input_image=None
     ):
     # Get prediction mask by thresholding objects separately
     threshold_funcs = _get_threshold_funcs(
@@ -152,6 +163,10 @@ def local_semantic_segmentation(
     # Add neural network method if required (we just need the key for the loop)
     if nnet_model is not None:
         threshold_funcs['neural_network'] = None
+    
+    # Add bioimage io key if required
+    if bioimageio_model is not None:
+        threshold_funcs['bioimageio_model'] = None
     
     slicer = transformations.SliceImageFromSegmObject(
         lab, lineage_table=lineage_table
@@ -180,23 +195,31 @@ def local_semantic_segmentation(
                 input_img, _, _, _ = (
                     slicer.slice(nnet_input_data, obj)
                 )
+            elif method == 'bioimageio_model':
+                input_img, _, _, _ = (
+                    slicer.slice(bioimageio_input_image, obj)
+                )
             else:
                 input_img = spots_img_obj
             
             if ridge_filter_sigmas:
                 input_img = ridge(input_img, ridge_filter_sigmas)
             
-            if method != 'neural_network':
+            if method == 'neural_network':
+                predict_mask_merged = nnet_model.segment(
+                    input_img, **nnet_params['segment']
+                )
+            elif method == 'bioimageio_model':
+                predict_mask_merged = bioimageio_model.segment(
+                    input_img, **bioimageio_params['segment']
+                )
+            else:
                 # Threshold
                 predict_mask_merged = threshold_masked_by_obj(
                     input_img, obj_mask_lab, thresh_func, 
                     do_max_proj=do_max_proj
                 )
                 # predict_mask_merged[~(obj_mask_lab>0)] = False
-            else:
-                predict_mask_merged = nnet_model.segment(
-                    input_img, **nnet_params['segment']
-                )
 
             if clear_outside_objs:
                 predict_mask_merged[~(obj_mask_lab>0)] = False
@@ -219,18 +242,31 @@ def local_semantic_segmentation(
     if return_only_output_mask:
         if nnet_model is not None:
             return result['neural_network']
+        elif bioimageio_model is not None:
+            return result['bioimageio_model']
         else:
             return result['custom']
     else:
         return result
 
 def global_semantic_segmentation(
-        image, lab, lineage_table=None, zyx_tolerance=None, 
-        threshold_func='', logger_func=print, return_image=False,
-        keep_input_shape=True, nnet_model=None, nnet_params=None,
-        nnet_input_data=None, ridge_filter_sigmas=0,
-        return_only_output_mask=False, do_try_all_thresholds=True,
-        pre_aggregated=False
+        image, lab, 
+        lineage_table=None, 
+        zyx_tolerance=None, 
+        threshold_func='', 
+        logger_func=print, 
+        return_image=False,
+        keep_input_shape=True, 
+        nnet_model=None, 
+        nnet_params=None,
+        nnet_input_data=None, 
+        ridge_filter_sigmas=0,
+        return_only_output_mask=False, 
+        do_try_all_thresholds=True,
+        pre_aggregated=False,
+        bioimageio_model=None,
+        bioimageio_params=None,
+        bioimageio_input_image=None
     ):    
     if image.ndim != 3 or image.ndim != 3:
         ndim = image.ndim
@@ -250,10 +286,11 @@ def global_semantic_segmentation(
         aggregated = transformations.aggregate_objs(
             image, lab, lineage_table=lineage_table, 
             zyx_tolerance=zyx_tolerance,
-            additional_imgs_to_aggr=[nnet_input_data]
+            additional_imgs_to_aggr=[nnet_input_data, bioimageio_input_image]
         )
         aggr_spots_img, aggregated_lab, aggr_imgs = aggregated
         aggr_transf_spots_nnet_img = aggr_imgs[0]
+        aggr_transf_spots_bioimageio_img = aggr_imgs[1]
     
     if ridge_filter_sigmas:
         aggr_spots_img = ridge(aggr_spots_img, ridge_filter_sigmas)
@@ -279,6 +316,12 @@ def global_semantic_segmentation(
         )
         result['neural_network'] = nnet_labels
     
+    if bioimageio_model is not None:
+        bioimageio_labels = bioimageio_model.segment(
+            aggr_transf_spots_bioimageio_img, **bioimageio_params['segment']
+        )
+        result['bioimageio_model'] = bioimageio_labels
+    
     if keep_input_shape:
         reindexed_result = {}
         for method, aggr_img in result.items():
@@ -299,6 +342,8 @@ def global_semantic_segmentation(
     if return_only_output_mask:
         if nnet_model is not None:
             return result['neural_network']
+        elif bioimageio_model is not None:
+            return result['bioimageio_model']
         else:
             return result['custom']
     else:

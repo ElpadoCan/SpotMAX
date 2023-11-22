@@ -628,6 +628,7 @@ class SpotPredictionMethodWidget(QWidget):
         self.nnetParams = None
         self.nnetModel = None
         self.bioImageIOModel = None
+        self.bioImageIOParams = None
         
         layout = QHBoxLayout()
         self.setLayout(layout)
@@ -787,7 +788,7 @@ class SpotPredictionMethodWidget(QWidget):
     def promptConfigModel(self):
         if self.value() == 'spotMAX AI':
             self._promptConfigNeuralNet()
-        elif self.value() == 'BioImage.IO':
+        elif self.value() == 'BioImage.IO model':
             self._promptConfigBioImageIOModel()
     
     def nnet_params_to_ini_sections(self):
@@ -809,7 +810,7 @@ class SpotPredictionMethodWidget(QWidget):
         if self.bioImageIOParams is None:
             return
 
-        if self.value() != 'BioImage.IO':
+        if self.value() != 'BioImage.IO model':
             return 
         
         init_model_params = {
@@ -823,8 +824,8 @@ class SpotPredictionMethodWidget(QWidget):
         return init_model_params, segment_model_params
     
     def nnet_params_from_ini_sections(self, ini_params):
-        from spotmax.nnet.model import get_nnet_params_from_ini_params
-        self.nnetParams = get_nnet_params_from_ini_params(
+        from spotmax.nnet.model import get_model_params_from_ini_params
+        self.nnetParams = get_model_params_from_ini_params(
             ini_params, use_default_for_missing=True
         )
     
@@ -2080,6 +2081,13 @@ class SelectFeaturesAutoTune(QWidget):
         self._layout.removeWidget(delButton)
         del self.featureGroupboxes[row]
 
+class RefChPredictionMethodWidget(SpotPredictionMethodWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        
+        # Remove 'spotMAX AI' item since we do not have a neural net for 
+        # reference channel yet
+        self.combobox.removeItem(1)
     
 class SpinBox(acdc_widgets.SpinBox):
     def __init__(self, parent=None, disableKeyPress=False):

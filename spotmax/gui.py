@@ -341,7 +341,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         spotsParams = ParamsGroupBox.params['Spots channel']
         anchor = 'spotPredictionMethod'
-        return spotsParams[anchor]['widget'].currentText() == 'BioImage.IO'
+        return spotsParams[anchor]['widget'].currentText() == 'BioImage.IO model'
     
     def isPreprocessAcrossExpRequired(self):
         if not self.isNeuralNetworkRequested():
@@ -1136,6 +1136,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs = self.addBioImageIOModelKwargs(kwargs)
         
         self.logNnetParams(kwargs.get('nnet_params'))
+        self.logNnetParams(
+            kwargs.get('bioimageio_params'), model_name='BioImage.IO model'
+        )
         
         on_finished_callback = (
             self.startComputeAnalysisStepWorker, args, kwargs
@@ -1146,12 +1149,13 @@ class spotMAX_Win(acdc_gui.guiWin):
             nnet_input_data=kwargs.get('nnet_input_data')
         )
     
-    def logNnetParams(self, nnet_params):
+    def logNnetParams(self, nnet_params, model_name='spotMAX AI model'):
         if nnet_params is None:
             return
+        
         text = '-'*60
         text = (
-            f'{text}\nRunning neural network with the following parameters:\n'
+            f'{text}\nRunning {model_name} with the following parameters:\n'
         )
         text = f'{text}  1. Initialization:\n'
         for param, value in nnet_params['init'].items():
@@ -1181,6 +1185,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         kwargs['bioimageio_model'] = self.getBioImageIOModel()
         kwargs['bioimageio_params'] = self.getBioImageIOParams()
+        
+        return kwargs
     
     def getNeuralNetInputData(self):
         useTranformedDataTime = (
@@ -1405,6 +1411,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs['gauss_sigma'] = kwargs.pop('ref_ch_gauss_sigma')
         kwargs['ridge_filter_sigmas'] = kwargs.pop('ref_ch_ridge_sigmas')
         
+        kwargs = self.addBioImageIOModelKwargs(kwargs)
+        self.logNnetParams(
+            kwargs.get('bioimageio_params'), model_name='BioImage.IO model'
+        )
+        
         args = [module_func, anchor]
         
         on_finished_callback = (
@@ -1497,6 +1508,17 @@ class spotMAX_Win(acdc_gui.guiWin):
                 result[f'{selected_threshold_method}'], 
                 result['neural_network'],
             ]
+        elif 'bioimageio_model' in result:
+            selected_threshold_method = self.getThresholdMethod()
+            titles = [
+                'Input image', f'{selected_threshold_method}', 
+                'BioImage.IO model'
+            ]
+            prediction_images = [
+                result['input_image'], 
+                result[f'{selected_threshold_method}'], 
+                result['bioimageio_model'],
+            ] 
         else:
             titles = list(result.keys())
             titles[0] = 'Input image'
@@ -1703,7 +1725,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 'box at the "Spots segmentation method" parameter.'
             )
         
-        return spotPredictionMethodWidget.bioImageIOModel  
+        return spotPredictionMethodWidget.bioImageIOParams  
     
     def onRemoveHotPixelsToggled(self, checked):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox

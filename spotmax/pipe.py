@@ -91,12 +91,17 @@ def spots_semantic_segmentation(
         nnet_model=None,
         nnet_params=None,
         nnet_input_data=None,
+        bioimageio_model=None,
+        bioimageio_params=None,
         do_preprocess=True,
         do_try_all_thresholds=True,
         return_only_segm=False,
-        pre_aggregated=False
+        pre_aggregated=False,
+        raw_image=None
     ):  
-    raw_image = image.copy()
+    if raw_image is None:
+        raw_image = image.copy()
+        
     if do_preprocess:
         image, lab = preprocess_image(
             image, 
@@ -138,7 +143,10 @@ def spots_semantic_segmentation(
             nnet_input_data=nnet_input_data,
             do_try_all_thresholds=do_try_all_thresholds,
             return_only_output_mask=return_only_segm,
-            pre_aggregated=pre_aggregated
+            pre_aggregated=pre_aggregated,
+            bioimageio_model=bioimageio_model,
+            bioimageio_params=bioimageio_params,
+            bioimageio_input_image=raw_image
         )
     else:
         result = filters.local_semantic_segmentation(
@@ -148,7 +156,10 @@ def spots_semantic_segmentation(
             nnet_input_data=nnet_input_data,
             do_try_all_thresholds=do_try_all_thresholds,
             return_only_output_mask=return_only_segm,
-            do_max_proj=True
+            do_max_proj=True,
+            bioimageio_model=bioimageio_model,
+            bioimageio_params=bioimageio_params,
+            bioimageio_input_image=raw_image
         )
     
     return result
@@ -168,8 +179,14 @@ def reference_channel_semantic_segm(
         keep_input_shape=True,
         do_preprocess=True,
         return_only_segm=False,
-        do_try_all_thresholds=True
+        do_try_all_thresholds=True,
+        bioimageio_model=None,
+        bioimageio_params=None,
+        raw_image=None
     ):    
+    if raw_image is None:
+        raw_image = image.copy()
+        
     if do_preprocess:
         image, lab = preprocess_image(
             image, 
@@ -200,7 +217,10 @@ def reference_channel_semantic_segm(
             keep_input_shape=keep_input_shape,
             ridge_filter_sigmas=ridge_filter_sigmas,
             return_only_output_mask=return_only_segm,
-            do_try_all_thresholds=do_try_all_thresholds
+            do_try_all_thresholds=do_try_all_thresholds,
+            bioimageio_model=bioimageio_model,
+            bioimageio_params=bioimageio_params,
+            bioimageio_input_image=raw_image
         )
     else:
         result = filters.local_semantic_segmentation(
@@ -209,7 +229,10 @@ def reference_channel_semantic_segm(
             do_max_proj=False, clear_outside_objs=True,
             ridge_filter_sigmas=ridge_filter_sigmas,
             return_only_output_mask=return_only_segm,
-            do_try_all_thresholds=do_try_all_thresholds
+            do_try_all_thresholds=do_try_all_thresholds,
+            bioimageio_model=bioimageio_model,
+            bioimageio_params=bioimageio_params,
+            bioimageio_input_image=raw_image
         )
     
     if not keep_only_largest_obj:

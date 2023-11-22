@@ -9,17 +9,23 @@ import skimage.transform
 import torch
 
 from .. import io
-
+from . import install_and_download
 from . import config_yaml_path
-from . import transform
-from .models.nd_model import  Data, Operation, NDModel, Models
 
-try:
-    with open(config_yaml_path, 'r') as f:
-        default_config = yaml.safe_load(f)
-except:
-    default_config = None
+def install_and_import_modules():
+    install_and_download()
+    from . import transform
+    from .models.nd_model import Data, Operation, NDModel, Models
+    return transform, Data, Operation, NDModel, Models
 
+def read_default_config():
+    try:
+        with open(config_yaml_path, 'r') as f:
+            default_config = yaml.safe_load(f)
+    except:
+        default_config = None
+    return default_config
+        
 class AvailableModels:
     values = ['2D', '3D']
 
@@ -37,6 +43,8 @@ class CustomSignals:
         ]
     
     def updateDefaultThrehsoldMethod(self, win, model_type):
+        default_config = read_default_config()
+        
         if default_config is None:
             return
         
@@ -62,6 +70,14 @@ class Model:
             PhysicalSizeX: float=0.073,
             use_gpu=False,
         ):
+        modules = install_and_import_modules()
+        transform, Data, Operation, NDModel, Models =  modules            
+        self.transform = transform
+        self.Data = Data
+        self.Operation = Operation
+        self.NDModel = NDModel
+        self.Models = Models
+        
         self._config = self._load_config(config_yaml_filepath)
         self._scale_factor = self._get_scale_factor(PhysicalSizeX)
         self.x_transformer = self._init_data_transformer(remove_hot_pixels)
@@ -82,17 +98,17 @@ class Model:
         return pixel_size_nm/self._config['base_pixel_size_nm']
 
     def _init_data_transformer(self, remove_hot_pixels):
-        x_transformer = transform.ImageTransformer(logs=False)
+        x_transformer = self.transform.ImageTransformer(logs=False)
         if remove_hot_pixels:
             x_transformer.set_pipeline([
                 # transform._rescale,
-                transform._opening,
-                transform._normalize,
+                self.transform._opening,
+                self.transform._normalize,
             ])
         else:
             x_transformer.set_pipeline([
                 # transform._rescale,
-                transform._normalize,
+                self.transform._normalize,
             ])
         return x_transformer
 
@@ -107,11 +123,11 @@ class Model:
     
     def _init_model(self, model_type):
         if model_type == '2D':
-            MODEL = Models.UNET2D
+            MODEL = self.Models.UNET2D
         else:
-            MODEL = Models.UNET3D
-        model = NDModel(
-            operation=Operation.PREDICT,
+            MODEL = self.Models.UNET3D
+        model = self.NDModel(
+            operation=self.Operation.PREDICT,
             model=MODEL,
             config=self._config
         )
@@ -205,7 +221,7 @@ class Model:
                 patch_shape, rescaled
             )
                 
-        input_data = Data(
+        input_data = self.Data(
             images=rescaled, masks=None, val_images=None, val_masks=None
         )
         prediction, _ = self.model(input_data, verbose=verbose)
@@ -223,7 +239,7 @@ class Model:
             
         return lab
 
-def get_nnet_params_from_ini_params(ini_params, use_default_for_missing=False):
+def get_model_params_from_ini_params(ini_params, use_default_for_missing=False):
     sections = ['neural_network.init', 'neural_network.segment']
     if not any([section in ini_params for section in sections]):
         return 
