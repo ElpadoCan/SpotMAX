@@ -408,9 +408,17 @@ def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):
 
     return segm_slice, pad_widths, crop_to_global_coords
 
-def index_aggregated_segm_into_input_image(
-        image, lab, aggregated_segm, aggregated_lab
-    ):
+def deaggregate_img(aggr_img, aggregated_lab, lab):
+    deaggr_img = np.zeros(lab.shape, dtype=aggr_img.dtype)
+    rp = skimage.measure.regionprops(lab)
+    aggr_rp = skimage.measure.regionprops(aggregated_lab)
+    aggr_rp = {aggr_obj.label:aggr_obj for aggr_obj in aggr_rp}
+    for obj in rp:
+        aggr_obj = aggr_rp[obj.label]
+        deaggr_img[obj.slice] = aggr_img[aggr_obj.slice]
+    return deaggr_img
+
+def index_aggregated_segm_into_input_lab(lab, aggregated_segm, aggregated_lab):
     segm_lab = np.zeros_like(lab)
     rp = skimage.measure.regionprops(lab)
     obj_idxs = {obj.label:obj for obj in rp}

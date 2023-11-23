@@ -117,7 +117,7 @@ def threshold_masked_by_obj(
         thresholded = image > thresh_val
     except Exception as err:
         thresh_val = np.nan
-        thresholded = np.zeros(img.shape, dtype=bool)
+        thresholded = np.zeros(image.shape, dtype=bool)
     
     if return_thresh_val:
         return thresholded, thresh_val
@@ -279,7 +279,7 @@ def global_semantic_segmentation(
     )
     
     if pre_aggregated:
-        aggr_spots_img = image
+        aggr_img = image
         aggregated_lab = lab
         aggr_transf_spots_nnet_img = nnet_input_data
     else:
@@ -288,18 +288,18 @@ def global_semantic_segmentation(
             zyx_tolerance=zyx_tolerance,
             additional_imgs_to_aggr=[nnet_input_data, bioimageio_input_image]
         )
-        aggr_spots_img, aggregated_lab, aggr_imgs = aggregated
+        aggr_img, aggregated_lab, aggr_imgs = aggregated
         aggr_transf_spots_nnet_img = aggr_imgs[0]
         aggr_transf_spots_bioimageio_img = aggr_imgs[1]
     
     if ridge_filter_sigmas:
-        aggr_spots_img = ridge(aggr_spots_img, ridge_filter_sigmas)
+        aggr_img = ridge(aggr_img, ridge_filter_sigmas)
     
     # Thresholding
     result = {}
     for method, thresh_func in threshold_funcs.items():
         thresholded = threshold(
-            aggr_spots_img, thresh_func, logger_func=logger_func,
+            aggr_img, thresh_func, logger_func=logger_func,
             do_max_proj=True
         )
         result[method] = thresholded
@@ -307,7 +307,7 @@ def global_semantic_segmentation(
     # Neural network
     if nnet_model is not None:
         if aggr_transf_spots_nnet_img is None:
-            nnet_input_img = aggr_spots_img
+            nnet_input_img = aggr_img
         else:
             nnet_input_img = aggr_transf_spots_nnet_img
 
@@ -324,17 +324,20 @@ def global_semantic_segmentation(
     
     if keep_input_shape:
         reindexed_result = {}
-        for method, aggr_img in result.items():
+        for method, aggr_segm in result.items():
             reindexed_result[method] = (
-                transformations.index_aggregated_segm_into_input_image(
-                    image, lab, aggr_img, aggregated_lab
+                transformations.index_aggregated_segm_into_input_lab(
+                    lab, aggr_segm, aggregated_lab
             ))
         result = reindexed_result
         if return_image:
-            input_image_dict = {'input_image': image}
+            deaggr_img = transformations.deaggregate_img(
+                aggr_img, aggregated_lab, lab
+            )
+            input_image_dict = {'input_image': deaggr_img}
             result = {**input_image_dict, **result}
     elif return_image:
-        input_image_dict = {'input_image': aggr_spots_img}
+        input_image_dict = {'input_image': aggr_img}
         result = {**input_image_dict, **result}
     
     result = {key:np.squeeze(img) for key, img in result.items()}

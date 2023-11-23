@@ -182,12 +182,16 @@ def reference_channel_semantic_segm(
         do_try_all_thresholds=True,
         bioimageio_model=None,
         bioimageio_params=None,
-        raw_image=None
+        raw_image=None,
+        pre_aggregated=False,
+        show_progress=False
     ):    
     if raw_image is None:
         raw_image = image.copy()
         
     if do_preprocess:
+        if show_progress:
+            logger_func('Pre-processing image...')
         image, lab = preprocess_image(
             image, 
             lab=lab, 
@@ -218,6 +222,7 @@ def reference_channel_semantic_segm(
             ridge_filter_sigmas=ridge_filter_sigmas,
             return_only_output_mask=return_only_segm,
             do_try_all_thresholds=do_try_all_thresholds,
+            pre_aggregated=pre_aggregated,
             bioimageio_model=bioimageio_model,
             bioimageio_params=bioimageio_params,
             bioimageio_input_image=raw_image

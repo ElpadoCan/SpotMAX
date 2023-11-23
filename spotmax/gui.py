@@ -61,8 +61,8 @@ ANALYSIS_STEP_RESULT_SLOTS = {
     'refChRidgeFilterSigmas': '_displayRidgeFilterResult',
     'removeHotPixels': '_displayRemoveHotPixelsResult',
     'sharpenSpots': '_displaySharpenSpotsResult',
-    'spotPredictionMethod': '_displayspotPredictionResult',
-    'refChThresholdFunc': '_displayspotSegmRefChannelResult'
+    'spotPredictionMethod': '_displaySpotPredictionResult',
+    'refChSegmentationMethod': '_displaySegmRefChannelResult'
 }
 
 PARAMS_SLOTS = {
@@ -72,7 +72,7 @@ PARAMS_SLOTS = {
     'removeHotPixels': ('sigComputeButtonClicked', '_computeRemoveHotPixels'),
     'sharpenSpots': ('sigComputeButtonClicked', '_computeSharpenSpots'),
     'spotPredictionMethod': ('sigComputeButtonClicked', '_computeSpotPrediction'),
-    'refChThresholdFunc': ('sigComputeButtonClicked', '_computeSegmentRefChannel')
+    'refChSegmentationMethod': ('sigComputeButtonClicked', '_computeSegmentRefChannel')
 }
 
 SliderSingleStepAdd = acdc_gui.SliderSingleStepAdd
@@ -337,10 +337,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'spotPredictionMethod'
         return spotsParams[anchor]['widget'].currentText() == 'spotMAX AI'
     
-    def isBioImageIOModelRequested(self):
+    def isBioImageIOModelRequested(self, section, anchor):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
-        spotsParams = ParamsGroupBox.params['Spots channel']
-        anchor = 'spotPredictionMethod'
+        spotsParams = ParamsGroupBox.params[section]
         return spotsParams[anchor]['widget'].currentText() == 'BioImage.IO model'
     
     def isPreprocessAcrossExpRequired(self):
@@ -1046,7 +1045,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         refChParams = ParamsGroupBox.params['Reference channel']
         refChRidgeSigmasWidget = refChParams['refChRidgeFilterSigmas']
         ref_ch_ridge_sigmas = refChRidgeSigmasWidget['widget'].value()
-        if isinstance(ref_ch_ridge_sigmas, float):
+        if isinstance(ref_ch_ridge_sigmas, float) and ref_ch_ridge_sigmas>0:
             ref_ch_ridge_sigmas = [ref_ch_ridge_sigmas]
         
         spotsParams = ParamsGroupBox.params['Spots channel']
@@ -1133,7 +1132,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs = {key:all_kwargs[key] for key in keys}
         
         kwargs = self.addNnetKwargs(kwargs)
-        kwargs = self.addBioImageIOModelKwargs(kwargs)
+        
+        section = 'Spots channel'
+        kwargs = self.addBioImageIOModelKwargs(kwargs, section, anchor)
         
         self.logNnetParams(kwargs.get('nnet_params'))
         self.logNnetParams(
@@ -1177,14 +1178,22 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs['nnet_params'] = self.getNeuralNetParams()
         kwargs['nnet_input_data'] = self.getNeuralNetInputData()
         
+        threshold_func = self.getSpotsThresholdMethod()
+        kwargs['thresholding_method'] = threshold_func
+        kwargs['do_try_all_thresholds'] = False
+        
         return kwargs
     
-    def addBioImageIOModelKwargs(self, kwargs):
-        if not self.isBioImageIOModelRequested():
+    def addBioImageIOModelKwargs(self, kwargs, section, anchor):
+        if not self.isBioImageIOModelRequested(section, anchor):
             return kwargs
         
-        kwargs['bioimageio_model'] = self.getBioImageIOModel()
-        kwargs['bioimageio_params'] = self.getBioImageIOParams()
+        kwargs['bioimageio_model'] = self.getBioImageIOModel(section, anchor)
+        kwargs['bioimageio_params'] = self.getBioImageIOParams(section, anchor)
+        
+        threshold_func = self.getRefChThresholdMethod()
+        kwargs['thresholding_method'] = threshold_func
+        kwargs['do_try_all_thresholds'] = False
         
         return kwargs
     
@@ -1383,7 +1392,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.funcDescription = 'Reference channel semantic segmentation'
         module_func = 'pipe.reference_channel_semantic_segm'
-        anchor = 'refChThresholdFunc'
+        anchor = 'refChSegmentationMethod'
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
@@ -1411,7 +1420,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs['gauss_sigma'] = kwargs.pop('ref_ch_gauss_sigma')
         kwargs['ridge_filter_sigmas'] = kwargs.pop('ref_ch_ridge_sigmas')
         
-        kwargs = self.addBioImageIOModelKwargs(kwargs)
+        section = 'Reference channel'
+        kwargs = self.addBioImageIOModelKwargs(kwargs, section, anchor)
         self.logNnetParams(
             kwargs.get('bioimageio_params'), model_name='BioImage.IO model'
         )
@@ -1494,29 +1504,29 @@ class spotMAX_Win(acdc_gui.guiWin):
             window_title=window_title, color_scheme=self._colorScheme
         )
     
-    def _displayspotPredictionResult(self, result, image):
+    def _displaySpotPredictionResult(self, result, image):
         from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
         
         if 'neural_network' in result:
-            selected_threshold_method = self.getThresholdMethod()
+            selected_threshold_method = self.getSpotsThresholdMethod()
             titles = [
                 'Input image', f'{selected_threshold_method}', 'spotMAX AI'
             ]
             prediction_images = [
                 result['input_image'], 
-                result[f'{selected_threshold_method}'], 
+                result['custom'], 
                 result['neural_network'],
             ]
         elif 'bioimageio_model' in result:
-            selected_threshold_method = self.getThresholdMethod()
+            selected_threshold_method = self.getSpotsThresholdMethod()
             titles = [
                 'Input image', f'{selected_threshold_method}', 
                 'BioImage.IO model'
             ]
             prediction_images = [
                 result['input_image'], 
-                result[f'{selected_threshold_method}'], 
+                result['custom'], 
                 result['bioimageio_model'],
             ] 
         else:
@@ -1531,13 +1541,24 @@ class spotMAX_Win(acdc_gui.guiWin):
             window_title=window_title, color_scheme=self._colorScheme
         )
     
-    def _displayspotSegmRefChannelResult(self, result, image):
+    def _displaySegmRefChannelResult(self, result, image):
         from cellacdc.plot import imshow
-        posData = self.data[self.pos_i]
         
-        titles = list(result.keys())
-        titles[0] = 'Input image'
-        prediction_images = list(result.values())
+        if 'bioimageio_model' in result:
+            selected_threshold_method = self.getRefChThresholdMethod()
+            titles = [
+                'Input image', f'{selected_threshold_method}', 
+                'BioImage.IO model'
+            ]
+            prediction_images = [
+                result['input_image'], 
+                result['custom'], 
+                result['bioimageio_model'],
+            ] 
+        else:
+            titles = list(result.keys())
+            titles[0] = 'Input image'
+            prediction_images = list(result.values())
         
         window_title = 'Reference channel - Semantic segmentation'
         
@@ -1642,10 +1663,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         return spotPredictionMethodWidget.nnetModel    
 
     @exception_handler
-    def getBioImageIOModel(self):
+    def getBioImageIOModel(self, section, anchor):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
-        spotsParams = ParamsGroupBox.params['Spots channel']
-        anchor = 'spotPredictionMethod'
+        spotsParams = ParamsGroupBox.params[section]
         spotPredictionMethodWidget = spotsParams[anchor]['widget']
         if spotPredictionMethodWidget.bioImageIOModel is None:
             raise ValueError(
@@ -1657,12 +1677,19 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         return spotPredictionMethodWidget.bioImageIOModel   
     
-    def getThresholdMethod(self):
+    def getSpotsThresholdMethod(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         spotsParams = ParamsGroupBox.params['Spots channel']
         anchor = 'spotThresholdFunc'
         spotThresholdFuncWidget = spotsParams[anchor]['widget']
         return spotThresholdFuncWidget.currentText()
+
+    def getRefChThresholdMethod(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        refChParams = ParamsGroupBox.params['Reference channel']
+        anchor = 'refChThresholdFunc'
+        thresholdFuncWidget = refChParams[anchor]['widget']
+        return thresholdFuncWidget.currentText()
     
     @exception_handler
     def getSelectExpPath(self):
@@ -1712,10 +1739,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         return spotPredictionMethodWidget.nnetParams  
     
     @exception_handler
-    def getBioImageIOParams(self):
+    def getBioImageIOParams(self, section, anchor):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
-        spotsParams = ParamsGroupBox.params['Spots channel']
-        anchor = 'spotPredictionMethod'
+        spotsParams = ParamsGroupBox.params[section]
         spotPredictionMethodWidget = spotsParams[anchor]['widget']
         if spotPredictionMethodWidget.bioImageIOModel is None:
             raise ValueError(

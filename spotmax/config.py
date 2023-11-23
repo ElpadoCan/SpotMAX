@@ -838,7 +838,7 @@ def _ref_ch_params():
             'initialVal': 'threshold_otsu',
             'stretchWidget': True,
             'addInfoButton': True,
-            'addComputeButton': True,
+            'addComputeButton': False,
             'addApplyButton': False,
             'formWidgetFunc': 'widgets._refChThresholdFuncWidget',
             'actions': None,
