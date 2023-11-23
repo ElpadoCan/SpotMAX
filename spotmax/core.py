@@ -3318,10 +3318,11 @@ class Kernel(_ParamsParser):
             )
         
         if detection_method == 'peak_local_max':
+            import pdb; pdb.set_trace()
             aggr_spots_coords = skimage.feature.peak_local_max(
                 np.squeeze(aggr_spots_img), 
                 footprint=np.squeeze(footprint), 
-                labels=np.squeeze(labels)
+                labels=np.squeeze(labels.astype(int))
             )
         elif detection_method == 'label_prediction_mask':
             prediction_lab = skimage.measure.label(labels>0)

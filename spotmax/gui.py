@@ -377,7 +377,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         for toolButton in self.spotsItems.buttons:
             self.spotmaxToolbar.removeAction(toolButton.action)
             
-        self.spotsItems = widgets.SpotsItems()
+        self.spotsItems = widgets.SpotsItems(self)
         
         try:
             self.disconnectParamsGroupBoxSignals()
@@ -485,13 +485,45 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         msg_args = (self, 'spotMAX analysis finished', txt)
         getattr(msg, msg_func)(*msg_args, **msg_kwargs)
+        
+        if msg_func == 'information':
+            self.askVisualizeResults()
+    
+    def askVisualizeResults(self):        
+        txt = html_func.paragraph(
+            'Do you want to visualize the results in the GUI?'
+        )
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        _, yesButton = msg.question(
+            self, 'Visualize results?', txt, buttonsTexts=('No', 'Yes')
+        )
+        if msg.clickedButton == yesButton:
+            if not self.dataIsLoaded:
+                txt = html_func.paragraph("""
+            In order to visualize the results you need to <b>load some 
+            image data first</b>.<br><br>
+            
+            To do so, click on the <code>Open folder</code> button on the left of 
+            the top toolbar (Ctrl+O) and choose an experiment folder to load.<br><br>
+            
+            After loading the image data you can visualize the results by clicking 
+            on the <code>Visualize detected spots from a previous analysis</code> 
+            button on the left-side toolbar. 
+        """)
+                msg = acdc_widgets.myMessageBox(wrapText=True)
+                msg.warning(self, 'Data not loaded', txt)
+                return
+            self.addSpotsCoordinatesAction.trigger()
+        
     
     def gui_createActions(self):
         super().gui_createActions()
 
         self.addSpotsCoordinatesAction = QAction(self)
         self.addSpotsCoordinatesAction.setIcon(QIcon(":addPlotSpots.svg"))
-        self.addSpotsCoordinatesAction.setToolTip('Add plot for spots coordinates')
+        self.addSpotsCoordinatesAction.setToolTip(
+            'Visualize detected spots from a previous analysis'
+        )
     
     def gui_createToolBars(self):
         super().gui_createToolBars()
@@ -502,7 +534,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.addToolBar(Qt.LeftToolBarArea, self.spotmaxToolbar)
         self.spotmaxToolbar.addAction(self.addSpotsCoordinatesAction)
         self.spotmaxToolbar.setVisible(False)
-        self.spotsItems = widgets.SpotsItems()
+        self.spotsItems = widgets.SpotsItems(self)
     
     def gui_addTopLayerItems(self):
         super().gui_addTopLayerItems()

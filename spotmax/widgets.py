@@ -1671,13 +1671,15 @@ class SpotsItemToolButton(acdc_widgets.PointsLayerToolButton):
 class SpotsItems:
     sigButtonToggled = Signal(object, bool)
 
-    def __init__(self):
+    def __init__(self, parent):
         self.buttons = []
+        self.parent = parent
 
     def addLayer(self, h5files):
         win = dialogs.SpotsItemPropertiesDialog(
             h5files, 
-            spotmax_out_path=self.spotmax_out_path
+            spotmax_out_path=self.spotmax_out_path,
+            parent=self.parent
         )
         win.exec_()
         if win.cancel:
@@ -1708,7 +1710,8 @@ class SpotsItems:
     def editAppearance(self, button):
         win = dialogs.SpotsItemPropertiesDialog(
             button.h5files, state=button.state, 
-            spotmax_out_path=self.spotmax_out_path
+            spotmax_out_path=self.spotmax_out_path,
+            parent=self.parent
         )
         win.exec_()
         if win.cancel:

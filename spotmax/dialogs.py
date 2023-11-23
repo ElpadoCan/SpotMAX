@@ -303,7 +303,7 @@ class guiTabControl(QTabWidget):
             'Save parameters to file...'
         )
         self.loadPreviousParamsButton = acdc_widgets.browseFileButton(
-            'Load from previous analysis', 
+            'Load parameters from previous analysis...', 
             ext={'Configuration files': ['.ini', '.csv']},
             start_dir=acdc_myutils.getMostRecentPath(), 
             title='Select analysis parameters file'
@@ -453,10 +453,37 @@ class guiTabControl(QTabWidget):
         spotPredMethodWidget.nnet_params_from_ini_sections(params)
         spotPredMethodWidget.bioimageio_params_from_ini_sections(params)
     
+    def validateIniFile(self, filePath):
+        params = config.getDefaultParams()
+        with open(filePath, 'r') as file:
+            txt = file.read()
+        isAnySectionPresent = any(
+            [txt.find(f'[{section}]') != -1 for section in params.keys()]
+        )
+        if isAnySectionPresent:
+            return True
+        
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph(""" 
+            The loaded INI file does <b>not contain any valid section</b>.<br><br>
+            Please double-check that you are loading the correct file.<br><br>
+            Loaded file:
+        """)
+        msg.warning(
+            self, 'Invalid INI file', txt, 
+            commands=(filePath,), 
+            path_to_browse=os.path.dirname(filePath)
+        )
+        
+        return False
+    
     def loadPreviousParams(self, filePath):
         self.logging_func(f'Loading analysis parameters from "{filePath}"...')
         acdc_myutils.addToRecentPaths(os.path.dirname(filePath))
         self.loadedFilename, ext = os.path.splitext(os.path.basename(filePath))
+        proceed = self.validateIniFile(filePath)
+        if not proceed:
+            return
         params = config.analysisInputsParams(filePath, cast_dtypes=False)
         self.setValuesFromParams(params)
         self.parametersQGBox.setSelectedMeasurements(filePath)
@@ -489,7 +516,7 @@ class guiTabControl(QTabWidget):
             txt = html_func.paragraph(
                 'Do you want to select which <b>measurements to save?</b><br>'
             )
-            noText = 'No'
+            noText = 'No, save all the measurements'
 
         msg = acdc_widgets.myMessageBox(wrapText=False)
         _, noButton, yesButton = getattr(msg, msg_type)(

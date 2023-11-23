@@ -272,6 +272,8 @@ def get_gop_thresholds(gop_thresholds_to_parse):
         feature_name, *thresholds_str = feature_thresholds.split(',')
         if not feature_name:
             continue
+        if feature_name == 'None':
+            continue
         thresholds = [None, None]
         for t, thresh in enumerate(thresholds_str):
             try:
@@ -1019,10 +1021,7 @@ def get_section_from_anchor(anchor_to_search):
             if anchor == anchor_to_search:
                 return section
 
-def analysisInputsParams(params_path=default_ini_path, cast_dtypes=True):
-    # NOTE: if you change the anchors (i.e., the key of each second level
-    # dictionary, e.g., 'spotsEndName') remember to change them also in
-    # _docs.paramsInfoText dictionary keys
+def getDefaultParams():
     params = {
         'File paths and channels': _filepaths_params(),
         'METADATA': _metadata_params(),
@@ -1031,6 +1030,13 @@ def analysisInputsParams(params_path=default_ini_path, cast_dtypes=True):
         'Spots channel': _spots_ch_params(),
         'Configuration': _configuration_params()
     }
+    return params
+
+def analysisInputsParams(params_path=default_ini_path, cast_dtypes=True):
+    # NOTE: if you change the anchors (i.e., the key of each second level
+    # dictionary, e.g., 'spotsEndName') remember to change them also in
+    # _docs.paramsInfoText dictionary keys
+    params = getDefaultParams()
     if params_path is None:
         return params
     
