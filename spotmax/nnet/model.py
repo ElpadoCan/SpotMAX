@@ -239,10 +239,21 @@ class Model:
             
         return lab
 
-def get_model_params_from_ini_params(ini_params, use_default_for_missing=False):
-    sections = ['neural_network.init', 'neural_network.segment']
+def get_model_params_from_ini_params(
+        ini_params, use_default_for_missing=False, subsection='spots'
+    ):
+    sections = [
+        f'neural_network.init.{subsection}', 
+        f'neural_network.segment.{subsection}'
+    ]
     if not any([section in ini_params for section in sections]):
-        return 
+        # Keep compatibility with previous versions that did not have subsection
+        sections = [
+            f'neural_network.init', 
+            f'neural_network.segment'
+        ]
+        if not any([section in ini_params for section in sections]):
+            return 
     
     import spotmax.nnet.model as model_module
     params = io.nnet_params_from_init_params(

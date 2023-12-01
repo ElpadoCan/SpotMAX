@@ -1428,13 +1428,19 @@ class ParamsGroupBox(QGroupBox):
                     'initialVal': initialVal
                 }
         
-        ini_params = self.addNNetParams(ini_params)
+        ini_params = self.addNNetParams(ini_params, 'spots')
+        ini_params = self.addNNetParams(ini_params, 'ref_ch')
         return ini_params
-
-    def addNNetParams(self, ini_params):
-        spotsParams = self.params['Spots channel']
-        anchor = 'spotPredictionMethod'
-        widget = spotsParams[anchor]['widget']
+    
+    def addNNetParams(self, ini_params, channel):
+        if channel == 'spots':
+            params = self.params['Spots channel']
+            anchor = 'spotPredictionMethod'
+        else:
+            params = self.params['Reference channel']
+            anchor = 'spotPredictionMethod'
+        
+        widget = params[anchor]['widget']
         nnet_params = widget.nnet_params_to_ini_sections()
         bioimageio_model_params = (
             widget.bioimageio_model_params_to_ini_sections()
@@ -1448,7 +1454,7 @@ class ParamsGroupBox(QGroupBox):
             section_id_name = 'bioimageio_model'
         
         init_model_params, segment_model_params = nnet_params
-        SECTION = f'{section_id_name}.init'
+        SECTION = f'{section_id_name}.init.{channel}'
         for key, value in init_model_params.items():
             if SECTION not in ini_params:
                 ini_params[SECTION] = {}
@@ -1456,7 +1462,7 @@ class ParamsGroupBox(QGroupBox):
                 'desc': key, 'loadedVal': value, 'isParam': True
             }
         
-        SECTION = f'{section_id_name}.segment'
+        SECTION = f'{section_id_name}.segment.{channel}'
         for key, value in segment_model_params.items():
             if SECTION not in ini_params:
                 ini_params[SECTION] = {}

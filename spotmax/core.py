@@ -1,3 +1,4 @@
+from importlib import import_module
 import os
 import sys
 import shutil
@@ -687,7 +688,8 @@ class _ParamsParser(_DataLoader):
         
         if metadata_csv_path:
             self._params = io.add_metadata_from_csv(
-                metadata_csv_path, self._params)
+                metadata_csv_path, self._params
+            )
         
         params_folder_path = os.path.dirname(params_path)
         params_file_name = os.path.splitext(os.path.basename(params_path))[0]
@@ -730,11 +732,15 @@ class _ParamsParser(_DataLoader):
         self.set_abs_exp_paths()
         self.set_metadata()
         self.nnet_model, self.nnet_params = self.check_init_neural_network(
-            'spotMAX AI'
+            'spotMAX AI', 'spots'
         )
         self.bioimageio_model, self.bioimageio_params = (
-            self.check_init_neural_network('BioImage.IO model')
+            self.check_init_neural_network('BioImage.IO model', 'spots')
         )
+        self.bioimageio_model_ref_ch, self.bioimageio_params_ref_ch = (
+            self.check_init_neural_network('BioImage.IO model', 'ref')
+        )
+        
         proceed = self.check_contradicting_params()
         if not proceed:
             return False, None
@@ -1440,30 +1446,47 @@ class _ParamsParser(_DataLoader):
         elif answer == options[1]:
             return 'do_not_segment_ref_ch'
     
-    def check_init_neural_network(self, init_if_str):        
+    def check_init_neural_network(self, network_type, channel):      
+        if channel == 'spots':
+            anchor_filepaths = 'spotChSegmEndName'
+            anchor_params = 'spotPredictionMethod'
+            channel_section = 'Spots channel'
+            subsection = 'spots'
+        else:
+            anchor_filepaths = 'refChSegmEndName'
+            anchor_params = 'refChSegmentationMethod'
+            channel_section = 'Reference channel'
+            subsection = 'ref_ch'
+            
         SECTION = 'File paths and channels'
-        ANCHOR = 'spotChSegmEndName'
+        ANCHOR = anchor_filepaths
         section_params = self._params[SECTION]
-        spots_ch_segm_endname = section_params[ANCHOR].get('loadedVal', '')
-        if spots_ch_segm_endname:
+        ch_segm_endname = section_params[ANCHOR].get('loadedVal', '')
+        if ch_segm_endname:
             # User provided a segm mask --> no need to use neural net
             return None, None    
         
-        SECTION = 'Spots channel'
-        ANCHOR = 'spotPredictionMethod'
+        SECTION = channel_section
         section_params = self._params[SECTION]
-        spots_prediction_method = section_params[ANCHOR].get('loadedVal')
-        if spots_prediction_method != init_if_str:
+        prediction_method = section_params[anchor_params].get('loadedVal')
+        if prediction_method != network_type:
             # Neural network is not required
             return None, None
         
+        if network_type == 'spotMAX AI':
+            model_module = 'spotmax.nnet.model'
+        elif network_type == 'BioImage.IO model':
+            model_module = 'spotmax.BioImageIO.model'
+        
         try:
             self.logger.info('-'*60)                
-            self.logger.info('Initializing neural network...')
-            from spotmax.nnet import model
+            self.logger.info(f'Initializing {network_type}...')
+            model = import_module(model_module)
             model_params = model.get_model_params_from_ini_params(
-                self._params, use_default_for_missing=self._force_default
+                self._params, use_default_for_missing=self._force_default,
+                subsection=subsection
             )
+            import pdb; pdb.set_trace()
             model_class = model.Model(**model_params['init'])
             model_params['segment']['verbose'] = False
         except Exception as err:
@@ -3048,6 +3071,7 @@ class Kernel(_ParamsParser):
         else:
             threshold_func = threshold_method
         
+        import pdb; pdb.set_trace()
         result = pipe.reference_channel_semantic_segm(
             ref_ch_img, 
             lab=lab,
@@ -3059,10 +3083,10 @@ class Kernel(_ParamsParser):
             ridge_filter_sigmas=ridge_filter_sigmas,
             keep_input_shape=True,
             do_preprocess=False,
-            return_only_segm=return_filtered_img,
+            return_only_segm=not return_filtered_img,
             do_try_all_thresholds=False,
-            bioimageio_model=self.bioimageio_model,
-            bioimageio_params=self.bioimageio_params,
+            bioimageio_model=self.bioimageio_model_ref_ch,
+            bioimageio_params=self.bioimageio_params_ref_ch,
             raw_image=raw_ref_ch_img
         )
         if return_filtered_img:
@@ -3071,6 +3095,8 @@ class Kernel(_ParamsParser):
             ref_ch_segm = result[segm_key]
         else:
             ref_ch_segm = result
+        
+        import pdb; pdb.set_trace()
         
         df_agg = self.add_ref_ch_features(
             df_agg, lab_rp, ref_ch_segm, 
@@ -3294,8 +3320,9 @@ class Kernel(_ParamsParser):
         aggr_transf_spots_nnet_img = aggr_imgs[1]
         
         if aggr_spots_ch_segm_mask is not None:
-            labels = aggr_spots_ch_segm_mask.astype(np.uint8)
+            labels = aggr_spots_ch_segm_mask.astype(int)
         else:
+            import pdb; pdb.set_trace()
             labels = pipe.spots_semantic_segmentation(
                 aggr_spots_img, 
                 lab=aggregated_lab, 
@@ -3318,7 +3345,6 @@ class Kernel(_ParamsParser):
             )
         
         if detection_method == 'peak_local_max':
-            import pdb; pdb.set_trace()
             aggr_spots_coords = skimage.feature.peak_local_max(
                 np.squeeze(aggr_spots_img), 
                 footprint=np.squeeze(footprint), 

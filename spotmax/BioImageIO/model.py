@@ -193,8 +193,13 @@ class Model:
         else:
             return thresholded
 
-def get_model_params_from_ini_params(ini_params, use_default_for_missing=False):
-    sections = ['bioimageio_model.init', 'bioimageio_model.segment']
+def get_model_params_from_ini_params(
+        ini_params, use_default_for_missing=False, subsection='spots'
+    ):
+    sections = [
+        f'bioimageio_model.init.{subsection}', 
+        f'bioimageio_model.segment.{subsection}'
+    ]
     if not any([section in ini_params for section in sections]):
         return 
     
