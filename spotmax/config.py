@@ -821,7 +821,7 @@ def _ref_ch_params():
             'addInfoButton': True,
             'addComputeButton': True,
             'addApplyButton': False,
-            'formWidgetFunc': 'widgets.VectorLineEdit',
+            'formWidgetFunc': 'widgets.Gaussian3SigmasLineEdit',
             'actions': None,
             'dtype': get_ridge_sigmas
         },

@@ -8,7 +8,9 @@ import skimage.transform
 
 import torch
 
-from .. import io
+from cellacdc.types import Vector
+
+from .. import io, printl
 from . import install_and_download
 from . import config_yaml_path
 
@@ -65,9 +67,11 @@ class Model:
             model_type: AvailableModels='2D', 
             preprocess_across_experiment=False,
             preprocess_across_timepoints=True,
+            gaussian_filter_sigma: Vector=0.0,
             remove_hot_pixels=False,
             config_yaml_filepath: os.PathLike=config_yaml_path,
             PhysicalSizeX: float=0.073,
+            resolution_multiplier_yx: float=1.0,
             use_gpu=False,
         ):
         modules = install_and_import_modules()
@@ -79,8 +83,12 @@ class Model:
         self.Models = Models
         
         self._config = self._load_config(config_yaml_filepath)
-        self._scale_factor = self._get_scale_factor(PhysicalSizeX)
-        self.x_transformer = self._init_data_transformer(remove_hot_pixels)
+        self._scale_factor = self._get_scale_factor(
+            PhysicalSizeX, resolution_multiplier_yx
+        )
+        self.x_transformer = self._init_data_transformer(
+            remove_hot_pixels, gaussian_filter_sigma, use_gpu
+        )
         self._config['device'] = self._get_device_str(use_gpu)
         self._batch_preprocess = (
             preprocess_across_experiment or preprocess_across_timepoints
@@ -93,23 +101,27 @@ class Model:
             _config = yaml.safe_load(f)
         return _config
     
-    def _get_scale_factor(self, pixel_size):
-        pixel_size_nm = pixel_size*1000
-        return pixel_size_nm/self._config['base_pixel_size_nm']
+    def _get_scale_factor(self, pixel_size_um, resolution_multiplier_yx):
+        pixel_size_nm = pixel_size_um*1000
+        sf = (
+            pixel_size_nm
+            /self._config['base_pixel_size_nm']
+            /resolution_multiplier_yx
+        )
+        return sf
 
-    def _init_data_transformer(self, remove_hot_pixels):
+    def _init_data_transformer(
+            self, remove_hot_pixels, gaussian_filter_sigma, use_gpu
+        ):
         x_transformer = self.transform.ImageTransformer(logs=False)
         if remove_hot_pixels:
-            x_transformer.set_pipeline([
-                # transform._rescale,
-                self.transform._opening,
-                self.transform._normalize,
-            ])
-        else:
-            x_transformer.set_pipeline([
-                # transform._rescale,
-                self.transform._normalize,
-            ])
+            x_transformer.add_step(self.transform._opening)
+        x_transformer.add_step(
+            self.transform._gaussian_filter, 
+            sigma=gaussian_filter_sigma,
+            use_gpu=use_gpu
+        )
+        x_transformer.add_step(self.transform._normalize)
         return x_transformer
 
     def _get_device_str(self, use_gpu: bool):

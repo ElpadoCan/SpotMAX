@@ -710,6 +710,16 @@ class SpotPredictionMethodWidget(QWidget):
             self.nnetParams = { 'init': {}, 'segment': {}}
         self.nnetParams['init']['use_gpu'] = use_gpu
     
+    def setDefaultGaussianSigma(self, sigma):
+        if self.nnetParams is None:
+            self.nnetParams = { 'init': {}, 'segment': {}}
+        self.nnetParams['init']['gaussian_filter_sigma'] = sigma
+    
+    def setDefaultResolutionMultiplier(self, value):
+        if self.nnetParams is None:
+            self.nnetParams = { 'init': {}, 'segment': {}}
+        self.nnetParams['init']['resolution_multiplier_yx'] = value
+    
     def setPosData(self, posData):
         self.posData = posData
         self.metadata_df = posData.metadata_df
@@ -1315,62 +1325,7 @@ class YXresolutMultiplierAutoTuneWidget(FloatLineEditWithStepButtons):
         self._stepUpButton.setShortcut('Up')
         self._stepDownButton.setShortcut('Down')
 
-class VectorLineEdit(QLineEdit):
-    valueChanged = Signal(object)
-    
-    def __init__(self, parent=None, initial=None):
-        super().__init__(parent)
-        
-        float_re = float_regex()
-        vector_regex = fr'\(?\[?{float_re}(,\s?{float_re})+\)?\]?'
-        regex = fr'^{vector_regex}$|^{float_re}$'
-        self.validRegex = regex
-        
-        regExp = QRegularExpression(regex)
-        self.setValidator(QRegularExpressionValidator(regExp))
-        self.setAlignment(Qt.AlignCenter)
-        
-        self.textChanged.connect(self.emitValueChanged)
-        if initial is None:
-            self.setText('0.0')
-        
-        font = QFont()
-        font.setPixelSize(11)
-        self.setFont(font)
-    
-    def emitValueChanged(self, text):
-        val = self.value()
-        m = re.match(self.validRegex, self.text())
-        if m is None:
-            self.setStyleSheet(LINEEDIT_INVALID_ENTRY_STYLESHEET)
-        else:
-            self.setStyleSheet('')
-            self.valueChanged.emit(self.value())
-    
-    def setValue(self, value):
-        self.setText(value)
-    
-    def setText(self, text):
-        super().setText(str(text))
-    
-    def value(self):
-        m = re.match(self.validRegex, self.text())
-        if m is None:
-            return 0.0
-        else:
-            try: 
-                value = float(self.text())
-                return value
-            except Exception as e:
-                text = self.text()
-                text = text.replace('(', '')
-                text = text.replace(')', '')
-                text = text.replace('[', '')
-                text = text.replace(']', '')
-                values = text.split(',')
-                return [float(value) for value in values]
-
-class Gaussian3SigmasLineEdit(VectorLineEdit):
+class Gaussian3SigmasLineEdit(acdc_widgets.VectorLineEdit):
     def __init__(self, parent=None, initial=None):
         super().__init__(parent=parent, initial=initial)
         

@@ -1,4 +1,4 @@
-import skimage.filters as filters
+from spotmax import filters, printl
 import numpy as np
 from skimage.transform import rescale
 from sklearn.preprocessing import MinMaxScaler
@@ -202,8 +202,9 @@ def _gaussian_filter(images: np.ndarray, **kwargs) -> np.ndarray:
     Returns:
         np.ndarray: Images after applying gaussian filter
     """
-    sigma = kwargs.get("sigma", 0.90)
-    return np.asarray([filters.gaussian(img, sigma=sigma, preserve_range=True) for img in images])
+    if 'sigma' not in kwargs:
+        kwargs['sigma'] = 0
+    return np.asarray([filters.gaussian(img, **kwargs) for img in images])
 
 
 def _to_bool(images: np.ndarray, **kwargs) -> np.ndarray:
@@ -342,9 +343,7 @@ class ImageTransformer(object):
     def __init__(self, logs=False) -> None:
         self.logs = logs
 
-        self.pipeline = [
-            _normalize,
-        ]
+        self.pipeline = []
 
     def __str__(self) -> str:
         print("The preprocess pipeline is: ", self.pipeline)
@@ -357,7 +356,10 @@ class ImageTransformer(object):
         """
         self.pipeline = pipeline
 
-    def transform(self, images, **kwargs) -> np.ndarray:
+    def add_step(self, func, **func_kwargs):
+        self.pipeline.append((func, func_kwargs))
+    
+    def transform(self, images) -> np.ndarray:
         """Function to preprocess an array of images.
 
         Args:
@@ -376,10 +378,10 @@ class ImageTransformer(object):
             print("Before the preprocess step the maximum is {:4.3f}".format(np.amax(images)))
             print("Before the preprocess step the minimum is {:4.3f}".format(np.amin(images)))
 
-        for func in self.pipeline:
+        for func, func_kwargs in self.pipeline:
             if self.logs:
                 print("The preprocess step is: ", func.__name__)
-            images = func(images, **kwargs)
+            images = func(images, **func_kwargs)
 
         if self.logs:
             print("After the preprocess step the maximum is {:4.3f}".format(np.amax(images)))

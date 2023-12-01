@@ -794,7 +794,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 # Without segm data we evaluate the entire image
                 lab = None
             kwargs['lab'] = lab
-        
+    
         func(*args, **kwargs)
     
     @exception_handler
@@ -1654,10 +1654,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         preprocessParams = ParamsGroupBox.params['Pre-processing']
         removeHotPixelsToggle = preprocessParams['removeHotPixels']['widget']
         removeHotPixelsToggle.toggled.connect(self.onRemoveHotPixelsToggled)
+        gaussSigmaWidget = preprocessParams['gaussSigma']['widget']
+        gaussSigmaWidget.valueChanged.connect(
+            self.onPreprocessGaussSigmaValueChanged
+        )
         
         metadataParams = ParamsGroupBox.params['METADATA']
         pixelWidthWidget = metadataParams['pixelWidth']['widget']
         pixelWidthWidget.valueChanged.connect(self.onPixelWidthValueChanged)
+        ParamsGroupBox.sigResolMultiplValueChanged.connect(
+            self.onResolMultiplValueChanged
+        )
         
         configParams = ParamsGroupBox.params['Configuration']
         useGpuToggle = configParams['useGpu']['widget']
@@ -1798,6 +1805,20 @@ class spotMAX_Win(acdc_gui.guiWin):
         spotsParams = ParamsGroupBox.params['Spots channel']
         spotPredictionMethodWidget = spotsParams[anchor]['widget']
         spotPredictionMethodWidget.setDefaultUseGpu(checked)
+    
+    def onPreprocessGaussSigmaValueChanged(self, value):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        anchor = 'spotPredictionMethod'
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        spotPredictionMethodWidget.setDefaultGaussianSigma(value)
+    
+    def onResolMultiplValueChanged(self, value):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        anchor = 'spotPredictionMethod'
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        spotPredictionMethodWidget.setDefaultResolutionMultiplier(value)
     
     def onPixelWidthValueChanged(self, value):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox

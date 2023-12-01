@@ -1246,6 +1246,8 @@ class AutoTuneTabWidget(QWidget):
         self.autoTuningButton.setDisabled(disabled)
 
 class ParamsGroupBox(QGroupBox):
+    sigResolMultiplValueChanged = Signal(float)
+    
     def __init__(self, parent=None, debug=False, logging_func=print):
         super().__init__(parent)
 
@@ -1400,6 +1402,8 @@ class ParamsGroupBox(QGroupBox):
         spotMinSizeLabels = metadata['spotMinSizeLabels']['widget']
         spotMinSizeLabels.pixelLabel.setText(zyxMinSize_pxl_txt)
         spotMinSizeLabels.umLabel.setText(zyxMinSize_um_txt)
+        
+        self.sigResolMultiplValueChanged.emit(yxResolMultiplier)
     
     def configIniParams(self):
         ini_params = {}

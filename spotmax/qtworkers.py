@@ -204,16 +204,20 @@ class CropImageBasedOnSegmDataWorker(QRunnable):
     @worker_exception_handler
     def run(self):
         segm_data, image_data, nnet_input_data = self._add_missing_axis()
-        
-        if not np.any(self.segm_data):
-            result = (image_data, segm_data, nnet_input_data)
-            self.signals.finished.emit(result)
-            return
-        
         crop_info = transformations.crop_from_segm_data_info(
             segm_data, self.delta_tolerance
         )
         segm_slice, pad_widths, crop_to_global_coords = crop_info
+        
+        if not np.any(self.segm_data):
+            segm_data = np.ones_like(segm_data)
+            result = (
+                image_data, segm_data, crop_to_global_coords, 
+                self.on_finished_callback, nnet_input_data
+            )
+            self.signals.finished.emit(result)
+            return
+        
         image_cropped = image_data[segm_slice]
         segm_data_cropped = segm_data[segm_slice]
         nnet_input_data_cropped = None

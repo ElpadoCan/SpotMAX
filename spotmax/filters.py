@@ -41,6 +41,24 @@ def remove_hot_pixels(image, logger_func=print, progress=True):
     return filtered
 
 def gaussian(image, sigma, use_gpu=False, logger_func=print):
+    try:
+        if len(sigma) > 1 and sigma[0] == 0:
+            return image
+    except Exception as err:
+        pass
+    
+    try:
+        if sigma == 0:
+            return image
+    except Exception as err:
+        pass
+    
+    try:
+        if len(sigma) == 0:
+            sigma = sigma[0]
+    except Exception as err:
+        pass
+    
     if CUPY_INSTALLED and use_gpu:
         try:
             image = cp.array(image, dtype=float)
