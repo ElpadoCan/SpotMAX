@@ -99,6 +99,116 @@ def spots_semantic_segmentation(
         pre_aggregated=False,
         raw_image=None
     ):  
+    """Pipeline to perform semantic segmentation on the spots channel, 
+    i.e., determine the areas where spot will be detected.
+
+    Parameters
+    ----------
+    image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray
+        Input 2D or 3D image.
+    lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints
+        Optional input segmentation image with the masks of the objects, i.e. 
+        single cells. Spots will be detected only inside each object. If None, 
+        detection will be performed on the entire image. Default is None. 
+    gauss_sigma : scalar or sequence of scalars, optional
+        Standard deviation for Gaussian kernel. The standard deviations of 
+        the Gaussian filter are given for each axis as a sequence, or as a 
+        single number, in which case it is equal for all axes. If 0, no 
+        gaussian filter is applied. Default is 0.0
+    spots_zyx_radii : (z, y, x) sequence of floats, optional
+        Rough estimation of the expected spot radii in z, y, and x direction
+        in pixels. The values are used to determine the sigmas used in the 
+        difference-of-gaussians filter that enhances spots-like structures. 
+        If None, no filter is applied. Default is None
+    do_sharpen : bool, optional
+        If True and spots_zyx_radii is not None, applies a 
+        difference-of-gaussians (DoG) filter before segmenting. This filter 
+        enhances spots-like structures and it usually improves detection. 
+        Default is False.
+        For more details, see the parameter `Sharpen spots signal prior 
+        detection` at the following webpage: 
+        https://spotmax.readthedocs.io/parameters_description.html#pre-processing
+    do_remove_hot_pixels : bool, optional
+        If True, apply a grayscale morphological opening filter before 
+        segmenting. Opening can remove small bright spots (i.e. “salt”, or 
+        "hot pixels") and connect small dark cracks. Default is False
+    lineage_table : pandas.DataFrame, optional
+        Table containing parent-daughter relationships. Default is None
+        For more details, see the parameter `Table with lineage info end name 
+        or path` at the following webpage: 
+        https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
+    do_aggregate : bool, optional
+        If True, perform segmentation on all the cells at once. Default is True
+    use_gpu : bool, optional
+        If True, some steps will run on the GPU, potentially speeding up the 
+        computation. Default is False
+    logger_func : callable, optional
+        Function used to print or log process information. Default is print
+    thresholding_method : {'threshol_li', 'threshold_isodata', 'threshold_otsu',
+        'threshold_minimum', 'threshold_triangle', 'threshold_mean',
+        'threshold_yen'} or callable, optional
+        Thresholding method used to obtain semantic segmentation masks of the 
+        spots. If None and do_try_all_thresholds is True, the result of every 
+        threshold method available is returned. Default is None
+    keep_input_shape : bool, optional
+        If True, return segmentation array with the same shape of the 
+        input image. If False, output shape will depend on whether do_aggregate
+        is True or False. Default is True
+    nnet_model : Cell-ACDC segmentation model class, optional
+        If not None, the output will include the key 'neural_network' with the 
+        result of the segmentation using the neural network model. 
+        Default is None
+    nnet_params : dict with 'segment' key, optional
+        Parameters used in the segment method of the nnet_model. Default is None
+    nnet_input_data : numpy.ndarray or sequence of arrays, optional
+        If not None, run the neural network on this data and not on the 
+        pre-processed input image. Default is None
+    bioimageio_model : Cell-ACDC implementation of any BioImage.IO model, optional
+        If not None, the output will include the key 'bioimageio_model' with the 
+        result of the segmentation using the BioImage.IO model. 
+        Default is None
+    bioimageio_params : _type_, optional
+        Parameters used in the segment method of the bioimageio_model. 
+        Default is None
+    do_preprocess : bool, optional
+        If True, pre-process image before segmentation using the filters 
+        'remove hot pixels', 'gaussian', and 'sharpen spots' (if requested). 
+        Default is True
+    do_try_all_thresholds : bool, optional
+        If True and thresholding_method is not None, the result of every 
+        threshold method available is returned. Default is True
+    return_only_segm : bool, optional
+        If True, return only the result of the segmentation as numpy.ndarray 
+        with the same shape as the input image. Default is False
+    pre_aggregated : bool, optional
+        If True and do_aggregate is True, run segmentation on the entire input 
+        image without aggregating segmented objects. Default is False
+    raw_image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
+        If not None, neural network and BioImage.IO models will segment 
+        the raw image. Default is None
+
+    Returns
+    -------
+    dict or numpy.ndarray
+        If return_only_segm is True, the output will the the numpy.ndarray 
+        with the segmentation result. 
+        If thresholding_method is None and do_try_all_thresholds is True, 
+        the output will be a dictionary with keys {'threshol_li', 
+        'threshold_isodata', 'threshold_otsu', 'threshold_minimum', 
+        'threshold_triangle', 'threshold_mean', 'threshold_yen'} and values 
+        the result of each thresholding method. 
+        If thresholding_method is not None, the output will be a dictionary 
+        with key {'custom'} and value the result of applying the requested 
+        thresholding_method. 
+        If nnet_model is not None, the output dictionary will include the 
+        'neural_network' key with value the result of running the nnet_model
+        requested. 
+        If bioimageio_model is not None, the output dictionary will include the 
+        'bioimageio_model' key with value the result of running the bioimageio_model
+        requested. 
+        The output dictionary will also include the key 'input_image' with value 
+        the pre-processed image. 
+    """    
     if raw_image is None:
         raw_image = image.copy()
         
@@ -186,6 +296,99 @@ def reference_channel_semantic_segm(
         pre_aggregated=False,
         show_progress=False
     ):    
+    """Pipeline to segment the reference channel.
+
+    Parameters
+    ----------
+    image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray
+        Input 2D or 3D image.
+    lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints
+        Optional input segmentation image with the masks of the objects, i.e. 
+        single cells. Spots will be detected only inside each object. If None, 
+        detection will be performed on the entire image. Default is None. 
+    gauss_sigma : scalar or sequence of scalars, optional
+        Standard deviation for Gaussian kernel. The standard deviations of 
+        the Gaussian filter are given for each axis as a sequence, or as a 
+        single number, in which case it is equal for all axes. If 0, no 
+        gaussian filter is applied. Default is 0.0
+    keep_only_largest_obj : bool, optional
+        If True, keep only the largest object (determined by connected component
+        labelling) per segmented object in lab. Default is False
+    do_remove_hot_pixels : bool, optional
+        If True, apply a grayscale morphological opening filter before 
+        segmenting. Opening can remove small bright spots (i.e. “salt”, or 
+        "hot pixels") and connect small dark cracks. Default is False
+    lineage_table : pandas.DataFrame, optional
+        Table containing parent-daughter relationships. Default is None
+        For more details, see the parameter `Table with lineage info end name 
+        or path` at the following webpage: 
+        https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
+    do_aggregate : bool, optional
+        If True, perform segmentation on all the cells at once. Default is True
+    use_gpu : bool, optional
+        If True, some steps will run on the GPU, potentially speeding up the 
+        computation. Default is False
+    logger_func : callable, optional
+        Function used to print or log process information. Default is print
+    thresholding_method : {'threshol_li', 'threshold_isodata', 'threshold_otsu',
+        'threshold_minimum', 'threshold_triangle', 'threshold_mean',
+        'threshold_yen'} or callable, optional
+        Thresholding method used to obtain semantic segmentation masks of the 
+        spots. If None and do_try_all_thresholds is True, the result of every 
+        threshold method available is returned. Default is None
+    ridge_filter_sigmas : scalar or sequence of scalars, optional
+        Sigmas used as scales of filter. If not 0, filter the image with the 
+        Sato tubeness filter. This filter can be used to detect continuous 
+        ridges, e.g. mitochondrial network. Default is 0
+    keep_input_shape : bool, optional
+        If True, return segmentation array with the same shape of the 
+        input image. If False, output shape will depend on whether do_aggregate
+        is True or False. Default is True
+    do_preprocess : bool, optional
+        If True, pre-process image before segmentation using the filters 
+        'remove hot pixels', 'gaussian', and 'sharpen spots' (if requested). 
+        Default is True
+    do_try_all_thresholds : bool, optional
+        If True and thresholding_method is not None, the result of every 
+        threshold method available is returned. Default is True
+    return_only_segm : bool, optional
+        If True, return only the result of the segmentation as numpy.ndarray 
+        with the same shape as the input image. Default is False
+    bioimageio_model : Cell-ACDC implementation of any BioImage.IO model, optional
+        If not None, the output will include the key 'bioimageio_model' with the 
+        result of the segmentation using the BioImage.IO model. 
+        Default is None
+    bioimageio_params : _type_, optional
+        Parameters used in the segment method of the bioimageio_model. 
+        Default is None
+    pre_aggregated : bool, optional
+        If True and do_aggregate is True, run segmentation on the entire input 
+        image without aggregating segmented objects. Default is False
+    raw_image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
+        If not None, neural network and BioImage.IO models will segment 
+        the raw image. Default is None
+    show_progress : bool, optional
+        If True, display progressbars. Default is False
+
+    Returns
+    -------
+    dict or numpy.ndarray
+        If return_only_segm is True, the output will the the numpy.ndarray 
+        with the segmentation result. 
+        If thresholding_method is None and do_try_all_thresholds is True, 
+        the output will be a dictionary with keys {'threshol_li', 
+        'threshold_isodata', 'threshold_otsu', 'threshold_minimum', 
+        'threshold_triangle', 'threshold_mean', 'threshold_yen'} and values 
+        the result of each thresholding method. 
+        If thresholding_method is not None, the output will be a dictionary 
+        with key {'custom'} and value the result of applying the requested 
+        thresholding_method. 
+        If bioimageio_model is not None, the output dictionary will include the 
+        'bioimageio_model' key with value the result of running the bioimageio_model
+        requested. 
+        The output dictionary will also include the key 'input_image' with value 
+        the pre-processed image. 
+    """    
     if raw_image is None:
         raw_image = image.copy()
         
