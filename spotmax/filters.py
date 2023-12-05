@@ -2,6 +2,7 @@ from sklearn import neural_network
 from tqdm import tqdm
 
 import numpy as np
+import pandas as pd
 
 try:
     from cupyx.scipy.ndimage import gaussian_filter as gpu_gaussian_filter
@@ -399,3 +400,70 @@ def filter_largest_sub_obj_per_obj(mask_or_labels, lab):
         filtered_obj_mask = filter_largest_obj(obj_mask_to_filter)
         filtered[obj.slice][filtered_obj_mask] = obj.label
     return filtered
+
+def _warn_feature_is_missing(self, missing_feature, logger_func):
+    logger_func(f"\n{'='*60}")
+    txt = (
+        f'[WARNING]: The feature name "{missing_feature}" is not present '
+        'in the table. It cannot be used for filtering spots at '
+        f'this stage.{error_up_str}'
+    )
+    logger_func(txt)
+
+def filter_spots_from_features_thresholds(
+            df_features: pd.DataFrame, 
+            features_thresholds: dict, is_spotfit=False,
+            debug=False,
+            logger_func=None
+        ):
+        """_summary_
+
+        Parameters
+        ----------
+        df_features : pd.DataFrame
+            Pandas DataFrame with 'spot_id' as index and the features as columns.
+        features_thresholds : dict
+            A dictionary of features and thresholds to use for filtering. The 
+            keys are the feature names that mush coincide with one of the columns'
+            names. The values are a tuple of `(min, max)` thresholds.
+            For example, for filtering spots that have the t-statistic of the 
+            t-test spot vs reference channel > 0 and the p-value < 0.025 
+            (i.e. spots are significantly brighter than reference channel) 
+            we pass the following dictionary:
+            ```
+            features_thresholds = {
+                'spot_vs_ref_ch_ttest_pvalue': (None,0.025),
+	            'spot_vs_ref_ch_ttest_tstat': (0, None)
+            }
+            ```
+            where `None` indicates the absence of maximum or minimum.
+
+        Returns
+        -------
+        pd.DataFrame
+            The filtered DataFrame
+        """      
+        queries = []  
+        for feature_name, thresholds in features_thresholds.items():
+            if not is_spotfit and feature_name.endswith('_fit'):
+                # Ignore _fit features if not spotfit
+                continue
+            if is_spotfit and not feature_name.endswith('_fit'):
+                # Ignore non _fit features if spotfit
+                continue
+            if feature_name not in df_features.columns:
+                # Warn and ignore missing features
+                _warn_feature_is_missing(feature_name, logger_func)
+                continue
+            _min, _max = thresholds
+            if _min is not None:
+                queries.append(f'({feature_name} > {_min})')
+            if _max is not None:
+                queries.append(f'({feature_name} < {_max})')
+
+        if not queries:
+            return df_features
+        
+        query = ' & '.join(queries)
+
+        return df_features.query(query)

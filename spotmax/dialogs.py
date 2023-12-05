@@ -1442,7 +1442,7 @@ class ParamsGroupBox(QGroupBox):
             anchor = 'spotPredictionMethod'
         else:
             params = self.params['Reference channel']
-            anchor = 'spotPredictionMethod'
+            anchor = 'refChSegmentationMethod'
         
         widget = params[anchor]['widget']
         nnet_params = widget.nnet_params_to_ini_sections()

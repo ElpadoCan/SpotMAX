@@ -204,7 +204,7 @@ def get_model_params_from_ini_params(
         return 
     
     import spotmax.BioImageIO.model as model_module
-    params = io.nnet_params_from_init_params(
+    params = io.nnet_params_from_ini_params(
         ini_params, sections, model_module, 
         use_default_for_missing=use_default_for_missing
     )

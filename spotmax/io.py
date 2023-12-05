@@ -2326,28 +2326,50 @@ def download_unet_models():
         )
 
 
-def _raise_missing_param_ini(missing_option):
+def _raise_missing_param_ini(missing_option, section):
     raise KeyError(
         'The following parameter is missing from the INI configuration file: '
-        f'`{missing_option}`. You can force using default value by setting '
+        f'`{missing_option}` (section `[{section}]`). '
+        'You can force using default value by setting '
         '`Use default values for missing parameters = True` in the '
         'INI file.'
     )
 
-def nnet_params_from_init_params(
+def nnet_get_defaults_missing_param(section_params, model_module, method):
+    missing_params = []
+    init_args, segment_args = acdc_myutils.getModelArgSpec(model_module)    
+    if method == 'init':
+        argspecs = init_args
+    elif method == 'segment':
+        argspecs = segment_args
+        
+    for argWidget in argspecs:
+        try:
+            not_a_param = argWidget.type().not_a_param
+            continue
+        except Exception as err:
+            pass
+        option = section_params.get(argWidget.name)
+        if option is not None:
+            continue
+        missing_params.append(
+            (argWidget.name, argWidget.default, argWidget.name)
+        )
+    return missing_params
+
+def nnet_params_from_ini_params(
         ini_params, sections, model_module, use_default_for_missing=False
     ):
-    init_params, segment_params = acdc_myutils.getModelArgSpec(model_module)
+    argSpecs = acdc_myutils.getModelArgSpec(model_module)
     params = {'init': {}, 'segment': {}}
     
-    for section in sections:
+    for s, section in enumerate(sections):
         if section not in ini_params:
             continue
-    
-    section = sections[0]
-    if section in ini_params:
+        
+        key = section.split('.')[1]
         section_params = ini_params[section]
-        for argWidget in init_params:
+        for argWidget in argSpecs[s]:
             try:
                 not_a_param = argWidget.type().not_a_param
                 continue
@@ -2358,36 +2380,12 @@ def nnet_params_from_init_params(
                 if use_default_for_missing:
                     continue
                 else:
-                    _raise_missing_param_ini(argWidget.name)
+                    _raise_missing_param_ini(argWidget.name, section)
             value = option['loadedVal']
             if not isinstance(argWidget.default, str):
                 try:
                     value = utils.to_dtype(value, type(argWidget.default))
                 except Exception as err:
                     value = argWidget.default
-            params['init'][argWidget.name] = value
-    
-    section = sections[1]
-    if section in ini_params:
-        section_params = ini_params[section]
-        for argWidget in segment_params:
-            try:
-                not_a_param = argWidget.type().not_a_param
-                continue
-            except Exception as err:
-                pass
-                
-            option = section_params.get(argWidget.name)
-            if option is None:
-                if use_default_for_missing:
-                    continue
-                else:
-                    _raise_missing_param_ini(argWidget.name)
-            value = option['loadedVal']
-            if not isinstance(argWidget.default, str):
-                try:
-                    value = utils.to_dtype(value, type(argWidget.default))
-                except Exception as err:
-                    value = argWidget.default
-            params['segment'][argWidget.name] = value
+            params[key][argWidget.name] = value
     return params

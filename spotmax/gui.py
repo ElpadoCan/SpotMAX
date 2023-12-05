@@ -2130,8 +2130,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.computeDockWidget.widget().loadPreviousParamsButton.setStartPath(
             posData.pos_path
         )
-        segmFilename = os.path.basename(posData.segm_npz_path)
-        segmEndName = segmFilename[len(posData.basename):]
+        if self.isNewFile:
+            segmEndName = ''
+        else:
+            segmFilename = os.path.basename(posData.segm_npz_path)
+            segmEndName = segmFilename[len(posData.basename):]
         runNum = max(self.loaded_exp_run_nums, default=0) + 1
         try:
             emWavelen = posData.emWavelens[self.user_ch_name]
@@ -2168,7 +2171,6 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def resizeComputeDockWidget(self):
         guiTabControl = self.computeDockWidget.widget()
-        paramsGroupbox = guiTabControl.parametersQGBox
         paramsScrollArea = guiTabControl.parametersTab
         autoTuneScrollArea = guiTabControl.autoTuneTabWidget
         verticalScrollbar = paramsScrollArea.verticalScrollBar()

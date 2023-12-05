@@ -1192,10 +1192,30 @@ class _ParamsParser(_DataLoader):
     
     def _get_missing_params(self):
         missing_params = []
-        for section_name, anchors in self._params.items():
+        for section_name, section_params in self._params.items():
             if section_name == 'METADATA':
                 continue
-            for anchor, options in anchors.items():
+            if section_name.startswith('neural_network'):
+                method = section_name.split('.')[1]
+                model_module = import_module('spotmax.nnet.model')
+                nnet_missing_params = io.nnet_get_defaults_missing_param(
+                    section_params, model_module, method
+                )
+                for nnet_missing_param in nnet_missing_params:
+                    missing_params.append((section_name, *nnet_missing_param))
+                continue
+            
+            if section_name.startswith('bioimageio_model'):
+                method = section_name.split('.')[1]
+                model_module = import_module('spotmax.BioImageIO.model')
+                biio_missing_params = io.nnet_get_defaults_missing_param(
+                    section_params, model_module, method
+                )
+                for biio_missing_param in biio_missing_params:
+                    missing_params.append((section_name, *biio_missing_param))
+                continue
+            
+            for anchor, options in section_params.items():                
                 dtype_converter = options.get('dtype')
                 if dtype_converter is None:
                     continue
@@ -1223,7 +1243,13 @@ class _ParamsParser(_DataLoader):
             if anchor == 'runNumber':
                 # We do not force any run number, this will be determined later.
                 continue
-            self._params[section_name][anchor]['loadedVal'] = default_val
+            try:
+                self._params[section_name][anchor]['loadedVal'] = default_val
+            except KeyError:
+                self._params[section_name][anchor] = {
+                    'desc': anchor,
+                    'loadedVal': default_val
+                }
     
     def _save_missing_params_to_ini(self, missing_params, ini_filepath):
         configPars = config.ConfigParser()
@@ -1423,6 +1449,11 @@ class _ParamsParser(_DataLoader):
             
         return True, missing_params
 
+    def _raise_model_params_section_missing_ini(self, network_type):
+        raise KeyError(
+            f'{network_type} model parameters are missing in the INI file.'
+        ) 
+        
     def _ask_loaded_ref_ch_segm_and_segm_ref_ch(self):
         default_option = 'Do not segment the ref. channel'
         options = ('Do not load the ref. ch. segm. data', default_option)
@@ -1486,7 +1517,8 @@ class _ParamsParser(_DataLoader):
                 self._params, use_default_for_missing=self._force_default,
                 subsection=subsection
             )
-            import pdb; pdb.set_trace()
+            if model_params is None:
+                self._raise_model_params_section_missing_ini()
             model_class = model.Model(**model_params['init'])
             model_params['segment']['verbose'] = False
         except Exception as err:
@@ -1548,10 +1580,7 @@ class _ParamsParser(_DataLoader):
                 if value is None:
                     value = option['initialVal']
                 else:
-                    try:
-                        value = to_dtype(value)
-                    except Exception as e:
-                        import pdb; pdb.set_trace()
+                    value = to_dtype(value)
                 self._params[section_name][anchor_name]['loadedVal'] = value
     
     def check_paths_exist(self):
@@ -3071,7 +3100,6 @@ class Kernel(_ParamsParser):
         else:
             threshold_func = threshold_method
         
-        import pdb; pdb.set_trace()
         result = pipe.reference_channel_semantic_segm(
             ref_ch_img, 
             lab=lab,
@@ -3095,8 +3123,6 @@ class Kernel(_ParamsParser):
             ref_ch_segm = result[segm_key]
         else:
             ref_ch_segm = result
-        
-        import pdb; pdb.set_trace()
         
         df_agg = self.add_ref_ch_features(
             df_agg, lab_rp, ref_ch_segm, 
@@ -3233,7 +3259,6 @@ class Kernel(_ParamsParser):
             raw_spots_img=raw_spots_img,
             do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch, 
             gop_filtering_thresholds=gop_filtering_thresholds,
-            lineage_table=lineage_table, 
             dist_transform_spheroid=dist_transform_spheroid,
             verbose=verbose,
         )
@@ -3343,31 +3368,13 @@ class Kernel(_ParamsParser):
                 raw_image=raw_spots_img
             )
         
-        if detection_method == 'peak_local_max':
-            aggr_spots_coords = skimage.feature.peak_local_max(
-                np.squeeze(aggr_spots_img), 
-                footprint=np.squeeze(footprint), 
-                labels=np.squeeze(labels.astype(int))
-            )
-        elif detection_method == 'label_prediction_mask':
-            prediction_lab = skimage.measure.label(labels>0)
-            prediction_lab_rp = skimage.measure.regionprops(prediction_lab)
-            num_spots = len(prediction_lab_rp)
-            aggr_spots_coords = np.zeros((num_spots, 3), dtype=int)
-            if save_spots_mask:
-                spots_objs = []
-            for s, spot_obj in enumerate(prediction_lab_rp):
-                aggr_zyx_coords = tuple([round(c) for c in spot_obj.centroid])
-                aggr_spots_coords[s] = aggr_zyx_coords
-                if not save_spots_mask:
-                    continue
-                zmin, ymin, xmin, _, _, _ = spot_obj.bbox
-                spot_obj.zyx_local_center = (
-                    aggr_zyx_coords[0] - zmin,
-                    aggr_zyx_coords[1] - ymin,
-                    aggr_zyx_coords[2] - xmin
-                )
-                spots_objs.append(spot_obj)
+        aggr_spots_coords, spots_objs = pipe.spot_detection(
+            aggr_spots_img, 
+            spots_segmantic_segm=labels,
+            detection_method=detection_method,
+            spot_footprint=footprint,
+            return_spots_mask=save_spots_mask
+        )
 
         df_spots_coords, num_spots_objs_txts = self._add_local_coords_from_aggr(
             aggr_spots_coords, aggregated_lab, spots_objs=spots_objs
@@ -3395,13 +3402,10 @@ class Kernel(_ParamsParser):
             ref_ch_img, ref_ch_mask_or_labels,  backgr_is_outside_ref_ch_mask, 
             lab, rp, frame_i, zyx_resolution_limit_pxl, 
             dfs_lists=None,
-            threshold_val=None, 
             min_size_spheroid_mask=None,
             raw_spots_img=None, 
             gop_filtering_thresholds=None, 
             do_keep_spots_in_ref_ch=False, 
-            prediction_mask=None,
-            lineage_table=None, 
             dist_transform_spheroid=None,
             verbose=True,
         ):
@@ -3514,9 +3518,10 @@ class Kernel(_ParamsParser):
                 #     local_spots_img, df_obj_spots_gop, obj, obj_image
                 # )
                 
-                df_obj_spots_gop = self.filter_spots(
+                df_obj_spots_gop = filters.filter_spots_from_features_thresholds(
                     df_obj_spots_gop, gop_filtering_thresholds,
-                    is_spotfit=False, debug=False
+                    is_spotfit=False, debug=False,
+                    logger_func=self.logger.info
                 )
                 num_spots_filtered = len(df_obj_spots_gop)   
 
@@ -3949,72 +3954,6 @@ class Kernel(_ParamsParser):
         if spot_ids_to_drop:
             df_obj_spots = df_obj_spots.drop(index=spot_ids_to_drop)
         return df_obj_spots
-    
-    @exception_handler_cli
-    def filter_spots(
-            self, df: pd.DataFrame, features_thresholds: dict, is_spotfit=False,
-            debug=False
-        ):
-        """_summary_
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Pandas DataFrame with 'spot_id' as index and the features as columns.
-        features_thresholds : dict
-            A dictionary of features and thresholds to use for filtering. The 
-            keys are the feature names that mush coincide with one of the columns'
-            names. The values are a tuple of `(min, max)` thresholds.
-            For example, for filtering spots that have the t-statistic of the 
-            t-test spot vs reference channel > 0 and the p-value < 0.025 
-            (i.e. spots are significantly brighter than reference channel) 
-            we pass the following dictionary:
-            ```
-            features_thresholds = {
-                'spot_vs_ref_ch_ttest_pvalue': (None,0.025),
-	            'spot_vs_ref_ch_ttest_tstat': (0, None)
-            }
-            ```
-            where `None` indicates the absence of maximum or minimum.
-
-        Returns
-        -------
-        pd.DataFrame
-            The filtered DataFrame
-        """      
-        queries = []  
-        for feature_name, thresholds in features_thresholds.items():
-            if not is_spotfit and feature_name.endswith('_fit'):
-                # Ignore _fit features if not spotfit
-                continue
-            if is_spotfit and not feature_name.endswith('_fit'):
-                # Ignore non _fit features if spotfit
-                continue
-            if feature_name not in df.columns:
-                # Warn and ignore missing features
-                self._warn_feature_is_missing(feature_name, df)
-                continue
-            _min, _max = thresholds
-            if _min is not None:
-                queries.append(f'({feature_name} > {_min})')
-            if _max is not None:
-                queries.append(f'({feature_name} < {_max})')
-
-        if not queries:
-            return df
-        
-        query = ' & '.join(queries)
-
-        return df.query(query)
-
-    def _warn_feature_is_missing(self, missing_feature, df):
-        self.logger.info(f"\n{'='*60}")
-        txt = (
-            f'[WARNING]: The feature name "{missing_feature}" is not present '
-            'in the table. It cannot be used for filtering spots at '
-            f'this stage.{error_up_str}'
-        )
-        self.logger.info(txt)
     
     def _critical_feature_is_missing(self, missing_feature, df):
         format_colums = [f'    * {col}' for col in df.columns]
@@ -4609,9 +4548,10 @@ class Kernel(_ParamsParser):
             self._add_spotfit_features_to_df_spots_gop(
                 df_spots_fit, df_spots_gop
             )
-            df_spots_fit = self.filter_spots(
+            df_spots_fit = filters.filter_spots_from_features_thresholds(
                 df_spots_fit, gop_filtering_thresholds,
-                is_spotfit=True, debug=False
+                is_spotfit=True, debug=False,
+                logger_func=self.logger.info
             )
             # df_spots_fit = self._filter_spots_by_size(
             #     df_spots_fit, spotfit_minsize, spotfit_maxsize

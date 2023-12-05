@@ -106,7 +106,7 @@ def spots_semantic_segmentation(
     ----------
     image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray
         Input 2D or 3D image.
-    lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints
+    lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
         Optional input segmentation image with the masks of the objects, i.e. 
         single cells. Spots will be detected only inside each object. If None, 
         detection will be performed on the entire image. Default is None. 
@@ -623,4 +623,197 @@ def compute_spots_features(
             )
     df_features = pd.concat(dfs_features, keys=keys, names=['Cell_ID'])
     return df_features
+
+def spot_detection(
+        image,
+        spots_segmantic_segm=None,
+        detection_method='peak_local_max',
+        spot_footprint=None,
+        spots_zyx_radii=None,
+        return_spots_mask=False
+    ):
+    """_summary_
+
+    Parameters
+    ----------
+    image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray
+        Input 2D or 3D image.
+    spots_segmantic_segm : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
+        If not None and detection_method is 'peak_local_max', peaks will be 
+        searched only where spots_segmantic_segm > 0. Default is None
+    detection_method : {'peak_local_max', 'label_prediction_mask'}, optional
+        Method used to detect the peaks. Default is 'peak_local_max'
+        For more details, see the parameter `Spots detection method` at the 
+        following webpage: 
+        https://spotmax.readthedocs.io/parameters_description.html#spots-channel
+    spot_footprint : numpy.ndarray of bools, optional
+        If not None, only one peak is searched in the footprint at every point 
+        in the image. Default is None
+    spots_zyx_radii : (z, y, x) sequence of floats, optional
+        Rough estimation of the expected spot radii in z, y, and x direction
+        in pixels. The values are used to determine the spot footprint if 
+        spot_footprint is not provided. Default is None
+    return_spots_mask : bool, optional
+        Used only if detection_method is 'label_prediction_mask'. 
+        If True, the second element returned will be a list of region properties 
+        (see scikit-image `skimage.measure.regionprops`) with an additional 
+        attribute called `zyx_local_center`. Default is False
+
+    Returns
+    -------
+    2-tuple ((N, 3) numpy.ndarray of ints, list of region properties or None)
+        The first element is a (N, 3) array of integers where each row is the 
+        (z, y, x) coordinates of one peak. The second element is either None 
+        or a list of region properties with an additional 
+        attribute called `zyx_local_center`.
+    """    
+    if spot_footprint is None and spots_zyx_radii is not None:
+        zyx_radii_pxl = [val/2 for val in spots_zyx_radii]
+        spot_footprint = transformations.get_local_spheroid_mask(
+            zyx_radii_pxl
+        )
+    if spot_footprint is not None:
+        spot_footprint = np.squeeze(spot_footprint)
+    
+    if spots_segmantic_segm is not None:
+        spots_segmantic_segm = np.squeeze(spots_segmantic_segm.astype(int))
+    
+    spots_objs = None
+    
+    if detection_method == 'peak_local_max':
+        spots_coords = skimage.feature.peak_local_max(
+            np.squeeze(image), 
+            footprint=spot_footprint, 
+            labels=spots_segmantic_segm
+        )
+    elif detection_method == 'label_prediction_mask':
+        prediction_lab = skimage.measure.label(spots_segmantic_segm>0)
+        prediction_lab_rp = skimage.measure.regionprops(prediction_lab)
+        num_spots = len(prediction_lab_rp)
+        spots_coords = np.zeros((num_spots, 3), dtype=int)
+        if return_spots_mask:
+            spots_objs = []
+        for s, spot_obj in enumerate(prediction_lab_rp):
+            zyx_coords = tuple([round(c) for c in spot_obj.centroid])
+            spots_coords[s] = zyx_coords
+            if not return_spots_mask:
+                continue
+            zmin, ymin, xmin, _, _, _ = spot_obj.bbox
+            spot_obj.zyx_local_center = (
+                zyx_coords[0] - zmin,
+                zyx_coords[1] - ymin,
+                zyx_coords[2] - xmin
+            )
+            spots_objs.append(spot_obj)
+    return spots_coords, spots_objs
+
+def spots_filter_from_features(
+        image, 
+    ):
+    for obj_idx, obj in enumerate(rp):
+        expanded_obj = transformations.get_expanded_obj_slice_image(
+            obj, delta_tol, lab
+        )
+        obj_slice, obj_image, crop_obj_start = expanded_obj
+
+        local_spots_img = spots_img[obj_slice]
+        local_sharp_spots_img = sharp_spots_img[obj_slice]
+
+        result = transformations.init_df_features(
+            df_spots_coords, obj, crop_obj_start, 
+            self.metadata['zyxResolutionLimitPxl']
+        )
+        df_obj_spots_det, expanded_obj_coords = result
+        if df_obj_spots_det is None:
+            # 0 spots for this obj (object ID not present in index)
+            s = f'  * Object ID {obj.label} = 0 --> 0 (0 iterations)'
+            num_spots_filtered_log.append(s)
+            continue
+        
+        # Increment spot_id with previous object
+        df_obj_spots_det['spot_id'] += last_spot_id
+        df_obj_spots_det = df_obj_spots_det.set_index('spot_id').sort_index()
+        
+        keys.append((frame_i, obj.label))
+        num_spots_detected = len(df_obj_spots_det)
+        last_spot_id += num_spots_detected
+        
+        dfs_spots_det.append(df_obj_spots_det)
+
+        if ref_ch_mask_or_labels is not None:
+            local_ref_ch_mask = ref_ch_mask_or_labels[obj_slice]>0
+            local_ref_ch_mask = np.logical_and(local_ref_ch_mask, obj_image)
+        else:
+            local_ref_ch_mask = None
+
+        if ref_ch_img is not None:
+            local_ref_ch_img = ref_ch_img[obj_slice]
+        else:
+            local_ref_ch_img = None
+        
+        if raw_spots_img is not None:
+            raw_spots_img_obj = raw_spots_img[obj_slice]
+
+        df_obj_spots_gop = df_obj_spots_det.copy()
+        if do_keep_spots_in_ref_ch:
+            df_obj_spots_gop = self._drop_spots_not_in_ref_ch(
+                df_obj_spots_gop, local_ref_ch_mask, expanded_obj_coords
+            )
+        
+        debug = False
+        i = 0
+        while True:     
+            num_spots_prev = len(df_obj_spots_gop)
+            if num_spots_prev == 0:
+                num_spots_filtered = 0
+                break
             
+            # if obj.label == 36:
+            #     debug = True
+            #     import pdb; pdb.set_trace()
+            
+            df_obj_spots_gop = self._compute_obj_spots_metrics(
+                local_spots_img, 
+                df_obj_spots_gop, 
+                obj_image, 
+                local_sharp_spots_img, 
+                raw_spots_img_obj=raw_spots_img_obj,
+                min_size_spheroid_mask=min_size_spheroid_mask, 
+                dist_transform_spheroid=dist_transform_spheroid,
+                ref_ch_mask_obj=local_ref_ch_mask, 
+                ref_ch_img_obj=local_ref_ch_img,
+                backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
+                zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
+                debug=debug
+            )
+            if i == 0:
+                # Store metrics at first iteration
+                df_obj_spots_det = df_obj_spots_gop.copy()
+            
+            # if self.debug and obj.label == 79:
+            # from . import _debug
+            # _debug._spots_filtering(
+            #     local_spots_img, df_obj_spots_gop, obj, obj_image
+            # )
+            
+            df_obj_spots_gop = filters.filter_spots_from_features_thresholds(
+                df_obj_spots_gop, gop_filtering_thresholds,
+                is_spotfit=False, debug=False,
+                logger_func=self.logger.info
+            )
+            num_spots_filtered = len(df_obj_spots_gop)   
+
+            if num_spots_filtered == num_spots_prev or num_spots_filtered == 0:
+                # Number of filtered spots stopped decreasing --> stop loop
+                break
+
+            i += 1
+
+        nsd, nsf = num_spots_detected, num_spots_filtered
+        s = f'  * Object ID {obj.label} = {nsd} --> {nsf} ({i} iterations)'
+        num_spots_filtered_log.append(s)
+
+        dfs_spots_gop.append(df_obj_spots_gop)
+
+        pbar.update()
+    pbar.close()

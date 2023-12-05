@@ -321,8 +321,8 @@ class SliceImageFromSegmObject:
         lab_mask_obj = lab_mask_rp[0]
         img_local = image[lab_mask_obj.slice].copy()
         backgr_vals = img_local[~lab_mask_obj.image]
-        if backgr_vals.size == 0:
-            return img_local, lab_mask_obj.image, bud_ID
+        # if backgr_vals.size == 0:
+        #     return img_local, lab_mask_lab, lab_mask_obj.image, bud_ID
         
         # backgr_mean = backgr_vals.mean()
         # backgr_mean = backgr_mean if backgr_mean>=0 else 0
