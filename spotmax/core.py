@@ -3322,7 +3322,6 @@ class Kernel(_ParamsParser):
         if aggr_spots_ch_segm_mask is not None:
             labels = aggr_spots_ch_segm_mask.astype(int)
         else:
-            import pdb; pdb.set_trace()
             labels = pipe.spots_semantic_segmentation(
                 aggr_spots_img, 
                 lab=aggregated_lab, 
