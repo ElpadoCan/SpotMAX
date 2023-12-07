@@ -13,7 +13,7 @@ from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS
 from . import features
 from . import io
 
-from . import printl
+from . import printl, error_up_str
 
 def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
     """Generate the slices required to insert a local mask into a larger image.
@@ -595,3 +595,42 @@ def load_preprocess_nnet_data_across_exp(
     for pos, transf_data in zip(pos_foldernames, transformed):
         transformed_data_nnet[pos] = transf_data
     return transformed_data_nnet
+
+def _raise_norm_value_zero(self):
+    print('')
+    self.logger.info(
+        '[ERROR]: Skipping Position, see error below. '
+        f'More details in the final report.{error_up_str}'
+    )
+    raise FloatingPointError(
+        'normalising value for the reference channel is zero.'
+    )
+
+def _warn_norm_value_zero(self):
+    warning_txt = (
+        'normalising value for the spots channel is zero.'
+    )
+    print('')
+    self.logger.info(f'[WARNING]: {warning_txt}{error_up_str}')
+    self.log_warning_report(warning_txt)
+
+def normalise_img(
+        img: np.ndarray, norm_mask: np.ndarray, 
+        method='median', raise_if_norm_zero=True
+    ):
+    values = img[norm_mask]
+    if method == 'median':
+        norm_value = np.median(values)
+    else:
+        norm_value = 1
+
+    if norm_value == 0:
+        if raise_if_norm_zero:
+            _raise_norm_value_zero()
+        else:
+            _norm_value = 1E-15
+            _warn_norm_value_zero()
+    else:
+        _norm_value = norm_value
+    norm_img = img/_norm_value
+    return norm_img, norm_value

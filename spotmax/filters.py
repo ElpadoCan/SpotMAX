@@ -467,3 +467,13 @@ def filter_spots_from_features_thresholds(
         query = ' & '.join(queries)
 
         return df_features.query(query)
+
+def drop_spots_not_in_ref_ch(df, ref_ch_mask, local_peaks_coords):
+    if ref_ch_mask is None:
+        return df
+    
+    zz = local_peaks_coords[:,0]
+    yy = local_peaks_coords[:,1]
+    xx = local_peaks_coords[:,2]
+    in_ref_ch_spots_mask = ref_ch_mask[zz, yy, xx] > 0
+    return df[in_ref_ch_spots_mask]

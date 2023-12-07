@@ -366,3 +366,17 @@ def add_effect_sizes(
             print(f'Negative std = {negative_std}')
             print('-'*60)
         import pdb; pdb.set_trace()
+
+def get_normalised_spot_ref_ch_intensities(
+        normalised_spots_img_obj, normalised_ref_ch_img_obj,
+        spheroid_mask, slice_global_to_local
+    ):
+    norm_spot_slice = (normalised_spots_img_obj[slice_global_to_local])
+    norm_spot_slice_dt = norm_spot_slice
+    norm_spot_intensities = norm_spot_slice_dt[spheroid_mask]
+
+    norm_ref_ch_slice = (normalised_ref_ch_img_obj[slice_global_to_local])
+    norm_ref_ch_slice_dt = norm_ref_ch_slice
+    norm_ref_ch_intensities = norm_ref_ch_slice_dt[spheroid_mask]
+
+    return norm_spot_intensities, norm_ref_ch_intensities

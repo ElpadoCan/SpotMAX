@@ -32,7 +32,6 @@ File paths and channels
   using Fiji Macros`` and ``Manually create data structure from microscopy file(s)`` 
   of the `Cell-ACDC user manual`_.
 
-
 * **Spots channel end name or path**: Last part of the file name or full path 
   of the file containing the spots channel data. The data can be a single 2D image, 
   a 3D image (z-stack or 2D over time), or a 4D image (3D over time). 

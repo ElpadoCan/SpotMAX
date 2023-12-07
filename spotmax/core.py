@@ -564,6 +564,7 @@ class _ParamsParser(_DataLoader):
 
         configPars = config.ConfigParser()
         configPars.read(params_path, encoding="utf-8")
+        
         SECTION = 'Configuration'
         if SECTION not in configPars.sections():
             return parser_args
@@ -640,7 +641,7 @@ class _ParamsParser(_DataLoader):
                 parser_args['disable_final_report'] = True
             parser_args['report_folderpath'] = os.path.dirname(report_filepath)
             parser_args['report_filename'] = os.path.basename(report_filepath)
-
+        
         if NUMBA_INSTALLED:
             num_threads = int(parser_args['num_threads'])
             num_threads = self._check_numba_num_threads(
@@ -681,7 +682,7 @@ class _ParamsParser(_DataLoader):
         return parser_args
 
     @exception_handler_cli
-    def init_params(self, params_path, metadata_csv_path=''):        
+    def init_params(self, params_path, metadata_csv_path=''):      
         self._params = config.analysisInputsParams(
             params_path, cast_dtypes=False
         )
@@ -2183,7 +2184,7 @@ class spheroid:
                     grow[b] = cond
         return grow
 
-class _spotFIT(spheroid):
+class SpotFIT(spheroid):
     def __init__(self, debug=False):
         self.debug = debug
 
@@ -2918,7 +2919,7 @@ class Kernel(_ParamsParser):
         self.is_batch_mode = False
         self.is_cli = is_cli
         self._force_close_on_critical = False
-        self._SpotFit = _spotFIT(debug=debug)
+        self._SpotFit = SpotFIT(debug=debug)
         self._current_frame_i = -1
         self._current_step = 'Kernel initialization'
         self._current_pos_path = 'Not determined yet'
@@ -3135,45 +3136,6 @@ class Kernel(_ParamsParser):
             return ref_ch_segm, ref_ch_filtered_img, df_agg
         else:
             return ref_ch_segm, df_agg
-    
-    def _raise_norm_value_zero(self):
-        print('')
-        self.logger.info(
-            '[ERROR]: Skipping Position, see error below. '
-            f'More details in the final report.{error_up_str}'
-        )
-        raise FloatingPointError(
-            'normalising value for the reference channel is zero.'
-        )
-    
-    def _warn_norm_value_zero(self):
-        warning_txt = (
-            'normalising value for the spots channel is zero.'
-        )
-        print('')
-        self.logger.info(f'[WARNING]: {warning_txt}{error_up_str}')
-        self.log_warning_report(warning_txt)
-
-    def _normalise_img(
-            self, img: np.ndarray, norm_mask: np.ndarray, 
-            method='median', raise_if_norm_zero=True
-        ):
-        values = img[norm_mask]
-        if method == 'median':
-            norm_value = np.median(values)
-        else:
-            norm_value = 1
-
-        if norm_value == 0:
-            if raise_if_norm_zero:
-                self._raise_norm_value_zero()
-            else:
-                _norm_value = 1E-15
-                self._warn_norm_value_zero()
-        else:
-            _norm_value = norm_value
-        norm_img = img/_norm_value
-        return norm_img, norm_value
 
     @exception_handler_cli
     def spots_detection(
@@ -3190,7 +3152,7 @@ class Kernel(_ParamsParser):
             rp=None, 
             backgr_is_outside_ref_ch_mask=False, 
             df_agg=None, 
-            do_keep_spots_in_ref_ch=False, 
+            keep_only_spots_in_ref_ch=False, 
             gop_filtering_thresholds=None, 
             dist_transform_spheroid=None,
             detection_method='peak_local_max',
@@ -3257,7 +3219,7 @@ class Kernel(_ParamsParser):
             min_size_spheroid_mask=min_size_spheroid_mask,
             dfs_lists=dfs_lists,
             raw_spots_img=raw_spots_img,
-            do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch, 
+            keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch, 
             gop_filtering_thresholds=gop_filtering_thresholds,
             dist_transform_spheroid=dist_transform_spheroid,
             verbose=verbose,
@@ -3350,7 +3312,7 @@ class Kernel(_ParamsParser):
             labels = pipe.spots_semantic_segmentation(
                 aggr_spots_img, 
                 lab=aggregated_lab, 
-                spots_zyx_radii=self.metadata['deltaTolerance'],
+                spots_zyx_radii_pxl=self.metadata['deltaTolerance'],
                 lineage_table=lineage_table,
                 do_aggregate=do_aggregate,
                 logger_func=self.logger.info,
@@ -3405,14 +3367,10 @@ class Kernel(_ParamsParser):
             min_size_spheroid_mask=None,
             raw_spots_img=None, 
             gop_filtering_thresholds=None, 
-            do_keep_spots_in_ref_ch=False, 
+            keep_only_spots_in_ref_ch=False, 
             dist_transform_spheroid=None,
             verbose=True,
-        ):
-        if verbose:
-            print('')
-            self.logger.info('Filtering valid spots...')
-        
+        ):        
         if dfs_lists is None:
             dfs_spots_det = []
             dfs_spots_gop = []
@@ -3425,129 +3383,32 @@ class Kernel(_ParamsParser):
         # We slice the object with some added tolerance
         Z, Y, X = lab.shape
         delta_tol = self.metadata['deltaTolerance']
-
-        num_spots_filtered_log = []
-        desc = 'Filtering spots'
-        pbar = tqdm(
-            total=len(rp), ncols=100, desc=desc, position=3, leave=False
+        spots_zyx_radii = zyx_resolution_limit_pxl
+        
+        features_filter_result = pipe.spots_calc_features_and_filter(
+            spots_img, 
+            spots_zyx_radii,
+            df_spots_coords,
+            frame_i=frame_i,
+            filtered_image=sharp_spots_img,
+            lab=lab,
+            rp=rp,
+            gop_filtering_thresholds=gop_filtering_thresholds,
+            delta_tol=delta_tol,
+            raw_image=raw_spots_img,
+            ref_ch_mask_or_labels=ref_ch_mask_or_labels,
+            ref_ch_img=ref_ch_img,
+            keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch,
+            min_size_spheroid_mask=min_size_spheroid_mask,
+            dist_transform_spheroid=dist_transform_spheroid,
+            backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
+            show_progress=True,
+            verbose=verbose,
+            logger_func=self.logger.info,
         )
-        last_spot_id = 0
-        for obj_idx, obj in enumerate(rp):
-            expanded_obj = transformations.get_expanded_obj_slice_image(
-                obj, delta_tol, lab
-            )
-            obj_slice, obj_image, crop_obj_start = expanded_obj
-
-            local_spots_img = spots_img[obj_slice]
-            local_sharp_spots_img = sharp_spots_img[obj_slice]
-
-            result = transformations.init_df_features(
-                df_spots_coords, obj, crop_obj_start, 
-                self.metadata['zyxResolutionLimitPxl']
-            )
-            df_obj_spots_det, expanded_obj_coords = result
-            if df_obj_spots_det is None:
-                # 0 spots for this obj (object ID not present in index)
-                s = f'  * Object ID {obj.label} = 0 --> 0 (0 iterations)'
-                num_spots_filtered_log.append(s)
-                continue
-            
-            # Increment spot_id with previous object
-            df_obj_spots_det['spot_id'] += last_spot_id
-            df_obj_spots_det = df_obj_spots_det.set_index('spot_id').sort_index()
-            
-            keys.append((frame_i, obj.label))
-            num_spots_detected = len(df_obj_spots_det)
-            last_spot_id += num_spots_detected
-            
-            dfs_spots_det.append(df_obj_spots_det)
-
-            if ref_ch_mask_or_labels is not None:
-                local_ref_ch_mask = ref_ch_mask_or_labels[obj_slice]>0
-                local_ref_ch_mask = np.logical_and(local_ref_ch_mask, obj_image)
-            else:
-                local_ref_ch_mask = None
-
-            if ref_ch_img is not None:
-                local_ref_ch_img = ref_ch_img[obj_slice]
-            else:
-                local_ref_ch_img = None
-            
-            if raw_spots_img is not None:
-                raw_spots_img_obj = raw_spots_img[obj_slice]
-
-            df_obj_spots_gop = df_obj_spots_det.copy()
-            if do_keep_spots_in_ref_ch:
-                df_obj_spots_gop = self._drop_spots_not_in_ref_ch(
-                    df_obj_spots_gop, local_ref_ch_mask, expanded_obj_coords
-                )
-            
-            debug = False
-            i = 0
-            while True:     
-                num_spots_prev = len(df_obj_spots_gop)
-                if num_spots_prev == 0:
-                    num_spots_filtered = 0
-                    break
-                
-                # if obj.label == 36:
-                #     debug = True
-                #     import pdb; pdb.set_trace()
-                
-                df_obj_spots_gop = self._compute_obj_spots_metrics(
-                    local_spots_img, 
-                    df_obj_spots_gop, 
-                    obj_image, 
-                    local_sharp_spots_img, 
-                    raw_spots_img_obj=raw_spots_img_obj,
-                    min_size_spheroid_mask=min_size_spheroid_mask, 
-                    dist_transform_spheroid=dist_transform_spheroid,
-                    ref_ch_mask_obj=local_ref_ch_mask, 
-                    ref_ch_img_obj=local_ref_ch_img,
-                    backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
-                    zyx_resolution_limit_pxl=zyx_resolution_limit_pxl,
-                    debug=debug
-                )
-                if i == 0:
-                    # Store metrics at first iteration
-                    df_obj_spots_det = df_obj_spots_gop.copy()
-                
-                # if self.debug and obj.label == 79:
-                # from . import _debug
-                # _debug._spots_filtering(
-                #     local_spots_img, df_obj_spots_gop, obj, obj_image
-                # )
-                
-                df_obj_spots_gop = filters.filter_spots_from_features_thresholds(
-                    df_obj_spots_gop, gop_filtering_thresholds,
-                    is_spotfit=False, debug=False,
-                    logger_func=self.logger.info
-                )
-                num_spots_filtered = len(df_obj_spots_gop)   
-
-                if num_spots_filtered == num_spots_prev or num_spots_filtered == 0:
-                    # Number of filtered spots stopped decreasing --> stop loop
-                    break
-
-                i += 1
-
-            nsd, nsf = num_spots_detected, num_spots_filtered
-            s = f'  * Object ID {obj.label} = {nsd} --> {nsf} ({i} iterations)'
-            num_spots_filtered_log.append(s)
-
-            dfs_spots_gop.append(df_obj_spots_gop)
-
-            pbar.update()
-        pbar.close()
-
-        if verbose:
-            print('')
-            print('*'*60)
-            info = '\n'.join(num_spots_filtered_log)
-            self.logger.info(
-                f'Number of spots after filtering valid spots:\n{info}'
-            )
-            print('-'*60)
+        keys.extend(features_filter_result[0])
+        dfs_spots_det.extend(features_filter_result[1])
+        dfs_spots_gop.extend(features_filter_result[2])
         
         if dfs_lists is None:
             names = ['frame_i', 'Cell_ID', 'spot_id']
@@ -3615,44 +3476,6 @@ class Kernel(_ParamsParser):
 
         return df_agg_det, df_agg_gop, df_agg_spotfit
     
-    @exception_handler_cli
-    def measure_spots_spotfit(
-            self, spots_img, df_spots, zyx_voxel_size, zyx_spot_min_vol_um,
-            rp=None, dfs_lists=None, lab=None, frame_i=0, 
-            ref_ch_mask_or_labels=None, verbose=True
-        ):
-        if lab is None:
-            lab = np.ones(spots_img.shape, dtype=np.uint8)
-
-        if rp is None:
-            lab = np.ones(spots_img.shape, dtype=np.uint8)
-            rp = skimage.measure.regionprops(lab)
-        
-        if dfs_lists is None:
-            dfs_spots_spotfit = []
-            keys = []
-        else:
-            dfs_spots_spotfit = dfs_lists['dfs_spots_spotfit']
-            keys = dfs_lists['spotfit_keys']
-        
-        delta_tol = self.metadata['deltaTolerance']
-        desc = 'Measuring spots'
-        pbar = tqdm(total=len(rp), ncols=100, desc=desc, position=3, leave=False)
-        for obj in rp:
-            if obj.label not in df_spots.index:
-                continue
-            expanded_obj = transformations.get_expanded_obj(obj, delta_tol, lab)
-            self._SpotFit.set_args(
-                expanded_obj, spots_img, df_spots, zyx_voxel_size, 
-                zyx_spot_min_vol_um, ref_ch_mask_or_labels=ref_ch_mask_or_labels,
-                use_gpu=self._get_use_gpu(), logger=self.logger
-            )
-            self._SpotFit.fit()
-            dfs_spots_spotfit.append(self._SpotFit.df_spotFIT_ID)
-            keys.append((frame_i, obj.label))
-            pbar.update()
-        pbar.close()
-    
     def _get_spot_intensities(
             self, spots_img, zyx_center, local_spot_mask
         ):
@@ -3675,286 +3498,7 @@ class Kernel(_ParamsParser):
         xx = local_peaks_coords[:,2]
         in_ref_ch_spots_mask = ref_ch_mask[zz, yy, xx] > 0
         return df[in_ref_ch_spots_mask]
-
-    def _add_spot_vs_ref_location(self, ref_ch_mask, zyx_center, df, idx):
-        is_spot_in_ref_ch = int(ref_ch_mask[zyx_center] > 0)
-        df.at[idx, 'is_spot_inside_ref_ch'] = is_spot_in_ref_ch
-        _, dist_2D_from_ref_ch = utils.nearest_nonzero(
-            ref_ch_mask[zyx_center[0]], zyx_center[1], zyx_center[2]
-        )
-        df.at[idx, 'spot_dist_2D_from_ref_ch'] = dist_2D_from_ref_ch
-
-    def _get_normalised_spot_ref_ch_intensities(
-            self, normalised_spots_img_obj, normalised_ref_ch_img_obj,
-            spheroid_mask, slice_global_to_local
-        ):
-        norm_spot_slice = (normalised_spots_img_obj[slice_global_to_local])
-        norm_spot_slice_dt = norm_spot_slice
-        norm_spot_intensities = norm_spot_slice_dt[spheroid_mask]
-
-        norm_ref_ch_slice = (normalised_ref_ch_img_obj[slice_global_to_local])
-        norm_ref_ch_slice_dt = norm_ref_ch_slice
-        norm_ref_ch_intensities = norm_ref_ch_slice_dt[spheroid_mask]
-
-        return norm_spot_intensities, norm_ref_ch_intensities
-
-    # @acdc_myutils.exec_time
-    def _compute_obj_spots_metrics(
-            self, spots_img_obj, df_obj_spots, obj_mask, 
-            sharp_spots_img_obj, raw_spots_img_obj=None, 
-            min_size_spheroid_mask=None, dist_transform_spheroid=None,
-            ref_ch_mask_obj=None, ref_ch_img_obj=None, 
-            zyx_resolution_limit_pxl=None, 
-            backgr_is_outside_ref_ch_mask=False,
-            debug=False
-        ):
-        """_summary_
-
-        Parameters
-        ----------
-        spots_img_obj : (Z, Y, X) ndarray
-            Spots' signal 3D z-stack image sliced at the segmentation object
-            level. Note that this is the preprocessed image, i.e., after 
-            gaussian filtering, but NOT after sharpening. Sharpening is used 
-            only to improve detection. The first dimension must be 
-            the number of z-slices.
-        df_obj_spots : pandas.DataFrame
-            Pandas DataFrame with `spot_id` as index.
-        obj_mask : (Z, Y, X) ndarray of dtype bool
-            Boolean mask of the segmentation object.
-        sharp_spots_img_obj : (Z, Y, X) ndarray
-            Spots' signal 3D z-stack image sliced at the segmentation object
-            level. Note that this is the preprocessed image, i.e., after 
-            gaussian filtering, sharpening etc. It is used to determine the 
-            threshold for peak detection and for filtering against background. 
-            The first dimension must be the number of z-slices.
-        raw_spots_img_obj : (Z, Y, X) ndarray or None, optional
-            Raw spots' signal 3D z-stack image sliced at the segmentation
-            object level. Note that this is the raw, unprocessed signal. 
-            The first dimension must be  the number of z-slices. 
-            If None, the features from the raw signal will not be computed.
-        min_size_spheroid_mask : (Z, Y, X) ndarray of dtype bool, optional
-            The boolean mask of the smallest spot expected, by default None. 
-            This is pre-computed using the resolution limit equations and the 
-            pixel size. If None, this will be computed from 
-            `zyx_resolution_limit_pxl`.
-        dist_transform_spheroid : (Z, Y, X) ndarray, optional
-            A distance transform of the `min_size_spheroid_mask`. This will be 
-            multiplied by the spots intensities to reduce the skewing effect of 
-            neighbouring peaks. 
-            It must have the same shape of `min_size_spheroid_mask`.
-            If None, this will be initialized with 1s, meaning that normalisation 
-            will not be performed.
-        ref_ch_mask_obj : (Z, Y, X) ndarray of dtype bool or None, optional
-            Boolean mask of the reference channel, e.g., obtained by 
-            thresholding. The first dimension must be  the number of z-slices.
-            If not None, it is used to compute background metrics, filter 
-            and localise spots compared to the reference channel, etc.
-        ref_ch_img_obj : (Z, Y, X) ndarray or None, optional
-            Reference channel's signal 3D z-stack image sliced at the 
-            segmentation object level. Note that this is the preprocessed image,
-            i.e., after gaussian filtering, sharpening etc. 
-            The first dimension must be the number of z-slices.
-            If None, the features from the reference channel signal will not 
-            be computed.
-        backgr_is_outside_ref_ch_mask : bool, optional by default False
-            If True, the background mask are made of the pixels that are inside 
-            the segmented object but outside of the reference channel mask.
-        zyx_resolution_limit_pxl : (z, y, x) tuple or None, optional
-            Resolution limit in (z, y, x) direction in pixels, by default None. 
-            If `min_size_spheroid_mask` is None, this will be used to computed 
-            the boolean mask of the smallest spot expected.
-        """ 
-
-        local_peaks_coords = df_obj_spots[ZYX_LOCAL_EXPANDED_COLS].to_numpy()
-        result = transformations.get_spheroids_maks(
-            local_peaks_coords, obj_mask.shape, 
-            min_size_spheroid_mask=min_size_spheroid_mask, 
-            zyx_radii_pxl=zyx_resolution_limit_pxl,
-            debug=debug
-        )
-        spheroids_mask, min_size_spheroid_mask = result
-        # if debug:
-        #     from cellacdc.plot import imshow
-        #     imshow(
-        #         spheroids_mask, spots_img_obj, 
-        #         points_coords=local_peaks_coords
-        #     )
-        #     import pdb; pdb.set_trace()
-
-        # Check if spots_img needs to be normalised
-        if backgr_is_outside_ref_ch_mask:
-            backgr_mask = np.logical_and(ref_ch_mask_obj, ~spheroids_mask)
-            normalised_ref_ch_img_obj, ref_ch_norm_value = self._normalise_img(
-                ref_ch_img_obj, backgr_mask, raise_if_norm_zero=False
-            )
-            df_obj_spots.loc[:, 'ref_ch_normalising_value'] = ref_ch_norm_value
-            normalised_spots_img_obj, spots_norm_value = self._normalise_img(
-                spots_img_obj, backgr_mask, raise_if_norm_zero=True
-            )
-            df_obj_spots.loc[:, 'spots_normalising_value'] = spots_norm_value
-        else:
-            backgr_mask = np.logical_and(obj_mask, ~spheroids_mask)
-            normalised_spots_img_obj = spots_img_obj
-            normalised_ref_ch_img_obj = ref_ch_img_obj
-
-        # Calculate background metrics
-        backgr_vals = sharp_spots_img_obj[backgr_mask]
-        for name, func in distribution_metrics_func.items():
-            df_obj_spots.loc[:, f'background_{name}'] = func(backgr_vals)
-        
-        if raw_spots_img_obj is None:
-            raw_spots_img_obj = spots_img_obj
-
-        pbar_desc = 'Computing spots features'
-        pbar = tqdm(
-            total=len(df_obj_spots), ncols=100, desc=pbar_desc, position=3, 
-            leave=False
-        )
-        spot_ids_to_drop = []
-        for row in df_obj_spots.itertuples():
-            spot_id = row.Index
-            zyx_center = tuple(
-                [getattr(row, col) for col in ZYX_LOCAL_EXPANDED_COLS]
-            )
-
-            slices = transformations.get_slices_local_into_global_3D_arr(
-                zyx_center, spots_img_obj.shape, min_size_spheroid_mask.shape
-            )
-            slice_global_to_local, slice_crop_local = slices
-            
-            # Background values at spot z-slice
-            backgr_mask_z_spot = backgr_mask[zyx_center[0]]
-            sharp_spot_obj_z = sharp_spots_img_obj[zyx_center[0]]
-            backgr_vals_z_spot = sharp_spot_obj_z[backgr_mask_z_spot]
-            
-            if len(backgr_vals_z_spot) == 0:
-                # This is most likely because the reference channel mask at 
-                # center z-slice is smaller than the spot resulting 
-                # in no background mask (since the background is outside of 
-                # the spot but inside the ref. ch. mask) --> there is not 
-                # enough ref. channel to consider this a valid spot.
-                spot_ids_to_drop.append(spot_id)
-                continue
-            
-            if debug:
-                print('')
-                zyx_local = tuple(
-                    [getattr(row, col) for col in ZYX_LOCAL_COLS]
-                )
-                zyx_global = tuple(
-                    [getattr(row, col) for col in ZYX_GLOBAL_COLS]
-                )
-                print(f'Local coordinates = {zyx_local}')
-                print(f'Global coordinates = {zyx_global}')
-                print(f'Spot raw intensity at center = {raw_spots_img_obj[zyx_center]}')
-                from ._debug import _compute_obj_spots_metrics
-                win = _compute_obj_spots_metrics(
-                    sharp_spot_obj_z, backgr_mask_z_spot, 
-                    spheroids_mask[zyx_center[0]], 
-                    zyx_center[1:], block=False
-                )
-
-            # Crop masks
-            spheroid_mask = min_size_spheroid_mask[slice_crop_local]
-            spot_slice = spots_img_obj[slice_global_to_local]
-
-            # Get the sharp spot sliced
-            sharp_spot_slice_z = sharp_spot_obj_z[slice_global_to_local[-2:]]
-            
-            if dist_transform_spheroid is None:
-                # Do not optimise for high spot density
-                sharp_spot_slice_z_transf = sharp_spot_slice_z
-            else:
-                dist_transf = dist_transform_spheroid[slice_crop_local]
-                sharp_spot_slice_z_transf = (
-                    transformations.normalise_spot_by_dist_transf(
-                        sharp_spot_slice_z, dist_transf.max(axis=0),
-                        backgr_vals_z_spot, how='range'
-                ))
-
-            # Get spot intensities
-            spot_intensities = spot_slice[spheroid_mask]
-            spheroid_mask_proj = spheroid_mask.max(axis=0)
-            sharp_spot_intensities_z_edt = (
-                sharp_spot_slice_z_transf[spheroid_mask_proj]
-            )
-
-            value = spots_img_obj[zyx_center]
-            df_obj_spots.at[spot_id, 'spot_preproc_intensity_at_center'] = value
-            features.add_distribution_metrics(
-                spot_intensities, df_obj_spots, spot_id, 
-                col_name='spot_preproc_*name_in_spot_minimumsize_vol'
-            )
-            
-            if raw_spots_img_obj is None:
-                raw_spot_intensities = spot_intensities
-            else:
-                raw_spot_intensities = (
-                    raw_spots_img_obj[slice_global_to_local][spheroid_mask]
-                )
-                value = raw_spots_img_obj[zyx_center]
-                df_obj_spots.at[spot_id, 'spot_raw_intensity_at_center'] = value
-
-                features.add_distribution_metrics(
-                    raw_spot_intensities, df_obj_spots, spot_id, 
-                    col_name='spot_raw_*name_in_spot_minimumsize_vol'
-                )
-
-            # When comparing to the background we use the sharpened image 
-            # at the center z-slice of the spot
-            features.add_ttest_values(
-                sharp_spot_intensities_z_edt, backgr_vals_z_spot, 
-                df_obj_spots, spot_id, name='spot_vs_backgr',
-                logger_func=self.logger.info
-            )
-            
-            features.add_effect_sizes(
-                sharp_spot_intensities_z_edt, backgr_vals_z_spot, 
-                df_obj_spots, spot_id, name='spot_vs_backgr',
-                debug=debug
-            )
-            
-            if ref_ch_img_obj is None:
-                # Raw reference channel not present --> continue
-                pbar.update()
-                continue
-
-            normalised_spot_intensities, normalised_ref_ch_intensities = (
-                self._get_normalised_spot_ref_ch_intensities(
-                    normalised_spots_img_obj, normalised_ref_ch_img_obj,
-                    spheroid_mask, slice_global_to_local
-                )
-            )
-            features.add_ttest_values(
-                normalised_spot_intensities, normalised_ref_ch_intensities, 
-                df_obj_spots, spot_id, name='spot_vs_ref_ch',
-                logger_func=self.logger.info
-            )
-            features.add_effect_sizes(
-                normalised_spot_intensities, normalised_ref_ch_intensities, 
-                df_obj_spots, spot_id, name='spot_vs_ref_ch'
-            )
-            self._add_spot_vs_ref_location(
-                ref_ch_mask_obj, zyx_center, df_obj_spots, spot_id
-            )                
-            
-            value = ref_ch_img_obj[zyx_center]
-            df_obj_spots.at[spot_id, 'ref_ch_raw_intensity_at_center'] = value
-
-            ref_ch_intensities = (
-                ref_ch_img_obj[slice_global_to_local][spheroid_mask]
-            )
-            features.add_distribution_metrics(
-                ref_ch_intensities, df_obj_spots, spot_id, 
-                col_name='ref_ch_raw_*name_in_spot_minimumsize_vol'
-            )
-            pbar.update()
-        pbar.close()
-        if spot_ids_to_drop:
-            df_obj_spots = df_obj_spots.drop(index=spot_ids_to_drop)
-        return df_obj_spots
-    
+   
     def _critical_feature_is_missing(self, missing_feature, df):
         format_colums = [f'    * {col}' for col in df.columns]
         format_colums = '\n'.join(format_colums)
@@ -3973,7 +3517,8 @@ class Kernel(_ParamsParser):
         if np.all(lab):
             # Segmentation was not present and it was initialized to whole image
             # There are no features to add
-            return
+            return df_agg
+        
         pxl_to_um2 = metadata.get('pxl_to_um2_factor', 1)
         vox_to_um3 = metadata.get('vox_to_um3_factor', 1)
         vox_to_fl_rot = metadata.get('vox_to_fl_rot_factor', 1)
@@ -4361,7 +3906,7 @@ class Kernel(_ParamsParser):
         backgr_is_outside_ref_ch_mask = (
             self._params[SECTION]['bkgrMaskOutsideRef']['loadedVal']
         )
-        do_keep_spots_in_ref_ch = (
+        keep_only_spots_in_ref_ch = (
             self._params[SECTION]['keepPeaksInsideRef']['loadedVal']
         )
 
@@ -4463,7 +4008,7 @@ class Kernel(_ParamsParser):
                 dist_transform_spheroid=edt_spheroid,
                 spot_footprint=spot_footprint,
                 backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
-                do_keep_spots_in_ref_ch=do_keep_spots_in_ref_ch,
+                keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch,
                 gop_filtering_thresholds=gop_filtering_thresholds,
                 spots_ch_segm_mask=spots_ch_segm_mask,
                 prediction_method=prediction_method,
@@ -4532,12 +4077,16 @@ class Kernel(_ParamsParser):
                     ref_ch_mask_or_labels = None
 
                 df_spots_frame = df_spots_gop.loc[frame_i]
-                self.measure_spots_spotfit(
-                    raw_spots_img, df_spots_frame, zyx_voxel_size, 
-                    zyx_spot_min_vol_um, rp=rp, dfs_lists=dfs_lists, lab=lab,
+                spotfit_result = pipe.spotfit(
+                    self._spotFIT, raw_spots_img, df_spots_frame, 
+                    zyx_voxel_size, zyx_spot_min_vol_um, 
+                    rp=rp, dfs_lists=dfs_lists, lab=lab,
                     ref_ch_mask_or_labels=ref_ch_mask_or_labels,
-                    frame_i=frame_i, verbose=verbose
+                    frame_i=frame_i, verbose=verbose, 
+                    use_gpu=self._get_use_gpu()
                 )
+                dfs_lists['spotfit_keys'].extend(spotfit_result[0])
+                dfs_lists['dfs_spots_spotfit'].extend(spotfit_result[1])
                 pbar.update()
             pbar.close()
             

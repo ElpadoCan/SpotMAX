@@ -871,7 +871,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         posData = self.data[self.pos_i]
         
-        keys = ['spots_zyx_radii', 'use_gpu']
+        keys = ['spots_zyx_radii_pxl', 'use_gpu']
         all_kwargs = self.paramsToKwargs()
         if all_kwargs is None:
             self.logger.info('Process cancelled.')
@@ -1096,7 +1096,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             'gauss_sigma': gauss_sigma, 
             'ref_ch_gauss_sigma': ref_ch_gauss_sigma, 
             'ref_ch_ridge_sigmas': ref_ch_ridge_sigmas,
-            'spots_zyx_radii': spots_zyx_radii, 
+            'spots_zyx_radii_pxl': spots_zyx_radii, 
             'do_sharpen': do_sharpen, 
             'do_remove_hot_pixels': do_remove_hot_pixels,
             'lineage_table': lineage_table, 
@@ -1153,7 +1153,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         posData = self.data[self.pos_i]        
         args = [module_func, anchor]
         keys = [
-            'lab', 'gauss_sigma', 'spots_zyx_radii', 'do_sharpen',
+            'lab', 'gauss_sigma', 'spots_zyx_radii_pxl', 'do_sharpen',
             'do_remove_hot_pixels', 'lineage_table', 'do_aggregate', 
             'use_gpu'
         ]
