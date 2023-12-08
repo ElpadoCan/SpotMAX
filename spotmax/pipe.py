@@ -305,8 +305,7 @@ def reference_channel_semantic_segm(
         Input 2D or 3D image.
     lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints
         Optional input segmentation image with the masks of the objects, i.e. 
-        single cells. Spots will be detected only inside each object. If None, 
-        detection will be performed on the entire image. Default is None. 
+        single cells. Default is None. 
     gauss_sigma : scalar or sequence of scalars, optional
         Standard deviation for Gaussian kernel. The standard deviations of 
         the Gaussian filter are given for each axis as a sequence, or as a 
@@ -481,7 +480,7 @@ def _compute_obj_spots_features(
         ref_ch_mask_obj=None, 
         ref_ch_img_obj=None, 
         zyx_resolution_limit_pxl=None, 
-        backgr_is_outside_ref_ch_mask=False,
+        get_backgr_from_inside_ref_ch_mask=False,
         logger_func=print,
         show_progress=True,
         debug=False
@@ -535,7 +534,7 @@ def _compute_obj_spots_features(
         The first dimension must be the number of z-slices.
         If None, the features from the reference channel signal will not 
         be computed.
-    backgr_is_outside_ref_ch_mask : bool, optional by default False
+    get_backgr_from_inside_ref_ch_mask : bool, optional by default False
         If True, the background mask are made of the pixels that are inside 
         the segmented object but outside of the reference channel mask.
     zyx_resolution_limit_pxl : (z, y, x) tuple or None, optional
@@ -566,7 +565,7 @@ def _compute_obj_spots_features(
     #     import pdb; pdb.set_trace()
 
     # Check if spots_img needs to be normalised
-    if backgr_is_outside_ref_ch_mask:
+    if get_backgr_from_inside_ref_ch_mask:
         backgr_mask = np.logical_and(ref_ch_mask_obj, ~spheroids_mask)
         normalised_result = transformations.normalise_img(
             ref_ch_img_obj, backgr_mask, raise_if_norm_zero=False
@@ -837,7 +836,7 @@ def compute_spots_features(
             ref_ch_mask_obj=None, 
             ref_ch_img_obj=None, 
             zyx_resolution_limit_pxl=spots_zyx_radii_pxl, 
-            backgr_is_outside_ref_ch_mask=False,
+            get_backgr_from_inside_ref_ch_mask=False,
             logger_func=logger_func,
             show_progress=True,
             debug=False
@@ -936,7 +935,7 @@ def spots_calc_features_and_filter(
         spots_zyx_radii_pxl,
         df_spots_coords,
         frame_i=0,
-        filtered_image=None,
+        sharp_spots_image=None,
         lab=None,
         rp=None,
         gop_filtering_thresholds=None,
@@ -947,7 +946,7 @@ def spots_calc_features_and_filter(
         keep_only_spots_in_ref_ch=False,
         min_size_spheroid_mask=None,
         dist_transform_spheroid=None,
-        backgr_is_outside_ref_ch_mask=False,
+        get_backgr_from_inside_ref_ch_mask=False,
         show_progress=True,
         verbose=True,
         logger_func=None
@@ -956,49 +955,87 @@ def spots_calc_features_and_filter(
 
     Parameters
     ----------
-    image : _type_
-        _description_
-    spots_zyx_radii_pxl : _type_
-        _description_
-    df_spots_coords : _type_
-        _description_
+    image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray
+        Input 2D or 3D image.
+    spots_zyx_radii_pxl : (z, y, x) sequence of floats, optional
+        Rough estimation of the expected spot radii in z, y, and x direction
+        in pixels. The values are used to build the ellipsoid mask centered at 
+        each spot. The volume of the ellipsoid is then used for those aggregated 
+        metrics like the mean intensity in the spot.
+    df_spots_coords : pandas.DataFrame
+        DataFrame with Cell_ID as index and the columns {'z', 'y', 'x'} which 
+        are the coordinates of the spots in `image`. 
     frame_i : int, optional
-        _description_. Default is 0
-    filtered_image : _type_, optional
-        _description_. Default is None
-    lab : _type_, optional
-        _description_. Default is None
-    rp : _type_, optional
-        _description_. Default is None
-    gop_filtering_thresholds : _type_, optional
-        _description_. Default is None
-    delta_tol : _type_, optional
-        _description_. Default is None
-    raw_image : _type_, optional
-        _description_. Default is None
-    ref_ch_mask_or_labels : _type_, optional
-        _description_. Default is None
-    ref_ch_img : _type_, optional
-        _description_. Default is None
+        Frame index in timelapse data. Default is 0
+    sharp_spots_image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
+        Optional image that was filtered to enhance the spots (e.g., using 
+        spotmax.filters.DoG_spots). This image will be used for those features 
+        that requires comparing the spot's signal to a reference signal 
+        (background or reference channel). If None, `image` will be used 
+        instead. Default is None
+    lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
+        Optional input segmentation image with the masks of the objects, i.e. 
+        single cells. If None, it will be generated with one object covering 
+        the entire image. Default is None.
+    rp : list of skimage.measure.RegionProperties, optional
+        If not None, list of properties of objects in `lab` as returned by 
+        skimage.measure.regionprops(lab). If None, this will be computed 
+        with `skimage.measure.regionprops(lab)`. Default is None
+    gop_filtering_thresholds : dict of {'feature_name': (min_value, max_value)}, optional
+        Features and their maximum and minimum values to filter valid spots. 
+        A spot is valid when `feature_name` is greater than `min_value` and 
+        lower than `max_value`. If a value is None it means there is no minimum 
+        or maximum threshold. Default is None
+    delta_tol : (z, y, x) sequence of floats, optional
+        If not None, these values will be used to enlarge the segmented objects. 
+        It will prevent clipping the spots masks for those spots whose intensities 
+        bleed outside of the object (e.g., single cell). Default is None
+    raw_image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
+        Optional image to calculate features based on the raw image. The name 
+        of these features will have the text '_raw_'. Default is None
+    ref_ch_mask_or_labels : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
+        Instance or semantic segmentation of the reference channel. If not None, 
+        this is used to calculate the background intensity inside the segmented 
+        object from `lab` but outside of the reference channel mask. 
+        Default is None
+    ref_ch_img : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
+        Reference channel image. Default is None
     keep_only_spots_in_ref_ch : bool, optional
-        _description_. Default is False
-    min_size_spheroid_mask : _type_, optional
-        _description_. Default is None
-    dist_transform_spheroid : _type_, optional
-        _description_. Default is None
-    backgr_is_outside_ref_ch_mask : bool, optional
-        _description_. Default is False
+        If True, drops the spots that are outside of the reference channel mask. 
+        Default is False
+    min_size_spheroid_mask : (M, N) numpy.ndarray or (K, M, N) numpy.ndarray or bools, optional
+        Ellipsoid mask used to calcualte those aggregated features like the 
+        mean intensity in each spot. 
+        If None, this will be created from `spots_zyx_radii_pxl`. 
+        Default is None
+    dist_transform_spheroid : (M, N) numpy.ndarray or (K, M, N) numpy.ndarray of floats, optional
+        Optional probability map that will be multiplicated to each spot's 
+        intensities. An example is the euclidean distance tranform 
+        (normalised to the range 0-1). This is useful to reduce the influence 
+        of bright neighbouring spots on dimmer spots since the intensities of the 
+        bright spot can bleed into the edges of the dimmer spot skewing its 
+        metrics like the mean intensity. Default is None
+    get_backgr_from_inside_ref_ch_mask : bool, optional
+        If True, the background will be determined from the pixels that are
+        outside of the spots, but inside the reference channel mask. 
+        Default is False
     show_progress : bool, optional
-        _description_. Default is True
+        If True, display progressbars. Default is False
     verbose : bool, optional
-        _description_. Default is True
-    logger_func : _type_, optional
-        _description_. Default is None
+        If True, additional information text will be printed to the terminal. 
+        Default is True
+    logger_func : callable, optional
+        Function used to print or log process information. Default is print
 
     Returns
     -------
-    _type_
-        _description_
+    3-tuple of lists
+        First element is the list of keys that can be used to concatenate the 
+        dataframes that are in the second element and third element. 
+        The keys are the list of (frame_i, Cell_ID) elements.
+        The second element is the list of DataFrames with the features columns 
+        for each frame and ID of the segmented objects in `lab` 
+        The third element is the list of DataFrames with only the valid spots. 
     """    
     if verbose:
         print('')
@@ -1036,7 +1073,7 @@ def spots_calc_features_and_filter(
         obj_slice, obj_image, crop_obj_start = expanded_obj
 
         local_spots_img = image[obj_slice]
-        local_sharp_spots_img = filtered_image[obj_slice]
+        local_sharp_spots_img = sharp_spots_image[obj_slice]
 
         result = transformations.init_df_features(
             df_spots_coords, obj, crop_obj_start, spots_zyx_radii_pxl
@@ -1100,7 +1137,7 @@ def spots_calc_features_and_filter(
                 dist_transform_spheroid=dist_transform_spheroid,
                 ref_ch_mask_obj=local_ref_ch_mask, 
                 ref_ch_img_obj=local_ref_ch_img,
-                backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
+                get_backgr_from_inside_ref_ch_mask=get_backgr_from_inside_ref_ch_mask,
                 zyx_resolution_limit_pxl=spots_zyx_radii_pxl,
                 debug=debug
             )
@@ -1163,7 +1200,7 @@ def spotfit(
         show_progress=True,
         logger_func=print,
     ):
-    """Run spotFIT (fitting 3D gaussian curves) and get related features
+    """Run spotFIT (fitting 3D gaussian curves) and get the related features
 
     Parameters
     ----------
@@ -1182,8 +1219,8 @@ def spotfit(
         The spotSIZE step will determine the extent of each spot, i.e., the pixels 
         that will be the input for the fitting procedure.
     delta_tol : (z, y, x) sequence of floats, optional
-        If not None, these values will be used to enlarge the segmented object. 
-        It will enable correct fitting of those spots whose intensities can 
+        If not None, these values will be used to enlarge the segmented objects. 
+        It will enable correct fitting of those spots whose intensities 
         bleed outside of the object (e.g., single cell). Default is None
     rp : list of skimage.measure.RegionProperties, optional
         If not None, list of properties of objects in `lab` as returned by 
@@ -1191,8 +1228,7 @@ def spotfit(
         with `skimage.measure.regionprops(lab)`. Default is None
     lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
         Optional input segmentation image with the masks of the objects, i.e. 
-        single cells. Spots will be detected only inside each object. If None, 
-        detection will be performed on the entire image. Default is None. 
+        single cells. Default is None. 
     frame_i : int, optional
         Frame index in timelapse data. Default is 0
     ref_ch_mask_or_labels : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional

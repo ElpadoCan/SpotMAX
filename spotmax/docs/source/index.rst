@@ -15,3 +15,4 @@ Contents
    parameters_description
    single_spot_features_description
    aggr_features_description
+   api/api

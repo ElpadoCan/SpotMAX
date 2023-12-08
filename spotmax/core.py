@@ -3150,7 +3150,7 @@ class Kernel(_ParamsParser):
             frame_i=0, 
             lab=None, 
             rp=None, 
-            backgr_is_outside_ref_ch_mask=False, 
+            get_backgr_from_inside_ref_ch_mask=False, 
             df_agg=None, 
             keep_only_spots_in_ref_ch=False, 
             gop_filtering_thresholds=None, 
@@ -3213,7 +3213,7 @@ class Kernel(_ParamsParser):
             sharp_spots_img, 
             ref_ch_img, 
             ref_ch_mask_or_labels, 
-            backgr_is_outside_ref_ch_mask, 
+            get_backgr_from_inside_ref_ch_mask, 
             lab, rp, frame_i, 
             zyx_resolution_limit_pxl,
             min_size_spheroid_mask=min_size_spheroid_mask,
@@ -3361,7 +3361,7 @@ class Kernel(_ParamsParser):
         
     def _spots_filter(
             self, df_spots_coords, spots_img, sharp_spots_img, 
-            ref_ch_img, ref_ch_mask_or_labels,  backgr_is_outside_ref_ch_mask, 
+            ref_ch_img, ref_ch_mask_or_labels,  get_backgr_from_inside_ref_ch_mask, 
             lab, rp, frame_i, zyx_resolution_limit_pxl, 
             dfs_lists=None,
             min_size_spheroid_mask=None,
@@ -3401,7 +3401,7 @@ class Kernel(_ParamsParser):
             keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch,
             min_size_spheroid_mask=min_size_spheroid_mask,
             dist_transform_spheroid=dist_transform_spheroid,
-            backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
+            get_backgr_from_inside_ref_ch_mask=get_backgr_from_inside_ref_ch_mask,
             show_progress=True,
             verbose=verbose,
             logger_func=self.logger.info,
@@ -3903,7 +3903,7 @@ class Kernel(_ParamsParser):
             self._params['Pre-processing']['sharpenSpots']['loadedVal']
         )
         SECTION = 'Reference channel'
-        backgr_is_outside_ref_ch_mask = (
+        get_backgr_from_inside_ref_ch_mask = (
             self._params[SECTION]['bkgrMaskOutsideRef']['loadedVal']
         )
         keep_only_spots_in_ref_ch = (
@@ -4007,7 +4007,7 @@ class Kernel(_ParamsParser):
                 min_size_spheroid_mask=min_size_spheroid_mask,
                 dist_transform_spheroid=edt_spheroid,
                 spot_footprint=spot_footprint,
-                backgr_is_outside_ref_ch_mask=backgr_is_outside_ref_ch_mask,
+                get_backgr_from_inside_ref_ch_mask=get_backgr_from_inside_ref_ch_mask,
                 keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch,
                 gop_filtering_thresholds=gop_filtering_thresholds,
                 spots_ch_segm_mask=spots_ch_segm_mask,
