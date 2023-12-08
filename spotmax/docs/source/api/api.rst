@@ -2,4 +2,4 @@ SpotMAX API Reference
 =====================
 
 .. toctree::
-   spotmax.pipe
+   api/spotmax.pipe
