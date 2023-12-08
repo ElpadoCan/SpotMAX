@@ -3390,7 +3390,7 @@ class Kernel(_ParamsParser):
             spots_zyx_radii,
             df_spots_coords,
             frame_i=frame_i,
-            filtered_image=sharp_spots_img,
+            sharp_spots_image=sharp_spots_img,
             lab=lab,
             rp=rp,
             gop_filtering_thresholds=gop_filtering_thresholds,

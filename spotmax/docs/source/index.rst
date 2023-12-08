@@ -10,7 +10,7 @@ Contents
 --------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    
    parameters_description
    single_spot_features_description

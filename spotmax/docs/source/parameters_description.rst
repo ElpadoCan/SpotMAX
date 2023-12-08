@@ -283,7 +283,7 @@ Spots channel
       spot_vs_ref_ch_ttest_tstat, 0.0, None
 
   This example uses two features: the ``spot_vs_ref_ch_ttest_pvalue``, and the 
-  ``spot_vs_ref_ch_ttest_tstat`` features (see `_Statistical test (vs. ref. ch.)`_) 
+  ``spot_vs_ref_ch_ttest_tstat`` features (see `Statistical test (vs. ref. ch.)`_) 
   for details about these features). The thresholds, are written as ``min, max`` 
   after the feature name. Therefore, with the line ``spot_vs_ref_ch_ttest_pvalue, None, 0.025`` 
   spotMAX will keep only those spots whose p-value of the t-test against the 
