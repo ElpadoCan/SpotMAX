@@ -1273,7 +1273,7 @@ def spotfit(
         kernel.set_args(
             expanded_obj, spots_img, df_spots, zyx_voxel_size, 
             zyx_spot_min_vol_um, ref_ch_mask_or_labels=ref_ch_mask_or_labels,
-            use_gpu=use_gpu, logger=logger_func
+            use_gpu=use_gpu, logger_func=logger_func
         )
         kernel.fit()
         dfs_spots_spotfit.append(kernel.df_spotFIT_ID)

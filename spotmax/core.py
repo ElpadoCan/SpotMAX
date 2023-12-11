@@ -2192,9 +2192,9 @@ class SpotFIT(spheroid):
             self, expanded_obj, spots_img, df_spots, zyx_vox_size, 
             zyx_spot_min_vol_um, verbose=0, inspect=0, 
             ref_ch_mask_or_labels=None, use_gpu=False,
-            logger=None
+            logger_func=None
         ):
-        self.logger = logger
+        self.logger_func = logger_func
         self.spots_img_local = spots_img[expanded_obj.slice]
         super().__init__(self.spots_img_local)
         ID = expanded_obj.label
@@ -2245,7 +2245,7 @@ class SpotFIT(spheroid):
         df_spots_ID = self.df_spots_ID
         spots_img_denoise = filters.gaussian(
             self.spots_img_local, 0.8, use_gpu=self.use_gpu,
-            logger_func=self.logger.info
+            logger_func=self.logger_func
         )
         min_z, min_y, min_x = self.obj_bbox_lower
         zyx_vox_dim = self.zyx_vox_size
@@ -4078,12 +4078,18 @@ class Kernel(_ParamsParser):
 
                 df_spots_frame = df_spots_gop.loc[frame_i]
                 spotfit_result = pipe.spotfit(
-                    self._spotFIT, raw_spots_img, df_spots_frame, 
-                    zyx_voxel_size, zyx_spot_min_vol_um, 
-                    rp=rp, dfs_lists=dfs_lists, lab=lab,
+                    self._SpotFit, 
+                    raw_spots_img, 
+                    df_spots_frame, 
+                    zyx_voxel_size, 
+                    zyx_spot_min_vol_um, 
+                    rp=rp, 
+                    delta_tol=self.metadata['deltaTolerance'], 
+                    lab=lab,
                     ref_ch_mask_or_labels=ref_ch_mask_or_labels,
-                    frame_i=frame_i, verbose=verbose, 
-                    use_gpu=self._get_use_gpu()
+                    frame_i=frame_i, 
+                    use_gpu=self._get_use_gpu(),
+                    show_progress=True
                 )
                 dfs_lists['spotfit_keys'].extend(spotfit_result[0])
                 dfs_lists['dfs_spots_spotfit'].extend(spotfit_result[1])
