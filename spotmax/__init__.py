@@ -90,26 +90,9 @@ default_ini_path = os.path.join(spotmax_appdata_path, 'config.ini')
 colorItems_path = os.path.join(settings_path, 'colorItems.json')
 gui_settings_csv_path = os.path.join(settings_path, 'gui_settings.csv')
 
-def printl(*objects, pretty=False, is_decorator=False, **kwargs):
-    # Copy current stdout, reset to default __stdout__ and then restore current
-    current_stdout = sys.stdout
-    sys.stdout = sys.__stdout__
-    timestap = datetime.now().strftime('%H:%M:%S')
-    currentframe = inspect.currentframe()
-    outerframes = inspect.getouterframes(currentframe)
-    idx = 2 if is_decorator else 1
-    callingframe = outerframes[idx].frame
-    callingframe_info = inspect.getframeinfo(callingframe)
-    filpath = callingframe_info.filename
-    filename = os.path.basename(filpath)
-    print_func = pprint if pretty else print
-    if pretty:
-        kwargs['sort_dicts'] = False
-    print('*'*30)
-    print(f'{timestap} - File "{filename}", line {callingframe_info.lineno}:')
-    print_func(*objects, **kwargs)
-    print('='*30)
-    sys.stdout = current_stdout
+from cellacdc import printl as acdc_printl
+def printl(*objects, **kwargs):
+    acdc_printl(*objects, **kwargs)
 
 is_linux = sys.platform.startswith('linux')
 is_mac = sys.platform == 'darwin'

@@ -1,5 +1,7 @@
 import traceback
 
+from tqdm import tqdm
+
 import numpy as np
 import pandas as pd
 
@@ -97,7 +99,7 @@ class TuneKernel:
         true_coords_df = self.true_spots_coords_df()
         for frame_i, true_df in true_coords_df.groupby('frame_i'):
             keys = [
-                'lab', 'gauss_sigma', 'spots_zyx_radii', 'do_sharpen',
+                'lab', 'gauss_sigma', 'spots_zyx_radii_pxl', 'do_sharpen',
                 'do_remove_hot_pixels', 'lineage_table', 'do_aggregate', 
                 'use_gpu'
             ]
@@ -118,6 +120,7 @@ class TuneKernel:
     
     def find_best_threshold_method(self, **kwargs):
         emitDebug = kwargs.get('emitDebug')
+        logger_func = kwargs.get('logger_func', print)
 
         f1_scores = []
         positive_areas = []
@@ -133,8 +136,10 @@ class TuneKernel:
             )
             frames.append(frame_i)
             
+            pbar_method = tqdm(total=len(result), ncols=100)
             for method, thresholded in result.items():
                 if method == 'input_image':
+                    pbar_method.update()
                     continue
                 true_mask = thresholded[zz_true, yy_true, xx_true]
                 false_mask = thresholded[zz_false, yy_false, xx_false]
@@ -143,6 +148,7 @@ class TuneKernel:
                 f1_scores.append(f1_score)
                 methods.append(method)
                 positive_areas.append(positive_area)
+                pbar_method.update()
                 
                 # input_image = result['input_image']
                 # to_debug = (
@@ -151,18 +157,21 @@ class TuneKernel:
                 #     positive_area, f1_score
                 # )
                 # emitDebug(to_debug)
-            
+            pbar_method.close()
         df_score = pd.DataFrame({
             'threshold_method': methods,
             'f1_score': f1_scores,
             'positive_area': positive_areas
         }).sort_values(['f1_score', 'positive_area'], ascending=[False, True])
         
+        logger_func(f'Thresholding methods score:\n{df_score}')
+        
         best_method = df_score.iloc[0]['threshold_method']
         return best_method
     
     def find_features_range(self, **kwargs):
         emitDebug = kwargs.get('emitDebug')
+        logger_func = kwargs.get('logger_func', print)
         
         dfs = []
         frames = []
@@ -186,7 +195,7 @@ class TuneKernel:
                 'use_gpu'
             ]
             features_kwargs = {key:input_kwargs[key] for key in kwargs_keys}
-            spots_zyx_radii = input_kwargs['spots_zyx_radii']
+            spots_zyx_radii = input_kwargs['spots_zyx_radii_pxl']
             
             if input_kwargs['do_sharpen']:
                 sharp_image = filters.DoG_spots(
@@ -268,16 +277,16 @@ class TuneKernel:
         
         return df_features, features_range
         
-    def run(self, logger_func=printl, **kwargs):
+    def run(self, logger_func=print, **kwargs):
         emitDebug = kwargs.get('emitDebug')
         logger_func('Determining optimal thresholding method...')
         best_threshold_method = self.find_best_threshold_method(
-            emitDebug=emitDebug
+            emitDebug=emitDebug, logger_func=logger_func
         )
         
         logger_func('Determining optimal features range...')
         df_features, features_range = self.find_features_range(
-            emitDebug=emitDebug
+            emitDebug=emitDebug, logger_func=logger_func
         )
         result = TuneResult(df_features, features_range, best_threshold_method)
         return result

@@ -209,9 +209,13 @@ def spots_semantic_segmentation(
         requested. 
         The output dictionary will also include the key 'input_image' with value 
         the pre-processed image. 
-    """    
+    """   
+    lab, image = transformations.reshape_lab_image_to_3D(lab, image)
+    
     if raw_image is None:
         raw_image = image.copy()
+    else:
+        _, raw_image = transformations.reshape_lab_image_to_3D(lab, raw_image)
         
     if do_preprocess:
         image, lab = preprocess_image(
@@ -520,8 +524,7 @@ def _compute_obj_spots_features(
         multiplied by the spots intensities to reduce the skewing effect of 
         neighbouring peaks. 
         It must have the same shape of `min_size_spheroid_mask`.
-        If None, this will be initialized with 1s, meaning that normalisation 
-        will not be performed.
+        If None, normalisation will not be performed.
     ref_ch_mask_obj : (Z, Y, X) ndarray of dtype bool or None, optional
         Boolean mask of the reference channel, e.g., obtained by 
         thresholding. The first dimension must be  the number of z-slices.
@@ -853,9 +856,11 @@ def spot_detection(
         detection_method='peak_local_max',
         spot_footprint=None,
         spots_zyx_radii_pxl=None,
-        return_spots_mask=False
+        return_spots_mask=False,
+        lab=None,
+        return_df=False
     ):
-    """_summary_
+    """Detect spots and return their coordinates
 
     Parameters
     ----------
@@ -881,15 +886,29 @@ def spot_detection(
         If True, the second element returned will be a list of region properties 
         (see scikit-image `skimage.measure.regionprops`) with an additional 
         attribute called `zyx_local_center`. Default is False
+    lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
+        Optional input segmentation image with the masks of the objects, i.e. 
+        single cells. It will be used to create the pandas.DataFrame with 
+        spots coordinates per object (if `return_df` is True).
+        If None, it will be generated with one object covering the entire image. 
+        Default is None.
+    return_df : bool, optional
+        If True, returns a pandas DataFrame. 
+        Default is False
 
     Returns
     -------
-    2-tuple ((N, 3) numpy.ndarray of ints, list of region properties or None)
-        The first element is a (N, 3) array of integers where each row is the 
-        (z, y, x) coordinates of one peak. The second element is either None 
-        or a list of region properties with an additional 
-        attribute called `zyx_local_center`.
-    """    
+    If return_df is True:
+        2-tuple ((N, 3) numpy.ndarray of ints, list of region properties or None)
+            The first element is a (N, 3) array of integers where each row is the 
+            (z, y, x) coordinates of one peak. The second element is either None 
+            or a list of region properties with an additional 
+            attribute called `zyx_local_center`.
+    
+    If return_df is False:
+        pandas.DataFrame with Cell_ID as index and columns {'z', 'y', 'x'} with 
+        the detected spots coordinates.
+    """        
     if spot_footprint is None and spots_zyx_radii_pxl is not None:
         zyx_radii_pxl = [val/2 for val in spots_zyx_radii_pxl]
         spot_footprint = transformations.get_local_spheroid_mask(
@@ -900,6 +919,11 @@ def spot_detection(
     
     if spots_segmantic_segm is not None:
         spots_segmantic_segm = np.squeeze(spots_segmantic_segm.astype(int))
+    else:
+        spots_segmantic_segm = np.ones(np.squeeze(image).shape, int)
+    
+    if lab is None:
+        lab = spots_segmantic_segm
     
     spots_objs = None
     
@@ -928,7 +952,14 @@ def spot_detection(
                 zyx_coords[2] - xmin
             )
             spots_objs.append(spot_obj)
-    return spots_coords, spots_objs
+    
+    if return_df:
+        df_coords = transformations.from_spots_coords_arr_to_df(
+            spots_coords, lab
+        )
+        return df_coords, spots_objs
+    else:
+        return spots_coords, spots_objs
 
 def spots_calc_features_and_filter(
         image, 
@@ -945,13 +976,15 @@ def spots_calc_features_and_filter(
         ref_ch_img=None,   
         keep_only_spots_in_ref_ch=False,
         min_size_spheroid_mask=None,
+        optimise_for_high_spot_density=False,
         dist_transform_spheroid=None,
         get_backgr_from_inside_ref_ch_mask=False,
         show_progress=True,
         verbose=True,
-        logger_func=None
+        logger_func=print
     ):
-    """_summary_
+    """Calculate spots features and filter valid spots based on 
+    `gop_filtering_thresholds`.
 
     Parameters
     ----------
@@ -1008,13 +1041,20 @@ def spots_calc_features_and_filter(
         mean intensity in each spot. 
         If None, this will be created from `spots_zyx_radii_pxl`. 
         Default is None
+    optimise_for_high_spot_density : bool, optional
+        If True and `dist_transform_spheroid` is None, then `dist_transform_spheroid`
+        will be initialized with the euclidean distance transform of 
+        `min_size_spheroid_mask`.
     dist_transform_spheroid : (M, N) numpy.ndarray or (K, M, N) numpy.ndarray of floats, optional
         Optional probability map that will be multiplicated to each spot's 
         intensities. An example is the euclidean distance tranform 
         (normalised to the range 0-1). This is useful to reduce the influence 
         of bright neighbouring spots on dimmer spots since the intensities of the 
         bright spot can bleed into the edges of the dimmer spot skewing its 
-        metrics like the mean intensity. Default is None
+        metrics like the mean intensity. 
+        If None and `optimise_for_high_spot_density` is True, this will be 
+        initialized with the euclidean distance transform of 
+        `min_size_spheroid_mask`. Default is None
     get_backgr_from_inside_ref_ch_mask : bool, optional
         If True, the background will be determined from the pixels that are
         outside of the spots, but inside the reference channel mask. 
@@ -1044,16 +1084,28 @@ def spots_calc_features_and_filter(
     if lab is None:
         lab = np.zeros(image.shape, dtype=np.uint8)
     
+    lab, image = transformations.reshape_lab_image_to_3D(lab, image)
+    
     if rp is None:
         rp = skimage.measure.regionprops(lab)
     
     if delta_tol is None:
-        delta_tol = (0, 0, 0)
+        delta_tol = transformations.get_expand_obj_delta_tolerance(
+            spots_zyx_radii_pxl
+        )
     
     if min_size_spheroid_mask is None:
         min_size_spheroid_mask = transformations.get_local_spheroid_mask(
             spots_zyx_radii_pxl
         )
+    
+    if optimise_for_high_spot_density and dist_transform_spheroid is None:
+        dist_transform_spheroid = transformations.norm_distance_transform_edt(
+            min_size_spheroid_mask
+        )
+    
+    if sharp_spots_image is None:
+        sharp_spots_image = image
     
     if show_progress:
         desc = 'Filtering spots'
@@ -1182,7 +1234,7 @@ def spots_calc_features_and_filter(
             f'Number of spots after filtering valid spots:\n{info}'
         )
         print('-'*60)
-    
+        
     return keys, dfs_spots_det, dfs_spots_gop
 
 def spotfit(

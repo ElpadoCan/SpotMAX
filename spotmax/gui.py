@@ -693,6 +693,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.autoTuningButton.setChecked(False)
     
+    # @exception_handler
     def storeCroppedDataAndStartTuneKernel(self, *args, **kwargs):
         kernel = args[0]
         image_data_cropped = kwargs['image_data_cropped']
@@ -733,6 +734,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 on_finished_callback=on_finished_callback
             )
     
+    @exception_handler
     def startCropImageBasedOnSegmDataWorkder(
             self, image_data, segm_data, on_finished_callback,
             nnet_input_data=None
@@ -1904,8 +1906,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         args = [kernel]
         kwargs = {
-            'lab': None, 'image_data_cropped': None, 
-            'segm_data_cropped': None, 'crop_to_global_coords': None
+            'lab': None, 
+            'image_data_cropped': None, 
+            'segm_data_cropped': None,
+            'crop_to_global_coords': None
         }
         
         if kernel.ref_ch_endname() and kernel.ref_ch_data() is None:
@@ -2140,6 +2144,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             emWavelen = posData.emWavelens[self.user_ch_name]
         except Exception as e:
             emWavelen = 500.0
+        if emWavelen == 0:
+            emWavelen = 500
         loadedValues = {
             'File paths and channels': [
                 {'anchor': 'folderPathsToAnalyse', 'value': posData.pos_path},
@@ -2258,6 +2264,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         return msg.clickedButton == yesButton
     
     def closeEvent(self, event):
+        self.stopAutoTuning()
         if self.isAnalysisRunning:
             proceed = self.warnClosingWhileAnalysisIsRunning()
             if not proceed:

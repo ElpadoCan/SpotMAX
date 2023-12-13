@@ -359,7 +359,7 @@ def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):
     
     if not np.any(segm_data):
         segm_slice = (slice(None), slice(None), slice(None), slice(None))
-        crop_to_global_coords = np.array([0, 0, 0, 0])
+        crop_to_global_coords = np.array([0, 0, 0])
         pad_widths = [(0, 0), (0, 0), (0, 0), (0, 0)]
         return segm_slice, pad_widths, crop_to_global_coords
         
@@ -634,3 +634,41 @@ def normalise_img(
         _norm_value = norm_value
     norm_img = img/_norm_value
     return norm_img, norm_value
+
+def from_spots_coords_arr_to_df(spots_coords, lab):
+    ndims = spots_coords.shape[-1]
+    if ndims == 2:
+        yy = spots_coords[:, 0]
+        xx = spots_coords[:, 1]
+        zz = [0]*len(xx)
+    elif ndims == 3:
+        zz = spots_coords[:, 0]
+        yy = spots_coords[:, 1]
+        xx = spots_coords[:, 2]
+    else:
+        raise TypeError(
+            '`spots_coords` must be a 2D array with shape (N, 2) or (N, 3) '
+            f'while its shape is {spots_coords.shape}'
+        )        
+    
+    zeros = [0]*len(xx)
+    df_coords = pd.DataFrame({
+        'Cell_ID': lab[zz, yy, xx],
+        'z': zz,
+        'y': yy, 
+        'x': xx,
+        'z_local': zeros,
+        'y_local': zeros, 
+        'x_local': zeros
+    }).set_index('Cell_ID').sort_index()
+    
+    for obj in skimage.measure.regionprops(lab):
+        zmin, ymin, xmin, _, _, _ = obj.bbox
+        zz = df_coords.loc[obj.label, 'z']
+        df_coords.loc[obj.label, 'z_local'] = zz - zmin
+        yy = df_coords.loc[obj.label, 'y']
+        df_coords.loc[obj.label, 'y_local'] = yy - ymin  
+        xx = df_coords.loc[obj.label, 'x']
+        df_coords.loc[obj.label, 'x_local'] = xx - xmin  
+    
+    return df_coords

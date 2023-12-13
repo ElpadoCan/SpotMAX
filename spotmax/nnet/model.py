@@ -62,6 +62,8 @@ class CustomSignals:
                 break
 
 class Model:
+    """SpotMAX neural network model for semantic segmentation
+    """
     def __init__(
             self, 
             model_type: AvailableModels='2D', 
@@ -74,6 +76,39 @@ class Model:
             resolution_multiplier_yx: float=1.0,
             use_gpu=False,
         ):
+        """Initialization method of the model
+
+        Parameters
+        ----------
+        model_type : {'2D', '3D'} str, optional
+            Model type. If 2D model is applied to 3D data then it will run 
+            on each z-slice. Default is '2D'
+        preprocess_across_experiment : bool, optional
+            If True, the model will assume that the image passed to the 
+            `segment` method is pre-processed. Default is False
+        preprocess_across_timepoints : bool, optional
+            If True, the model will assume that the image passed to the 
+            `segment` method is pre-processed. Default is True
+        gaussian_filter_sigma : float or 3 elements (z, y, x) sequence, optional
+            Sigma value(s) of the gaussian filter. This can be a single 
+            number of one per axis. Default is 0.0
+        remove_hot_pixels : bool, optional
+            If True, uses morphological opening on the grayscale image that 
+            should remove single bright pixels (hot pixels). Default is False
+        config_yaml_filepath : os.PathLike, optional
+            Path to the YAML configuration file of the model. 
+            Default is /spotmax/nnet/config.yaml
+        PhysicalSizeX : float, optional
+            Pixel width in µm/pixel. This value is used to rescale the image 
+            to the size of the training images. The pixel size of the training 
+            images is defined in the YAML configuration file. Default is 0.073
+        resolution_multiplier_yx : float, optional
+            Additional factor to reduce the scaling factor when resizing the 
+            image. Pass a value > 1.0 when you need to detect spots that 
+            are greater than the diffraction limit. Default is 1.0
+        use_gpu : bool, optional
+            If True, inference runs on GPU. Default is False
+        """        
         modules = install_and_import_modules()
         transform, Data, Operation, NDModel, Models =  modules            
         self.transform = transform
@@ -216,6 +251,27 @@ class Model:
             label_components=False,
             verbose: NotParam=True
         ):
+        """Run inference and return the segmentation result
+
+        Parameters
+        ----------
+        image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray of floats in the range (-1, 1)
+            Input 2D or 3D image.
+        threshold_value : float, optional
+            Threshold value used to convert probability output to binary. 
+            Default is 0.9
+        label_components : bool, optional
+            If True, the binary mask will be labelled with `skimage.measure.label`. 
+            This will separate the connected components into objects with an 
+            integer ID. Default is False
+        verbose : bool, optional
+            If True, print information text to the terminal. Default is True
+
+        Returns
+        -------
+        (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray of ints or bools
+            Prediction mask with the same shape as the input image.
+        """        
         orig_yx_shape = image.shape[-2:]
         if not self._batch_preprocess:
             image = self.preprocess(image)

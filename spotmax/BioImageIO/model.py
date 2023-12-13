@@ -7,6 +7,8 @@ from .. import io
 from . import install
 
 class Model:
+    """SpotMAX implementation of any BioImage.IO model
+    """    
     def __init__(self, model_doi_url_or_zip_path=''):
         """Initialize Bioimage.io Model class
 
