@@ -1,7 +1,7 @@
-A Python package for automatic **detection**, and **quantification** of fluorescent spot in microscopy data
------------------------------------------------------------------------------------------------------------
+A Python package for automatic detection, and quantification of fluorescent spot in microscopy data
+---------------------------------------------------------------------------------------------------
 
-*Written in Python 3 by [Francesco Padovani](https://github.com/ElpadoCan)
+Written in Python 3 by `Francesco Padovani <https://github.com/ElpadoCan>`_
 
 
 Install from source

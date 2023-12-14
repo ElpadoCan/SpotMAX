@@ -5,7 +5,7 @@
 # from the environment for the first two.
 SPHINXOPTS    ?=
 SPHINXBUILD   ?= sphinx-build
-SPHINXPROJ    = Cell_ACDC
+SPHINXPROJ    = spotMAX
 SOURCEDIR     = source
 BUILDDIR      = build
 
