@@ -20,10 +20,8 @@ When you open the GUI you will see on the left three tabs:
     :width: 600
     :align: center
 
-.. toctree::
-   :maxdepth: 1
-   
-   analysis_parameters_tab
-   tune_parameters_tab
-   inspect_results_tab
+ 
+:ref:`analysis_parameters_tab`.
+:ref:`tune_parameters_tab`.
+:ref:`inspect_results_tab`.
 

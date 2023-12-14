@@ -1,10 +1,11 @@
 SpotMAX API Reference
 =====================
 
-.. toctree::
-   :maxdepth: 2
+.. contents::
 
-   api/spotmax.pipe
-   how_to_gui
-   parameters_description
+Pipeline functions to run spotMAX analysis steps in notebooks or scripts
+------------------------------------------------------------------------
+
+.. automodule:: spotmax.pipe
+   :members:
    
