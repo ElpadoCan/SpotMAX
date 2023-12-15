@@ -21,7 +21,7 @@ When you open the GUI you will see on the left three tabs:
     :align: center
 
  
-:ref:`analysis_parameters_tab`.
-:ref:`tune_parameters_tab`.
-:ref:`inspect_results_tab`.
+1. :ref:`Analysis parameters tab`.
+2. :ref:`Tune parameters tab`.
+3. :ref:`inspect_results_tab`.
 

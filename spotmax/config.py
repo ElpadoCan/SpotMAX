@@ -125,6 +125,34 @@ def get_gauss_sigma(text):
         )
     return sigma
 
+def get_sigma_xy_bounds(text):
+    if text == 'Default' or not text:
+        return ('0.5', 'spotsize_yx_radius_pxl')
+    
+    text = text.replace(' ', '')
+    return text.split(',')
+
+def get_sigma_z_bounds(text):
+    if text == 'Default' or not text:
+        return ('0.5', 'spotsize_z_radius_pxl')
+
+    text = text.replace(' ', '')
+    return text.split(',')
+
+def get_A_fit_bounds(text):
+    if text == 'Default' or not text:
+        return ('0.0', 'spotsize_A_max')
+
+    text = text.replace(' ', '')
+    return text.split(',')
+
+def get_B_fit_bounds(text):
+    if text == 'Default' or not text:
+        return ('spot_B_min', 'inf')
+
+    text = text.replace(' ', '')
+    return text.split(',')
+
 def get_ridge_sigmas(text):
     if not text:
         return 0.0
@@ -946,7 +974,7 @@ def _spots_ch_params():
             'dtype': get_bool
         },
         'doSpotFit': {
-            'desc': 'Compute spots size',
+            'desc': 'Compute spots size (fit gaussian peak(s))',
             'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,
@@ -1014,6 +1042,93 @@ def _spots_ch_params():
     }
     return spots_ch_params
 
+def _spotfit_params():
+    spotfit_params = {
+        'XYcenterBounds': {
+            'desc': 'Bounds interval for the x and y peak center coord.',
+            'initialVal': 0.1, 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.PlusMinusFloatLineEdit',
+            'actions': None,
+            'dtype': float
+        },
+        'ZcenterBounds': {
+            'desc': 'Bounds interval for the z peak center coord.',
+            'initialVal': 0.2, 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.PlusMinusFloatLineEdit',
+            'actions': None,
+            'dtype': float
+        },
+        'sigmaXBounds': {
+            'desc': 'Bounds for sigma in x-direction',
+            'initialVal': '0.5, spotsize_yx_radius_pxl', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.sigmaXBoundsWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': get_sigma_xy_bounds
+        },
+        'sigmaYBounds': {
+            'desc': 'Bounds for sigma in y-direction',
+            'initialVal': '0.5, spotsize_yx_radius_pxl', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.sigmaYBoundsWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': get_sigma_xy_bounds
+        },
+        'sigmaZBounds': {
+            'desc': 'Bounds for sigma in z-direction',
+            'initialVal': '0.5, spotsize_z_radius_pxl', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.sigmaZBoundsWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': get_sigma_z_bounds
+        },
+        'A_fit_bounds': {
+            'desc': 'Bounds for the peak amplitude',
+            'initialVal': '0.0, spotsize_A_max', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.AfitBoundsWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': get_A_fit_bounds
+        },
+        'B_fit_bounds': {
+            'desc': 'Bounds for the peak background level',
+            'initialVal': 'spot_B_min, inf', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.BfitBoundsWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': get_B_fit_bounds
+        },
+    }
+    return spotfit_params
+
 def get_section_from_anchor(anchor_to_search):
     params = analysisInputsParams()
     for section, section_params in params.items():
@@ -1028,6 +1143,7 @@ def getDefaultParams():
         'Pre-processing': _pre_processing_params(),
         'Reference channel': _ref_ch_params(),
         'Spots channel': _spots_ch_params(),
+        'SpotFIT': _spotfit_params(),
         'Configuration': _configuration_params()
     }
     return params

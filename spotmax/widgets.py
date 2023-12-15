@@ -1221,11 +1221,10 @@ class FloatLineEdit(QLineEdit):
         QLineEdit.__init__(self, *args)
         self.notAllowed = notAllowed
 
-        self.isNumericRegExp = rf'^{float_regex(allow_negative=allowNegative)}$'
-
-        regExp = QRegularExpression(self.isNumericRegExp)
-        self.setValidator(QRegularExpressionValidator(regExp))
         self.setAlignment(Qt.AlignCenter)
+        
+        pattern = rf'^{float_regex(allow_negative=allowNegative)}$'
+        self.setRegexValidator(pattern)
 
         font = QFont()
         font.setPixelSize(11)
@@ -1234,6 +1233,11 @@ class FloatLineEdit(QLineEdit):
         self.textChanged.connect(self.emitValueChanged)
         if initial is None:
             self.setText('0.0')
+    
+    def setRegexValidator(self, pattern):
+        self.isNumericRegExp = pattern
+        regExp = QRegularExpression(self.isNumericRegExp)
+        self.setValidator(QRegularExpressionValidator(regExp))
 
     def setValue(self, value: float):
         self.setText(str(value))
@@ -2070,4 +2074,215 @@ class RunNumberSpinbox(SpinBox):
         if event.type() == QEvent.Type.Wheel:
             return True
         return False
+
+class SetValueBoundsFromFeaturesWidget(QWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
         
+        layout = QHBoxLayout()
+        
+        readOnlyLineEdit = ReadOnlyElidingLineEdit()
+        self.readOnlyLineEdit = readOnlyLineEdit
+        editButton = acdc_widgets.editPushButton()
+        
+        layout.addWidget(readOnlyLineEdit)
+        layout.addWidget(editButton)
+        
+        layout.setStretch(0, 1)
+        layout.setStretch(1, 0)
+        
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        editButton.clicked.connect(self.editButtonClicked)
+        
+        self.initCalculatorWindow()
+        
+        self.setLayout(layout)
+    
+    def initCalculatorWindow(self):
+        features_groups = features.get_features_groups()
+        spotsize_features = features_groups['SpotSIZE metrics']
+        features_groups = {
+            'SpotSIZE metrics': spotsize_features
+        }
+        all_features_to_col_mapper = (
+            features.feature_names_to_col_names_mapper()
+        )
+        group_name_to_col_mapper = {'SpotSIZE metrics': {}}
+        for group_feat_name, column_name in all_features_to_col_mapper.items():
+            group_name, feat_name = group_feat_name.split(', ')
+            if group_name != 'SpotSIZE metrics':
+                continue
+            group_name_to_col_mapper[group_name][feat_name] = column_name
+        
+        self.calculatorWindow = acdc_apps.CombineFeaturesCalculator(
+            features_groups, 
+            group_name_to_col_mapper=group_name_to_col_mapper,
+            parent=self
+        )
+        self.calculatorWindow.expandAll()
+        self.calculatorWindow.sigOk.connect(self.equationConfirmed)
+    
+    def setLabel(self, text):
+        self.calculatorWindow.newFeatureNameLineEdit.setReadOnly(False)
+        self.calculatorWindow.newFeatureNameLineEdit.setText(text)
+        self.calculatorWindow.newFeatureNameLineEdit.setReadOnly(True)
+    
+    def setValue(self, text):
+        self.readOnlyLineEdit.setText(text)
+    
+    def value(self):
+        return self.readOnlyLineEdit.text()
+
+    def text(self):
+        return self.value()
+    
+    def equationConfirmed(self):
+        self.readOnlyLineEdit.setText(self.calculatorWindow.equation)
+    
+    def equation(self):
+        return self.readOnlyLineEdit.text()
+    
+    def editButtonClicked(self):
+        self.calculatorWindow.show()
+    
+    def closeEvent(self, event):
+        self.calculatorWindow.close()
+    
+class SetBoundsFromFeaturesGroupBox(QGroupBox):
+    def __init__(self, title='', checkable=False, parent=None):
+        super().__init__(parent)
+        
+        self.setWindowTitle(title)
+        self.setCheckable(checkable)
+        
+        layout = QFormLayout()
+        
+        self.minimumWidget = SetValueBoundsFromFeaturesWidget()
+        layout.addRow('Minimum', self.minimumWidget)
+        
+        self.maximumWidget = SetValueBoundsFromFeaturesWidget()
+        layout.addRow('Maximum', self.maximumWidget)
+        
+        self.setLayout(layout)
+    
+    def setLabel(self, text):
+        self.minimumWidget.setLabel(f'Minimum `{text}`')
+        self.maximumWidget.setLabel(f'Maximum `{text}`')
+    
+    def setText(self, text):
+        self.setValue(text)
+    
+    def setValue(self, value):
+        if value is None:
+            return
+        
+        if isinstance(value, str):
+            try:
+                min_val, max_val = value.replace(' ', '').split(',')
+            except Exception as err:
+                min_val = value
+                max_val = value
+            self.minimumWidget.setValue(min_val)
+            self.maximumWidget.setValue(max_val)
+            return
+        
+        min_val, max_val = value
+        self.minimumWidget.setValue(min_val)
+        self.maximumWidget.setValue(max_val)
+    
+    def value(self):
+        return f'{self.minimumWidget.value()}, {self.maximumWidget.value()}'
+    
+    def text(self):
+        return self.value()
+        
+        
+class sigmaXBoundsWidget(SetBoundsFromFeaturesGroupBox):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent=parent)
+        self.setLabel('sigma_x')
+    
+    def setValue(self, value):
+        if value == 'Default' or value is None or not value:
+            value = config.get_sigma_xy_bounds('Default')
+        
+        super().setValue(value)
+
+class sigmaYBoundsWidget(SetBoundsFromFeaturesGroupBox):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent=parent)
+        self.setLabel('sigma_y')
+    
+    def setValue(self, value):
+        if value == 'Default' or value is None or not value:
+            value = config.get_sigma_xy_bounds('Default')
+        
+        super().setValue(value)
+
+class sigmaZBoundsWidget(SetBoundsFromFeaturesGroupBox):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent=parent)
+        self.setLabel('sigma_z')
+    
+    def setValue(self, value):
+        if value == 'Default' or value is None or not value:
+            value = config.get_sigma_z_bounds('Default')
+        
+        super().setValue(value)
+
+class AfitBoundsWidget(SetBoundsFromFeaturesGroupBox):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent=parent)
+        self.setLabel('amplitude_peak')
+    
+    def setValue(self, value):
+        if value == 'Default' or value is None or not value:
+            value = config.get_A_fit_bounds('Default')
+        
+        super().setValue(value)
+
+class BfitBoundsWidget(SetBoundsFromFeaturesGroupBox):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent=parent)
+        self.setLabel('background_peak')
+    
+    def setValue(self, value):
+        if value == 'Default' or value is None or not value:
+            value = config.get_B_fit_bounds('Default')
+        
+        super().setValue(value)
+
+class PlusMinusFloatLineEdit(FloatLineEdit):
+    def __init__(self, *args, **kwargs):
+        self.plusminus_text = '± '
+        super().__init__(*args, **kwargs)
+        
+        float_re = float_regex(
+            allow_negative=False, left_chars=self.plusminus_text
+        )
+        pattern = fr'^{float_re}$'
+        self.setRegexValidator(pattern)
+        
+        self.setText(self.plusminus_text)
+    
+    def emitValueChanged(self, text):
+        if not self.text().startswith(self.plusminus_text):
+            text = text.replace('±', '').lstrip()
+            text = f'{self.plusminus_text}{text}'
+            self.setText(text)
+        
+        super().emitValueChanged(text)
+    
+    def value(self):
+        text = self.text().replace('±', '').lstrip()
+        m = re.match(float_regex(), text)
+        if m is not None:
+            text = m.group(0)
+            try:
+                val = float(text)
+            except ValueError:
+                val = 0.0
+            return val
+        else:
+            return 0.0

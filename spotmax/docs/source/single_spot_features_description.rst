@@ -151,8 +151,8 @@ greater than the reference channel given the statistical significance level of 0
   associated with the alternative hypothesis.
 
 
-Raw intens. metric
-------------------
+Raw intens. metrics
+-------------------
 
 Raw spots intensities distribution metrics. As the name suggested, these are 
 calculated on the raw image without any filter applied to it. Note that intensities 
@@ -172,8 +172,8 @@ a specific spot are determined by constructing a spehroid with size
 * **95 percentile**: column name ``spot_raw_q95_in_spot_minimumsize_vol``.
 
 
-Preprocessed intens. metric
----------------------------
+Preprocessed intens. metrics
+----------------------------
 
 Preprocessed spots intensities distribution metrics. These features are 
 calculated on the image after it went through the gaussian filter. 
@@ -192,8 +192,40 @@ Note that the gaussian filter also scales the intensities to the range
 
 .. _Spotfit features:
 
-Spotfit size metric
--------------------
+SpotSIZE metrics
+----------------
+
+Features that are computed during the SpotSIZE step. This step is used to determine 
+the extent of each spot by iteratively growing a spheroid centerd at each spot 
+until the mean of the pixels' intensities on the surface of the spheroid is 
+lower than a threshold. The threshold is determined as the median of the background 
+plus 3 times the standard deviation of the background pixels' intensities. 
+The pixels belonging to the final mask will be used in the spotFIT step. 
+
+* **Background mean**: column name ``spotsize_backgr_mean``.
+* **Background median**: column name ``spotsize_backgr_median``.
+* **Background standard dev.**: column name ``spotsize_backgr_std``.
+* **Maximum intensity inside the spot mask**: column name ``spotsize_A_max``.
+* **Initial radius in xy- direction (pixel)**: column name ``spotsize_initial_radius_yx_pixel``. 
+  This is the "Spot (z, y, x) minimum dimensions (radius)" parameter divided by 2.
+* **Initial radius in z- direction (pixel)**: column name ``spotsize_initial_radius_z_pixel``.
+  This is the "Spot (z, y, x) minimum dimensions (radius)" parameter divided by 2.
+* **Mean radius xy- direction (micro-m)**: column name ``spotsize_yx_radius_um``.
+* **Radius z- direction (micro-m)**: column name ``spotsize_z_radius_um``.
+* **Mean radius xy- direction (pixel)**: column name ``spotsize_yx_radius_pxl``.
+* **Radius z- direction (pixel)**: column name ``spotsize_z_radius_pxl``.
+* **Threshold value to stop growing process**: column name ``spotsize_limit``.
+* **Median of the spot's surface intensities**: column name ``spot_surf_50p``.
+* **5 percentile of the spot's surface intensities**: column name ``spot_surf_5p``.
+* **Mean of the spot's surface intensities**: column name ``spot_surf_mean``.
+* **Standard dev. of the spot's surface intensities**: column name ``spot_surf_std``.
+* **Default minium backround level allowed for spotfit**: column name ``spot_B_min``. 
+  This is calculated as the mean of the intensities on the surface of all the spheorids 
+  minus 3 times the standard deviation of the same intensities. If negative, 
+  it is set to 0.
+
+SpotFIT size metrics
+--------------------
 
 Features that are computed during the gaussian fit procedure. 
 
@@ -204,8 +236,8 @@ Features that are computed during the gaussian fit procedure.
 * **Spot volume (voxel)**: column name ``spheroid_vol_vox_fit``.
 
 
-Spotfit intens. metric
-----------------------
+SpotFIT intens. metrics
+-----------------------
 
 * **Total integral gauss. peak**: column name ``total_integral_fit``. This is 
   the result of the analytical integration of the gaussian curve including 
@@ -217,7 +249,7 @@ Spotfit intens. metric
 * **Backgr. level gauss. peak**: column name ``B_fit``.
 
 
-Spotfit Goodness-of-fit
+SpotFIT Goodness-of-fit
 -----------------------
 * **RMS error gauss. fit**: column name ``RMSE_fit``. Root mean squared error 
   betweed fitted and predicted data. The lower this value, the better was the fit. 
@@ -232,5 +264,15 @@ Spotfit Goodness-of-fit
 Post-analysis metrics
 ---------------------
 
-* **Consecutive spots distance**: column_name ``consecutive_spots_distance_``. 
+* **Consecutive spots distance (pixel)**: column name ``consecutive_spots_distance_voxel``. 
+  Euclidean distance between consecutive pairs of spots without a specific order. 
+  Unit is pixels and the coordinates used are the detected center.
+* **Consecutive spots distance ((micro-m)**: column name ``consecutive_spots_distance_um``. 
   Euclidean distance between consecutive pairs of spots without a specific order.
+  Unit is pixels and the coordinates used are the detected center.
+* **Consecutive spots distance from fit coords (pixel)**: column name ``consecutive_spots_distance_fit_voxel``. 
+  Euclidean distance between consecutive pairs of spots without a specific order.
+  Unit is pixels and the coordinates used are the fitted center from spotFIT step.
+* **Consecutive spots distance from fit coords (micro-m)**: column name ``consecutive_spots_distance_fit_voxel``. 
+  Euclidean distance between consecutive pairs of spots without a specific order.
+  Unit is pixels and the coordinates used are the fitted center from spotFIT step.

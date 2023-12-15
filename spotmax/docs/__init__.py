@@ -100,7 +100,10 @@ def _parse_column_names(features_groups, rst_text):
                 fr'\* \*\*{escaped}\*\*: column name ``({col_name_regex})``'
             )
 
-            column_name = re.findall(pattern, section)[0]
+            try:
+                column_name = re.findall(pattern, section)[0]
+            except Exception as e:
+                import pdb; pdb.set_trace()
                 
             key = f'{group}, {metric_name}'
             mapper[key] = column_name
@@ -113,4 +116,11 @@ def parse_aggr_features_column_names():
     features_groups = parse_aggr_features_groups()
     mapper = _parse_column_names(features_groups, rst_text)
     return mapper
+
+def single_spot_features_column_names():
+    with open(single_spot_features_rst_filepath, 'r') as rst:
+        rst_text = rst.read()
         
+    features_groups = parse_single_spot_features_groups()
+    mapper = _parse_column_names(features_groups, rst_text)
+    return mapper

@@ -1,3 +1,4 @@
-.. _analysis_parameters_tab:
+.. _Analysis parameters tab:
 
-Bla bla
+Analysis parameters tab
+=======================

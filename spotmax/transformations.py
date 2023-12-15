@@ -276,10 +276,10 @@ def aggregate_objs(
     else:
         additional_aggr_imgs = [None]
     
-    if debug:
-        from cellacdc.plot import imshow
-        imshow(aggregated_img, aggregated_lab)
-        import pdb; pdb.set_trace()
+    # if debug:
+    #     from cellacdc.plot import imshow
+    #     imshow(aggregated_img, aggregated_lab)
+    #     import pdb; pdb.set_trace()
     
     aggregated_lab = _separate_moth_buds(
         aggregated_lab, bud_images

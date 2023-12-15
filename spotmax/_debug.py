@@ -148,20 +148,20 @@ def _compute_obj_spots_metrics(
         return win
 
 def _spotfit_fit(
-        gauss3Dmodel, spots_img, leastsq_result, num_spots_s, 
+        gauss3Dmodel, spots_img, fit_coeffs, num_spots_s, 
         num_coeffs, z, y, x, s_data, spots_centers, ID, fit_ids,
-        init_guess_s, bounds, fit_idx
+        init_guess_s, low_limit, high_limit, fit_idx
     ):
     _shape = (num_spots_s, num_coeffs)
-    B_fit = leastsq_result.x[-1]
+    B_fit = fit_coeffs[-1]
     B_guess = init_guess_s[-1]
-    B_min = bounds[0][-1]
-    B_max = bounds[1][-1]
-    lstsq_x = leastsq_result.x[:-1]
+    B_min = low_limit[-1]
+    B_max = high_limit[-1]
+    lstsq_x = fit_coeffs[:-1]
     lstsq_x = lstsq_x.reshape(_shape)
     init_guess_s_2D = init_guess_s[:-1].reshape(_shape)
-    low_bounds_2D = bounds[0][:-1].reshape(_shape)
-    high_bounds_2D = bounds[1][:-1].reshape(_shape)
+    low_bounds_2D = low_limit[:-1].reshape(_shape)
+    high_bounds_2D = high_limit[:-1].reshape(_shape)
     print('\n\n\n')
     print(f'Cell ID = {ID}')
     print(f'{fit_ids = }')
@@ -192,11 +192,11 @@ def _spotfit_fit(
     V_fit = np.zeros_like(spots_img)
     zz, yy, xx = np.nonzero(V_fit==0)
     V_fit[zz, yy, xx] = gauss3Dmodel(
-        zz, yy, xx, leastsq_result.x, num_spots_s, num_coeffs, 0
+        zz, yy, xx, fit_coeffs, num_spots_s, num_coeffs, 0
     )
 
     fit_data = gauss3Dmodel(
-        z, y, x, leastsq_result.x, num_spots_s, num_coeffs, 0
+        z, y, x, fit_coeffs, num_spots_s, num_coeffs, 0
     )
 
     img_fit = np.zeros_like(img)
@@ -209,6 +209,8 @@ def _spotfit_fit(
     y_gauss = y_gauss[y_gauss!=0]
 
     fig, ax = plt.subplots(1,3)
+    ax[0].get_shared_x_axes().join(ax[0], ax[1])
+    ax[0].get_shared_y_axes().join(ax[0], ax[1])
     ax[0].imshow(img.max(axis=0))
     _, yyc, xxc = np.array(spots_centers[fit_idx]).T
     ax[0].plot(xxc, yyc, 'r.')

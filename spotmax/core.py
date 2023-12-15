@@ -4,7 +4,7 @@ import sys
 import shutil
 import traceback
 
-from typing import Union
+from typing import Union, Tuple
 from tqdm import tqdm
 import time
 from datetime import datetime, timedelta
@@ -14,6 +14,7 @@ import numpy as np
 
 import scipy.stats
 import scipy.ndimage
+import scipy.optimize
 
 import cv2
 
@@ -1609,7 +1610,7 @@ class _ParamsParser(_DataLoader):
                 return False
         return True
 
-class _GaussianModel:
+class GaussianModel:
     def __init__(self, nfev=0):
         pass
 
@@ -1663,10 +1664,76 @@ class _GaussianModel:
             grad[:,n+6] = fg # wrt A
         grad[:,-1] = np.ones(len(x)) # wrt B
         return -grad
-
+    
+    def variable_num_coeffs(self, bounds, num_coeffs):
+        lb, hb = bounds
+        return np.count_nonzero(lb[:num_coeffs] != hb[:num_coeffs])
+    
+    def const_coeffs(self, bounds, num_coeffs, num_spots):
+        const_coeffs = np.full(num_spots*num_coeffs+1, np.nan, dtype=float)
+        lb, hb = bounds
+        n = 0
+        for i in range(num_spots):
+            ith_lb = lb[n:n+num_coeffs]
+            ith_hb = hb[n:n+num_coeffs]
+            fixed_bounds_idx = np.nonzero(ith_lb == ith_hb)
+            const_coeffs[fixed_bounds_idx] = ith_lb[fixed_bounds_idx]
+            n += num_coeffs
+        return const_coeffs
+    
+    def remove_equal_bounds(self, bounds, init_guess):
+        lb, hb = bounds
+        valid_bounds_idx = np.nonzero(lb != hb)
+        valid_init_guess = init_guess[valid_bounds_idx]
+        return lb[valid_bounds_idx], hb[valid_bounds_idx], valid_init_guess
+    
+    def curve_fit(
+            self, 
+            init_guess_s,
+            s_data,
+            z_s, y_s, x_s, 
+            num_spots_s,
+            num_coeffs,
+            const,
+            bounds,
+            tol,
+            pbar_desc=''
+        ):
+        self.pbar = tqdm(
+            desc=pbar_desc, total=100*len(z_s), unit=' fev',
+            position=4, leave=False, ncols=100
+        )
+        # variable_num_coeffs = self.variable_num_coeffs(bounds, num_coeffs)
+        const_coeffs = self.const_coeffs(
+            bounds, num_coeffs, num_spots_s
+        )
+        lb, hb, init_guess = self.remove_equal_bounds(bounds, init_guess_s)
+        args=(
+            s_data, z_s, y_s, x_s, num_spots_s, num_coeffs, const_coeffs
+        )
+        leastsq_result = scipy.optimize.least_squares(
+            self.residuals, init_guess,
+            args=args,
+            # jac=model.jac_gauss3D,
+            kwargs={'const': const},
+            loss='linear', 
+            f_scale=0.1,
+            bounds=(lb, hb),
+            ftol=tol,
+            xtol=tol, 
+            gtol=tol
+        )
+        fit_coeffs = self.get_func_coeffs(leastsq_result.x, const_coeffs)
+        self.pbar.close()
+        
+        import pdb; pdb.set_trace()
+        return fit_coeffs, leastsq_result.success
+    
     @staticmethod
     @njit(parallel=False)
-    def _gauss3D(z, y, x, coeffs, num_spots, num_coeffs, const):
+    def numba_func(
+            z, y, x, coeffs, num_spots, num_coeffs, const
+        ):
         model = np.zeros(len(z))
         n = 0
         B = coeffs[-1]
@@ -1685,7 +1752,7 @@ class _GaussianModel:
             n += num_coeffs
         return model + const + B
 
-    def gaussian_3D(self, z, y, x, coeffs, B=0):
+    def func(self, z, y, x, coeffs, B=0):
         """Non-NUMBA version of the model"""
         z0, y0, x0, sz, sy, sx, A = coeffs
         # Center rotation around peak center
@@ -1696,18 +1763,38 @@ class _GaussianModel:
         gauss_x = np.exp(-(xc**2)/(2*(sx**2)))
         gauss_y = np.exp(-(yc**2)/(2*(sy**2)))
         gauss_z = np.exp(-(zc**2)/(2*(sz**2)))
-        return A*gauss_x*gauss_y*gauss_z
+        return A*gauss_x*gauss_y*gauss_z + B
 
     def compute_const(self, z, y, x, const_coeffs):
         const = 0
         for const_c in const_coeffs:
-            const += self.gaussian_3D(z, y, x, const_c)
+            const += self.func(z, y, x, const_c)
         return const
 
-    def residuals(self, coeffs, data, z, y, x, num_spots, num_coeffs, const=0):
+    def get_func_coeffs(self, variable_coeffs, const_coeffs):
+        coeffs = const_coeffs.copy()
+        nan_mask = np.isnan(const_coeffs)
+        coeffs[nan_mask] = variable_coeffs
+        return coeffs
+    
+    def residuals(
+            self, 
+            variable_coeffs, 
+            data, 
+            z, y, x, 
+            num_spots, 
+            num_coeffs, 
+            const_coeffs,
+            const=0,
+        ):
+        coeffs = self.get_func_coeffs(variable_coeffs, const_coeffs)
+        
+        evaluated_func = self.numba_func(
+            z, y, x, coeffs, num_spots, num_coeffs, const
+        )
+        residuals = data - evaluated_func
         self.pbar.update(1)
-        f = self._gauss3D
-        return data - f(z, y, x, coeffs, num_spots, num_coeffs, const)
+        return residuals
 
     def goodness_of_fit(self, y_obs, y_model, ddof, is_linear_regr=False):
         # Degree of freedom
@@ -1756,11 +1843,92 @@ class _GaussianModel:
         else:
             return reduced_chisq, p_chisq, RMSE, ks, p_ks, NRMSE, F_NRMSE
 
-    def get_bounds_init_guess(self, num_spots_s, num_coeffs, fit_ids,
-                              fit_idx, spots_centers, spots_3D_lab_ID,
-                              spots_rp, spots_radii_pxl, spots_img,
-                              spots_Bs_guess, spots_B_mins):
-
+    def set_df_spots_ID(self, df_spots_ID):
+        self.df_spots_ID = df_spots_ID
+    
+    def get_bounds(
+            self, 
+            num_spots_s, num_coeffs, fit_ids,
+            xy_center_half_interval_val: float, 
+            z_center_half_interval_val: float, 
+            sigma_x_min_max_expr: tuple[str, str],
+            sigma_y_min_max_expr: tuple[str, str],
+            sigma_z_min_max_expr: tuple[str, str],
+            A_min_max_expr: tuple[str, str],
+            B_min_max_expr: tuple[str, str],
+        ):
+        low_limit = np.zeros(num_spots_s*num_coeffs+1)
+        high_limit = np.zeros(num_spots_s*num_coeffs+1)
+        z_cbl = z_center_half_interval_val
+        xy_cbl = xy_center_half_interval_val
+        
+        all_exprs = {
+            'sigma_x_fit_bound': sigma_x_min_max_expr,
+            'sigma_y_fit_bound': sigma_y_min_max_expr,
+            'sigma_z_fit_bound': sigma_z_min_max_expr,
+            'A_fit_bound': A_min_max_expr,
+            'B_fit_bound': B_min_max_expr,
+        }
+        for feature, min_max_exprs in all_exprs.items():
+            min_expr, max_expr = min_max_exprs
+            self.df_spots_ID = self.df_spots_ID.eval(
+                f'{feature}_min = {min_expr}')       
+            self.df_spots_ID = self.df_spots_ID.eval(
+                f'{feature}_max = {max_expr}')          
+        
+        n = 0
+        for spot_idx in fit_ids:
+            zyx_cols = ZYX_LOCAL_EXPANDED_COLS
+            z0, y0, x0 = self.df_spots_ID.loc[spot_idx, zyx_cols]
+            
+            min_sigma_z = self.df_spots_ID.at[spot_idx, 'sigma_z_fit_bound_min']
+            max_sigma_z = self.df_spots_ID.at[spot_idx, 'sigma_z_fit_bound_max']
+            
+            min_sigma_y = self.df_spots_ID.at[spot_idx, 'sigma_y_fit_bound_min']
+            max_sigma_y = self.df_spots_ID.at[spot_idx, 'sigma_y_fit_bound_max']
+            
+            min_sigma_x = self.df_spots_ID.at[spot_idx, 'sigma_x_fit_bound_min']
+            max_sigma_x = self.df_spots_ID.at[spot_idx, 'sigma_x_fit_bound_max']
+            
+            min_A_fit = self.df_spots_ID.at[spot_idx, 'A_fit_bound_min']
+            max_A_fit = self.df_spots_ID.at[spot_idx, 'A_fit_bound_max']
+            
+            low_lim = np.array([
+                z0-z_cbl, y0-xy_cbl, x0-xy_cbl, 
+                min_sigma_z, min_sigma_y, min_sigma_x, 
+                min_A_fit
+            ])
+            high_lim = np.array([
+                z0+z_cbl, y0+xy_cbl, x0+xy_cbl, 
+                max_sigma_z, max_sigma_y, max_sigma_x, 
+                max_A_fit
+            ])
+            low_limit[n:n+num_coeffs] = low_lim
+            high_limit[n:n+num_coeffs] = high_lim
+            n += num_coeffs
+        
+        min_B_fit = self.df_spots_ID.loc[fit_ids, 'B_fit_bound_min'].min()
+        max_B_fit = self.df_spots_ID.loc[fit_ids, 'B_fit_bound_max'].max()
+        
+        low_limit[-1] = min_B_fit
+        high_limit[-1] = max_B_fit
+        
+        return low_limit, high_limit
+    
+    def get_init_guess(self, fit_ids, low_limit, high_limit):
+        init_guess = low_limit + (high_limit-low_limit)/2
+        B_guess = self.df_spots_ID.loc[fit_ids, 'spot_surf_50p'].min()
+        init_guess[-1] = B_guess
+        return init_guess
+    
+    def get_bounds_init_guess(
+            self, num_spots_s, num_coeffs, fit_ids,
+            fit_idx, spots_centers, spots_3D_lab_ID,
+            spots_rp, spots_radii_pxl, spots_img,
+            spots_Bs_guess, spots_B_mins
+        ):
+        """Deprecated. Replaced by `get_bounds` and `get_init_guess`"""
+        
         low_limit = np.zeros(num_spots_s*num_coeffs+1)
         high_limit = np.zeros(num_spots_s*num_coeffs+1)
         init_guess_s = np.zeros(num_spots_s*num_coeffs+1)
@@ -1774,8 +1942,7 @@ class _GaussianModel:
         max_s_z = spots_radii_pxl[:,0].max()
         max_s_yx = spots_radii_pxl[:,1].max()
         B_min = min([spots_B_mins[i] for i in fit_idx])
-        A_max = max([spots_img[spots_3D_lab_ID==obj.label].sum()
-                     for obj in spots_rp])+1
+        A_max = self.df_spots_ID['spotsize_A_max'].iloc[0]
         for i, id in zip(fit_idx, fit_ids):
             z0, y0, x0 = spots_centers[i]
             c, b, a = spots_radii_pxl[i]
@@ -1785,10 +1952,16 @@ class _GaussianModel:
             # A_min = np.sum(raw_vals-raw_vals.min())
             A_guess = np.sum(raw_vals)/num_spots_s
             # z0, y0, x0, sz, sy, sx, A = coeffs
-            low_lim = np.array([z0-z_cbl, y0-xy_cbl, x0-xy_cbl,
-                                 0.5, 0.5, 0.5, 0])
-            high_lim = np.array([z0+z_cbl, y0+xy_cbl, x0+xy_cbl,
-                                 max_s_z, max_s_yx, max_s_yx, A_max])
+            low_lim = np.array([
+                z0-z_cbl, y0-xy_cbl, x0-xy_cbl, 
+                0.5, 0.5, 0.5, 
+                0
+            ])
+            high_lim = np.array([
+                z0+z_cbl, y0+xy_cbl, x0+xy_cbl, 
+                max_s_z, max_s_yx, max_s_yx, 
+                A_max
+            ])
             guess = np.array([z0, y0, x0, c, b, a, A_guess])
             low_limit[n:n+num_coeffs] = low_lim
             high_limit[n:n+num_coeffs] = high_lim
@@ -1800,9 +1973,13 @@ class _GaussianModel:
         bounds = (low_limit, high_limit)
         return bounds, init_guess_s
 
-    def integrate(self, zyx_center, zyx_sigmas, A, B,
-                  sum_obs=0, lower_bounds=None, upper_bounds=None,
-                  verbose=0):
+    def integrate(
+            self, zyx_center, zyx_sigmas, A, B,
+            sum_obs=0, 
+            lower_bounds=None, 
+            upper_bounds=None,
+            verbose=0
+        ):
         """Integrate Gaussian peaks with erf function.
 
         Parameters
@@ -2189,9 +2366,23 @@ class SpotFIT(spheroid):
         self.debug = debug
 
     def set_args(
-            self, expanded_obj, spots_img, df_spots, zyx_vox_size, 
-            zyx_spot_min_vol_um, verbose=0, inspect=0, 
-            ref_ch_mask_or_labels=None, use_gpu=False,
+            self, 
+            expanded_obj, 
+            spots_img, 
+            df_spots, 
+            zyx_vox_size, 
+            zyx_spot_min_vol_um, 
+            xy_center_half_interval_val=0.1, 
+            z_center_half_interval_val=0.2, 
+            sigma_x_min_max_expr=('0.5', 'spotsize_yx_radius_pxl'),
+            sigma_y_min_max_expr=('0.5', 'spotsize_yx_radius_pxl'),
+            sigma_z_min_max_expr=('0.5', 'spotsize_z_radius_pxl'),
+            A_min_max_expr=('0.0', 'spotsize_A_max'),
+            B_min_max_expr=('spot_B_min', 'inf'),
+            verbose=0, 
+            inspect=0, 
+            ref_ch_mask_or_labels=None, 
+            use_gpu=False,
             logger_func=None
         ):
         self.logger_func = logger_func
@@ -2214,6 +2405,14 @@ class SpotFIT(spheroid):
         self.num_coeffs = 7
         self._tol = 1e-10
         self.use_gpu = use_gpu
+        
+        self.xy_center_half_interval_val = xy_center_half_interval_val
+        self.z_center_half_interval_val = z_center_half_interval_val
+        self.sigma_x_min_max_expr = sigma_x_min_max_expr
+        self.sigma_y_min_max_expr = sigma_y_min_max_expr
+        self.sigma_z_min_max_expr = sigma_z_min_max_expr
+        self.A_min_max_expr = A_min_max_expr
+        self.B_min_max_expr = B_min_max_expr
 
     def fit(self):
         verbose = self.verbose
@@ -2243,10 +2442,10 @@ class SpotFIT(spheroid):
 
     def spotSIZE(self):
         df_spots_ID = self.df_spots_ID
-        spots_img_denoise = filters.gaussian(
-            self.spots_img_local, 0.8, use_gpu=self.use_gpu,
-            logger_func=self.logger_func
-        )
+        # spots_img_denoise = filters.gaussian(
+        #     self.spots_img_local, 0.8, use_gpu=self.use_gpu,
+        #     logger_func=self.logger_func
+        # )
         min_z, min_y, min_x = self.obj_bbox_lower
         zyx_vox_dim = self.zyx_vox_size
         zyx_spot_min_vol_um = self.zyx_spot_min_vol_um
@@ -2256,8 +2455,7 @@ class SpotFIT(spheroid):
         # Build spot mask and get background values
         num_spots = len(df_spots_ID)
         self.num_spots = num_spots
-        spots_centers = df_spots_ID[['z', 'y', 'x']].to_numpy()
-        spots_centers -= [min_z, min_y, min_x]
+        spots_centers = df_spots_ID[ZYX_LOCAL_EXPANDED_COLS].to_numpy()
         self.spots_centers = spots_centers
         spots_mask = self.get_spots_mask(
             0, zyx_vox_dim, zyx_spot_min_vol_um, spots_centers
@@ -2267,7 +2465,7 @@ class SpotFIT(spheroid):
         else:
             backgr_mask = np.logical_and(ref_ch_img_local, ~spots_mask)
 
-        backgr_vals = spots_img_denoise[backgr_mask]
+        backgr_vals = self.spots_img_local[backgr_mask]
         backgr_mean = backgr_vals.mean()
         backgr_median = np.median(backgr_vals)
         backgr_std = backgr_vals.std()
@@ -2277,6 +2475,9 @@ class SpotFIT(spheroid):
         # Build prev_iter_expanded_lab mask for the expansion process
         self.spot_ids = df_spots_ID.index.to_list()
         zyx_seed_size = np.array(zyx_spot_min_vol_um)/2
+        initial_z_radius, initial_yx_radius, _ = zyx_seed_size
+        self.df_spots_ID['spotsize_initial_radius_yx_pixel'] = initial_z_radius
+        self.df_spots_ID['spotsize_initial_radius_z_pixel'] = initial_yx_radius
         prev_iter_expanded_lab = self.get_spots_mask(
             0, zyx_vox_dim, zyx_seed_size, spots_centers, dtype=np.uint32,
             ids=self.spot_ids
@@ -2300,6 +2501,7 @@ class SpotFIT(spheroid):
         _spot_surf_means = [0]*num_spots
         _spot_surf_stds = [0]*num_spots
         _spot_B_mins = [0]*num_spots
+        _spot_A_maxs = [0]*num_spots
         drop_spots_ids = set()
         for i in range(max_i+1):
             # Note that expanded_labels has id from df_spots_ID
@@ -2330,7 +2532,7 @@ class SpotFIT(spheroid):
                 local_spot_surf_mask = np.logical_xor(
                     expanded_spot_mask, prev_iter_spot_mask
                 )
-                surf_vals = spots_img_denoise[s_obj.slice][local_spot_surf_mask]
+                surf_vals = self.spots_img_local[s_obj.slice][local_spot_surf_mask]
                 if len(surf_vals) == 0:
                     drop_spots_ids.add(id)
                     continue
@@ -2362,7 +2564,10 @@ class SpotFIT(spheroid):
                 _spot_surf_means[o] = _mean
                 _std = raw_spot_surf_vals.std()
                 _spot_surf_stds[o] = _std
-                _spot_B_mins[o] = _mean-3*_std
+                B_min = _mean-3*_std
+                _spot_B_mins[o] = B_min if B_min >= 0 else 0
+                spot_values = self.spots_img_local[s_obj.slice][s_obj.image]
+                _spot_A_maxs[o] = spot_values.max()
             
             prev_iter_expanded_lab = expanded_labels
             # print(stop_grow_ids)
@@ -2372,7 +2577,17 @@ class SpotFIT(spheroid):
             # Stop loop if all spots have stopped growing
             if len(stop_grow_ids) == num_spots:
                 break
-
+        
+        spots_mask = spots_3D_lab>0
+        backgr_mask = backgr_mask = np.logical_and(obj_image, ~spots_mask)
+        backgr_vals = self.spots_img_local[backgr_mask]
+        
+        self.df_spots_ID['spotsize_backgr_mean'] = np.mean(backgr_vals)
+        self.df_spots_ID['spotsize_backgr_median'] = np.median(backgr_vals)
+        self.df_spots_ID['spotsize_backgr_std'] = np.std(backgr_vals)
+        
+        self.df_spots_ID['spotsize_A_max'] = max(_spot_A_maxs)
+        
         self.spots_radii_pxl = np.column_stack(
             (self.spots_z_size_pxl, 
              self.spots_yx_size_pxl, 
@@ -2491,7 +2706,8 @@ class SpotFIT(spheroid):
                 fit_spots_lab[spots_3D_lab_ID==fit_id] = True
             z, y, x = np.nonzero(fit_spots_lab)
             s_data = self.spots_img_local[z,y,x]
-            model = _GaussianModel(100*len(z))
+            model = GaussianModel(100*len(z))
+            model.set_df_spots_ID(self.df_spots_ID)
 
             # Get constants
             if neigh_fitted_idx:
@@ -2499,42 +2715,50 @@ class SpotFIT(spheroid):
             else:
                 const = 0
             # test this https://cars9.uchicago.edu/software/python/lmfit/examples/example_reduce_fcn.html#sphx-glr-examples-example-reduce-fcn-py
-            bounds, init_guess_s = model.get_bounds_init_guess(
-                num_spots_s, num_coeffs, fit_ids, fit_idx, spots_centers,
-                spots_3D_lab_ID, spots_rp, spots_radii_pxl, spots_img,
-                spots_Bs_guess, spots_B_mins
+            # bounds, init_guess_s = model.get_bounds_init_guess(
+            #     num_spots_s, num_coeffs, fit_ids, fit_idx, spots_centers,
+            #     spots_3D_lab_ID, spots_rp, spots_radii_pxl, spots_img,
+            #     spots_Bs_guess, spots_B_mins
+            # )
+            
+            low_limit, high_limit = model.get_bounds(
+                num_spots_s, num_coeffs, fit_ids,
+                self.xy_center_half_interval_val, 
+                self.z_center_half_interval_val, 
+                self.sigma_x_min_max_expr,
+                self.sigma_y_min_max_expr,
+                self.sigma_z_min_max_expr,
+                self.A_min_max_expr,
+                self.B_min_max_expr,
             )
-            # bar_f = '{desc:<25}{percentage:3.0f}%|{bar:40}{r_bar}'
-            model.pbar = tqdm(
-                desc=f'Fitting spot {s} ({count+1}/{num_spots})',
-                total=100*len(z), unit=' fev', position=5, leave=False, 
-                ncols=100
+            init_guess_s = model.get_init_guess(fit_ids, low_limit, high_limit)
+            bounds = (low_limit, high_limit)
+            desc = f'Fitting spot {s} ({count+1}/{num_spots})'
+            
+            fit_coeffs, success = model.curve_fit(
+                init_guess_s,
+                s_data,
+                z, y, x, 
+                num_spots_s,
+                num_coeffs,
+                const,
+                bounds,
+                self._tol,
+                pbar_desc=desc
             )
-            leastsq_result = scipy.optimize.least_squares(
-                model.residuals, init_guess_s,
-                args=(s_data, z, y, x, num_spots_s, num_coeffs),
-                # jac=model.jac_gauss3D,
-                kwargs={'const': const},
-                loss='linear', f_scale=0.1,
-                bounds=bounds, ftol=self._tol,
-                xtol=self._tol, gtol=self._tol
-            )
-
-            # model.pbar.update(100*len(z)-model.pbar.n)
-            model.pbar.close()
-
+            
             if self.debug:
                 from . import _debug
                 _debug._spotfit_fit(
-                    model._gauss3D, spots_img, leastsq_result, num_spots_s,
+                    model.numba_func, spots_img, fit_coeffs, num_spots_s,
                     num_coeffs, z, y, x, s_data, spots_centers, self.ID, 
-                    fit_ids, init_guess_s, bounds, fit_idx
+                    fit_ids, init_guess_s, low_limit, high_limit, fit_idx
                 )
 
             _shape = (num_spots_s, num_coeffs)
-            B_fit = leastsq_result.x[-1]
+            B_fit = fit_coeffs[-1]
             B_guess = init_guess_s[-1]
-            lstsq_x = leastsq_result.x[:-1]
+            lstsq_x = fit_coeffs[:-1]
             lstsq_x = lstsq_x.reshape(_shape)
             init_guess_s_2D = init_guess_s[:-1].reshape(_shape)
             # print(f'Fitted coeffs: {lstsq_x}')
@@ -2543,7 +2767,7 @@ class SpotFIT(spheroid):
                 fitted_coeffs[s_fit] = list(lstsq_x[i])
                 init_guess_li[s_fit] = list(init_guess_s_2D[i])
                 Bs_fitted[s_fit] = B_fit
-                solution_found_li[s_fit] = leastsq_result.success
+                solution_found_li[s_fit] = success
             # Check if now the fitted spots are fully fitted
             all_intersect_fitted = all(
                 [True if fitted_coeffs[i] else False for i in intersect_idx]
@@ -2666,10 +2890,10 @@ class SpotFIT(spheroid):
                 # Compute fit data
                 B_fit = Bs_fitted[s]
                 s_coeffs = fitted_coeffs[s]
-                s_fit_data = model.gaussian_3D(z_s, y_s, x_s, s_coeffs, B=B_fit)
+                s_fit_data = model.func(z_s, y_s, x_s, s_coeffs, B=B_fit)
                 for n_s in obj_s_idxs:
                     neigh_coeffs = fitted_coeffs[n_s]
-                    s_fit_data += model.gaussian_3D(z_s, y_s, x_s, neigh_coeffs)
+                    s_fit_data += model.func(z_s, y_s, x_s, neigh_coeffs)
                 
                 # Goodness of fit
                 ddof = num_coeffs
@@ -2792,67 +3016,67 @@ class SpotFIT(spheroid):
             # Constants from good neigh idx
             const_coeffs = [fitted_coeffs[good_s] for good_s in good_neigh_idx]
             const = model.compute_const(z_s, y_s, x_s, const_coeffs)
-
+            
             # Bounds and initial guess
             num_spots_s = 1
-            bounds, init_guess_s = model.get_bounds_init_guess(
-                num_spots_s, num_coeffs, [s_id], [s], spots_centers,
-                spots_3D_lab_ID, spots_rp, spots_radii_pxl, img,
-                spots_Bs_guess, spots_B_mins
+            fit_ids = [s_id]
+            low_limit, high_limit = model.get_bounds(
+                num_spots_s, num_coeffs, [s_id],
+                self.xy_center_half_interval_val, 
+                self.z_center_half_interval_val, 
+                self.sigma_x_min_max_expr,
+                self.sigma_y_min_max_expr,
+                self.sigma_z_min_max_expr,
+                self.A_min_max_expr,
+                self.B_min_max_expr,
             )
+            init_guess_s = model.get_init_guess(fit_ids, low_limit, high_limit)
+            bounds = (low_limit, high_limit)
 
             # Fit with constants
             s_data = img[z_s, y_s, x_s]
             desc = f'Fitting spot {s} ({count+1}/{num_spots})'
-            model.pbar = tqdm(
-                desc=desc, total=100*len(z_s), unit=' fev',
-                position=4, leave=False, ncols=100
+            fit_coeffs, success = model.curve_fit(
+                init_guess_s,
+                s_data,
+                z_s, y_s, x_s, 
+                num_spots_s,
+                num_coeffs,
+                const,
+                bounds,
+                self._tol,
+                pbar_desc=desc
             )
-            leastsq_result = scipy.optimize.least_squares(
-                model.residuals, init_guess_s,
-                args=(s_data, z_s, y_s, x_s, num_spots_s, num_coeffs),
-                # jac=model.jac_gauss3D,
-                kwargs={'const': const},
-                loss='linear', f_scale=0.1,
-                bounds=bounds, ftol=self._tol,
-                xtol=self._tol, gtol=self._tol
-            )
-            model.pbar.close()
 
             # Goodness of fit
             ddof = num_coeffs
-            s_fit_data =  model._gauss3D(z_s, y_s, x_s,
-                                         leastsq_result.x,
-                                         1, num_coeffs, const)
+            s_fit_data =  model.numba_func(
+                z_s, y_s, x_s, fit_coeffs, 1, num_coeffs, const
+            )
             (reduced_chisq, p_chisq, RMSE, ks, p_ks,
             NRMSE, F_NRMSE) = model.goodness_of_fit(s_data, s_fit_data, ddof)
-
-            # Initial guess
-            (z0_guess, y0_guess, x0_guess,
-            sz_guess, sy_guess, sx_guess,
-            A_guess) = init_guess_li[s]
 
             # Fitted coeffs
             (z0_fit, y0_fit, x0_fit,
             sz_fit, sy_fit, sx_fit,
-            A_fit, B_fit) = leastsq_result.x
-
+            A_fit, B_fit) = fit_coeffs
 
             zyx_c = np.abs(np.array([z0_fit, y0_fit, x0_fit]))
             zyx_sigmas = np.abs(np.array([sz_fit, sy_fit, sx_fit]))
 
             I_tot, I_foregr = model.integrate(
-                            zyx_c, zyx_sigmas, A_fit, B_fit,
-                            lower_bounds=None, upper_bounds=None
+                zyx_c, zyx_sigmas, A_fit, B_fit,
+                lower_bounds=None, upper_bounds=None
             )
 
-            gof_metrics = (reduced_chisq, p_chisq,
-                           ks, p_ks, RMSE, NRMSE, F_NRMSE)
+            gof_metrics = (
+                reduced_chisq, p_chisq, ks, p_ks, RMSE, NRMSE, F_NRMSE
+            )
 
             self.store_metrics_good_spots(
-                                     obj_id, s, leastsq_result.x[:-1],
-                                     I_tot, I_foregr, gof_metrics,
-                                     leastsq_result.success, B_fit=B_fit
+                obj_id, s, fit_coeffs[:-1],
+                I_tot, I_foregr, gof_metrics,
+                success, B_fit=B_fit
             )
 
     def store_metrics_good_spots(
@@ -4075,8 +4299,9 @@ class Kernel(_ParamsParser):
                     ref_ch_mask_or_labels = ref_ch_segm_data[frame_i]
                 else:
                     ref_ch_mask_or_labels = None
-
+                
                 df_spots_frame = df_spots_gop.loc[frame_i]
+                bounds_kwargs = self.get_bounds_kwargs()
                 spotfit_result = pipe.spotfit(
                     self._SpotFit, 
                     raw_spots_img, 
@@ -4089,7 +4314,8 @@ class Kernel(_ParamsParser):
                     ref_ch_mask_or_labels=ref_ch_mask_or_labels,
                     frame_i=frame_i, 
                     use_gpu=self._get_use_gpu(),
-                    show_progress=True
+                    show_progress=True,
+                    **bounds_kwargs,
                 )
                 dfs_lists['spotfit_keys'].extend(spotfit_result[0])
                 dfs_lists['dfs_spots_spotfit'].extend(spotfit_result[1])
@@ -4136,6 +4362,23 @@ class Kernel(_ParamsParser):
 
         return dfs, data
 
+    def get_bounds_kwargs(self):
+        SECTION = 'SpotFIT'
+        kwargs_anchors = {
+            'xy_center_half_interval_val': 'XYcenterBounds', 
+            'z_center_half_interval_val': 'ZcenterBounds', 
+            'sigma_x_min_max_expr': 'sigmaXBounds',
+            'sigma_y_min_max_expr': 'sigmaYBounds',
+            'sigma_z_min_max_expr': 'sigmaZBounds',
+            'A_min_max_expr': 'A_fit_bounds',
+            'B_min_max_expr': 'B_fit_bounds'
+        }
+        bounds_kwargs = {}
+        for kwarg, anchor in kwargs_anchors.items():
+            bounds_kwargs[kwarg] = self._params[SECTION][anchor]['loadedVal']
+        return bounds_kwargs
+        
+    
     @exception_handler_cli
     def _run_exp_paths(self, exp_paths):
         """Run spotMAX analysis from a dictionary of Cell-ACDC style experiment 

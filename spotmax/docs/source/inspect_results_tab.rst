@@ -1,3 +1,4 @@
-.. _inspect_results_tab:
+.. _Inspect parameters tab:
 
-Bla bla
+Inspect parameters tab
+======================

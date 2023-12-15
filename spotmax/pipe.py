@@ -922,9 +922,6 @@ def spot_detection(
     else:
         spots_segmantic_segm = np.ones(np.squeeze(image).shape, int)
     
-    if lab is None:
-        lab = spots_segmantic_segm
-    
     spots_objs = None
     
     if detection_method == 'peak_local_max':
@@ -954,6 +951,11 @@ def spot_detection(
             spots_objs.append(spot_obj)
     
     if return_df:
+        if lab is None:
+            raise NameError(
+                'With `return_df=True`, `lab` cannot be None.'
+            )
+        lab, _ = transformations.reshape_lab_image_to_3D(lab, image)
         df_coords = transformations.from_spots_coords_arr_to_df(
             spots_coords, lab
         )
@@ -1080,7 +1082,10 @@ def spots_calc_features_and_filter(
     if verbose:
         print('')
         logger_func('Filtering valid spots...')
-        
+    
+    if gop_filtering_thresholds is None:
+        gop_filtering_thresholds = {}
+    
     if lab is None:
         lab = np.zeros(image.shape, dtype=np.uint8)
     
@@ -1118,7 +1123,7 @@ def spots_calc_features_and_filter(
     dfs_spots_gop = []
     num_spots_filtered_log = []
     last_spot_id = 0
-    for obj in rp:
+    for o, obj in enumerate(rp):
         expanded_obj = transformations.get_expanded_obj_slice_image(
             obj, delta_tol, lab
         )
@@ -1178,7 +1183,7 @@ def spots_calc_features_and_filter(
             # if obj.label == 36:
             #     debug = True
             #     import pdb; pdb.set_trace()
-            
+
             df_obj_spots_gop = _compute_obj_spots_features(
                 local_spots_img, 
                 df_obj_spots_gop, 
@@ -1195,8 +1200,8 @@ def spots_calc_features_and_filter(
             )
             if i == 0:
                 # Store metrics at first iteration
-                df_obj_spots_det = df_obj_spots_gop.copy()
-            
+                dfs_spots_det[o] = df_obj_spots_gop.copy()
+ 
             # from . import _debug
             # _debug._spots_filtering(
             #     local_spots_img, df_obj_spots_gop, obj, obj_image
@@ -1251,6 +1256,13 @@ def spotfit(
         use_gpu=False,
         show_progress=True,
         logger_func=print,
+        xy_center_half_interval_val=0.1, 
+        z_center_half_interval_val=0.2, 
+        sigma_x_min_max_expr=('0.5', 'spotsize_yx_radius_pxl'),
+        sigma_y_min_max_expr=('0.5', 'spotsize_yx_radius_pxl'),
+        sigma_z_min_max_expr=('0.5', 'spotsize_z_radius_pxl'),
+        A_min_max_expr=('0.0', 'spotsize_A_max'),
+        B_min_max_expr=('spot_B_min', 'inf'),
     ):
     """Run spotFIT (fitting 3D gaussian curves) and get the related features
 
@@ -1323,9 +1335,21 @@ def spotfit(
             continue
         expanded_obj = transformations.get_expanded_obj(obj, delta_tol, lab)
         kernel.set_args(
-            expanded_obj, spots_img, df_spots, zyx_voxel_size, 
-            zyx_spot_min_vol_um, ref_ch_mask_or_labels=ref_ch_mask_or_labels,
-            use_gpu=use_gpu, logger_func=logger_func
+            expanded_obj, 
+            spots_img, 
+            df_spots, 
+            zyx_voxel_size, 
+            zyx_spot_min_vol_um, 
+            xy_center_half_interval_val=xy_center_half_interval_val, 
+            z_center_half_interval_val=z_center_half_interval_val, 
+            sigma_x_min_max_expr=sigma_x_min_max_expr,
+            sigma_y_min_max_expr=sigma_y_min_max_expr,
+            sigma_z_min_max_expr=sigma_z_min_max_expr,
+            A_min_max_expr=A_min_max_expr,
+            B_min_max_expr=B_min_max_expr,
+            ref_ch_mask_or_labels=ref_ch_mask_or_labels,
+            use_gpu=use_gpu, 
+            logger_func=logger_func
         )
         kernel.fit()
         dfs_spots_spotfit.append(kernel.df_spotFIT_ID)

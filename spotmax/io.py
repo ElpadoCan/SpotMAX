@@ -391,6 +391,13 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
             else:
                 params[section][anchor]['isSectionInConfig'] = True
             
+            is_option_in_ini = configPars.has_option(section, option)
+            is_do_spotfit = option == 'Compute spots size (fit gaussian peak(s))'
+            
+            if not is_option_in_ini and is_do_spotfit:
+                # New doSpotFit desc is not in INI --> check old one
+                option = 'Compute spots size'
+            
             if not configPars.has_option(section, option):
                 params[section][anchor]['loadedVal'] = None
                 continue

@@ -1,3 +1,4 @@
-.. _tune_parameters_tab:
+.. _Tune parameters tab:
 
-Bla bla
+Tune parameters tab
+===================

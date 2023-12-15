@@ -178,50 +178,6 @@ def get_distribution_metrics_func():
     }
     return metrics_func
 
-def distrubution_metrics_names():
-    metrics_names = {}
-    for metric_name in get_distribution_metrics_func().keys():
-        if metric_name.startswith('q'):
-            key = f'{int(metric_name[1:])} percentile'
-            metrics_names[key] = metric_name
-        else:
-            key = metric_name.capitalize()
-            metrics_names[key] = metric_name
-    return metrics_names
-
-def spotfit_size_metrics_names():
-    metrics_names = {
-        'Radius x- direction': 'sigma_x_fit',
-        'Radius y- direction': 'sigma_y_fit',
-        'Radius z- direction': 'sigma_z_fit',
-        'Mean radius xy- direction': 'sigma_yx_mean_fit',
-        'Spot volume (voxel)': 'spheroid_vol_vox_fit',
-    }
-    return metrics_names
-
-def spotfit_intensities_metrics_names():
-    metrics_names = {
-        'Total integral gauss. peak': 'total_integral_fit',
-        'Foregr. integral gauss. peak': 'foreground_integral_fit',
-        'Amplitude gauss. peak': 'A_fit',
-        'Backgr. level gauss. peak': 'B_fit',
-    }
-    return metrics_names
-
-def spotfit_gof_metrics_names():
-    metrics_names = {
-        'RMS error gauss. fit': 'RMSE_fit',
-        'Normalised RMS error gauss. fit': 'NRMSE_fit',
-        'F-norm. RMS error gauss. fit': 'F_NRMSE_fit'
-    }
-    return metrics_names
-
-def post_analysis_metrics_names():
-    metrics_names = {
-        'Consecutive spots distance': 'consecutive_spots_distance'
-    }
-    return metrics_names
-
 def get_effect_size_func():
     effect_size_func = {
         'cohen': cohen_effect_size,
@@ -239,49 +195,11 @@ def get_aggr_features_groups():
 def aggr_feature_names_to_col_names_mapper():
     return docs.parse_aggr_features_column_names()
             
-
-def _feature_types_to_col_endname_mapper():
-    mapper = {
-        'Glass': 'effect_size_glass',
-        'Cohen': 'effect_size_cohen',
-        'Hedge': 'effect_size_hedge',
-        't-statistic': 'ttest_tstat',
-        'p-value (t-test)': 'ttest_pvalue'
-    }
-    mapper = {
-        **mapper,
-        **distrubution_metrics_names(),
-        **spotfit_size_metrics_names(),
-        **spotfit_intensities_metrics_names(),
-        **spotfit_gof_metrics_names(),
-        **post_analysis_metrics_names(),
-    }
-    return mapper
+def single_spot_feature_names_to_col_names_mapper():
+    return docs.single_spot_features_column_names()
 
 def feature_names_to_col_names_mapper():
-    mapper = {}
-    types_to_col_endname_mapper = _feature_types_to_col_endname_mapper()
-    for group_name, feature_names in get_features_groups().items():
-        if group_name.find('backgr') != -1:
-            prefix = 'spot_vs_backgr_'
-            suffix = ''
-        elif group_name.find('ref. ch.') != -1:
-            prefix = 'spot_vs_ref_ch_'
-            suffix = ''
-        elif group_name.find('Preprocessed') != -1:
-            prefix = 'spot_preproc_'
-            suffix = '_in_spot_minimumsize_vol'
-        elif group_name.find('Raw') != -1:
-            prefix = 'spot_raw_'
-            suffix = '_in_spot_minimumsize_vol'
-        else:
-            prefix = ''
-            suffix = ''
-        for feature_name in feature_names:
-            endname = types_to_col_endname_mapper[feature_name]
-            colname = f'{prefix}{endname}{suffix}'
-            mapper[f'{group_name}, {feature_name}'] = colname
-    return mapper
+    return single_spot_feature_names_to_col_names_mapper()
 
 def true_positive_feauture_inequality_direction_mapper():
     mapper = {}
