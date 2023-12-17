@@ -43,7 +43,7 @@ try:
     from numba import njit, prange
     NUMBA_INSTALLED = True
 except Exception as e:
-    from .utils import njit_replacement as njit
+    from . import njit_replacement as njit
     prange = range
 
 from . import utils, rng, base_lineage_table_values

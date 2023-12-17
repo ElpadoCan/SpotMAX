@@ -1,4 +1,4 @@
-.. |spotmaxlogo| image:: https://github.com/SchmollerLab/Cell_ACDC/blob/main/cellacdc/resources/logo.png?raw=true
+.. |spotmaxlogo| image:: https://github.com/ElpadoCan/spotMAX/blob/5de91da6a709f42e03e4cc3d864d3d94f2b96efd/spotmax/resources/spotMAX_logo.png
    :width: 80
 
 |spotmaxlogo| SpotMAX

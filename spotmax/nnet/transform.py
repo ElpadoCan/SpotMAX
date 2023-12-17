@@ -8,7 +8,7 @@ try:
     import numba
     from numba import njit
 except Exception as e:
-    from ..utils import njit_replacement as njit
+    from .. import njit_replacement as njit
 
 @njit
 def crop_single(img: np.ndarray, final_size: tuple) -> np.ndarray:

@@ -213,3 +213,10 @@ def read_version():
             return _version.version
         except Exception as e:
             return 'ND'
+
+def njit_replacement(parallel=False):
+    def wrap(func):
+        def inner_function(*args, **kwargs):
+            return func(*args, **kwargs)
+        return inner_function
+    return wrap

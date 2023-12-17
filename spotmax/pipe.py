@@ -1305,7 +1305,49 @@ def spotfit(
         If True, display progressbars. Default is False
     logger_func : callable, optional
         Function used to print or log process information. Default is print
-
+    xy_center_half_interval_val : float, optional
+        Half interval width for bounds on x and y center coordinates during fit. 
+        Default is 0.1
+    z_center_half_interval_val : float, optional
+        Half interval width for bounds on z center coordinate during fit. 
+        Default is 0.2
+    sigma_x_min_max_expr : 2-tuple of str, optional
+        Expressions to evaluate with `pandas.eval` to determine minimum and 
+        maximum values for bounds on `sigma_x` fitting paramter. The expression 
+        can be any text that can be evaluated by `pandas.eval`. 
+        Default is ('0.5', 'spotsize_yx_radius_pxl').
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+    sigma_y_min_max_expr : 2-tuple of str, optional
+        Expressions to evaluate with `pandas.eval` to determine minimum and 
+        maximum values for bounds on `sigma_y` fitting paramter. The expression 
+        can be any text that can be evaluated by `pandas.eval`. 
+        Default is ('0.5', 'spotsize_yx_radius_pxl').
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+        Default is ('0.5', 'spotsize_yx_radius_pxl').
+    sigma_z_min_max_expr : 2-tuple of str, optional
+        Expressions to evaluate with `pandas.eval` to determine minimum and 
+        maximum values for bounds on `sigma_z` fitting paramter. The expression 
+        can be any text that can be evaluated by `pandas.eval`. 
+        Default is ('0.5', 'spotsize_z_radius_pxl').
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+    A_min_max_expr : 2-tuple of str, optional
+        Expressions to evaluate with `pandas.eval` to determine minimum and 
+        maximum values for bounds on `A_fit` (peak amplitude) fitting paramter. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        Default is ('0.0', 'spotsize_A_max').
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+    B_min_max_expr : 2-tuple of str, optional
+        Expressions to evaluate with `pandas.eval` to determine minimum and 
+        maximum values for bounds on `B_fit` (background) fitting paramter. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        Default is ('spot_B_min', 'inf').
+        More details here: 
+        ttps://pandas.pydata.org/docs/reference/api/pandas.eval.html
+        
     Returns
     -------
     2-tuple of lists

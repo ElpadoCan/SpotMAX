@@ -102,8 +102,6 @@ File paths and channels
   only with Python. You can find example notebooks on how to process these files 
   in the notebooks folder. 
 
-.. _METADATA:
-
 METADATA
 --------
 

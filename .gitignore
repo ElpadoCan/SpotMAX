@@ -12,7 +12,7 @@ spotmax/deprecated.py
 spotmax/docs/deprecated.py
 spotmax/_version.py
 spotmax/_tests
-spotmax/docs/build
+spotmax/docs/_build
 spotmax/_nnet
 spotmax/_old_gui.py
 spotmax/mytests/*

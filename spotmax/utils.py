@@ -63,13 +63,6 @@ def _check_cli_params_extension(params_path):
             f'File path provided: "{params_path}"'
         )
 
-def njit_replacement(parallel=False):
-    def wrap(func):
-        def inner_function(*args, **kwargs):
-            return func(*args, **kwargs)
-        return inner_function
-    return wrap
-
 def check_cli_file_path(file_path, desc='parameters'):
     if os.path.isabs(file_path):
         _check_cli_params_extension(file_path)

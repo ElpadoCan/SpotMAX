@@ -10,8 +10,6 @@ section for more details.
 
 .. contents::
 
-.. _Spot detection:
-
 Spot detection
 --------------
 * **Number of spots**: column name ``num_spots``.

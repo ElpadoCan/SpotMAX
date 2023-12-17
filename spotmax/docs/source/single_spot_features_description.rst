@@ -1,7 +1,5 @@
 .. role:: m(math)
 
-.. _Single-spot features description:
-
 Single-spot features description
 ================================
 
@@ -53,9 +51,6 @@ effect sizes:
   Formula: :m:`d * c_f` where :m:`d` is the Cohen's effect size and 
   :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n`being the 
   difference between the background's and spots' number of pixels. 
-
-
-.. _Effect size (vs. ref. ch.):
 
 Effect size (vs. ref. ch.)
 --------------------------
