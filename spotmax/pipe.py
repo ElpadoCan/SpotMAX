@@ -190,23 +190,28 @@ def spots_semantic_segmentation(
 
     Returns
     -------
-    dict or numpy.ndarray
-        If return_only_segm is True, the output will the the numpy.ndarray 
+    result : dict or numpy.ndarray
+        If return_only_segm is True, the output will bre the the numpy.ndarray 
         with the segmentation result. 
+        
         If thresholding_method is None and do_try_all_thresholds is True, 
         the output will be a dictionary with keys {'threshol_li', 
         'threshold_isodata', 'threshold_otsu', 'threshold_minimum', 
         'threshold_triangle', 'threshold_mean', 'threshold_yen'} and values 
         the result of each thresholding method. 
+        
         If thresholding_method is not None, the output will be a dictionary 
-        with key {'custom'} and value the result of applying the requested 
+        with one key {'custom'} and the result of applying the requested 
         thresholding_method. 
+        
         If nnet_model is not None, the output dictionary will include the 
         'neural_network' key with value the result of running the nnet_model
         requested. 
+        
         If bioimageio_model is not None, the output dictionary will include the 
         'bioimageio_model' key with value the result of running the bioimageio_model
         requested. 
+        
         The output dictionary will also include the key 'input_image' with value 
         the pre-processed image. 
     """   
@@ -376,20 +381,24 @@ def reference_channel_semantic_segm(
 
     Returns
     -------
-    dict or numpy.ndarray
+    result : dict or numpy.ndarray
         If return_only_segm is True, the output will the the numpy.ndarray 
         with the segmentation result. 
+        
         If thresholding_method is None and do_try_all_thresholds is True, 
         the output will be a dictionary with keys {'threshol_li', 
         'threshold_isodata', 'threshold_otsu', 'threshold_minimum', 
         'threshold_triangle', 'threshold_mean', 'threshold_yen'} and values 
         the result of each thresholding method. 
+        
         If thresholding_method is not None, the output will be a dictionary 
         with key {'custom'} and value the result of applying the requested 
         thresholding_method. 
+        
         If bioimageio_model is not None, the output dictionary will include the 
         'bioimageio_model' key with value the result of running the bioimageio_model
         requested. 
+        
         The output dictionary will also include the key 'input_image' with value 
         the pre-processed image. 
     """    
@@ -898,16 +907,17 @@ def spot_detection(
 
     Returns
     -------
-    If return_df is True:
-        2-tuple ((N, 3) numpy.ndarray of ints, list of region properties or None)
-            The first element is a (N, 3) array of integers where each row is the 
-            (z, y, x) coordinates of one peak. The second element is either None 
-            or a list of region properties with an additional 
-            attribute called `zyx_local_center`.
+    spots_coords : (N, 3) numpy.ndarray of ints
+        (N, 3) array of integers where each row is the (z, y, x) coordinates 
+        of one peak. Returned only if `return_df` is False
     
-    If return_df is False:
-        pandas.DataFrame with Cell_ID as index and columns {'z', 'y', 'x'} with 
-        the detected spots coordinates.
+    df_coords : pandas.DataFrame with Cell_ID as index and columns 
+        {'z', 'y', 'x'} with the detected spots coordinates.
+        Returned only if `return_df` is True
+    
+    spots_objs : list of region properties or None
+        List of region properties where each element has an additional attribute 
+        called `zyx_local_center`. None if `return_spots_mask` is False.
     """        
     if spot_footprint is None and spots_zyx_radii_pxl is not None:
         zyx_radii_pxl = [val/2 for val in spots_zyx_radii_pxl]
@@ -1071,13 +1081,15 @@ def spots_calc_features_and_filter(
 
     Returns
     -------
-    3-tuple of lists
-        First element is the list of keys that can be used to concatenate the 
-        dataframes that are in the second element and third element. 
-        The keys are the list of (frame_i, Cell_ID) elements.
-        The second element is the list of DataFrames with the features columns 
+    keys : list of 2-tuple (int, int) 
+        List of keys that can be used to concatenate the 
+        dataframes with 
+        `pandas.concat(dfs_spots_gop, keys=keys, names=['frame_i', 'Cell_ID'])` 
+    dfs_spots_det : list of pandas.DataFrames
+        List of DataFrames with the features columns 
         for each frame and ID of the segmented objects in `lab` 
-        The third element is the list of DataFrames with only the valid spots. 
+    dfs_spots_gop : list of pandas.DataFrames
+        Same as `dfs_spots_det` but with only the valid spots 
     """    
     if verbose:
         print('')
@@ -1350,10 +1362,14 @@ def spotfit(
         
     Returns
     -------
-    2-tuple of lists
-        First element is the list of keys that can be used to concatenate the 
-        dataframes that are in the second element. The keys are the list of 
-        (frame_i, Cell_ID) elements.
+    keys : list of 2-tuple (int, int) 
+        List of keys that can be used to concatenate the 
+        dataframes with 
+        `pandas.concat(dfs_spots_spotfit, keys=keys, names=['frame_i', 'Cell_ID'])`
+    
+    dfs_spots_spotfit : list of pandas.DataFrames
+        List of DataFrames with additional spotFIT features columns 
+        for each frame and ID of the segmented objects in `lab`
     """    
     if lab is None:
         lab = np.ones(spots_img.shape, dtype=np.uint8)
