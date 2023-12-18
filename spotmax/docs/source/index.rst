@@ -1,4 +1,4 @@
-.. |spotmaxlogo| image:: https://github.com/ElpadoCan/spotMAX/blob/5de91da6a709f42e03e4cc3d864d3d94f2b96efd/spotmax/resources/spotMAX_logo.png
+.. |spotmaxlogo| image:: _static/logo.png
    :width: 80
 
 |spotmaxlogo| SpotMAX

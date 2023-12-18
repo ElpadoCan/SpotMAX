@@ -22,7 +22,8 @@ extensions = [
     'sphinx.ext.autosectionlabel',
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
-    'sphinx_copybutton'
+    'sphinx_copybutton',
+    # 'sphinx_rtd_dark_mode'
 ]
 
 intersphinx_mapping = {
@@ -31,21 +32,20 @@ intersphinx_mapping = {
 }
 intersphinx_disabled_domains = ['std']
 
-html_favicon = (
-    'https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/main/cellacdc/resources/icon.ico'
-)
-
 templates_path = ['_templates']
-
-# -- Options for HTML output
-
-html_theme = 'sphinx_rtd_theme'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
 
+# -- Options for HTML output
+
+html_theme = 'sphinx_rtd_theme'
+# html_theme = "pydata_sphinx_theme"
+html_static_path = ["_static"]
+html_favicon = "_static/favicon.ico"
+html_logo = "_static/logo.png"
+
 # -- My css
-html_static_path = ['static']
 html_css_files = [
     'css/custom.css',
 ]
