@@ -81,12 +81,12 @@ def ridge(image, sigmas):
     filtered = skimage.filters.sato(image, sigmas=sigmas, black_ridges=False)
     return filtered
 
-def DoG_spots(image, spots_zyx_radii, use_gpu=False, logger_func=print):
-    spots_zyx_radii = np.array(spots_zyx_radii)
-    if image.ndim == 2 and len(spots_zyx_radii) == 3:
-        spots_zyx_radii = spots_zyx_radii[1:]
+def DoG_spots(image, spots_zyx_radii_pxl, use_gpu=False, logger_func=print):
+    spots_zyx_radii_pxl = np.array(spots_zyx_radii_pxl)
+    if image.ndim == 2 and len(spots_zyx_radii_pxl) == 3:
+        spots_zyx_radii_pxl = spots_zyx_radii_pxl[1:]
     
-    sigma1 = spots_zyx_radii/(1+SQRT_2)
+    sigma1 = spots_zyx_radii_pxl/(1+SQRT_2)
         
     blurred1 = gaussian(
         image, sigma1, use_gpu=use_gpu, logger_func=logger_func
