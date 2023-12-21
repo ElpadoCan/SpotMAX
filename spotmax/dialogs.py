@@ -32,7 +32,6 @@ from qtpy.QtWidgets import (
 )
 
 import pyqtgraph as pg
-from torch import NoneType
 
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
