@@ -62,6 +62,7 @@ ANALYSIS_STEP_RESULT_SLOTS = {
     'removeHotPixels': '_displayRemoveHotPixelsResult',
     'sharpenSpots': '_displaySharpenSpotsResult',
     'spotPredictionMethod': '_displaySpotPredictionResult',
+    'spotDetectionMethod': '_displaySpotDetectionResult',
     'refChSegmentationMethod': '_displaySegmRefChannelResult'
 }
 
@@ -72,6 +73,7 @@ PARAMS_SLOTS = {
     'removeHotPixels': ('sigComputeButtonClicked', '_computeRemoveHotPixels'),
     'sharpenSpots': ('sigComputeButtonClicked', '_computeSharpenSpots'),
     'spotPredictionMethod': ('sigComputeButtonClicked', '_computeSpotPrediction'),
+    'spotDetectionMethod': ('sigComputeButtonClicked', '_computeSpotDetection'),
     'refChSegmentationMethod': ('sigComputeButtonClicked', '_computeSegmentRefChannel')
 }
 
@@ -1141,7 +1143,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         
     @exception_handler
-    def _computeSpotPrediction(self, formWidget):
+    def _computeSpotPrediction(self, formWidget, run=True):
         proceed = self.checkPreprocessAcrossExp()
         if not proceed:
             self.logger.info('Computing spots segmentation cancelled.')
@@ -1162,7 +1164,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         all_kwargs = self.paramsToKwargs()
         if all_kwargs is None:
             self.logger.info('Process cancelled.')
-            return
+            return None, None
+        
         kwargs = {key:all_kwargs[key] for key in keys}
         
         kwargs = self.addNnetKwargs(kwargs)
@@ -1175,6 +1178,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             kwargs.get('bioimageio_params'), model_name='BioImage.IO model'
         )
         
+        if not run:
+            return args, kwargs
+        
         on_finished_callback = (
             self.startComputeAnalysisStepWorker, args, kwargs
         )
@@ -1182,6 +1188,31 @@ class spotMAX_Win(acdc_gui.guiWin):
             posData.img_data, posData.segm_data, 
             on_finished_callback=on_finished_callback,
             nnet_input_data=kwargs.get('nnet_input_data')
+        )
+    
+    def _computeSpotDetection(self, formWidget):
+        spots_pred_args, spots_pred_kwargs = self._computeSpotPrediction(
+            run=False
+        )
+        if spots_pred_args is None:
+            return
+
+        # Add the next step to the prediction step 
+        # (finished slot for ComputeAnalysisStepWorker)
+        spots_pred_kwargs['onFinishedSlot'] = (
+            self._computeSpotDetectionFromPredictionResult
+        )
+        
+        posData = self.data[self.pos_i]
+        on_finished_callback = (
+            self.startComputeAnalysisStepWorker, 
+            spots_pred_args, 
+            spots_pred_kwargs
+        )
+        self.startCropImageBasedOnSegmDataWorkder(
+            posData.img_data, posData.segm_data, 
+            on_finished_callback=on_finished_callback,
+            nnet_input_data=spots_pred_kwargs.get('nnet_input_data')
         )
     
     def logNnetParams(self, nnet_params, model_name='spotMAX AI model'):
@@ -1575,6 +1606,13 @@ class spotMAX_Win(acdc_gui.guiWin):
             window_title=window_title, color_scheme=self._colorScheme
         )
     
+    def _computeSpotDetectionFromPredictionResult(self, result, image):
+        import pdb; pdb.set_trace()
+        ...
+    
+    def _displaySpotDetectionResult(self, result, image):
+        ...
+    
     def _displaySegmRefChannelResult(self, result, image):
         from cellacdc.plot import imshow
         
@@ -1618,8 +1656,14 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.progressWin.mainPbar.setMaximum(0)
             self.progressWin.show(self.app)
         
-        worker = qtworkers.ComputeAnalysisStepWorker(module_func, anchor, **kwargs)
-        worker.signals.finished.connect(self.computeAnalysisStepWorkerFinished)
+        onFinishedSlot = kwargs.pop(
+            'onFinishedSlot', self.computeAnalysisStepWorkerFinished
+        )
+        
+        worker = qtworkers.ComputeAnalysisStepWorker(
+            module_func, anchor, **kwargs
+        )
+        worker.signals.finished.connect(onFinishedSlot)
         worker.signals.progress.connect(self.workerProgress)
         worker.signals.initProgressBar.connect(self.workerInitProgressbar)
         worker.signals.progressBar.connect(self.workerUpdateProgressbar)

@@ -1,12 +1,9 @@
 import os
 import numpy as np
 import skimage
-import yaml
 
 import skimage.measure
 import skimage.transform
-
-import torch
 
 from cellacdc.types import Vector
 
@@ -21,6 +18,7 @@ def install_and_import_modules():
     return transform, Data, Operation, NDModel, Models
 
 def read_default_config():
+    import yaml
     try:
         with open(config_yaml_path, 'r') as f:
             default_config = yaml.safe_load(f)
@@ -132,6 +130,7 @@ class Model:
         self.model = self._init_model(model_type)
     
     def _load_config(self, config_yaml_filepath):
+        import yaml
         with open(config_yaml_filepath, 'r') as f:
             _config = yaml.safe_load(f)
         return _config
@@ -160,6 +159,7 @@ class Model:
         return x_transformer
 
     def _get_device_str(self, use_gpu: bool):
+        import torch
         if use_gpu and torch.backends.mps.is_available():
             device = 'mps'
         elif use_gpu and torch.cuda.is_available():

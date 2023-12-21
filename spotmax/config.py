@@ -913,16 +913,6 @@ def _ref_ch_params():
 
 def _spots_ch_params():
     spots_ch_params = {
-        'spotDetectionMethod': {
-            'desc': 'Spots detection method',
-            'initialVal': 'peak_local_max', # or 'label_prediction_mask'
-            'stretchWidget': True,
-            'addInfoButton': True,
-            'addComputeButton': False,
-            'addApplyButton': False,
-            'formWidgetFunc': 'widgets._spotDetectionMethod',
-            'actions': None
-        },
         'spotPredictionMethod': {
             'desc': 'Spots segmentation method',
             'initialVal': 'Thresholding',
@@ -945,6 +935,16 @@ def _spots_ch_params():
             'dtype': get_threshold_func,
             'parser': parse_threshold_func,
             'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
+        },
+        'spotDetectionMethod': {
+            'desc': 'Spots detection method',
+            'initialVal': 'peak_local_max', # or 'label_prediction_mask'
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets._spotDetectionMethod',
+            'actions': None
         },
         'gopThresholds': {
             'desc': 'Features and thresholds for filtering true spots',
