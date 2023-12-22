@@ -1403,6 +1403,32 @@ class ParamsGroupBox(QGroupBox):
         spotMinSizeLabels.umLabel.setText(zyxMinSize_um_txt)
         
         self.sigResolMultiplValueChanged.emit(yxResolMultiplier)
+        
+        formWidget = metadata['spotMinSizeLabels']['formWidget']
+        warningButton = formWidget.warningButton
+        warningButton.hide()
+        if any([val<2 for val in zyxMinSize_pxl]):
+            warningButton.show()
+            try:
+                formWidget.sigWarningButtonClicked.disconnect()
+            except Exception as err:
+                pass
+            formWidget.sigWarningButtonClicked.connect(
+                self.warnSpotSizeMightBeTooLow
+            )
+    
+    def warnSpotSizeMightBeTooLow(self, formWidget):
+        spotMinSizeLabels = formWidget.widget.pixelLabel.text()
+        txt = html_func.paragraph(f"""
+            One or more radii of the <code>{formWidget.text()}</code> are 
+            <b>less than 2 pixels</b>.<br><br>
+            This means that spotMAX can detect spots that are 1 pixel away 
+            along the dimension that is less than 2 pixels.<br><br>
+            We recommend <b>increasing the radii to at least 3 pixels</b>.<br><br>
+            Current <code>{formWidget.text()} = {spotMinSizeLabels}</code>
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(self, 'Minimimum spot size potentially too low', txt)
     
     def configIniParams(self):
         ini_params = {}

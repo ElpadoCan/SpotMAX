@@ -440,8 +440,8 @@ def index_aggregated_segm_into_input_lab(lab, aggregated_segm, aggregated_lab):
         segm_lab[zz, yy, xx] = obj.label
     return segm_lab
 
-def get_local_spheroid_mask(zyx_radii_pxl):
-    zr, yr, xr = zyx_radii_pxl
+def get_local_spheroid_mask(spots_zyx_radii_pxl, logger_func=print):
+    zr, yr, xr = spots_zyx_radii_pxl
     wh, d = int(np.ceil(yr)), int(np.ceil(zr))
 
     # Generate a sparse meshgrid to evaluate 3D spheroid mask

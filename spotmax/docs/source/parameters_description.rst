@@ -140,9 +140,9 @@ METADATA
 * **Spot minimum z-size** (:m:`\mu m`): Rough estimation of the smallest spot radius in 
   z-direction. As a rule of thumb you can use 2-3 times higher than the resolution 
   limit in X and Y. Another option is to visually measure this on a couple of spots. 
-  The idea is that no two spots can be detected within the smallest spot size. In the 
-  GUI, you can see the estimated minimum spot size at the 
-  **Spot (z, y, x) minimum dimensions (radius)** line. 
+  The idea is that spots centers cannot be at a smaller distance than the radius of 
+  the minimum size allowed. In the GUI, you can see the estimated minimum spot 
+  size at the **Spot (z, y, x) minimum dimensions (radius)** line. 
 
 * **Resolution multiplier in y- and x- direction**: This parameter allows you to modify the 
   calculated minimum spots size. The default value of 1 will result in the radius of the 

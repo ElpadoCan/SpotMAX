@@ -96,7 +96,7 @@ class ComputeAnalysisStepWorker(QRunnable):
         self.kwargs['logger_func'] = self.logger.log
         
         result = func(**self.kwargs)
-        self.signals.finished.emit((result, self.kwargs['image'], self.anchor))
+        self.signals.finished.emit((result, self.kwargs.get('image'), self.anchor))
 
 class LoadImageWorker(QRunnable):
     def __init__(

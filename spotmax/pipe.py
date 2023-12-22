@@ -924,6 +924,7 @@ def spot_detection(
         spot_footprint = transformations.get_local_spheroid_mask(
             zyx_radii_pxl
         )
+        
     if spot_footprint is not None:
         spot_footprint = np.squeeze(spot_footprint)
     

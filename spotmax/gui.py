@@ -50,6 +50,7 @@ from . import widgets, config
 from . import tune, utils
 from . import core
 from . import base_lineage_table_values
+from . import transformations
 
 from . import qrc_resources_spotmax
 
@@ -63,18 +64,26 @@ ANALYSIS_STEP_RESULT_SLOTS = {
     'sharpenSpots': '_displaySharpenSpotsResult',
     'spotPredictionMethod': '_displaySpotPredictionResult',
     'spotDetectionMethod': '_displaySpotDetectionResult',
-    'refChSegmentationMethod': '_displaySegmRefChannelResult'
+    'refChSegmentationMethod': '_displaySegmRefChannelResult',
+    'spotMinSizeLabels': '_displaySpotFootprint',
 }
 
 PARAMS_SLOTS = {
     'gaussSigma': ('sigComputeButtonClicked', '_computeGaussFilter'),
     'refChGaussSigma': ('sigComputeButtonClicked', '_computeRefChGaussSigma'),
-    'refChRidgeFilterSigmas': ('sigComputeButtonClicked', '_computeRefChRidgeFilter'),
+    'refChRidgeFilterSigmas': (
+        'sigComputeButtonClicked', '_computeRefChRidgeFilter'
+    ),
     'removeHotPixels': ('sigComputeButtonClicked', '_computeRemoveHotPixels'),
     'sharpenSpots': ('sigComputeButtonClicked', '_computeSharpenSpots'),
     'spotPredictionMethod': ('sigComputeButtonClicked', '_computeSpotPrediction'),
     'spotDetectionMethod': ('sigComputeButtonClicked', '_computeSpotDetection'),
-    'refChSegmentationMethod': ('sigComputeButtonClicked', '_computeSegmentRefChannel')
+    'refChSegmentationMethod': (
+        'sigComputeButtonClicked', '_computeSegmentRefChannel'
+    ),
+    'spotMinSizeLabels': (
+        'sigComputeButtonClicked', '_computeSpotFootprint'
+    )
 }
 
 SliderSingleStepAdd = acdc_gui.SliderSingleStepAdd
@@ -608,6 +617,22 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     @exception_handler
+    def _computeSpotFootprint(self, formWidget):
+        self.funcDescription = 'Get spot footprint'
+        module_func = 'transformations.get_local_spheroid_mask'
+        anchor = 'spotMinSizeLabels'
+        
+        args = [module_func, anchor]
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii_pxl = spotMinSizeLabels.pixelValues()
+        zyx_radii_pxl = [val/2 for val in spots_zyx_radii_pxl]
+        kwargs = {'spots_zyx_radii_pxl': zyx_radii_pxl}
+        self.startComputeAnalysisStepWorker(*args, **kwargs)
+                
+    
+    @exception_handler
     def _computeRefChGaussSigma(self, formWidget):
         self.funcDescription = 'Initial gaussian filter'
         module_func = 'pipe.preprocess_image'
@@ -798,7 +823,9 @@ class spotMAX_Win(acdc_gui.guiWin):
                 # Without segm data we evaluate the entire image
                 lab = None
             kwargs['lab'] = lab
-    
+
+        printl(args, kwargs.keys())
+        
         func(*args, **kwargs)
     
     @exception_handler
@@ -823,7 +850,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         metadataParams = ParamsGroupBox.params['METADATA']
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
         spots_zyx_radii = spotMinSizeLabels.pixelValues()
-        size = spots_zyx_radii[-1]*2
+        size = spots_zyx_radii[-1]
         self.setHoverToolSymbolData(
             [x], [y], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             size=size
@@ -862,7 +889,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         metadataParams = ParamsGroupBox.params['METADATA']
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
         spots_zyx_radii = spotMinSizeLabels.pixelValues()
-        size = spots_zyx_radii[-1]*2
+        
+        # Note that here we visualize the spot with a diameter equal to the 
+        # entered radius because we want to show the user the smaller volume
+        # where a single spot can be detected. Basically this is the 
+        # spot footprint passed to peak_local_max
+        size = spots_zyx_radii[-1]
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.setAutoTunePointSize(size)
@@ -1088,6 +1120,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         optimise_with_edt = (
             spotsParams['optimiseWithEdt']['widget'].isChecked()
         )
+        detection_method = (
+            spotsParams['spotDetectionMethod']['widget'].currentText()
+        )
         
         configParams = ParamsGroupBox.params['Configuration']
         use_gpu = configParams['useGpu']['widget'].isChecked()
@@ -1108,7 +1143,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             'optimise_with_edt': optimise_with_edt,
             'use_gpu': use_gpu, 'sigma': gauss_sigma, 
             'ref_ch_endname': refChEndName,
-            'tune_features_range': tune_features_range
+            'tune_features_range': tune_features_range,
+            'detection_method': detection_method
         }
         
         return kwargs
@@ -1143,7 +1179,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         
     @exception_handler
-    def _computeSpotPrediction(self, formWidget, run=True):
+    def _computeSpotPrediction(self, formWidget, run=True, **kwargsToAdd):
         proceed = self.checkPreprocessAcrossExp()
         if not proceed:
             self.logger.info('Computing spots segmentation cancelled.')
@@ -1168,10 +1204,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         kwargs = {key:all_kwargs[key] for key in keys}
         
-        kwargs = self.addNnetKwargs(kwargs)
+        kwargs = self.addNnetKwargsAndThresholdMethodIfNeeded(kwargs)
         
         section = 'Spots channel'
         kwargs = self.addBioImageIOModelKwargs(kwargs, section, anchor)
+        
+        kwargs = {**kwargs, **kwargsToAdd}
         
         self.logNnetParams(kwargs.get('nnet_params'))
         self.logNnetParams(
@@ -1190,25 +1228,30 @@ class spotMAX_Win(acdc_gui.guiWin):
             nnet_input_data=kwargs.get('nnet_input_data')
         )
     
+    @exception_handler
     def _computeSpotDetection(self, formWidget):
+        kwargsToAdd = {
+            'do_try_all_thresholds': False
+        }
         spots_pred_args, spots_pred_kwargs = self._computeSpotPrediction(
-            run=False
+            None, run=False, **kwargsToAdd
         )
         if spots_pred_args is None:
             return
 
-        # Add the next step to the prediction step 
-        # (finished slot for ComputeAnalysisStepWorker)
-        spots_pred_kwargs['onFinishedSlot'] = (
-            self._computeSpotDetectionFromPredictionResult
-        )
-        
         posData = self.data[self.pos_i]
         on_finished_callback = (
             self.startComputeAnalysisStepWorker, 
             spots_pred_args, 
             spots_pred_kwargs
         )
+        
+        # Add the next step to the prediction step 
+        # (finished slot for ComputeAnalysisStepWorker)
+        spots_pred_kwargs['onFinishedSlot'] = (
+            self._computeSpotDetectionFromPredictionResult
+        )
+        
         self.startCropImageBasedOnSegmDataWorkder(
             posData.img_data, posData.segm_data, 
             on_finished_callback=on_finished_callback,
@@ -1235,7 +1278,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         text = f'{text}{closing}'
         self.logger.info(text)        
         
-    def addNnetKwargs(self, kwargs):
+    def addNnetKwargsAndThresholdMethodIfNeeded(self, kwargs):
         if not self.isNeuralNetworkRequested():
             return kwargs
         
@@ -1261,6 +1304,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs['do_try_all_thresholds'] = False
         
         return kwargs
+    
+    def getSpotFootprint(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii_pxl = spotMinSizeLabels.pixelValues()
+        zyx_radii_pxl = [val/2 for val in spots_zyx_radii_pxl]
+        spot_footprint = transformations.get_local_spheroid_mask(
+            zyx_radii_pxl
+        )
+        return spot_footprint
     
     def getNeuralNetInputData(self):
         useTranformedDataTime = (
@@ -1501,7 +1555,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             on_finished_callback=on_finished_callback
         )
     
-    def _displayGaussSigmaResult(self, result, image):
+    def _displayGaussSigmaResult(self, filtered, image):
         from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
         
@@ -1512,7 +1566,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         sigma = preprocessParams[anchor]['widget'].value()
         titles = ['Raw image', f'Filtered image (sigma = {sigma})']
         imshow(
-            image, result, axis_titles=titles, parent=self, 
+            image, filtered, axis_titles=titles, parent=self, 
             window_title='Pre-processing - Gaussian filter',
             color_scheme=self._colorScheme
         )
@@ -1606,12 +1660,63 @@ class spotMAX_Win(acdc_gui.guiWin):
             window_title=window_title, color_scheme=self._colorScheme
         )
     
-    def _computeSpotDetectionFromPredictionResult(self, result, image):
-        import pdb; pdb.set_trace()
-        ...
+    def _computeSpotDetectionFromPredictionResult(self, output):
+        # This method is called as a slot of the finished signal in 
+        # startComputeAnalysisStepWorker. It is the next step defined 
+        # in _computeSpotDetection.
+        result, image, spotPredAnchor = output
+        
+        posData = self.data[self.pos_i]
+        inputImage = result['input_image']
+        
+        if 'neural_network' in result:
+            segmSpotsMask = result['neural_network']
+        elif 'bioimageio_model' in result:
+            segmSpotsMask = result['bioimageio_model']
+        else:
+            segmSpotsMask = result['custom']
+        
+        self.funcDescription = 'Spots detection'
+        module_func = 'pipe.spot_detection'
+        anchor = 'spotDetectionMethod'
+        args = [module_func, anchor]
+        
+        keys = [
+            'detection_method',
+            'spots_zyx_radii_pxl',
+            'lab',
+        ]
+        all_kwargs = self.paramsToKwargs()
+        if all_kwargs is None:
+            self.logger.info('Process cancelled.')
+            return None, None
+        
+        kwargs = {key:all_kwargs[key] for key in keys}
+        kwargs['return_df'] = True
+        kwargs['return_spots_mask'] = True
+        kwargs['spots_segmantic_segm'] = segmSpotsMask
+        kwargs['spot_footprint'] = self.getSpotFootprint()
+        
+        on_finished_callback = (
+            self.startComputeAnalysisStepWorker, args, kwargs
+        )
+        self.startCropImageBasedOnSegmDataWorkder(
+            inputImage, posData.segm_data, 
+            on_finished_callback=on_finished_callback,
+            nnet_input_data=kwargs.get('nnet_input_data')
+        )
     
     def _displaySpotDetectionResult(self, result, image):
-        ...
+        df_coords, spots_objs = result
+        printl(df_coords)
+    
+    def _displaySpotFootprint(self, spot_footprint, image):
+        from cellacdc.plot import imshow
+        imshow(
+            spot_footprint, 
+            window_title='Spot footprint',
+            axis_titles=['Spot footprint']
+        )
     
     def _displaySegmRefChannelResult(self, result, image):
         from cellacdc.plot import imshow
@@ -1918,7 +2023,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         metadataParams['yxResolLimitMultiplier']['widget'].setValue(value)
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
         spots_zyx_radii = spotMinSizeLabels.pixelValues()
-        size = spots_zyx_radii[-1]*2
+        size = spots_zyx_radii[-1]
         self.ax2_BrushCircle.setSize(size)
         self.ax1_BrushCircle.setSize(size)
     

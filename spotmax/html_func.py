@@ -108,11 +108,13 @@ def ul(*items):
     return tag(txt, tag_info='ul')
 
 def simple_rst_to_html(rst_text):
-    valid_chars = r'[A-Za-z0-9\-\.=_ ]'
+    valid_chars = r'[,A-Za-z0-9\-\.=_ \<\>\(\)\\]'
     html_text = rst_text.strip('\n')
     html_text = html_text.replace('\n', '<br>')
     html_text = html_text.replace(' <br>', '<br>')
+    html_text = html_text.replace('<br> ', '<br>')
     html_text = re.sub(rf'``({valid_chars}+)``', r'<code>\1</code>', html_text)
+    html_text = re.sub(rf':m:`({valid_chars}+)`', r'<code>\1</code>', html_text)
     html_text = re.sub(rf'\*\*({valid_chars}+)\*\*', r'<b>\1</b>', html_text)
     html_text = re.sub(rf'\*({valid_chars}+)\*', r'<i>\1</i>', html_text)
     html_text = re.sub(rf'`({valid_chars}+)`_', r'<b>\1</b>', html_text)

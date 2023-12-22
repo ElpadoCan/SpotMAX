@@ -729,6 +729,8 @@ def _metadata_params():
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,
+            'addWarningButton': True,
+            'addComputeButton': True,
             'formWidgetFunc': 'widgets._spotMinSizeLabels',
             'actions': None,
             'isParam': False

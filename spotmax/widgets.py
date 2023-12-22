@@ -46,6 +46,8 @@ from . import utils
 from . import features, io
 
 LINEEDIT_INVALID_ENTRY_STYLESHEET = lineedit_invalid_entry_stylesheet()
+SECTION_OPTION_TO_DESC_MAPPER = docs.get_params_desc_mapper()
+
 
 def removeHSVcmaps():
     hsv_cmaps = []
@@ -611,7 +613,7 @@ class _spotDetectionMethod(myQComboBox):
         return self.currentText()
 
     def text(self):
-        return self.text()
+        return self.currentText()
 
 def _spotPredictionMethod():
     widget = myQComboBox()
@@ -882,6 +884,7 @@ class formWidget(QWidget):
     sigComputeButtonClicked = Signal(object)
     sigBrowseButtonClicked = Signal(object)
     sigAutoButtonClicked = Signal(object)
+    sigWarningButtonClicked = Signal(object)
     sigLinkClicked = Signal(str)
     sigEditClicked = Signal(object)
 
@@ -897,6 +900,7 @@ class formWidget(QWidget):
             addApplyButton=False,
             addComputeButton=False,
             addBrowseButton=False,
+            addWarningButton=False,
             addAutoButton=False,
             addEditButton=False,
             addLabel=True,
@@ -1004,6 +1008,15 @@ class formWidget(QWidget):
             self.items.append(computeButton)
             self.computeButtons.append(computeButton)
 
+        if addWarningButton:
+            warningButton = acdc_widgets.WarningButton(self)
+            warningButton.setRetainSizeWhenHidden(True)
+            warningButton.setToolTip('WARNING! Click for more details')
+            warningButton.clicked.connect(self.warningButtonClicked)
+            warningButton.hide()
+            self.warningButton = warningButton
+            self.items.append(warningButton)
+        
         if addLabel:
             self.labelLeft.clicked.connect(self.tryChecking)
         self.labelRight.clicked.connect(self.tryChecking)
@@ -1065,6 +1078,9 @@ class formWidget(QWidget):
             self.warnComputeButtonNotConnected()
         self.sigComputeButtonClicked.emit(self)
     
+    def warningButtonClicked(self):
+        self.sigWarningButtonClicked.emit(self)
+    
     def warnComputeButtonNotConnected(self):
         txt = html_func.paragraph("""
             Before computing any of the analysis steps you need to <b>load some 
@@ -1083,7 +1099,18 @@ class formWidget(QWidget):
 
     def showInfo(self):
         url = docs.params_desc_section_to_url(self.section)
-        QDesktopServices.openUrl(QUrl(url))
+        
+        key = (self.section, self.text())
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = f'{html_func.paragraph(SECTION_OPTION_TO_DESC_MAPPER[key])}<br>'
+        buttons = (
+            acdc_widgets.OpenUrlButton(url, 'Browse documentation'), 
+            'Ok'
+        )
+        msg.information(
+            self, f'`{self.text()}` description', txt, 
+            buttonsTexts=buttons
+        )
         
         # txt = html_func.paragraph(
         #     _docs.paramsInfoText().get(anchor, _docs.notDocumentedYetText())
@@ -1844,6 +1871,7 @@ def ParamFormWidget(anchor, param, parent, use_tune_widget=False):
         stretchWidget=param.get('stretchWidget', True),
         addInfoButton=param.get('addInfoButton', True),
         addComputeButton=param.get('addComputeButton', False),
+        addWarningButton=param.get('addWarningButton', False),
         addApplyButton=param.get('addApplyButton', False),
         addBrowseButton=param.get('addBrowseButton', False),
         addAutoButton=param.get('addAutoButton', False),
