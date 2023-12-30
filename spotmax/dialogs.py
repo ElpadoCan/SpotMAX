@@ -1439,6 +1439,7 @@ class ParamsGroupBox(QGroupBox):
                 initialVal = options['initialVal']
                 widget = options['widget']
                 if groupbox.isCheckable() and not groupbox.isChecked():
+                    # Use default value if the entire section is not checked
                     value = initialVal
                 elif isinstance(initialVal, bool):
                     value = widget.isChecked()

@@ -152,7 +152,13 @@ METADATA
 
 * **Spot (z, y, x) minimum dimensions (radius)**: This is not a parameter. On the GUI 
   here you will see the result of minimum spot radii estimation, both in pixels and 
-  micrometers. Tune the parameters above until you roughly get this right.
+  micrometers. Note that while these values are the radii of the ellipsoid that 
+  determines the extent of each spot (i.e., the pixels that belong to a spot), they also 
+  are the diameter of the spot footprint, which is the minimum volume where only 
+  one spot can be detected. This is because two spots can be resolved as long as the distance 
+  between their centers is less or equal than the radius of each spot (see the "Abbe diffraction limit").
+  In the ``Tune parameters`` tab on the GUI you can visually set the **Resolution multiplier in y- and x- direction** 
+  by adding points and pressing up and down key arrows to adjust the size. 
 
 Pre-processing
 --------------

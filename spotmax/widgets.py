@@ -867,7 +867,12 @@ class _spotMinSizeLabels(QWidget):
         self.pixelLabel.setText(text)
     
     def text(self):
-        return ''
+        roundPixels = [str(round(val, 2)) for val in self.pixelValues()]
+        textPixel = ', '.join(roundPixels)
+        roundUm = [str(round(val, 3)) for val in self.umValues()]
+        textUm = ', '.join(roundUm)
+        text = f'({textPixel}) pixel ; ({textUm}) micrometer'
+        return text
     
     def pixelValues(self):
         text = self.pixelLabel.text()
@@ -1104,7 +1109,7 @@ class formWidget(QWidget):
         msg = acdc_widgets.myMessageBox(wrapText=False)
         txt = f'{html_func.paragraph(SECTION_OPTION_TO_DESC_MAPPER[key])}<br>'
         buttons = (
-            acdc_widgets.OpenUrlButton(url, 'Browse documentation'), 
+            acdc_widgets.OpenUrlButton(url, 'Browse documentation...'), 
             'Ok'
         )
         msg.information(
