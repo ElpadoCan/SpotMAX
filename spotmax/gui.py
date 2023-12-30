@@ -1230,8 +1230,10 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     @exception_handler
     def _computeSpotDetection(self, formWidget):
+        threshold_func = self.getSpotsThresholdMethod()
         kwargsToAdd = {
-            'do_try_all_thresholds': False
+            'do_try_all_thresholds': False,
+            'thresholding_method': threshold_func
         }
         spots_pred_args, spots_pred_kwargs = self._computeSpotPrediction(
             None, run=False, **kwargsToAdd
@@ -1660,11 +1662,14 @@ class spotMAX_Win(acdc_gui.guiWin):
             window_title=window_title, color_scheme=self._colorScheme
         )
     
+    @exception_handler
     def _computeSpotDetectionFromPredictionResult(self, output):
         # This method is called as a slot of the finished signal in 
         # startComputeAnalysisStepWorker. It is the next step defined 
         # in _computeSpotDetection.
         result, image, spotPredAnchor = output
+        
+        printl(result.keys())
         
         posData = self.data[self.pos_i]
         inputImage = result['input_image']

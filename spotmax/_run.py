@@ -17,7 +17,7 @@ def run_gui(debug=False, app=None):
 
     EXEC = False
     if app is None:
-        icon_path = ":icon_spotmax.ico"
+        icon_path = os.path.join(resources_folderpath, 'spotMAX_icon.ico')
         logo_path = os.path.join(resources_folderpath, 'spotMAX_logo.png')
         app, splashScreen = _setup_app(
             icon_path=icon_path, logo_path=logo_path, splashscreen=True

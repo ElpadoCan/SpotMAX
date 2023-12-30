@@ -92,7 +92,7 @@ gui_settings_csv_path = os.path.join(settings_path, 'gui_settings.csv')
 
 from cellacdc import printl as acdc_printl
 def printl(*objects, **kwargs):
-    acdc_printl(*objects, **kwargs)
+    acdc_printl(*objects, idx=2, **kwargs)
 
 is_linux = sys.platform.startswith('linux')
 is_mac = sys.platform == 'darwin'
