@@ -1708,9 +1708,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.logger.info(
             f'Total number of detected spots = {len(df_coords)}'
         )
+        df_spots_count = df_coords[['z']].groupby(level=0).count()
+        df_spots_count = df_spots_count.rename(columns={'z': 'Number of spots'})
         self.logger.info(
             f'Number of detected spots per objects:\n'
-            f'{df_coords.groupby(level=0).count()}'
+            f'{df_spots_count}'
         )
         from cellacdc.plot import imshow
         imshow(
