@@ -2216,11 +2216,11 @@ class spheroid:
         return slice_G_to_L, slice_crop
 
 
-    def index_local_into_global_mask(self, global_mask, local_mask, zyx_c,
-                                       semiax_len, Z, Y, X,
-                                       additional_global_arr=None,
-                                       additional_local_arr=None,
-                                       do_sum=False, return_slice=False):
+    def index_local_into_global_mask(
+            self, global_mask, local_mask, zyx_c,
+            semiax_len, Z, Y, X, additional_global_arr=None,
+            additional_local_arr=None, do_sum=False, return_slice=False
+        ):
         """
         Insert local spot mask (which has shape = size of the spot)
         into global mask (which has shape = shape of V_spots).
@@ -2228,7 +2228,8 @@ class spheroid:
         cropped before being inserted.
         """
         slice_G_to_L, slice_crop = self.get_slice_G_to_L(
-                                                     semiax_len, zyx_c, Z, Y, X)
+            semiax_len, zyx_c, Z, Y, X
+        )
 
         cropped_mask = local_mask[slice_crop].copy()
 

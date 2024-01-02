@@ -34,21 +34,6 @@ spotmax_path = os.path.dirname(os.path.abspath(__file__))
 qrc_resources_path = os.path.join(spotmax_path, 'qrc_resources_spotmax.py')
 resources_folderpath = os.path.join(spotmax_path, 'resources')
 
-# Replace 'from PyQt5' with 'from qtpy' in qrc_resources.py file
-try:
-    save_qrc = False
-    with open(qrc_resources_path, 'r') as qrc_py:
-        text = qrc_py.read()
-        if text.find('from PyQt5') != -1:
-            text = text.replace('from PyQt5', 'from qtpy')
-            save_qrc = True
-    if save_qrc:
-        with open(qrc_resources_path, 'w') as qrc_py:
-            qrc_py.write(text)
-except Exception as err:
-    raise err
-
-
 import inspect
 from datetime import datetime
 from pprint import pprint

@@ -867,7 +867,8 @@ def spot_detection(
         spots_zyx_radii_pxl=None,
         return_spots_mask=False,
         lab=None,
-        return_df=False
+        return_df=False,
+        logger_func=None
     ):
     """Detect spots and return their coordinates
 
@@ -902,8 +903,11 @@ def spot_detection(
         If None, it will be generated with one object covering the entire image. 
         Default is None.
     return_df : bool, optional
-        If True, returns a pandas DataFrame. 
-        Default is False
+        If True, returns a pandas DataFrame. More details on the returned 
+        items section below. Default is False
+    logger_func : callable, optional
+        If not None, this is the function used to print or log process information. 
+        Default is None
 
     Returns
     -------
@@ -935,14 +939,29 @@ def spot_detection(
     
     spots_objs = None
     
+    if logger_func is not None:
+        logger_func(f'Detecting spots with method `{detection_method}`')
+    
     if detection_method == 'peak_local_max':
+        detect_image = np.squeeze(image)
+        if detect_image.ndim == 2 and spot_footprint.ndim == 3:
+            # Make sure spot_footprint is 2D like the input image
+            spot_footprint = spot_footprint.max(axis=0)
         spots_coords = skimage.feature.peak_local_max(
             np.squeeze(image), 
             footprint=spot_footprint, 
             labels=spots_segmantic_segm
         )
+        spots_coords = transformations.reshape_spots_coords_to_3D(spots_coords)
+        if return_spots_mask:
+            spots_objs = transformations.from_spots_coords_to_spots_objs(
+                spots_coords, image.shape, spots_zyx_radii_pxl
+            )
     elif detection_method == 'label_prediction_mask':
         prediction_lab = skimage.measure.label(spots_segmantic_segm>0)
+        prediction_lab, _ = transformations.reshape_lab_image_to_3D(
+            prediction_lab, image
+        )
         prediction_lab_rp = skimage.measure.regionprops(prediction_lab)
         num_spots = len(prediction_lab_rp)
         spots_coords = np.zeros((num_spots, 3), dtype=int)

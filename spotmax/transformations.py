@@ -1,4 +1,5 @@
 import os
+from typing import Type
 
 import numpy as np
 import pandas as pd
@@ -498,6 +499,22 @@ def reshape_lab_image_to_3D(lab, image):
         lab = np.array([lab]*len(image))
     return lab, image
 
+def reshape_spots_coords_to_3D(spots_coords):
+    nrows, ncols = spots_coords.shape
+    if ncols == 3:
+        return spots_coords
+    
+    if ncols == 2:
+        reshaped_spots_coords = np.ones(
+            (nrows, 3), dtype=spots_coords.dtype
+        )
+        reshaped_spots_coords[:, 1:] = spots_coords
+        return reshaped_spots_coords
+    
+    raise TypeError(
+        f'`spots_coords` has {ncols} columns. Allowed values are 2 or 3.'
+    )
+
 def to_local_zyx_coords(obj, global_zyx_coords):
     depth, height, width = obj.image.shape
     zmin, ymin, xmin, _, _, _ = obj.bbox
@@ -672,3 +689,31 @@ def from_spots_coords_arr_to_df(spots_coords, lab):
         df_coords.loc[obj.label, 'x_local'] = xx - xmin  
     
     return df_coords
+
+def from_spots_coords_to_spots_objs(spots_coords, arr_shape, spot_zyx_size):
+    lab = np.zeros(arr_shape, dtype=np.uint32)
+    spots_objs = []
+    spot_mask = get_local_spheroid_mask(spot_zyx_size)
+    for i, zyx_center in enumerate(spots_coords):
+        slices = get_slices_local_into_global_3D_arr(
+            zyx_center, arr_shape, spot_mask.shape
+        )
+        slice_global_to_local, slice_crop_local = slices
+        cropped_spot_mask = spot_mask[slice_crop_local].copy()
+        lab[slice_global_to_local][cropped_spot_mask] = i+1
+        spot_obj = skimage.measure.regionprops(lab)[0]
+        zmin, ymin, xmin, _, _, _ = spot_obj.bbox
+        spot_obj.zyx_local_center = (
+            zyx_center[0] - zmin,
+            zyx_center[1] - ymin,
+            zyx_center[2] - xmin
+        )
+        spots_objs.append(spot_obj)
+    return spots_objs
+
+def from_spots_objs_to_spots_lab(spots_objs, arr_shape):
+    spots_lab = np.zeros(arr_shape, dtype=np.uint32)
+    for spot_obj in spots_objs:
+        id = spot_obj.label
+        spots_lab[spot_obj.slice][spot_obj.image] = id
+    return spots_lab

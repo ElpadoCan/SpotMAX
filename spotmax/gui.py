@@ -43,6 +43,7 @@ from cellacdc import exception_handler
 from cellacdc import load as acdc_load
 from cellacdc import io as acdc_io
 from cellacdc.myutils import get_salute_string, determine_folder_type
+from cellacdc import qrc_resources
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
@@ -51,8 +52,6 @@ from . import tune, utils
 from . import core
 from . import base_lineage_table_values
 from . import transformations
-
-from . import qrc_resources_spotmax
 
 LINEAGE_COLUMNS = list(base_lineage_table_values.keys())
 
@@ -823,8 +822,6 @@ class spotMAX_Win(acdc_gui.guiWin):
                 # Without segm data we evaluate the entire image
                 lab = None
             kwargs['lab'] = lab
-
-        printl(args, kwargs.keys())
         
         func(*args, **kwargs)
     
@@ -1665,13 +1662,10 @@ class spotMAX_Win(acdc_gui.guiWin):
     @exception_handler
     def _computeSpotDetectionFromPredictionResult(self, output):
         # This method is called as a slot of the finished signal in 
-        # startComputeAnalysisStepWorker. It is the next step defined 
-        # in _computeSpotDetection.
-        result, image, spotPredAnchor = output
+        # startComputeAnalysisStepWorker that is performed after 
+        # _computeSpotDetection.
+        result, image, lab, spotPredAnchor = output
         
-        printl(result.keys())
-        
-        posData = self.data[self.pos_i]
         inputImage = result['input_image']
         
         if 'neural_network' in result:
@@ -1697,23 +1691,34 @@ class spotMAX_Win(acdc_gui.guiWin):
             return None, None
         
         kwargs = {key:all_kwargs[key] for key in keys}
+        kwargs['image'] = inputImage
+        kwargs['lab'] = lab
         kwargs['return_df'] = True
         kwargs['return_spots_mask'] = True
         kwargs['spots_segmantic_segm'] = segmSpotsMask
         kwargs['spot_footprint'] = self.getSpotFootprint()
         
-        on_finished_callback = (
-            self.startComputeAnalysisStepWorker, args, kwargs
-        )
-        self.startCropImageBasedOnSegmDataWorkder(
-            inputImage, posData.segm_data, 
-            on_finished_callback=on_finished_callback,
-            nnet_input_data=kwargs.get('nnet_input_data')
-        )
+        self.startComputeAnalysisStepWorker(*args, **kwargs)
     
     def _displaySpotDetectionResult(self, result, image):
         df_coords, spots_objs = result
-        printl(df_coords)
+        spots_lab = transformations.from_spots_objs_to_spots_lab(
+            spots_objs, image.shape
+        )
+        self.logger.info(
+            f'Total number of detected spots = {len(df_coords)}'
+        )
+        self.logger.info(
+            f'Number of detected spots per objects:\n'
+            f'{df_coords.groupby(level=0).count()}'
+        )
+        from cellacdc.plot import imshow
+        imshow(
+            image, 
+            spots_lab, 
+            axis_titles=['Detect image', 'Spots masks'],
+            points_coords_df=df_coords
+        )
     
     def _displaySpotFootprint(self, spot_footprint, image):
         from cellacdc.plot import imshow
@@ -1798,7 +1803,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.progressWin.workerFinished = True
             self.progressWin.close()
             self.progressWin = None
-        result, image, anchor = output
+        result, image, lab, anchor = output
         self.logger.info(f'{self.funcDescription} process ended.')
         displayFunc = ANALYSIS_STEP_RESULT_SLOTS[anchor]
         displayFunc = getattr(self, displayFunc)
