@@ -75,6 +75,9 @@ default_ini_path = os.path.join(spotmax_appdata_path, 'config.ini')
 colorItems_path = os.path.join(settings_path, 'colorItems.json')
 gui_settings_csv_path = os.path.join(settings_path, 'gui_settings.csv')
 
+icon_path = os.path.join(resources_folderpath, 'spotMAX_icon.ico')
+logo_path = os.path.join(resources_folderpath, 'spotMAX_logo.png')
+
 from cellacdc import printl as acdc_printl
 def printl(*objects, **kwargs):
     acdc_printl(*objects, idx=2, **kwargs)

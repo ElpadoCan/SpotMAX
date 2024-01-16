@@ -1,3 +1,5 @@
+.. _aggr-features:
+
 .. role:: m(math)
 
 Aggregated features description
@@ -5,7 +7,7 @@ Aggregated features description
 
 Description of all the features saved by spotMAX for each segmented object 
 (aggregated) and the corresponding column name. These are simple aggregations 
-like averaging and sum. See the related feature in the `Single-spot features description`_ 
+like averaging and sum. See the related feature in the :ref:`single-spot-features` 
 section for more details.
 
 .. contents::

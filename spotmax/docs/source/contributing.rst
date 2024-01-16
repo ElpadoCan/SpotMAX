@@ -1,6 +1,6 @@
 .. _Cell-ACDC: https://github.com/SchmollerLab/Cell_ACDC
 
-.. _Contributing to the code:
+.. _how-to-contribute:
 
-Contributing to spotMAX development
-===================================
+Contributing guide
+==================

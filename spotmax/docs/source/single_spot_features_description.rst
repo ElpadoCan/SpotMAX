@@ -1,3 +1,5 @@
+.. _single-spot-features:
+
 .. role:: m(math)
 
 Single-spot features description
@@ -36,20 +38,20 @@ a large effect. However, make sure that you explore your data before deciding
 on a threshold to filter out false positives.
 
 Given :m:`P` the pixels intensities inside the spot, :m:`N` the background 
-intensities, and :m:`std` the standard deviation, spotMAX will compute the following 
+intensities, and :m:`\mathrm{std}` the standard deviation, spotMAX will compute the following 
 effect sizes:
 
 * **Glass**: column name ``spot_vs_backgr_effect_size_glass``. 
-  Formula: :m:`(\overline{P} - \overline{N})/std(N)`
+  Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N)`
 
 * **Cohen**: column name ``spot_vs_backgr_effect_size_cohen``. 
-  Formula: :m:`(\overline{P} - \overline{N})/std(N+P)`
-  where :m:`std(N+P)` is the standard deviation of the spots and background 
+  Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N \cup P)`
+  where :m:`\mathrm{std}(N \cup P)` is the standard deviation of the spots and background 
   intensities pooled together. 
 
 * **Hedge**: column name ``spot_vs_backgr_effect_size_hedge``. 
   Formula: :m:`d * c_f` where :m:`d` is the Cohen's effect size and 
-  :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n`being the 
+  :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n` being the 
   difference between the background's and spots' number of pixels. 
 
 Effect size (vs. ref. ch.)
@@ -85,13 +87,12 @@ intensities, and :m:`std` the standard deviation, spotMAX will compute the follo
 effect sizes:
 
 * **Glass**: column name ``spot_vs_ref_ch_effect_size_glass``. 
-  Formula: :m:`(\overline{P} - \overline{N})/std(N)`
+  Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N)`
 
 * **Cohen**: column name ``spot_vs_ref_ch_effect_size_cohen``. 
-  Formula: :m:`(\overline{P} - \overline{N})/std(N+P)`
-  where :m:`std(N+P)` is the standard deviation of the spots and reference channel 
-  intensities pooled together.
-
+  Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N \cup P)`
+  where :m:`\mathrm{std}(N \cup P)` is the standard deviation of the spots and 
+  reference channel intensities pooled together.
   
 * **Hedge**: column name ``spot_vs_ref_ch_effect_size_hedge``. 
   Formula: :m:`d * c_f` where :m:`d` is the Cohen's effect size and 
@@ -121,7 +122,7 @@ greater than the background given the statistical significance level of 0.025.
   associated with the alternative hypothesis.
 
 
-.. _Statistical test (vs. ref. ch.):
+.. _stat-test-vs-ref-ch:
 
 Statistical test (vs. ref. ch.)
 -------------------------------
@@ -185,7 +186,7 @@ Note that the gaussian filter also scales the intensities to the range
 * **5 percentile**: column name ``spot_preproc_q05_in_spot_minimumsize_vol``.
 * **95 percentile**: column name ``spot_preproc_q95_in_spot_minimumsize_vol``.
 
-.. _Spotfit features:
+.. _spotfit-features:
 
 SpotSIZE metrics
 ----------------

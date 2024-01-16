@@ -52,6 +52,7 @@ from . import tune, utils
 from . import core
 from . import base_lineage_table_values
 from . import transformations
+from . import icon_path
 
 LINEAGE_COLUMNS = list(base_lineage_table_values.keys())
 
@@ -108,12 +109,17 @@ class spotMAX_Win(acdc_gui.guiWin):
     def run(self, module='spotmax_gui', logs_path=logs_path):
         super().run(module=module, logs_path=logs_path)
 
-        self.setWindowTitle("spotMAX - GUI")
-        self.setWindowIcon(QIcon(":icon_spotmax.ico"))
-
         self.initGui()
         self.createThreadPool()
         self.setMaxNumThreadsNumbaParam()
+    
+    def setWindowIcon(self, icon=None):
+        if icon is None:
+            icon = QIcon(icon_path)
+        super().setWindowIcon(icon)
+    
+    def setWindowTitle(self, title="SpotMAX - GUI"):
+        super().setWindowTitle(title)
     
     def setMaxNumThreadsNumbaParam(self):
         SECTION = 'Configuration'

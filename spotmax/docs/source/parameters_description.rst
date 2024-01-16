@@ -9,6 +9,8 @@
 .. _filters section: https://scikit-image.org/docs/stable/api/skimage.filters.html#
 .. _GitHub page: https://github.com/ElpadoCan/spotMAX
 
+.. _params-desc:
+
 Description of the parameters
 =============================
 
@@ -101,6 +103,8 @@ File paths and channels
   ``.h5`` when dealing with large datasets. However, ``.h5`` files can be processed 
   only with Python. You can find example notebooks on how to process these files 
   in the notebooks folder. 
+
+.. _metadata:
 
 METADATA
 --------
@@ -245,6 +249,7 @@ Reference channel
   and ``<text_to_append>`` is the text provided at the **Text to append at the end of the output files** 
   parameter.
 
+.. _spots-channel:
 
 Spots channel
 -------------
@@ -287,14 +292,14 @@ Spots channel
       spot_vs_ref_ch_ttest_tstat, 0.0, None
 
   This example uses two features: the ``spot_vs_ref_ch_ttest_pvalue``, and the 
-  ``spot_vs_ref_ch_ttest_tstat`` features (see `Statistical test (vs. ref. ch.)`_) 
+  ``spot_vs_ref_ch_ttest_tstat`` features (see :ref:`stat-test-vs-ref-ch`) 
   for details about these features). The thresholds, are written as ``min, max`` 
   after the feature name. Therefore, with the line ``spot_vs_ref_ch_ttest_pvalue, None, 0.025`` 
   spotMAX will keep only those spots whose p-value of the t-test against the 
   reference channel is below 0.025. Equally, wiht the ``spot_vs_ref_ch_ttest_tstat, 0.0, None`` 
   spotMAX will keep only those spots whose t-statistic of the t-test against the 
   reference channel is above 0.0. Using this syntax, you can filter using an 
-  arbitrary number single-spot features described in the `Single-spot features description`_ 
+  arbitrary number single-spot features described in the :ref:`single-spot-features` 
   section.
  
 * **Optimise detection for high spot density**: if true, spotMAX will normalise the 
@@ -309,7 +314,7 @@ Spots channel
 
 * **Compute spots size**: if true, spotMAX will fit a 3D gaussian curve to the 
   spots intensities. This will result in more features being computed. These 
-  features are described in the `Spotfit features`_ section. To determine which 
+  features are described in the :ref:`spotfit-features` section. To determine which 
   pixels should be given as input to the fitting procedure for each spot, spotMAX 
   will first perform a step called spotSIZE. Starting from a spot mask that is half 
   the size of the minimum spot size, spotMAX will grow the masks by one voxel size 

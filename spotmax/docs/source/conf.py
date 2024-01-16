@@ -19,10 +19,11 @@ extensions = [
     'sphinx.ext.duration',
     'sphinx.ext.doctest',
     'sphinx.ext.autodoc',
-    'sphinx.ext.autosectionlabel',
+    # 'sphinx.ext.autosectionlabel',
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
     'sphinx_copybutton',
+    'sphinxcontrib.email'
     # 'sphinx_rtd_dark_mode'
 ]
 
@@ -62,3 +63,5 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme_options = {
     'includehidden': True,
 }
+
+language = 'en'
