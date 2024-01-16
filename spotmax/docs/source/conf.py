@@ -23,7 +23,8 @@ extensions = [
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
     'sphinx_copybutton',
-    'sphinxcontrib.email'
+    'sphinxcontrib.email',
+    'sphinx_tabs.tabs',
     # 'sphinx_rtd_dark_mode'
 ]
 
