@@ -19,6 +19,7 @@ spotmax/mytests/*
 spotmax/spotmax_v1_paramWin.png
 spotmax/spotmax_v2_parameters.png
 spotmax/nnet/models/deprecated_pytorch3dunet
+spotmax/docs/source/tutorials/data
 examples/notebooks/bioimageio_models
 **/checkpoints
 _tests

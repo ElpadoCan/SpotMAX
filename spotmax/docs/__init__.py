@@ -3,7 +3,7 @@ import re
 
 from urllib.parse import urlparse
 
-from spotmax import html_func
+from .. import html_func, printl
 
 # Paths
 docs_path = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +21,7 @@ params_desc_filename = 'parameters_description.rst'
 params_desc_rst_filepath = os.path.join(source_path, params_desc_filename)
 
 # Urls
-readthedocs_url = 'https://spotmax.readthedocs.io/'
+readthedocs_url = 'https://spotmax.readthedocs.io'
 
 single_spot_features_desc_url = (
     f'{readthedocs_url}/{single_spot_features_filename}.html'
@@ -36,17 +36,21 @@ params_desc_desc_url = (
 # Regex patterns
 metric_name_regex = r'[A-Za-z0-9_ \-\.\(\)`\^]+'
 col_name_regex = r'[A-Za-z0-9_]+'
-option_pattern = r'\* \*\*(.+)\*\*:'
+option_pattern = r'\.\. confval:: (.+)\n'
 
-def _get_section(idx, groups, rst_text):
-    rst_text = re.sub(r'\.\. (.*)\n', '', rst_text)
-    group = groups[idx]
-    start_idx = rst_text.find(group)
+def _get_section(idx, groups, rst_text, remove_directives=True):
+    if remove_directives:
+        rst_text = re.sub(r'\.\. (.*)\n', '', rst_text)
+    
+    header = _underline_header(groups[idx])
+    start_idx = rst_text.find(header)
     if (idx+1) == len(groups):
         section = rst_text[start_idx:]
     else:
-        stop_idx = rst_text.find(groups[idx+1])
+        next_header = _underline_header(groups[idx+1])
+        stop_idx = rst_text.find(next_header)
         section = rst_text[start_idx:stop_idx]
+
     return section
 
 def single_spot_feature_group_name_to_url(group_name):
@@ -64,23 +68,34 @@ def params_desc_section_to_url(section):
     infoUrl = f'{params_desc_desc_url}#{url_tag}'
     return infoUrl
 
+def param_name_to_url(param_name):
+    param_tag = re.sub(r'[^a-zA-Z0-9]+', '-', param_name.lower()).strip('-')
+    confval_tag = f'#confval-{param_tag}'
+    url = f'{params_desc_desc_url}{confval_tag}'
+    return url
+    
 def get_params_desc_mapper():
     with open(params_desc_rst_filepath, 'r') as rst:
         rst_text = rst.read()
     
-    section_options_mapper = _parse_section_options(rst_text)
-    section_option_desc_mapper = _parse_desc(rst_text, section_options_mapper)
+    section_options_mapper = _parse_section_options(
+        rst_text, return_sections=True
+    )    
+    section_option_desc_mapper = _parse_desc(section_options_mapper, rst_text)
     return section_option_desc_mapper
 
-def _parse_section_options(rst_text):
+def _parse_section_options(rst_text, return_sections=False):
     features_groups = {}
     group_pattern = r'\n(.+)\n\-+\n'
     groups = re.findall(group_pattern, rst_text)
     
     for g, group in enumerate(groups):
-        section = _get_section(g, groups, rst_text)        
+        section = _get_section(g, groups, rst_text, remove_directives=False)        
         features_names = re.findall(option_pattern, section)
-        features_groups[group] = features_names
+        if return_sections:
+            features_groups[group] = features_names, section
+        else:
+            features_groups[group] = features_names
     return features_groups
 
 def _underline_header(text, underline_char='-'):
@@ -88,38 +103,25 @@ def _underline_header(text, underline_char='-'):
     underlined = f'{text}\n{underline}'
     return underlined
 
-def _parse_desc(rst_text, section_options_mapper, to_html=True):
-    s = 0
+def _parse_desc(section_options_mapper, rst_text, to_html=True):
     section_option_mapper = {}
-    sections = list(section_options_mapper.keys())
-    for section, options in section_options_mapper.items():
-        header = _underline_header(section)
-        if s+1 < len(sections)-1:
-            next_section = sections[s+1]
-            next_header = _underline_header(next_section)
-            stop_idx = rst_text.find(next_header)
-        else:
-            stop_idx = -1
-        start_idx = rst_text.find(header) + len(header)
-        section_text = rst_text[start_idx:stop_idx]
-        n = 0
+    for group, (options, section_text) in section_options_mapper.items():
         num_options = len(options)
-        for option in options:
-            if n+1 < num_options-1:
+        for n, option in enumerate(options):
+            if n+1 < num_options:
                 next_option = options[n+1]
-                next_nth_option_txt = f'* **{next_option}**:'
+                next_nth_option_txt = f'.. confval:: {next_option}\n'
                 option_stop_idx = section_text.find(next_nth_option_txt)
             else:
                 option_stop_idx = -1
-            nth_option_txt = f'* **{option}**:'
-            option_start_idx = section_text.find(nth_option_txt) + 2
+            nth_option_txt = f'.. confval:: {option}\n'
+            option_start_idx = section_text.find(nth_option_txt)
             desc = section_text[option_start_idx:option_stop_idx]
+            # Remove rst labels for cross-ref
+            desc = re.sub(r'\.\. _(.*)\n', '', desc)
             if to_html:
-                desc = html_func.simple_rst_to_html(desc)
-            section_option_mapper[(section, option)] = desc
-            n += 1
-        s += 1
-
+                desc = html_func.rst_to_qt_html(desc, rst_global_text=rst_text)
+            section_option_mapper[(group, option)] = desc
     return section_option_mapper
 
 def parse_single_spot_features_groups():

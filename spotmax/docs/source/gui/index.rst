@@ -10,16 +10,16 @@ Cell-ACDC launcher. If SpotMAX and Cell-ACDC are correctly installed, run the
 command ``acdc`` to open the launcher. From the launcher, you can open spotMAX 
 GUI by clicking on ``4. Launch spotMAX...`` button, as shown in the screenshot below.
 
-.. figure:: images/1_launch_spotmax_from_acdc.png
+.. figure:: ../images/1_launch_spotmax_from_acdc.png
     :alt: Launching spotMAX from Cell-ACDC
     :width: 300
     :align: center
 
-    Launching SpotMAX from theCell-ACDC launcher.
+    Launching SpotMAX from the Cell-ACDC launcher.
 
 When you open the GUI you will see on the left three tabs:
 
-.. figure:: images/2_spotmax_gui_tabs.png
+.. figure:: ../images/2_spotmax_gui_tabs.png
     :alt: Launching spotMAX from Cell-ACDC
     :width: 600
     :align: center

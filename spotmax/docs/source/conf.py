@@ -25,6 +25,7 @@ extensions = [
     'sphinx_copybutton',
     'sphinxcontrib.email',
     'sphinx_tabs.tabs',
+    'sphinx_toolbox.confval'
     # 'sphinx_rtd_dark_mode'
 ]
 
@@ -63,6 +64,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # Set html options for the theme
 html_theme_options = {
     'includehidden': True,
+    'navigation_depth': 3,
 }
 
 language = 'en'

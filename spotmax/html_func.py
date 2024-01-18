@@ -1,7 +1,16 @@
 from functools import wraps
 import re
 
-from . import is_mac
+from cellacdc._palettes import (
+    _get_highligth_header_background_rgba, _get_highligth_text_background_rgba
+)
+from cellacdc.colors import rgb_uint_to_html_hex
+
+RST_NOTE_DIR_RGBA = _get_highligth_header_background_rgba()
+RST_NOTE_DIR_HEX_COLOR = rgb_uint_to_html_hex(RST_NOTE_DIR_RGBA[:3])
+
+RST_NOTE_TXT_RGBA = _get_highligth_text_background_rgba()
+RST_NOTE_TXT_HEX_COLOR = rgb_uint_to_html_hex(RST_NOTE_TXT_RGBA[:3])
 
 def _tag(tag_info='p style="font-size:10px"'):
     def wrapper(func):
@@ -69,15 +78,19 @@ def tag(text, tag_info='p style="font-size:10pt"'):
 def href(text, link):
     return f'<a href="{link}">{text}</a>'
 
-def span(text, font_color=None):
+def span(text, font_color=None, background_color=None):
     if font_color is not None:
-        s = (
-            f'<span style="color:{font_color};">'
-            f'{text}'
-            '</span>'
-        )
+        open_tag = f'<span style="color:{font_color};">'
+        if background_color is not None:
+            open_tag = open_tag.replace(
+                ';">', f'; background-color:{font_color};">'
+            )
+    elif background_color is not None:
+        open_tag = f'<span style="background-color:{background_color};">'
     else:
-        s = (f'<span>{text}</span>')
+        open_tag = '<span>'
+    
+    s = (f'{open_tag}{text}</span>')
     return s
 
 def paragraph(txt, font_size='13px', font_color=None, wrap=True, center=False):
@@ -107,17 +120,206 @@ def ul(*items):
         txt = f"{txt}{tag(item, tag_info='li')}"
     return tag(txt, tag_info='ul')
 
-def simple_rst_to_html(rst_text):
+def get_indented_paragraph(rst_text):
+    lines = rst_text.split('\n')
+    if not lines:
+        return rst_text
+    
+    indentation = ''
+    for i, line in enumerate(lines):
+        if not line:
+            continue
+        
+        if not line.strip():
+            continue
+        
+        if not indentation:
+            lstripped = line.lstrip()
+            end_indent = line.find(lstripped)
+            indentation = line[:end_indent]
+        
+        if not line.startswith(indentation):
+            break
+    else:
+        i = len(lines)
+    
+    indented_lines = lines[:i]
+    indented_paragraph = '\n'.join(indented_lines)
+    return indented_paragraph, indentation
+
+def rst_notes_to_html_table(rst_text):
+    rst_note = rst_text
+    rst_with_html_notes = rst_text
+    
+    note_row = tag(
+        '<td><b>! Note</b></td>', 
+        tag_info=f'tr bgcolor="{RST_NOTE_DIR_HEX_COLOR}"'
+    )
+    
+    while True:        
+        rst_note_with_dir, indented_paragraph = rst_extract_directive_block(
+            rst_note, '.. note::'
+        )
+        if not rst_note_with_dir:
+            break
+
+        # Replace note directive with note directive html span
+        html_note = rst_note_with_dir.replace('.. note::', note_row)
+        
+        # Remove multiple spacing with single one
+        html_paragraph = re.sub(r' +', ' ', indented_paragraph)
+        
+        # Remove trailing spaces and new lines chars
+        html_paragraph = html_paragraph.strip('\n')
+        html_paragraph = html_paragraph.strip()
+        
+        # Replace new line chars with <br>
+        html_paragraph = html_paragraph.replace('\n', '<br>')
+        html_paragraph = html_paragraph.replace('<br> ', '<br>')
+        
+        # Replace indented paragraph with table row
+        html_note = html_note.replace(
+            indented_paragraph, 
+            tag(
+                f'<td>{html_paragraph}</td>', 
+                tag_info=f'tr bgcolor="{RST_NOTE_TXT_HEX_COLOR}"'
+            )
+        )
+        
+        # Tag with table
+        html_note = (
+            '<table cellspacing=0 cellpadding=5>'
+            f'{html_note}'
+            '</table><br>'
+        )
+        
+        # Replace rst note with html note
+        rst_with_html_notes = rst_with_html_notes.replace(
+            rst_note_with_dir, html_note
+        )
+        
+        # Remove current note block
+        end_current_block_idx = (
+            rst_note.find(rst_note_with_dir) + len(rst_note_with_dir)
+        )
+        rst_note = rst_note[end_current_block_idx:]
+        
+    return rst_with_html_notes
+
+def rst_extract_directive_block(rst_text, directive):
+    dir_text = rst_text
+    
+    # Find first dir directive
+    dir_idx = dir_text.find(directive)
+    if dir_idx == -1:
+        return '', ''
+    
+    # Get everything after dir directive
+    text_with_dir = dir_text[dir_idx:]
+    dir_text = dir_text[dir_idx+len(directive):]
+    
+    # Find next dir directive
+    next_dir_idx = dir_text.find(directive)
+    if next_dir_idx == -1:
+        next_dir_idx = len(dir_text)
+    
+    # Get the text of the dir (indented paragraph)
+    indented_paragraph, indentation = get_indented_paragraph(dir_text)
+    
+    # Exctract dir directive with its text
+    end_paragraph_idx = (
+        text_with_dir.find(indented_paragraph) + len(indented_paragraph)
+    )
+    text_with_dir = text_with_dir[:end_paragraph_idx]
+    
+    return text_with_dir, indented_paragraph
+
+def rst_math_to_latex_directive(rst_text):
+    rst_math = rst_text
+    rst_with_html_math = rst_text
+    
+    while True:        
+        rst_math_with_dir, indented_paragraph = rst_extract_directive_block(
+            rst_math, '.. math::'
+        )
+        if not rst_math_with_dir:
+            break
+        
+        # Remove multiple spacing with single one
+        clean_paragraph = re.sub(r' +', ' ', indented_paragraph)
+        
+        # Remove trailing spaces and new lines chars
+        clean_paragraph = clean_paragraph.strip('\n')
+        clean_paragraph = clean_paragraph.strip()
+        
+        # Remove spaces after new line char
+        clean_paragraph = clean_paragraph.replace('\n ', '\n')
+        
+        # Replace end of lines with <br>
+        html_paragraph = clean_paragraph.replace('\n', '<br>')
+        
+        # Replace rst dir with html dir
+        html_paragraph = f'<latex>{html_paragraph}</latex>'
+        
+        # Insert html dir
+        rst_with_html_math = rst_with_html_math.replace(
+            rst_math_with_dir, html_paragraph
+        )
+        
+        # Remove current note block
+        end_current_block_idx = (
+            rst_math.find(rst_math_with_dir) + len(rst_math_with_dir)
+        )
+        rst_math = rst_math[end_current_block_idx:]
+    
+    # Fix not needed multiple new lines
+    rst_with_html_math = rst_with_html_math.replace('</latex><br>', '</latex>')
+    
+    return rst_with_html_math
+
+def repl_upper_html_bold(matched: re.Match):
+    return f'<b>{matched.group(1).capitalize()}:</b>'
+
+def rst_urls_to_hrefs_mapper(rst_text):
+    labels_urls = re.findall(r'\.\. _([A-Za-z0-9_\- ]+)\: (.+)', rst_text)
+    label_to_hrefs_mapper = {}
+    for label, url in labels_urls:
+        label_to_hrefs_mapper[f'`{label}`_'] = href(label, url)
+    return label_to_hrefs_mapper
+
+def rst_to_qt_html(rst_sub_text, rst_global_text=''):
     valid_chars = r'[,A-Za-z0-9\-\.=_ \<\>\(\)\\]'
-    html_text = rst_text.strip('\n')
+    html_text = rst_sub_text.strip('\n')
+    
+    label_to_hrefs_mapper = rst_urls_to_hrefs_mapper(rst_global_text)
+    
+    for label, href_url in label_to_hrefs_mapper.items():
+        html_text = html_text.replace(label, href_url)
+
+    html_text = re.sub(
+        rf'\.\. confval:: ({valid_chars}+)\n', r'<b>\1:</b>\n', html_text
+    )
+    html_text = rst_notes_to_html_table(html_text)
+    html_text = rst_math_to_latex_directive(html_text)
     html_text = html_text.replace('\n', '<br>')
     html_text = html_text.replace(' <br>', '<br>')
     html_text = html_text.replace('<br> ', '<br>')
+    html_text = html_text.replace('<br> ', '<br>')
     html_text = re.sub(rf'``({valid_chars}+)``', r'<code>\1</code>', html_text)
     html_text = re.sub(rf':m:`({valid_chars}+)`', r'<code>\1</code>', html_text)
+    html_text = re.sub(
+        rf':ref:`({valid_chars}+)`', r'<code>\1</code>', html_text
+    )
+    html_text = re.sub(
+        rf':confval:`({valid_chars}+)`', r'<code>\1</code>', html_text
+    )
     html_text = re.sub(rf'\*\*({valid_chars}+)\*\*', r'<b>\1</b>', html_text)
     html_text = re.sub(rf'\*({valid_chars}+)\*', r'<i>\1</i>', html_text)
     html_text = re.sub(rf'`({valid_chars}+)`_', r'<b>\1</b>', html_text)
+    
+    html_text = re.sub(r':(\w+):', repl_upper_html_bold, html_text)
+    
+    html_text = html_text.replace('<br><br><latex>', '<br><latex>')
     return html_text
 
 if __name__ == '__main__':

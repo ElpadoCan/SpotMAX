@@ -23,9 +23,11 @@ Contents
    
    install
    get_started
-   run_gui
+   gui/index
    parameters_description
    single_spot_features_description
    aggr_features_description
+   tutorials/index
+   parameters_tuning
    contributing
    api/api

@@ -15,9 +15,10 @@ The easiest way to setup the parameters is to interactively test their effect by
 clicking on the compute button beside each "testable" parameter. 
 
 Take some time to read the description of each parameter in this section 
-:ref:`params-desc`. 
+:ref:`params-desc`. Once you are familiar with the parameters you can dive straight 
+into our :ref:`tutorials`. 
 
-Once you are happy with the paramters you can either run the analysis locally or 
+When you are happy with the paramters you can either run the analysis locally or 
 save the paramters to a configuration file and run the analysis in the command line 
 in headless mode (without the GUI). 
 

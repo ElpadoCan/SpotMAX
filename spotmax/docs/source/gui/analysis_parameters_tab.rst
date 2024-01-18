@@ -1,7 +1,9 @@
-.. |compute| image:: images/compute.png
+.. |compute| image:: ../images/compute.png
     :width: 20
 
 .. _GitHub: https://github.com/ElpadoCan/spotMAX/issues
+
+.. _analysis-parameters-tab:
 
 Analysis parameters tab
 =======================
@@ -25,6 +27,7 @@ on ``Load from previous analysis`` (top-left).
 On the top-right of the tab you will find the button ``Run analysis...``.
 
 .. note:: 
+    
     The analysis always runs in the terminal, so keep an eye on that. 
     In the terminal, you will also be guided into setting up things like adding 
     or ignoring missing parameters and confirming when you are overwriting some 
@@ -40,7 +43,7 @@ Select features to filter valid spots
 -------------------------------------
 
 A very useful parameter to remove false detections, is the parameter called 
-:ref:`Features and thresholds for filtering true spots <spots-channel>`. 
+:confval:`Features and thresholds for filtering true spots`. 
 
 In the GUI you can set this parameter by clicking on the 
 ``Set features or view the selected ones...``. You will then be able to select 

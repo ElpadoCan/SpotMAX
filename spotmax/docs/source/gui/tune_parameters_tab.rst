@@ -16,7 +16,7 @@ To switch between adding true or false positives toggle ``Clicking on true spots
 you can also change the apperance of the spots or clear the selected spots. 
 
 The first parameter that you can visually tune is the 
-:ref:`Resolution multiplier in y- and x- direction <metadata>`. To tune this, 
+:confval:`Resolution multiplier in y- and x- direction`. To tune this, 
 hover on one spot and press up/down arrows on the keyboard to 
 adjust the circle size to the spot. 
 
@@ -29,7 +29,7 @@ for filtering spots. For example, let's say you want to use the Glass' effect si
 However, you don't know what could be a good minimum value. Therefore you can click 
 on the dimmer valid spots and view what is their Glass' effect size.
 
-Finally, the :ref:`Spot detection threshold function <spots-channel>` and the 
+Finally, the :confval:`Spot detection threshold function` and the 
 minimum and maximum values of the selected filtering features can be automatically 
 tuned by spotMAX. To do so, click on the "Start autotuning" button on the top-right 
 of the tab. 

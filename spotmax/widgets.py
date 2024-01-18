@@ -46,8 +46,6 @@ from . import utils
 from . import features, io
 
 LINEEDIT_INVALID_ENTRY_STYLESHEET = lineedit_invalid_entry_stylesheet()
-SECTION_OPTION_TO_DESC_MAPPER = docs.get_params_desc_mapper()
-
 
 def removeHSVcmaps():
     hsv_cmaps = []
@@ -615,12 +613,6 @@ class _spotDetectionMethod(myQComboBox):
     def text(self):
         return self.currentText()
 
-def _spotPredictionMethod():
-    widget = myQComboBox()
-    items = ['Thresholding', 'spotMAX AI']
-    widget.addItems(items)
-    return widget
-
 class SpotPredictionMethodWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -913,6 +905,7 @@ class formWidget(QWidget):
             key='',
             parent=None,
             valueSetter=None,
+            infoHtmlText=''
         ):
         super().__init__(parent)
         self.widget = widget
@@ -922,6 +915,7 @@ class formWidget(QWidget):
         self.addLabel = addLabel
         self.labelTextLeft = labelTextLeft
         self._isComputeButtonConnected = False
+        self.infoHtmlText = infoHtmlText
 
         widget.setParent(self)
         widget.parentFormWidget = self
@@ -1103,11 +1097,10 @@ class formWidget(QWidget):
             self.sigLinkClicked.emit(link)
 
     def showInfo(self):
-        url = docs.params_desc_section_to_url(self.section)
+        url = docs.param_name_to_url(self.text())
         
-        key = (self.section, self.text())
         msg = acdc_widgets.myMessageBox(wrapText=False)
-        txt = f'{html_func.paragraph(SECTION_OPTION_TO_DESC_MAPPER[key])}<br>'
+        txt = f'{html_func.paragraph(self.infoHtmlText)}<br>'
         buttons = (
             acdc_widgets.OpenUrlButton(url, 'Browse documentation...'), 
             'Ok'
@@ -1855,11 +1848,17 @@ class SpotsItems:
         else:
             self._setDataButton(toolbutton, frame_i, z=z)
 
-def ParamFormWidget(anchor, param, parent, use_tune_widget=False):
+def ParamFormWidget(
+        anchor, param, parent, use_tune_widget=False,
+        section_option_to_desc_mapper=None
+    ):
     if use_tune_widget:
         widgetName = param['autoTuneWidget']
     else:
         widgetName = param['formWidgetFunc']
+    
+    if section_option_to_desc_mapper is None:
+        section_option_to_desc_mapper = {}
     
     module_name, attr = widgetName.split('.')
     try:
@@ -1867,6 +1866,11 @@ def ParamFormWidget(anchor, param, parent, use_tune_widget=False):
         widgetFunc = getattr(widgets_module, attr)
     except KeyError as e:
         widgetFunc = globals()[attr]
+    
+    section = config.get_section_from_anchor(anchor)
+    labelTextLeft = param.get('desc', '')
+    key = (section, labelTextLeft)
+    infoHtmlText = section_option_to_desc_mapper.get(key, '')
     
     return formWidget(
         widgetFunc(),
@@ -1884,6 +1888,7 @@ def ParamFormWidget(anchor, param, parent, use_tune_widget=False):
         addLabel=param.get('addLabel', True),
         valueSetter=param.get('valueSetter'),
         disableComputeButtons=True,
+        infoHtmlText=infoHtmlText,
         parent=parent
     )
 

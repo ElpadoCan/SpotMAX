@@ -1008,39 +1008,6 @@ def _spots_ch_params():
             'actions': None,
             'dtype': get_bool
         }
-        # 'highSpotDensityFit': {
-        #     'desc': 'Optimise spots size estimation for high spot density',
-        #     'initialVal': True,
-        #     'stretchWidget': False,
-        #     'addInfoButton': True,
-        #     'addComputeButton': True,
-        #     'addApplyButton': False,
-        #     'formWidgetFunc': 'acdc_widgets.Toggle',
-        #     'actions': None,
-        #     'dtype': get_bool
-        # },
-        # 'minSpotSize': {
-        #     'desc': 'Discard spots with radius less than (pixels)',
-        #     'initialVal': 0.0,
-        #     'stretchWidget': True,
-        #     'addInfoButton': True,
-        #     'addComputeButton': False,
-        #     'addApplyButton': False,
-        #     'formWidgetFunc': 'widgets.FloatLineEdit',
-        #     'actions': None,
-        #     'dtype': float
-        # },
-        # 'maxSpotSize': {
-        #     'desc': 'Discard spots with radius greater than (pixels)',
-        #     'initialVal': 0.0,
-        #     'stretchWidget': True,
-        #     'addInfoButton': True,
-        #     'addComputeButton': False,
-        #     'addApplyButton': False,
-        #     'formWidgetFunc': 'widgets.FloatLineEdit',
-        #     'actions': None,
-        #     'dtype': float
-        # }
     }
     return spots_ch_params
 

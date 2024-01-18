@@ -1256,6 +1256,8 @@ class ParamsGroupBox(QGroupBox):
 
         self.logging_func = logging_func
         
+        section_option_to_desc_mapper = docs.get_params_desc_mapper()
+        
         font = config.font()
 
         _params = config.analysisInputsParams()
@@ -1275,7 +1277,10 @@ class ParamsGroupBox(QGroupBox):
             groupBox.setFont(font)
             for row, (anchor, param) in enumerate(section_params.items()):
                 self.params[section][anchor] = param.copy()
-                formWidget = widgets.ParamFormWidget(anchor, param, self)
+                formWidget = widgets.ParamFormWidget(
+                    anchor, param, self, 
+                    section_option_to_desc_mapper=section_option_to_desc_mapper
+                )
                 formWidget.section = section
                 formWidget.sigLinkClicked.connect(self.infoLinkClicked)
                 self.connectFormWidgetButtons(formWidget, param)

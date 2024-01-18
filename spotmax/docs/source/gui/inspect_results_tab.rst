@@ -1,4 +1,4 @@
-.. |plus| image:: ../../resources/icons/math/add.svg
+.. |plus| image:: ../../../resources/icons/math/add.svg
     :width: 20
 
 Inspect results tab
