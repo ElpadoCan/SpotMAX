@@ -15,12 +15,10 @@ Multi-dimensional spot detection and quantification in microscopy data...
 
 |githublogo| Source code on `GitHub`_
 
-Contents
---------
-
 .. toctree::
    :maxdepth: 2
-   
+   :hidden:
+
    install
    get_started
    gui/index
@@ -29,5 +27,6 @@ Contents
    aggr_features_description
    tutorials/index
    parameters_tuning
+   output_files
    contributing
    api/api

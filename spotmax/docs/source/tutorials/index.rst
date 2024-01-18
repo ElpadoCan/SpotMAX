@@ -13,10 +13,11 @@ If you prefer to run spotMAX in your own pipeline see the notebooks
 .. note::
 
    While it appears that the tutorials are application-specific, spotMAX can detect 
-   globular-like spots in any fluorescence microscopy dataset. The concepts 
+   globular-like spots in **any fluorescence microscopy dataset**. The concepts 
    explained in the tutorials can in fact be applied in many other situations.
 
-**List of tutorials:**
+List of tutorials:
+------------------
 
 .. toctree::
    :maxdepth: 1

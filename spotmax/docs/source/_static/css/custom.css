@@ -4,3 +4,14 @@
 
 ul li { padding: 5px 0px;}
 
+/* div.admonition.admonition-main-points {
+    border-color: hsl(60, 100%, 25%);
+}
+div.admonition.admonition-main-points > .admonition-title {
+    background-color: hsl(60, 100%, 14%);
+    color: white;
+}
+div.admonition.admonition-main-points > .admonition-title:after {
+    color: hsl(60, 100%, 25%);
+    content: "\f0eb";
+} */

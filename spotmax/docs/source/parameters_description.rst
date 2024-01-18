@@ -28,7 +28,7 @@ File paths and channels
 .. confval:: Experiment folder path(s) to analyse
 
   One or more folder paths to analyse. To set up this from the GUI click on 
-  the `Edit button`_ besides the parameter. An experiment  folder can be a 
+  the `Edit button`_ beside the parameter. An experiment  folder can be a 
   folder containing the fluorescence channel separated into single TIFF files 
   or a folder containing multiple Position folders. We recommend structuring 
   the data into the same structure required by `Cell-ACDC`_. Here you can find 
@@ -211,7 +211,7 @@ METADATA
   :type: integer
   :default: ``1``
 
-.. confval:: Pixel width (um)
+.. confval:: Pixel width (μm)
   
   The pixel width in micrometers. This is typically given by the microscope 
   settings.
@@ -219,7 +219,7 @@ METADATA
   :type: float
   :default: ``1.0``
 
-.. confval:: Pixel height (um)
+.. confval:: Pixel height (μm)
   
   The pixel height in micrometers. This is typically given by the microscope 
   settings and it's usually the same as the pixel width.
@@ -227,7 +227,7 @@ METADATA
   :type: float
   :default: ``1.0``
 
-.. confval:: Voxel depth (um)
+.. confval:: Voxel depth (μm)
   
   The voxel depth (in the z-direction) in micrometers. This is typically given 
   by the microscope settings. Leave at 1 if you don't have z-slices.
@@ -268,7 +268,7 @@ METADATA
   :type: float
   :default: ``500.0``
 
-.. confval:: Spot minimum z-size (um)
+.. confval:: Spot minimum z-size (μm)
   
   Rough estimation of the smallest spot radius in z-direction. 
   
@@ -309,7 +309,7 @@ METADATA
     resolved as long as the distance between their centers is less or equal 
     than the radius of each spot (see the "Abbe diffraction limit").
   
-  In the GUI, you will see a warning sign besides the parameter when any of the 
+  In the GUI, you will see a warning sign beside the parameter when any of the 
   values are lower than 2 pixels. This is because it would result in a spot 
   footprint with a radius of 1 pixel, effctively detecting spots one every 
   single pixel of the image (i.e., most likely this would be too small).
@@ -486,6 +486,19 @@ Reference channel
   :type: boolean
   :default: ``False``
 
+.. confval:: Save pre-processed reference channel image
+
+  If ``True``, spotMAX will save the segmentation mask of the reference channel 
+  in the same folder where the reference channel's data is located. 
+  
+  The file will be named with the pattern 
+  ``<ref_ch_image_filename>_preprocessed.<ext>`` where ``<ref_ch_image_filename>`` 
+  is the file name of the loaded file with the reference channel data and ``<ext>`` 
+  is the same extension of the file with the reference channel data.
+
+  :type: boolean
+  :default: ``False``
+
 .. _spots-channel:
 
 Spots channel
@@ -498,7 +511,8 @@ Spots channel
 
   If you choose ``spotMAX AI`` you will need to setup additional parameters for 
   the model. In the GUI you can do so by clicking on the cog button just 
-  besides the method selector. 
+  beside the method selector. For more details about the AI parameters see 
+  this section :ref:`ai_params`. 
   
   If you choose ``Thresholding``, you will also need to select which 
   thresholding  algorithm to use (parameter :confval:`Spot detection threshold function`). 
@@ -516,7 +530,7 @@ Spots channel
   
   In the GUI, you can visualize the output of all the thresholding algoritms 
   or of the neural networks vs a specific thresholding method by clicking 
-  on the compute button besides the method selector. 
+  on the compute button beside the method selector. 
 
   :type: string
   :default: ``Thresholding``
@@ -665,6 +679,8 @@ Spots channel
   :type: boolean
   :default: ``False``
 
+.. _spotfit-params:
+
 SpotFIT
 -------
 
@@ -770,6 +786,8 @@ SpotFIT
   :type: string
   :default: ``spot_B_min, inf``
 
+.. _config-params:
+
 Configuration
 -------------
 
@@ -857,3 +875,7 @@ Configuration
   :default: ``False``
 
 
+.. toctree:: 
+  :maxdepth: 1
+
+  ai_params

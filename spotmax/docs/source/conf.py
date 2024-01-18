@@ -50,6 +50,7 @@ html_logo = "_static/logo.png"
 
 # -- My css
 html_css_files = [
+    # 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
     'css/custom.css',
 ]
 
@@ -63,7 +64,7 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # Set html options for the theme
 html_theme_options = {
-    'includehidden': True,
+    # 'includehidden': True,
     'navigation_depth': 3,
 }
 

@@ -1,6 +1,18 @@
 .. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
+.. _GitHub: https://github.com/ElpadoCan/spotMAX/issues
+.. _BioImage Model Zoo: https://bioimage.io/#/
+.. _Quasar 670: https://www.aatbio.com/fluorescence-excitation-emission-spectrum-graph-viewer/quasar_670
 
 .. |load-folder| image:: ../images/folder-open.svg
+    :width: 20
+
+.. |compute| image:: ../images/compute.png
+    :width: 20
+
+.. |cog| image:: ../../../resources/icons/cog.svg
+    :width: 20
+
+.. |cog_play| image:: ../../../resources/icons/cog_play.svg
     :width: 20
 
 .. _smfish-yeast:
@@ -14,8 +26,14 @@ to visualize individual RNA molecules of specific gene.
 In this tutorial we will count single mRNA molecules of the housekeeping gene MDN1 
 in the model organism *S. cerevisiae*.
 
-Besides detecting the spots we will also segment the nucleus as a reference channel 
+As well as detecting the spots, we will also segment the nucleus as a reference channel 
 from the ``DAPI`` staining. 
+
+.. admonition:: Main points
+
+    * Detecting spots with low signal-to-noise ratio
+    * Segmenting large globular-like structures as reference channel (nucleus)
+
 
 Preliminary steps
 -----------------
@@ -109,21 +127,187 @@ File paths and channels
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Since we want to segment the nucleus as a reference channel from the ``DAPI`` 
-channel, we write 'DAPI' in the ``Reference channel end name or path`` parameter. 
+channel, we write 'DAPI' in the :confval:`Reference channel end name or path` parameter. 
 
 If we want to take advantage of the mother-bud (or sister cells) pairings we write 
-'acdc_output' in the ``Table with lineage info end name or path`` parameter. 
+'acdc_output.csv' in the :confval:`Table with lineage info end name or path` parameter. 
 
-We can then decide on a ``Run number`` (in this case we leave it at 1), and, 
+We can then decide on a :confval:`Run number` (in this case we leave it at 1), and, 
 optionally, we can append a text at the end of the output files by writing 
-'tutorial' at in the ``Text to append at the end of the output files``. 
+'tutorial' at in the :confval:`Text to append at the end of the output files`. 
 
-Finally, we select '.csv' for the ``File extension of the output tables``. 
+Finally, we select '.csv' for the :confval:`File extension of the output tables`. 
+
+.. _metadata_smfish_yeast_tutorial:
 
 METADATA
 ^^^^^^^^
 
 Since some of the metadata is already saved in the file ending with ``metadata.csv`` 
-some of the entries are already correct. 
+some of the entries were correctly loaded. 
 
-We need to correct the ``Spots reporter emmission wavelength (nm)`` to 
+We need to correct the :confval:`Spots reporter emmission wavelength (nm)` to 
+668 since the fluorescence probe used to image MDN1 is `Quasar 670`_. 
+
+Now we need to determine the optimal values for the 
+:confval:`Spot minimum z-size (um)` and :confval:`Resolution multiplier in y- and x- direction` 
+parameters. These are **important** because if the resulting 
+:confval:`Spot (z, y, x) minimum dimensions (radius)` is too low we will detect 
+multiple peaks within the same spot. On the other hand, if it is too high, we 
+risk to miss the smaller spots. For this tutorial we will use 
+``Spot minimum z-size (um) = 1.0`` and 
+``Resolution multiplier in y- and x- direction = 1.5``. 
+
+.. note::
+
+    The simplest way to determine these values is to use the tools available in the 
+    ``Tune parameters tab``. See more instructions in this section 
+    :ref:`tune-parameters-tab` and here :confval:`Spot minimum z-size (um)`. 
+
+Once you have inserted these values you should now see the following at the 
+:confval:`Spot (z, y, x) minimum dimensions (radius)` parameter::
+
+    Spot (z, y, x) minimum dimensions (radius)  (1.0, 0.4366, 0.4366) μm
+                                                (4.1667, 6.0586, 6.0586) pxl
+
+Pre-processing
+^^^^^^^^^^^^^^
+
+For the pre-processing activating or not the :confval:`Aggregate cells prior analysis` 
+should not make a big difference becasue we expect spots in every cell. If we 
+already know that some cells in the image do not have spots activating this 
+paramenter might be very important (especially if we use ``Thresholding`` for 
+the :confval:`Spots segmentation method`). 
+
+We do not need to activate :confval:`Remove hot pixels` because this specific 
+dataset does not have any very bright isolated single pixel. 
+
+We leave the :confval:`Initial gaussian filter sigma` to 0.75 because we want to 
+activate :confval:`Sharpen spots signal prior detection`. When sharpening is active, 
+the gaussian filtered image is not used for detection but only for quantification. 
+Using a small gaussian sigma is recommended since it removes the obvious noise. 
+
+Reference channel
+^^^^^^^^^^^^^^^^^
+
+In this tutorial, as well as detecting the spots, we also want to segment the 
+nucleus from the ``DAPI`` signal as the reference channel. This way we can 
+detect whether a spot is inside or outside of the nucleus and calculate the 
+distance from each spot to the edge of the nucleus. 
+
+To this purpose we activate :confval:`Segment reference channel` and also 
+:confval:`Ref. channel is single object (e.g., nucleus)`. 
+
+Then we set the :confval:`Ref. channel gaussian filter sigma` to 2.0. Finding a 
+good sigma for the gaussian filter might require some trial and error. The idea 
+is that we want to segment the nucleus as a round object and not segment any 
+other artefact. 
+
+.. note:: 
+
+    When testing parameters remember to use the |compute| button beside 
+    the testable parameters.
+
+Since we are not segmenting network-like structures we leave the 
+:confval:`Sigmas used to enhance network-like structures` parameter to 0.0. 
+
+Now we need to choose whether to use the 'Thresholding' or 'BioImage.IO model' 
+for the :confval:`Ref. channel segmentation method`. Since we know that 
+'Thresholding' works well in this case we will use that, but feel free to 
+experiment with any of the models available at the `BioImage Model Zoo`_. 
+
+Next, to choose the optimal :confval:`Ref. channel threshold function` we click 
+on the |compute| button beside the :confval:`Ref. channel segmentation method` 
+and we should be able to appreciate that ``thresholding_yen`` does a pretty 
+good job at segmenting the nucleus. 
+
+Finally, we can choose whether to :confval:`Save reference channel segmentation masks` 
+and :confval:`Save pre-processed reference channel image`.
+
+Spots channel
+^^^^^^^^^^^^^
+
+We are almost done, since this is the last section that we will setup. 
+
+For the :confval:`Spots segmentation method` we know that 'spotMAX AI' works 
+well in this case, but feel free to experiment with 'Thresholding' (which is much faster 
+than the neural networks) any of the models available at the `BioImage Model Zoo`_.
+
+.. note:: 
+
+    If this is the first time you are using the 'spotMAX AI' method, spotMAX will 
+    need to install some libraries. Keep an eye on the terminal during this 
+    time and check that installation is successful.
+
+After selecting 'spotMAX AI' you will need to configure the parameters of the 
+model. To do so, click on the |cog| cog button beside the parameter. If you 
+want more information about the parameters of the AI see this section 
+:ref:`ai_params`. For this dataset, we know that the following parameters 
+work well:
+
+* **Model type**: 2D
+* **Preprocess across experiment**: False
+* **Preprocess across timepoints**: False
+* **Gaussian filter sigma**: 1.0
+* **Remove hot pixels**: False
+* **Config yaml filepath**: spotMAX_v2/spotmax/nnet/config.yaml
+* **PhysicalSizeX**: 0.07206 (same as in the :ref:`metadata_smfish_yeast_tutorial`)
+* **Resolution multiplier yx**: 1.0 (same as in the :ref:`metadata_smfish_yeast_tutorial`)
+  
+Next, we can ignore :confval:`Spot detection threshold function` because we 
+are using the 'spotMAX AI', we do not set any filtering feature at the 
+:confval:`Features and thresholds for filtering true spots`, we activate 
+:confval:`Optimise detection for high spot density`, and we do not 
+:confval:`Compute spots size (fit gaussian peak(s))`. 
+
+Finally we can choose whether to :confval:`Save spots segmentation masks` and 
+:confval:`Save pre-processed spots image`. 
+
+.. note:: 
+
+    Since we do not activate :confval:`Compute spots size (fit gaussian peak(s))` 
+    we do not need to worry about the paramters in the :ref:`spotfit-params` 
+    section. Also, we can leave the :ref:`config-params` section deactivated 
+    and we will get asked about it when we run the analysis
+
+Running the analysis
+--------------------
+
+Ok, we are finally ready to run the analysis! 
+
+To do so simply click on the |cog_play| ``Run analysis...`` button on the top 
+right of the tab. 
+
+SpotMAX will now allow use to save the parameters to an INI configuration file 
+and we choose 'Yes'. This way we can load them back into the GUI any time we 
+want by clicking on the |load-folder| ``Load parameters from previous analysis...`` 
+button on the top-left of the tab. 
+
+Next, spotMAX will ask us whether we want to select the measurements to save and 
+we say 'No, save all the measurements'. 
+
+Then we choose a filename for the parameters file and the folder where to save 
+them. We will get a dialogue confirming that parameters where saved with the 
+path where they have been saved. We click 'Ok' and we get a reminder 
+that the analysis will now run in the terminal and we should keep an eye on that. 
+
+We click on 'Ok, run now!' and we move our attention to the terminal. In the 
+terminal we will get asked some last questions about paramenters that we did 
+not selected and we simply confirm that we want to use the default ones. 
+
+The analysis will now run and the output files will be saved in the 
+same folder of the dataset in a new folder called ``spotMAX_output``. For details 
+about the output files see this section :ref:`output-files`. 
+
+
+Closing remarks
+---------------
+
+At the end of the analysis you can go back to the GUI and visualize and 
+inspect the results using the tools in the :ref:`inspect-results-tab`. 
+
+That's it! I hope you found this tutorial useful and you can let us know 
+if you found mistakes or any other feedback on our `GitHub`_ page or by 
+sending us an email at :email:`padovaf@tcd.ie`.
+
+Until next time! 
