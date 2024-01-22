@@ -1,3 +1,5 @@
+.. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
+
 Getting started
 ===============
 
@@ -13,6 +15,11 @@ new analysis.
 
 The easiest way to setup the parameters is to interactively test their effect by 
 clicking on the compute button beside each "testable" parameter. 
+
+.. tip:: 
+    Before running spotMAX you probably want to segment the objects where 
+    you want to detect spots (e.g., the single cells). To do this you can use 
+    our other software called `Cell-ACDC`_
 
 Take some time to read the description of each parameter in this section 
 :ref:`params-desc`. Once you are familiar with the parameters you can dive straight 

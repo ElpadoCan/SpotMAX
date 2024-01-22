@@ -20,7 +20,7 @@ GUI by clicking on ``4. Launch spotMAX...`` button, as shown in the screenshot b
 When you open the GUI you will see on the left three tabs:
 
 .. figure:: ../../images/2_spotmax_gui_tabs.png
-    :alt: Launching spotMAX from Cell-ACDC
+    :alt: SpotMAX GUI tabs
     :width: 600
     :align: center
 

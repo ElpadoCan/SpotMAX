@@ -78,6 +78,14 @@ The ``MDN1`` channel is the channel where we want to detect the spots.
 The ``DAPI`` channel is the staining of the nucleus and we can use it in spotMAX 
 as the reference channel (more details below). 
 
+.. figure:: ../images/tutorials_smFISH_yeast_figure.svg
+    :align: center
+
+    **A)** Phase contrast channel used for segmentation of the cells. 
+    **B)** Quasar 670 channel used to visualize single molecules of mRNA of the
+    MDN1 gene (spots channel). Arrows indicate spots with low signal-to-noise 
+    ratio. **C)** DAPI channel used to stain the nucleus (reference channel).
+
 .. note:: 
 
     spotMAX can take advantage of mother-bud (or sister cells) relationship. To 
