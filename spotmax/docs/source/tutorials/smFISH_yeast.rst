@@ -29,30 +29,19 @@ in the model organism *S. cerevisiae*.
 As well as detecting the spots, we will also segment the nucleus as a reference channel 
 from the ``DAPI`` staining. 
 
-.. admonition:: Main points
+.. admonition:: Goals
 
-    * Detecting spots with low signal-to-noise ratio
-    * Segmenting large globular-like structures as reference channel (nucleus)
+    * Detect spots with low signal-to-noise ratio
+    * Segment large globular-like structures as reference channel (nucleus)
 
 
-Preliminary steps
------------------
-
-The first step with every new dataset is to segment the objects. These typically 
-are the single cells, but it can be any object where you want to detect spots. 
-
-While you can detect spots in the entire image, it is highly recommended to 
-identify region of interests (ROIs) and segment them.
-
-The dataset provided with this tutorial already contains the segmentation files with 
-the ROIs of the single cells, but if you need to segment ROIs we recommend using 
-out other software called `Cell-ACDC`_.
+.. include:: _preliminary_segment_cells.rst
 
 Dataset
 -------
 
 To follow this tutorial, download the dataset from 
-`here <https://hmgubox2.helmholtz-muenchen.de/index.php/s/nbsxXAsHr6DJCC9>`_.
+`here <https://hmgubox2.helmholtz-muenchen.de/index.php/s/oQwxKrRAAgSWGzC>`_.
 
 This dataset was published in `this <https://doi.org/10.1101/2023.01.26.525696>`_ 
 publication.
@@ -311,3 +300,8 @@ if you found mistakes or any other feedback on our `GitHub`_ page or by
 sending us an email at :email:`padovaf@tcd.ie`.
 
 Until next time! 
+
+.. toctree:: 
+    :hidden:
+
+    _preliminary_segment_cells.rst

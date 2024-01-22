@@ -55,7 +55,7 @@ html_css_files = [
 ]
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = 'default'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.

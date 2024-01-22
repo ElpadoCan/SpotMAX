@@ -1,6 +1,5 @@
 .. role:: m(math)
 
-.. _Edit button: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/main/cellacdc/resources/icons/edit-id.svg
 .. _Create data structure: https://cell-acdc.readthedocs.io/en/latest/getting-started.html#creating-data-structures
 .. _Cell-ACDC user manual: https://github.com/SchmollerLab/Cell_ACDC/blob/main/UserManual/Cell-ACDC_User_Manual.pdf
 .. _Cell-ACDC: https://github.com/SchmollerLab/Cell_ACDC
@@ -10,6 +9,9 @@
 .. _GitHub page: https://github.com/ElpadoCan/spotMAX
 .. _BioImage Model Zoo: https://bioimage.io/#/
 .. _INI configuration file templates: https://github.com/ElpadoCan/spotMAX/tree/main/examples/ini_config_files_template
+
+.. |edit-button| image:: ../../../resources/icons/cog.svg
+    :width: 20
 
 .. _params-desc:
 
@@ -28,7 +30,7 @@ File paths and channels
 .. confval:: Experiment folder path(s) to analyse
 
   One or more folder paths to analyse. To set up this from the GUI click on 
-  the `Edit button`_ beside the parameter. An experiment  folder can be a 
+  the |edit-button| Edit button beside the parameter. An experiment  folder can be a 
   folder containing the fluorescence channel separated into single TIFF files 
   or a folder containing multiple Position folders. We recommend structuring 
   the data into the same structure required by `Cell-ACDC`_. Here you can find 

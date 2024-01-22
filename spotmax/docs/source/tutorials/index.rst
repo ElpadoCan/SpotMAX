@@ -16,8 +16,7 @@ If you prefer to run spotMAX in your own pipeline see the notebooks
    globular-like spots in **any fluorescence microscopy dataset**. The concepts 
    explained in the tutorials can in fact be applied in many other situations.
 
-List of tutorials:
-------------------
+.. rubric:: List of tutorials:
 
 .. toctree::
    :maxdepth: 1

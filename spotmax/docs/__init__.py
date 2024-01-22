@@ -11,14 +11,18 @@ source_path = os.path.join(docs_path, 'source')
 
 single_spot_features_filename = 'single_spot_features_description.rst'
 single_spot_features_rst_filepath = os.path.join(
-    source_path, single_spot_features_filename
+    source_path, 'features', single_spot_features_filename
 )
 
 aggr_features_filename = 'aggr_features_description.rst'
-aggr_features_rst_filepath = os.path.join(source_path, aggr_features_filename)
+aggr_features_rst_filepath = os.path.join(
+    source_path, 'features', aggr_features_filename
+)
 
 params_desc_filename = 'parameters_description.rst'
-params_desc_rst_filepath = os.path.join(source_path, params_desc_filename)
+params_desc_rst_filepath = os.path.join(
+    source_path, 'parameters', params_desc_filename
+)
 
 # Urls
 readthedocs_url = 'https://spotmax.readthedocs.io'

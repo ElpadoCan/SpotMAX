@@ -1,4 +1,4 @@
-.. |compute| image:: ../images/compute.png
+.. |compute| image:: ../../images/compute.png
     :width: 20
 
 .. _GitHub: https://github.com/ElpadoCan/spotMAX/issues

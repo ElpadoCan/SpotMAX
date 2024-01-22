@@ -863,7 +863,8 @@ class _spotMinSizeLabels(QWidget):
         textPixel = ', '.join(roundPixels)
         roundUm = [str(round(val, 3)) for val in self.umValues()]
         textUm = ', '.join(roundUm)
-        text = f'({textPixel}) pixel ; ({textUm}) micrometer'
+        indent = ' '*45
+        text = f'({textPixel}) pixel\n{indent}({textUm}) micrometer'
         return text
     
     def pixelValues(self):

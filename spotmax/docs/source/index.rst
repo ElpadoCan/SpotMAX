@@ -19,14 +19,12 @@ Multi-dimensional spot detection and quantification in microscopy data...
    :maxdepth: 2
    :hidden:
 
-   install
-   get_started
-   gui/index
-   parameters_description
-   single_spot_features_description
-   aggr_features_description
+   misc/install
+   misc/get_started
+   run/index
+   parameters/index
+   features/index
    tutorials/index
-   parameters_tuning
-   output_files
-   contributing
+   misc/output_files
+   misc/contributing
    api/api
