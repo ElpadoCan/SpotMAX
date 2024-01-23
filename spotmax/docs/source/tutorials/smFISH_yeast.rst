@@ -86,9 +86,9 @@ as the reference channel (more details below).
     MDN1 gene (spots channel). Arrows indicate spots with low signal-to-noise 
     ratio. **C)** DAPI channel used to stain the nucleus (reference channel).
 
-.. note:: 
+.. tip:: 
 
-    spotMAX can take advantage of mother-bud (or sister cells) relationship. To 
+    spotMAX can take advantage of mother-bud (or sister cells) relationships. To 
     annotate the relationship use the `Cell-ACDC`_ software. These annotations 
     are saved in the file ending with ``acdc_output.csv``. 
 
@@ -98,7 +98,7 @@ Loading the dataset
 Now that we have our dataset with the segmentation file of the cells, we can proceed 
 with detecting the spots. 
 
-.. note:: 
+.. important:: 
 
     In this tutorial we assume that you are already familiar with the analysis 
     parameters. If not, please read about them here: :ref:`params-desc`.
@@ -130,8 +130,8 @@ If we want to take advantage of the mother-bud (or sister cells) pairings we wri
 'acdc_output.csv' in the :confval:`Table with lineage info end name or path` parameter. 
 
 We can then decide on a :confval:`Run number` (in this case we leave it at 1), and, 
-optionally, we can append a text at the end of the output files by writing 
-'tutorial' at in the :confval:`Text to append at the end of the output files`. 
+optionally, we can append a text at the end of the output files, for example we 
+could write 'tutorial' at in the :confval:`Text to append at the end of the output files`. 
 
 Finally, we select '.csv' for the :confval:`File extension of the output tables`. 
 
@@ -147,19 +147,19 @@ We need to correct the :confval:`Spots reporter emmission wavelength (nm)` to
 668 since the fluorescence probe used to image MDN1 is `Quasar 670`_. 
 
 Now we need to determine the optimal values for the 
-:confval:`Spot minimum z-size (um)` and :confval:`Resolution multiplier in y- and x- direction` 
+:confval:`Spot minimum z-size (μm)` and :confval:`Resolution multiplier in y- and x- direction` 
 parameters. These are **important** because if the resulting 
 :confval:`Spot (z, y, x) minimum dimensions (radius)` is too low we will detect 
 multiple peaks within the same spot. On the other hand, if it is too high, we 
 risk to miss the smaller spots. For this tutorial we will use 
-``Spot minimum z-size (um) = 1.0`` and 
+``Spot minimum z-size (μm) = 1.0`` and 
 ``Resolution multiplier in y- and x- direction = 1.5``. 
 
-.. note::
+.. tip::
 
     The simplest way to determine these values is to use the tools available in the 
     ``Tune parameters tab``. See more instructions in this section 
-    :ref:`tune-parameters-tab` and here :confval:`Spot minimum z-size (um)`. 
+    :ref:`tune-parameters-tab` and here :confval:`Spot minimum z-size (μm)`. 
 
 Once you have inserted these values you should now see the following at the 
 :confval:`Spot (z, y, x) minimum dimensions (radius)` parameter::

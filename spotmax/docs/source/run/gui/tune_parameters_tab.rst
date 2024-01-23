@@ -16,9 +16,16 @@ To switch between adding true or false positives toggle ``Clicking on true spots
 you can also change the apperance of the spots or clear the selected spots. 
 
 The first parameter that you can visually tune is the 
-:confval:`Resolution multiplier in y- and x- direction`. To tune this, 
-hover on one spot and press up/down arrows on the keyboard to 
-adjust the circle size to the spot. 
+:confval:`Resolution multiplier in y- and x- direction`. To tune this, activate 
+it by clicking on ``Activate`` on the right of the plus button, then hover on 
+one spot and press up/down arrows on the keyboard to adjust the circle size 
+to the spot. 
+
+The second parameter is :confval:`Spot minimum z-size (μm)`. To tune this, 
+activate it by clicking on ``Activate`` on the right of the plus button. 
+The viewed plane will switch to the ``zy`` plane to allow you to see the 
+spots along the z-axis. As before, hover on one spot and press up/down arrows 
+on the keyboard to adjust the length of the line to the height of the spot. 
 
 Once you add some spots, you can view their features in the "Features of the spot under mouse cursor". 
 Select which features you want to view and hover with the mouse onto a spot. 

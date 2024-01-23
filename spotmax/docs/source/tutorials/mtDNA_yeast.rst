@@ -1,7 +1,7 @@
 .. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
 .. _GitHub: https://github.com/ElpadoCan/spotMAX/issues
 .. _BioImage Model Zoo: https://bioimage.io/#/
-.. _Quasar 670: https://www.aatbio.com/fluorescence-excitation-emission-spectrum-graph-viewer/quasar_670
+.. _mNeonGreen: https://www.fpbase.org/protein/mneongreen/
 .. _seel-2023: https://www.nature.com/articles/s41594-023-01091-8
 
 .. |load-folder| image:: ../images/folder-open.svg
@@ -77,6 +77,83 @@ use it in spotMAX as the reference channel (more details below).
     **B)** mNeon channel used to visualize the mitochondrial DNA nucleoids 
     (spots channel). Arrows indicate areas of connected spots. **C)** mKate 
     channel used to label the mitochondrial network (reference channel).
+
+.. tip:: 
+
+    spotMAX can take advantage of mother-bud (or sister cells) relationships. To 
+    annotate the relationship use the `Cell-ACDC`_ software. These annotations 
+    are saved in the file ending with ``acdc_output.csv``. 
+
+Loading the dataset
+-------------------
+
+Now that we have our dataset with the segmentation file of the cells, we can 
+proceed with detecting the spots. 
+
+.. important:: 
+
+    In this tutorial we assume that you are already familiar with the analysis 
+    parameters. If not, please read about them here: :ref:`params-desc`.
+
+Click on the |load-folder| ``Load folder`` button on the top-right of the GUI. 
+Select the ``Position_26`` folder you downloaded and load the ``mNeon`` channel. 
+
+When the dataset is loaded, you will see on the :ref:`analysis-parameters-tab` 
+on the left that some of the parameters have already been filled out. 
+
+Now let's see how we can determine the optimal parameters for this dataset.
+
+Setting up the parameters
+-------------------------
+
+The parameters are grouped into separate sections so we will go one by one.
+
+File paths and channels
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Since we want to segment the mitochondrial network as a reference channel from 
+the ``mKate`` channel, we write 'mKate' in the :confval:`Reference channel end name or path` parameter. 
+
+If we want to take advantage of the mother-bud (or sister cells) pairings we write 
+'acdc_output.csv' in the :confval:`Table with lineage info end name or path` parameter. 
+
+We can then decide on a :confval:`Run number` (in this case we leave it at 1), and, 
+optionally, we can append a text at the end of the output files, for example we 
+could write 'tutorial' at in the :confval:`Text to append at the end of the output files`. 
+
+Finally, we select '.csv' for the :confval:`File extension of the output tables`. 
+
+.. _metadata_mtdna_yeast_tutorial:
+
+METADATA
+^^^^^^^^
+
+Since some of the metadata is already saved in the file ending with ``metadata.csv`` 
+some of the entries were correctly loaded. 
+
+We need to correct the :confval:`Spots reporter emmission wavelength (nm)` to 
+509 since the fluorescence probe used to image the mitochondrial DNA is `mNeonGreen`_. 
+
+Now we need to determine the optimal values for the 
+:confval:`Spot minimum z-size (μm)` and :confval:`Resolution multiplier in y- and x- direction` 
+parameters. These are **important** because if the resulting 
+:confval:`Spot (z, y, x) minimum dimensions (radius)` is too low we will detect 
+multiple peaks within the same spot. On the other hand, if it is too high, we 
+risk to miss the smaller spots. For this tutorial we will use 
+``Spot minimum z-size (μm) = 1.0`` and 
+``Resolution multiplier in y- and x- direction = 2.0``. 
+
+.. tip::
+
+    The simplest way to determine these values is to use the tools available in the 
+    ``Tune parameters tab``. See more instructions in this section 
+    :ref:`tune-parameters-tab` and here :confval:`Spot minimum z-size (μm)`. 
+
+Once you have inserted these values you should now see the following at the 
+:confval:`Spot (z, y, x) minimum dimensions (radius)` parameter::
+
+    Spot (z, y, x) minimum dimensions (radius)  (1.0, 0.4366, 0.4366) μm
+                                                (4.1667, 6.0586, 6.0586) pxl
 
 .. toctree:: 
     :hidden:

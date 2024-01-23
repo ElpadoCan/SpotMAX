@@ -708,6 +708,7 @@ def _metadata_params():
                 ('valueChanged', 'updateMinSpotSize'),
             ),
             'dtype': float,
+            'autoTuneWidget': 'widgets.ResolutMultiplierAutoTuneWidget'
             # 'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
         },
         'yxResolLimitMultiplier': {
@@ -722,7 +723,7 @@ def _metadata_params():
                 ('valueChanged', 'updateMinSpotSize'),
             ),
             'dtype': float,
-            'autoTuneWidget': 'widgets.YXresolutMultiplierAutoTuneWidget'
+            'autoTuneWidget': 'widgets.ResolutMultiplierAutoTuneWidget'
         },
         'spotMinSizeLabels': {
             'desc': 'Spot (z, y, x) minimum dimensions (radius)',

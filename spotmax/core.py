@@ -4790,3 +4790,9 @@ def findContours(dataToCont, is_zstack=False):
                 allObjContours[obj.label] = contours_li
             contCoords[z] = allObjContours
         dataToCont2D = dataToCont.max
+
+def ceil(val, precision=0):
+    return np.true_divide(np.ceil(val * 10**precision), 10**precision)
+
+def floor(val, precision=0):
+    return np.true_divide(np.floor(val * 10**precision), 10**precision)

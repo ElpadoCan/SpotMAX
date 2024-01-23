@@ -667,6 +667,9 @@ class AutoTuneGroupbox(QGroupBox):
     sigColorChanged = Signal(object, bool)
     sigFeatureSelected = Signal(object, str, str)
     sigYXresolMultiplChanged = Signal(float)
+    sigZresolLimitChanged = Signal(float)
+    sigYXresolMultiplActivated = Signal(bool)
+    sigZresolLimitActivated = Signal(bool)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -705,6 +708,20 @@ class AutoTuneGroupbox(QGroupBox):
                     formWidget.widget.valueChanged.connect(
                         self.emitYXresolMultiplSigChanged
                     )
+                    formWidget.widget.sigActivated.connect(
+                        self.emitYXresolMultiplSigActivated
+                    )
+                    formWidget.widget.activateCheckbox.setChecked(True)
+                    formWidget.widget.setDisabled(False)
+                elif anchor == 'zResolutionLimit':
+                    formWidget.widget.valueChanged.connect(
+                        self.emitZresolLimitSigChanged
+                    )
+                    formWidget.widget.sigActivated.connect(
+                        self.emitZresolLimitSigActivated
+                    )
+                    formWidget.widget.activateCheckbox.setChecked(False)
+                    formWidget.widget.setDisabled(True)
                 row += 1
             if groupBox is None:
                 continue
@@ -741,6 +758,15 @@ class AutoTuneGroupbox(QGroupBox):
     
     def emitYXresolMultiplSigChanged(self, value):
         self.sigYXresolMultiplChanged.emit(value)
+    
+    def emitZresolLimitSigChanged(self, value):
+        self.sigZresolLimitChanged.emit(value)
+    
+    def emitYXresolMultiplSigActivated(self, checked):
+        self.sigYXresolMultiplActivated.emit(checked)
+
+    def emitZresolLimitSigActivated(self, checked):
+        self.sigZresolLimitActivated.emit(checked)
     
     def emitFeatureSelected(self, button, featureText, colName):
         self.sigFeatureSelected.emit(button, featureText, colName)
@@ -1022,6 +1048,9 @@ class AutoTuneTabWidget(QWidget):
     sigFeatureSelected = Signal(object, str, str)
     sigAddAutoTunePointsToggle = Signal(bool)
     sigYXresolMultiplChanged = Signal(float)
+    sigZresolLimitChanged = Signal(float)
+    sigYXresolMultiplActivated = Signal(bool)
+    sigZresolLimitActivated = Signal(bool)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -1029,6 +1058,9 @@ class AutoTuneTabWidget(QWidget):
         layout = QVBoxLayout()
         
         self.df_features = None
+        
+        self.isYXresolMultiplActive = True
+        self.isZresolLimitActive = False
 
         buttonsLayout = QHBoxLayout()
         helpButton = acdc_widgets.helpPushButton('Help...')
@@ -1074,10 +1106,32 @@ class AutoTuneTabWidget(QWidget):
         self.autoTuneGroupbox.sigYXresolMultiplChanged.connect(
             self.emitYXresolMultiplSigChanged
         )
+        self.autoTuneGroupbox.sigZresolLimitChanged.connect(
+            self.emitZresolLimitSigChanged
+        )
+        self.autoTuneGroupbox.sigYXresolMultiplActivated.connect(
+            self.emitYXresolMultiplSigActivated
+        )
+        self.autoTuneGroupbox.sigZresolLimitActivated.connect(
+            self.emitZresolLimitSigActivated
+        )
         helpButton.clicked.connect(self.showHelp)
     
     def emitYXresolMultiplSigChanged(self, value):
         self.sigYXresolMultiplChanged.emit(value)
+    
+    def emitZresolLimitSigChanged(self, value):
+        self.sigZresolLimitChanged.emit(value)
+    
+    def emitYXresolMultiplSigActivated(self, checked):
+        self.sigYXresolMultiplActivated.emit(checked)
+        self.isYXresolMultiplActive = True
+        self.isZresolLimitActive = False
+
+    def emitZresolLimitSigActivated(self, checked):
+        self.sigZresolLimitActivated.emit(checked)
+        self.isYXresolMultiplActive = False
+        self.isZresolLimitActive = True
     
     def emitFeatureSelected(self, button, featureText, colName):
         self.sigFeatureSelected.emit(button, featureText, colName)
@@ -1085,6 +1139,7 @@ class AutoTuneTabWidget(QWidget):
     def emitAddAutoTunePointsToggle(self, button, checked):
         self.setAutoTuneItemsVisible(True)
         self.sigAddAutoTunePointsToggle.emit(checked)
+        self.addAutoTunePointsButton.clearFocus()
     
     def emitColorChanged(self, color: tuple, true_spots: bool):
         self.sigColorChanged.emit(color, true_spots)

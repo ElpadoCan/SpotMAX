@@ -149,12 +149,24 @@ class spotMAX_Win(acdc_gui.guiWin):
         shift = modifiers == Qt.ShiftModifier
         ctrl = modifiers == Qt.ControlModifier
         alt = modifiers == Qt.AltModifier
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         
         setAutoTuneCursor = (
-            self.isAddAutoTunePoints and not event.isExit()
+            self.isAddAutoTunePoints 
+            and not event.isExit()
             and noModifier
+            and autoTuneTabWidget.isYXresolMultiplActive
         )
         cursorsInfo['setAutoTuneCursor'] = setAutoTuneCursor
+        
+        setAutoTuneZplaneCursor = (
+            self.isAddAutoTunePoints 
+            and not event.isExit()
+            and noModifier
+            and autoTuneTabWidget.isZresolLimitActive
+        )
+        cursorsInfo['setAutoTuneZplaneCursor'] = setAutoTuneZplaneCursor
+        
         overrideCursor = self.app.overrideCursor()
         if setAutoTuneCursor and overrideCursor is None:
             self.app.setOverrideCursor(Qt.CrossCursor)
@@ -166,6 +178,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         
         if event.isExit():
+            self.LinePlotItem.clearData()
             return
         
         x, y = event.pos()
@@ -175,6 +188,12 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.setHoverToolSymbolData(
                 [], [], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             )
+        
+        x, y = event.pos()
+        if cursorsInfo['setAutoTuneZplaneCursor']:
+            self.setAutoTuneZplaneCursorData(x, y)
+        else:
+            self.LinePlotItem.clearData()
         
         self.onHoverAutoTunePoints(x, y)
         self.onHoverInspectPoints(x, y)
@@ -216,8 +235,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         alt = modifiers == Qt.AltModifier
         posData = self.data[self.pos_i]
         left_click = event.button() == Qt.MouseButton.LeftButton and not alt
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         
-        canAddPointAutoTune = self.isAddAutoTunePoints and left_click
+        canAddPointAutoTune = (
+            self.isAddAutoTunePoints and left_click
+            and autoTuneTabWidget.isYXresolMultiplActive
+        )
         
         x, y = event.pos().x(), event.pos().y()
         ID = self.getIDfromXYPos(x, y)
@@ -227,7 +250,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         if canAddPointAutoTune:
             z = self.currentZ()
             self.addAutoTunePoint(posData.frame_i, z, y, x)
+    
+    def gui_createPlotItems(self):
+        super().gui_createPlotItems()
         
+        self.LinePlotItem = widgets.ParentLinePlotItem(
+            pen=pg.mkPen('r', width=2)
+        )
+        self.topLayerItems.append(self.LinePlotItem)
+        childrenLineItem = self.LinePlotItem.addChildrenItem()
+        self.topLayerItemsRight.append(childrenLineItem)
+    
     def gui_createRegionPropsDockWidget(self):
         super().gui_createRegionPropsDockWidget(side=Qt.RightDockWidgetArea)
         self.gui_createParamsDockWidget()
@@ -577,6 +610,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.setFocusGraphics()
     
+    def enableZstackWidgets(self, enabled):
+        super().enableZstackWidgets(enabled)
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+        section = 'METADATA'
+        anchor = 'zResolutionLimit'
+        ZresolMultiplWidget = autoTuneGroupbox.params[section][anchor]['widget']
+        ZresolMultiplWidget.setDisabled(not enabled)
+    
     def hideAcdcToolbars(self):
         self.editToolBar.setVisible(False)
         self.editToolBar.setDisabled(True)
@@ -859,6 +901,33 @@ class spotMAX_Win(acdc_gui.guiWin):
             size=size
         )
     
+    def setAutoTuneZplaneCursorData(self, x, y):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii = spotMinSizeLabels.pixelValues()
+        length = spots_zyx_radii[0]
+        halfLength = length/2
+        x0 = x
+        x1 = x
+        y0 = y - halfLength
+        y1 = y + halfLength
+        self.LinePlotItem.setData([x0, x1], [y0, y1])
+    
+    def setAutoTuneZplaneCursorLength(self, length):
+        halfLength = length/2
+        xx, yy = self.LinePlotItem.getData()
+        if xx is None:
+            return
+        (x0, x1), (y0, y1) = xx, yy
+        yc = y0 + abs(y0-y1)/2
+        y0 = yc - halfLength
+        y1 = yc + halfLength
+        self.LinePlotItem.setData([x0, x1], [y0, y1])
+    
+    def setZstackView(self, isZstackView):
+        pass
+    
     def copyParamsToAutoTuneWidget(self):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
@@ -870,6 +939,29 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneGroupbox.params[section][anchor]['widget'].setValue(
             ParamsGroupBox.params[section][anchor]['widget'].value()
         )
+        
+        anchor = 'zResolutionLimit'
+        autoTuneGroupbox.params[section][anchor]['widget'].setValue(
+            ParamsGroupBox.params[section][anchor]['widget'].value()
+        )
+        voxelDepth = (
+            ParamsGroupBox.params[section]['voxelDepth']['widget'].value()
+        )
+        autoTuneGroupbox.params[section][anchor]['widget'].setStep(
+            core.ceil(voxelDepth, precision=3)
+        )
+        
+        plane = self.switchPlaneCombobox.currentText()
+        if plane == 'xy':
+            anchor = 'yxResolLimitMultiplier'
+            widget = autoTuneGroupbox.params[section][anchor]['widget']
+            widget.activateCheckbox.setChecked(False)
+            widget.activateCheckbox.click()
+        else:
+            anchor = 'zResolutionLimit'
+            widget = autoTuneGroupbox.params[section][anchor]['widget']
+            widget.activateCheckbox.setChecked(False)
+            widget.activateCheckbox.click()
     
     def tabControlPageChanged(self, index):
         if not self.dataIsLoaded:
@@ -2034,6 +2126,16 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget.sigYXresolMultiplChanged.connect(
             self.autoTuningYXresolMultiplChanged
         )
+        autoTuneTabWidget.sigYXresolMultiplActivated.connect(
+            self.autoTuningYXresolMultiplActivated
+        )
+        
+        autoTuneTabWidget.sigZresolLimitChanged.connect(
+            self.autoTuningZresolLimitChanged
+        )
+        autoTuneTabWidget.sigZresolLimitActivated.connect(
+            self.autoTuningZresolLimitActivated
+        )
     
     def autoTuningYXresolMultiplChanged(self, value):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -2044,6 +2146,38 @@ class spotMAX_Win(acdc_gui.guiWin):
         size = spots_zyx_radii[-1]
         self.ax2_BrushCircle.setSize(size)
         self.ax1_BrushCircle.setSize(size)
+    
+    def autoTuningYXresolMultiplActivated(self, checked):
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+        section = 'METADATA'
+        anchor = 'zResolutionLimit'
+        ZresolMultiplWidget = autoTuneGroupbox.params[section][anchor]['widget']
+        ZresolMultiplWidget.activateCheckbox.setChecked(not checked)
+        ZresolMultiplWidget.setDisabled(checked)
+        if checked:
+            plane = 'xy'
+            self.switchPlaneCombobox.setCurrentText(plane)
+    
+    def autoTuningZresolLimitChanged(self, value):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        metadataParams['zResolutionLimit']['widget'].setValue(value)
+        spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
+        spots_zyx_radii = spotMinSizeLabels.pixelValues()
+        self.setAutoTuneZplaneCursorLength(spots_zyx_radii[0])
+    
+    def autoTuningZresolLimitActivated(self, checked):
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+        section = 'METADATA'
+        anchor = 'yxResolLimitMultiplier'
+        YXresolMultiplWidget = autoTuneGroupbox.params[section][anchor]['widget']
+        YXresolMultiplWidget.activateCheckbox.setChecked(not checked)
+        YXresolMultiplWidget.setDisabled(checked)
+        if checked:
+            plane = 'zy'
+            self.switchPlaneCombobox.setCurrentText(plane)
     
     def addAutoTunePoint(self, frame_i, z, y, x):
         self.setAutoTunePointSize()

@@ -1277,8 +1277,29 @@ class FloatLineEdit(QLineEdit):
             self.setStyleSheet('')
             self.valueChanged.emit(self.value())
 
+class ParentLinePlotItem(pg.PlotDataItem):
+    def __init__(self, *args, **kwargs):
+        self._childrenItem = None
+        super().__init__(*args, **kwargs)
+        self._args = args
+        self._kwargs = kwargs
+    
+    def addChildrenItem(self):
+        self._childrenItem = pg.PlotDataItem(*self._args, **self._kwargs)
+        return self._childrenItem
+    
+    def setData(self, *args, **kwargs):
+        super().setData(*args, **kwargs)
+        if self._childrenItem is None:
+            return
+        self._childrenItem.setData(*args, **kwargs)
+    
+    def clearData(self):
+        self.setData([], [])
+
 class FloatLineEditWithStepButtons(QWidget):
     valueChanged = Signal(float)
+    sigActivated = Signal(bool)
     
     def __init__(self, parent=None, **kwargs) -> None:
         super().__init__(parent)
@@ -1298,12 +1319,29 @@ class FloatLineEditWithStepButtons(QWidget):
         layout.setStretch(1, 0)
         layout.setStretch(2, 0)
         
+        self.setContentsMargins(0, 0, 0, 0)
+        
         self.setLayout(layout)
         
         self._stepUpButton.clicked.connect(self.stepUp)
         self._stepDownButton.clicked.connect(self.stepDown)
         
         self._lineEdit.textChanged.connect(self.emitValueChanged)
+    
+    def addActivateCheckbox(self):
+        self.activateCheckbox = QCheckBox('Activate')
+        self.layout().addWidget(self.activateCheckbox)
+        self.activateCheckbox.clicked.connect(self.activateCheckboxToggled)
+    
+    def setDisabled(self, disabled):
+        self._lineEdit.setDisabled(disabled)
+        self._stepDownButton.setDisabled(disabled)
+        self._stepUpButton.setDisabled(disabled)
+    
+    def activateCheckboxToggled(self):
+        checked = self.activateCheckbox.isChecked()
+        self.setDisabled(not checked)
+        self.sigActivated.emit(checked)
     
     def emitValueChanged(self, text):
         val = self.value()
@@ -1337,12 +1375,42 @@ class FloatLineEditWithStepButtons(QWidget):
     def value(self):
         return self._lineEdit.value()
 
-class YXresolutMultiplierAutoTuneWidget(FloatLineEditWithStepButtons):
+class ResolutMultiplierAutoTuneWidget(FloatLineEditWithStepButtons):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setStep(0.5)
-        self._stepUpButton.setShortcut('Up')
-        self._stepDownButton.setShortcut('Down')
+        self.addActivateCheckbox()
+        self.sigActivated.connect(self.onSigActivated)
+    
+    def setDisabled(self, disabled):
+        super().setDisabled(disabled)
+        if not disabled:
+            self._stepUpButton.setShortcut('Up')
+            self._stepDownButton.setShortcut('Down')
+        else:
+            self._stepUpButton.setShortcut('')
+            self._stepDownButton.setShortcut('')
+    
+    def onSigActivated(self, checked):
+        self.setDisabled(not checked)
+        self._stepUpButton.clearFocus()
+        self._stepDownButton.clearFocus()
+        self.activateCheckbox.clearFocus()
+
+class ResolutMultiplierAutoTuneWidget(FloatLineEditWithStepButtons):        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setStep(0.5)
+        self.addActivateCheckbox()
+        self.sigActivated.connect(self.onSigActivated)
+        
+    def onSigActivated(self, checked):
+        if checked:
+            self._stepUpButton.setShortcut('Up')
+            self._stepDownButton.setShortcut('Down')
+        else:
+            self._stepUpButton.setShortcut('')
+            self._stepDownButton.setShortcut('')
 
 class Gaussian3SigmasLineEdit(acdc_widgets.VectorLineEdit):
     def __init__(self, parent=None, initial=None):
