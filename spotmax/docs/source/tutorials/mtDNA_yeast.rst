@@ -145,15 +145,35 @@ risk to miss the smaller spots. For this tutorial we will use
 
 .. tip::
 
-    The simplest way to determine these values is to use the tools available in the 
-    ``Tune parameters tab``. See more instructions in this section 
+    The simplest way to determine these values is to use the tools available 
+    in the ``Tune parameters tab``. See more instructions in this section 
     :ref:`tune-parameters-tab` and here :confval:`Spot minimum z-size (μm)`. 
 
 Once you have inserted these values you should now see the following at the 
 :confval:`Spot (z, y, x) minimum dimensions (radius)` parameter::
 
-    Spot (z, y, x) minimum dimensions (radius)  (1.0, 0.4366, 0.4366) μm
-                                                (4.1667, 6.0586, 6.0586) pxl
+    Spot (z, y, x) minimum dimensions (radius)  (1.0, 0.4357, 0.4357) μm
+                                                (2.8571, 6.479, 6.479) pxl
+
+Pre-processing
+^^^^^^^^^^^^^^
+
+For the pre-processing activating or not the :confval:`Aggregate cells prior analysis` 
+will not make any difference becasue we are working with a single mother-daughter 
+pair. If we would be working with multiple cells and we already know that some 
+cells in the image do not have spots activating this paramenter might be very 
+important (especially if we use ``Thresholding`` for the 
+:confval:`Spots segmentation method`). 
+
+We do not need to activate :confval:`Remove hot pixels` because this specific 
+dataset does not have any very bright isolated single pixel. 
+
+We leave the :confval:`Initial gaussian filter sigma` to 0.75 because we want to 
+activate :confval:`Sharpen spots signal prior detection`. When sharpening is active, 
+the gaussian filtered image is not used for detection but only for quantification. 
+Using a small gaussian sigma is recommended to remove some of the background 
+noise. With a higher sigma the smoothing would be to aggressive, especially 
+because we are dealing with low signal-to-noise ratio.  
 
 .. toctree:: 
     :hidden:

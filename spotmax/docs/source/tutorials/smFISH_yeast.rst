@@ -182,7 +182,9 @@ dataset does not have any very bright isolated single pixel.
 We leave the :confval:`Initial gaussian filter sigma` to 0.75 because we want to 
 activate :confval:`Sharpen spots signal prior detection`. When sharpening is active, 
 the gaussian filtered image is not used for detection but only for quantification. 
-Using a small gaussian sigma is recommended since it removes the obvious noise. 
+Using a small gaussian sigma is recommended to remove some of the background 
+noise. With a higher sigma the smoothing would be to aggressive, especially 
+because we are dealing with low signal-to-noise ratio.  
 
 Reference channel
 ^^^^^^^^^^^^^^^^^

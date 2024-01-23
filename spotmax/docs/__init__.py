@@ -64,7 +64,8 @@ params_desc_desc_html_filepath = f'{params_desc_desc_html_filepath}.html'
 # Regex patterns
 metric_name_regex = r'[A-Za-z0-9_ \-\.\(\)`\^]+'
 col_name_regex = r'[A-Za-z0-9_]+'
-option_pattern = r'\.\. confval:: (.+)\n'
+confval_pattern = r'\.\. confval:: (.+)\n'
+ul_item_pattern = r'\* \*\*(.+)\*\*:'
 
 def _get_section(idx, groups, rst_text, remove_directives=True):
     if remove_directives:
@@ -116,12 +117,12 @@ def get_params_desc_mapper():
         rst_text = rst.read()
     
     section_options_mapper = _parse_section_options(
-        rst_text, return_sections=True
+        rst_text, confval_pattern, return_sections=True
     )    
     section_option_desc_mapper = _parse_desc(section_options_mapper, rst_text)
     return section_option_desc_mapper
 
-def _parse_section_options(rst_text, return_sections=False):
+def _parse_section_options(rst_text, option_pattern, return_sections=False):
     features_groups = {}
     group_pattern = r'\n(.+)\n\-+\n'
     groups = re.findall(group_pattern, rst_text)
@@ -165,7 +166,7 @@ def parse_single_spot_features_groups():
     with open(single_spot_features_rst_filepath, 'r', encoding='utf-8') as rst:
         rst_text = rst.read()
     
-    features_groups = _parse_section_options(rst_text)
+    features_groups = _parse_section_options(rst_text, ul_item_pattern)
         
     return features_groups
 
@@ -173,7 +174,7 @@ def parse_aggr_features_groups():
     with open(aggr_features_rst_filepath, 'r', encoding='utf-8') as rst:
         rst_text = rst.read()
     
-    features_groups = _parse_section_options(rst_text)
+    features_groups = _parse_section_options(rst_text, ul_item_pattern)
         
     return features_groups
 
