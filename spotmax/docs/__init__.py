@@ -8,34 +8,58 @@ from .. import html_func, printl
 # Paths
 docs_path = os.path.dirname(os.path.abspath(__file__))
 source_path = os.path.join(docs_path, 'source')
+docs_html_path = os.path.join(docs_path, '_build', 'html')
 
-single_spot_features_filename = 'single_spot_features_description.rst'
+single_spot_features_filename = 'single_spot_features_description'
+single_spot_features_relpath = f'features/{single_spot_features_filename}'
 single_spot_features_rst_filepath = os.path.join(
-    source_path, 'features', single_spot_features_filename
+    source_path, *single_spot_features_relpath.split('/')
 )
+single_spot_features_rst_filepath = f'{single_spot_features_rst_filepath}.rst'
 
-aggr_features_filename = 'aggr_features_description.rst'
+aggr_features_filename = 'aggr_features_description'
+aggr_features_relpath = f'features/{aggr_features_filename}'
 aggr_features_rst_filepath = os.path.join(
-    source_path, 'features', aggr_features_filename
+    source_path, *aggr_features_relpath.split('/')
 )
+aggr_features_rst_filepath = f'{aggr_features_rst_filepath}.rst'
 
-params_desc_filename = 'parameters_description.rst'
+params_desc_filename = 'parameters_description'
+params_desc_relpath = f'parameters/{params_desc_filename}'
 params_desc_rst_filepath = os.path.join(
-    source_path, 'parameters', params_desc_filename
+    source_path, *params_desc_relpath.split('/')
 )
+params_desc_rst_filepath = f'{params_desc_rst_filepath}.rst'
 
 # Urls
 readthedocs_url = 'https://spotmax.readthedocs.io'
-
 single_spot_features_desc_url = (
-    f'{readthedocs_url}/{single_spot_features_filename}.html'
+    f'{readthedocs_url}/{single_spot_features_relpath}.html'
 )
 aggr_features_desc_url = (
-    f'{readthedocs_url}/{aggr_features_filename}.html'
+    f'{readthedocs_url}/{aggr_features_relpath}.html'
 )
 params_desc_desc_url = (
-    f'{readthedocs_url}/{params_desc_filename}.html'
+    f'{readthedocs_url}/{params_desc_relpath}.html'
 )
+
+# Local html filepaths
+single_spot_features_desc_html_filepath = os.path.join(
+    docs_html_path, *single_spot_features_relpath.split('/')
+)
+single_spot_features_desc_html_filepath = (
+    f'{single_spot_features_desc_html_filepath}.html'
+)
+
+aggr_features_desc_html_filepath = os.path.join(
+    docs_html_path, *aggr_features_relpath.split('/')
+)
+aggr_features_desc_html_filepath = f'{aggr_features_desc_html_filepath}.html'
+
+params_desc_desc_html_filepath = os.path.join(
+    docs_html_path, *params_desc_relpath.split('/')
+)
+params_desc_desc_html_filepath = f'{params_desc_desc_html_filepath}.html'
 
 # Regex patterns
 metric_name_regex = r'[A-Za-z0-9_ \-\.\(\)`\^]+'
@@ -57,29 +81,38 @@ def _get_section(idx, groups, rst_text, remove_directives=True):
 
     return section
 
+def norm_url_tag(text):
+    return re.sub(r'[^a-zA-Z0-9]+', '-', text).strip('-')
+
 def single_spot_feature_group_name_to_url(group_name):
-    url_tag = re.sub(r'[^a-zA-Z0-9]+', '-', group_name.lower()).strip('-')
+    url_tag = norm_url_tag(group_name)
     infoUrl = f'{single_spot_features_desc_url}#{url_tag}'
     return infoUrl
 
 def aggr_feature_group_name_to_url(group_name):
-    url_tag = re.sub(r'[^a-zA-Z0-9]+', '-', group_name.lower()).strip('-')
+    url_tag = norm_url_tag(group_name)
     infoUrl = f'{aggr_features_desc_url}#{url_tag}'
     return infoUrl
 
 def params_desc_section_to_url(section):
-    url_tag = re.sub(r'[^a-zA-Z0-9]+', '-', section.lower()).strip('-')
+    url_tag = norm_url_tag(section)
     infoUrl = f'{params_desc_desc_url}#{url_tag}'
     return infoUrl
 
 def param_name_to_url(param_name):
-    param_tag = re.sub(r'[^a-zA-Z0-9]+', '-', param_name.lower()).strip('-')
+    param_tag = norm_url_tag(param_name)
     confval_tag = f'#confval-{param_tag}'
     url = f'{params_desc_desc_url}{confval_tag}'
     return url
-    
+
+def param_name_to_local_html_url(param_name):
+    param_tag = norm_url_tag(param_name)
+    confval_tag = f'#confval-{param_tag}'
+    url = f'file://{params_desc_desc_html_filepath}{confval_tag}'
+    return url
+
 def get_params_desc_mapper():
-    with open(params_desc_rst_filepath, 'r') as rst:
+    with open(params_desc_rst_filepath, 'r', encoding='utf-8') as rst:
         rst_text = rst.read()
     
     section_options_mapper = _parse_section_options(
@@ -129,7 +162,7 @@ def _parse_desc(section_options_mapper, rst_text, to_html=True):
     return section_option_mapper
 
 def parse_single_spot_features_groups():
-    with open(single_spot_features_rst_filepath, 'r') as rst:
+    with open(single_spot_features_rst_filepath, 'r', encoding='utf-8') as rst:
         rst_text = rst.read()
     
     features_groups = _parse_section_options(rst_text)
@@ -137,7 +170,7 @@ def parse_single_spot_features_groups():
     return features_groups
 
 def parse_aggr_features_groups():
-    with open(aggr_features_rst_filepath, 'r') as rst:
+    with open(aggr_features_rst_filepath, 'r', encoding='utf-8') as rst:
         rst_text = rst.read()
     
     features_groups = _parse_section_options(rst_text)
@@ -165,7 +198,7 @@ def _parse_column_names(features_groups, rst_text):
     return mapper
 
 def parse_aggr_features_column_names():
-    with open(aggr_features_rst_filepath, 'r') as rst:
+    with open(aggr_features_rst_filepath, 'r', encoding='utf-8') as rst:
         rst_text = rst.read()
         
     features_groups = parse_aggr_features_groups()
@@ -173,7 +206,7 @@ def parse_aggr_features_column_names():
     return mapper
 
 def single_spot_features_column_names():
-    with open(single_spot_features_rst_filepath, 'r') as rst:
+    with open(single_spot_features_rst_filepath, 'r', encoding='utf-8') as rst:
         rst_text = rst.read()
         
     features_groups = parse_single_spot_features_groups()

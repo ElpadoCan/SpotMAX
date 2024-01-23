@@ -1097,6 +1097,13 @@ class formWidget(QWidget):
         else:
             self.sigLinkClicked.emit(link)
 
+    def _try_open_url(self, url):
+        try:
+            webbrowser.open(url)
+            return True
+        except Exception as err:
+            return False
+    
     def showInfo(self):
         url = docs.param_name_to_url(self.text())
         
@@ -1110,24 +1117,6 @@ class formWidget(QWidget):
             self, f'`{self.text()}` description', txt, 
             buttonsTexts=buttons
         )
-        
-        # txt = html_func.paragraph(
-        #     _docs.paramsInfoText().get(anchor, _docs.notDocumentedYetText())
-        # )
-        # if not txt:
-        #     return
-        # msg = acdc_widgets.myMessageBox(parent=self, showCentered=False)
-        # msg.setIcon(iconName='SP_MessageBoxInformation')
-        # msg.setWindowTitle(f'{self.labelLeft.text()} info')
-        # msg.addText(txt)
-        # msg.setWidth(600)
-        # msg.addButton('  Ok  ')
-        # for label in msg.labels:
-        #     label.setOpenExternalLinks(False)
-        #     label.linkActivated.connect(self.linkActivatedCallBack)
-        # msg.exec_()
-        # # Here show user manual already scrolled at anchor
-        # # see https://stackoverflow.com/questions/20678610/qtextedit-set-anchor-and-scroll-to-it
 
 class FormLayout(QGridLayout):
     def __init__(self):
