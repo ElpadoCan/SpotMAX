@@ -69,7 +69,7 @@ class Model:
             preprocess_across_timepoints=True,
             gaussian_filter_sigma: Vector=0.0,
             remove_hot_pixels=False,
-            config_yaml_filepath: os.PathLike=config_yaml_path,
+            config_yaml_filepath: os.PathLike='spotmax/nnet/config.yaml',
             PhysicalSizeX: float=0.073,
             resolution_multiplier_yx: float=1.0,
             use_gpu=False,
@@ -114,6 +114,9 @@ class Model:
         self.Operation = Operation
         self.NDModel = NDModel
         self.Models = Models
+        
+        if config_yaml_filepath == 'spotmax/nnet/config.yaml':
+            config_yaml_filepath = config_yaml_path
         
         self._config = self._load_config(config_yaml_filepath)
         self._scale_factor = self._get_scale_factor(

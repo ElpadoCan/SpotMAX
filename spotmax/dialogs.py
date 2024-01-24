@@ -335,7 +335,7 @@ class guiTabControl(QTabWidget):
         self.runSpotMaxButton.clicked.connect(self.runAnalysis)
         self.setMeasurementsButton.clicked.connect(self.setMeasurementsClicked)
 
-        self.addTab(containerWidget, 'Analysis paramenters')
+        self.addTab(containerWidget, 'Analysis parameters')
     
     def confirmMeasurementsSet(self):
         self.setMeasurementsButton.setText('Measurements are set. View or edit...')
