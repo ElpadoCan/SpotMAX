@@ -316,7 +316,7 @@ METADATA
   footprint with a radius of 1 pixel, effctively detecting spots one every 
   single pixel of the image (i.e., most likely this would be too small).
 
-  In the ``Tune parameters`` tab on the GUI you can visually set the 
+  In the :ref:`tune-parameters-tab` on the GUI you can visually set the 
   :confval:`Resolution multiplier in y- and x- direction` by adding points and 
   pressing up and down key arrows to adjust the size. 
 

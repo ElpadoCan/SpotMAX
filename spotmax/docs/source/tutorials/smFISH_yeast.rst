@@ -186,6 +186,10 @@ Using a small gaussian sigma is recommended to remove some of the background
 noise. With a higher sigma the smoothing would be to aggressive, especially 
 because we are dealing with low signal-to-noise ratio.  
 
+.. tip:: 
+    You can visually inspect the result of every pre-processing filter 
+    by pressing on the |compute| compute button beside each filter. 
+
 Reference channel
 ^^^^^^^^^^^^^^^^^
 
@@ -230,7 +234,7 @@ We are almost done, since this is the last section that we will setup.
 
 For the :confval:`Spots segmentation method` we know that 'spotMAX AI' works 
 well in this case, but feel free to experiment with 'Thresholding' (which is much faster 
-than the neural networks) any of the models available at the `BioImage Model Zoo`_.
+than the neural networks) and with any of the models available at the `BioImage Model Zoo`_.
 
 .. note:: 
 
@@ -250,13 +254,13 @@ work well:
 * **Gaussian filter sigma**: 1.0
 * **Remove hot pixels**: False
 * **Config yaml filepath**: spotMAX_v2/spotmax/nnet/config.yaml
-* **PhysicalSizeX**: 0.07206 (same as in the :ref:`metadata_smfish_yeast_tutorial`)
-* **Resolution multiplier yx**: 1.0 (same as in the :ref:`metadata_smfish_yeast_tutorial`)
+* **PhysicalSizeX**: 0.07206 (same as in the `metadata_smfish_yeast_tutorial`_)
+* **Resolution multiplier yx**: 1.0 (same as in the `metadata_smfish_yeast_tutorial`_)
   
 Next, we can ignore :confval:`Spot detection threshold function` because we 
 are using the 'spotMAX AI', we do not set any filtering feature at the 
 :confval:`Features and thresholds for filtering true spots`, we activate 
-:confval:`Optimise detection for high spot density`, and we do not 
+:confval:`Optimise detection for high spot density`, and we do not activate
 :confval:`Compute spots size (fit gaussian peak(s))`. 
 
 Finally we can choose whether to :confval:`Save spots segmentation masks` and 

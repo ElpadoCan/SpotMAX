@@ -3,6 +3,7 @@
 .. _BioImage Model Zoo: https://bioimage.io/#/
 .. _mNeonGreen: https://www.fpbase.org/protein/mneongreen/
 .. _seel-2023: https://www.nature.com/articles/s41594-023-01091-8
+.. _ridge operator: https://scikit-image.org/docs/stable/auto_examples/edges/plot_ridge_filter.html
 
 .. |load-folder| image:: ../images/folder-open.svg
     :width: 20
@@ -14,6 +15,9 @@
     :width: 20
 
 .. |cog_play| image:: ../../../resources/icons/cog_play.svg
+    :width: 20
+
+.. |plus| image:: ../../../resources/icons/math/add.svg
     :width: 20
 
 .. _mtdna-yeast:
@@ -161,8 +165,8 @@ Pre-processing
 For the pre-processing activating or not the :confval:`Aggregate cells prior analysis` 
 will not make any difference becasue we are working with a single mother-daughter 
 pair. If we would be working with multiple cells and we already know that some 
-cells in the image do not have spots activating this paramenter might be very 
-important (especially if we use ``Thresholding`` for the 
+of the cells in the image do not have spots activating this paramenter might 
+be very important (especially if we use ``Thresholding`` for the 
 :confval:`Spots segmentation method`). 
 
 We do not need to activate :confval:`Remove hot pixels` because this specific 
@@ -174,6 +178,175 @@ the gaussian filtered image is not used for detection but only for quantificatio
 Using a small gaussian sigma is recommended to remove some of the background 
 noise. With a higher sigma the smoothing would be to aggressive, especially 
 because we are dealing with low signal-to-noise ratio.  
+
+.. tip:: 
+    You can visually inspect the result of every pre-processing filter 
+    by pressing on the |compute| compute button beside each filter. 
+
+Reference channel
+^^^^^^^^^^^^^^^^^
+
+In this tutorial, as well as detecting the spots, we also want to segment the 
+mitochondrial network from the ``mKate`` signal as the reference channel. 
+We will then use the resulting segmentation to remove those spots that are 
+outside of the mitochondrial network (we are interested in detecting only the 
+mitochondrial DNA that is inside the mitochondrial network). 
+
+To this purpose we activate :confval:`Segment reference channel`.
+
+Another important parameter we want to activate is :confval:`Use the ref. channel mask to determine background`. 
+This is because we want to keep only those spots that are significantly brighter 
+than the ``mKate`` signal in the same area. However, we cannot compare absolute 
+intensities between ``mNeon`` and ``mKate`` because they are two different 
+fluorophores. Therefore, we need to normalize the two signals before comparing 
+them. To do so, spotMAX will divide the mean of the signal within each spot 
+(using the minimum spot size determined in the `metadata_mtdna_yeast_tutorial`_ 
+section) by the background median. To determine the background, we want to take 
+the median of the pixels that are outside of the spots, but inside of the 
+mitochondrial network, hence we activate this parameter.
+
+Next, we turn our attention onto the filters that are available to enhance 
+the segmentation accuracy. Since we are dealing with network-like structures, 
+a gaussian filter (smoothing) might not be enough. A better filter in this case 
+is a `ridge operator`_. These operators take one or more values called ``sigmas`` 
+used as scales of the filter. For this specific dataset, we write ``2, 3`` in the 
+:confval:`Sigmas used to enhance network-like structures` parameter.   
+
+.. tip:: 
+
+    Selecting the right sigmas for the ridge operator might require some trial 
+    and error. Some values that you can test are ``1``, ``2``, ``1, 2``, and 
+    ``2, 3``. The more sigmas you use, the longer the computation time. 
+    Test these values by both visually inspecting the result of the filter and 
+    the result of the segmentation (using the |compute| compute buttons). 
+
+For the :confval:`Ref. channel gaussian filter sigma` parameter instead, we leave 
+this one at 0.75 to remove some background noise. 
+
+Now we need to choose whether to use the 'Thresholding' or 'BioImage.IO model' 
+for the :confval:`Ref. channel segmentation method`. Since we know that 
+'Thresholding' works well in this case we will use that, but feel free to 
+experiment with any of the models available at the `BioImage Model Zoo`_. 
+
+Next, to choose the optimal :confval:`Ref. channel threshold function` we click 
+on the |compute| button beside the :confval:`Ref. channel segmentation method` 
+and we should be able to appreciate that ``thresholding_yen``, ``threshold_otsu``, 
+and ``threshold_isodata`` all do a pretty good job at segmenting the mitochondrial 
+network. We will proceed with ``thresholding_yen``. 
+
+Finally, we can choose whether to :confval:`Save reference channel segmentation masks` 
+and :confval:`Save pre-processed reference channel image`.
+
+Spots channel
+^^^^^^^^^^^^^
+
+We are almost done, since this is the last section that we will setup. 
+
+For the :confval:`Spots segmentation method` we know that 'spotMAX AI' works 
+well in this case, but feel free to experiment with 'Thresholding' (which is much faster 
+than the neural networks) and with any of the models available at the `BioImage Model Zoo`_.
+
+.. note:: 
+
+    If this is the first time you are using the 'spotMAX AI' method, spotMAX will 
+    need to install some libraries. Keep an eye on the terminal during this 
+    time and check that installation is successful.
+
+After selecting 'spotMAX AI' you will need to configure the parameters of the 
+model. To do so, click on the |cog| cog button beside the parameter. If you 
+want more information about the parameters of the AI see this section 
+:ref:`ai_params`. For this dataset, we know that the following parameters 
+work well:
+
+* **Model type**: 2D
+* **Preprocess across experiment**: False
+* **Preprocess across timepoints**: False
+* **Gaussian filter sigma**: 0.0
+* **Remove hot pixels**: False
+* **Config yaml filepath**: spotMAX_v2/spotmax/nnet/config.yaml
+* **PhysicalSizeX**: 0.0672498 (same as in the `metadata_mtdna_yeast_tutorial`_)
+* **Resolution multiplier yx**: 1.0 
+  
+Next, we can ignore :confval:`Spot detection threshold function` because we 
+are using the 'spotMAX AI' method.
+
+Now, as we said at the beginning, we want to keep only those spots that are 
+significantly higher than the reference channel in the same place. To do so, 
+we can take advantage of a couple of features to filter valid spots. One 
+way to compare the two signals is to perform a Welch's t-test and keep only 
+those spots whose *p-value* of the test is below a certain threshold. Therefore 
+at the :confval:`Features and thresholds for filtering true spots` we click on 
+the ``Set features or view the selected ones`` button and we expand the 
+:ref:`stat-test-vs-ref-ch` group. We then select the ``p-value (t-test)`` feature 
+and we click ``Ok``. Next, we select a maximum bound for the *p-value* of 0.025. 
+Since this would result in keeping those spots whose mean intensity is both 
+significantly and lower then the reference channel, to keep only those that have 
+higher mean intensity we click on the |plus| ``Add feature`` button and we 
+add the ``t-statistic`` from the :ref:`stat-test-vs-ref-ch` group. Finally, 
+we set a minimum bound on the **t-statistic** of 0, meaning that we will 
+keep only those spots whose mean intensity is higher than the reference channel. 
+
+Here is how the window to select the features should look like:
+
+.. figure:: ../images/features_and_thresholds_window.png
+    :align: center
+
+    Window used to select features and thresholds for filtering true spots.
+
+We now activate :confval:`Optimise detection for high spot density`, and we do 
+not activate :confval:`Compute spots size (fit gaussian peak(s))`. 
+
+Finally, we can choose whether to :confval:`Save spots segmentation masks` and 
+:confval:`Save pre-processed spots image`. 
+
+.. note:: 
+
+    Since we do not activate :confval:`Compute spots size (fit gaussian peak(s))` 
+    we do not need to worry about the paramters in the :ref:`spotfit-params` 
+    section. Also, we can leave the :ref:`config-params` section deactivated 
+    and we will get asked about it when we run the analysis
+
+Running the analysis
+--------------------
+
+Ok, we are finally ready to run the analysis! 
+
+To do so simply click on the |cog_play| ``Run analysis...`` button on the top 
+right of the tab. 
+
+SpotMAX will now allow use to save the parameters to an INI configuration file 
+and we choose 'Yes'. This way we can load them back into the GUI any time we 
+want by clicking on the |load-folder| ``Load parameters from previous analysis...`` 
+button on the top-left of the tab. 
+
+Next, spotMAX will ask us whether we want to select the measurements to save and 
+we say 'No, save all the measurements'. 
+
+Then we choose a filename for the parameters file and the folder where to save 
+them. We will get a dialogue confirming that parameters where saved with the 
+path where they have been saved. We click 'Ok' and we get a reminder 
+that the analysis will now run in the terminal and we should keep an eye on that. 
+
+We click on 'Ok, run now!' and we move our attention to the terminal. In the 
+terminal we will get asked some last questions about paramenters that we did 
+not selected and we simply confirm that we want to use the default ones. 
+
+The analysis will now run and the output files will be saved in the 
+same folder of the dataset in a new folder called ``spotMAX_output``. For details 
+about the output files see this section :ref:`output-files`. 
+
+
+Closing remarks
+---------------
+
+At the end of the analysis you can go back to the GUI and visualize and 
+inspect the results using the tools in the :ref:`inspect-results-tab`. 
+
+That's it! I hope you found this tutorial useful and you can let us know 
+if you found mistakes or any other feedback on our `GitHub`_ page or by 
+sending us an email at :email:`padovaf@tcd.ie`.
+
+Until next time! 
 
 .. toctree:: 
     :hidden:

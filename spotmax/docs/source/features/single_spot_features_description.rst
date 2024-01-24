@@ -99,6 +99,7 @@ effect sizes:
   :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n` being the 
   difference between the reference channel's and spots' number of pixels. 
 
+
 Statistical test (vs. backgr.)
 ------------------------------
 
