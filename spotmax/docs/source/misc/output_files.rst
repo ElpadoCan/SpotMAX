@@ -16,8 +16,8 @@ Output files will be saved in each Position folder in a sub-folder called
 
 where ``<run_number>`` is the number selected as the :confval:`Run number` 
 parameter, ``<appended_text>`` is the text inserted at the 
-:confval:`Text to append at the end of the output files`, and ``<ext>`` is 
-either ``.csv`` or ``.h5`` as selected at the 
+:confval:`Text to append at the end of the output files` parameter, and 
+``<ext>`` is either ``.csv`` or ``.h5`` as selected at the 
 :confval:`File extension of the output tables` parameter. 
 
 The file with ``analysis_parameters`` in the name is the INI configuration file 

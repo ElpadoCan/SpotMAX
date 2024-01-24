@@ -13,6 +13,9 @@
 .. |edit-button| image:: ../../../resources/icons/cog.svg
     :width: 20
 
+.. |compute| image:: ../images/compute.png
+    :width: 20
+    
 .. _params-desc:
 
 Description of the parameters
@@ -532,7 +535,7 @@ Spots channel
   
   In the GUI, you can visualize the output of all the thresholding algoritms 
   or of the neural networks vs a specific thresholding method by clicking 
-  on the compute button beside the method selector. 
+  on the |compute| compute button beside the method selector. 
 
   :type: string
   :default: ``Thresholding``

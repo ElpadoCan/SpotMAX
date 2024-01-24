@@ -165,7 +165,7 @@ Pre-processing
 For the pre-processing activating or not the :confval:`Aggregate cells prior analysis` 
 will not make any difference becasue we are working with a single mother-daughter 
 pair. If we would be working with multiple cells and we already know that some 
-of the cells in the image do not have spots activating this paramenter might 
+of the cells in the image do not have spots activating this parameter might 
 be very important (especially if we use ``Thresholding`` for the 
 :confval:`Spots segmentation method`). 
 
@@ -328,7 +328,7 @@ path where they have been saved. We click 'Ok' and we get a reminder
 that the analysis will now run in the terminal and we should keep an eye on that. 
 
 We click on 'Ok, run now!' and we move our attention to the terminal. In the 
-terminal we will get asked some last questions about paramenters that we did 
+terminal we will get asked some last questions about parameters that we did 
 not selected and we simply confirm that we want to use the default ones. 
 
 The analysis will now run and the output files will be saved in the 

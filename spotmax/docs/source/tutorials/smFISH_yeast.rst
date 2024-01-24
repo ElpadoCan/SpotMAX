@@ -173,7 +173,7 @@ Pre-processing
 For the pre-processing activating or not the :confval:`Aggregate cells prior analysis` 
 should not make a big difference becasue we expect spots in every cell. If we 
 already know that some cells in the image do not have spots activating this 
-paramenter might be very important (especially if we use ``Thresholding`` for 
+parameter might be very important (especially if we use ``Thresholding`` for 
 the :confval:`Spots segmentation method`). 
 
 We do not need to activate :confval:`Remove hot pixels` because this specific 
@@ -295,7 +295,7 @@ path where they have been saved. We click 'Ok' and we get a reminder
 that the analysis will now run in the terminal and we should keep an eye on that. 
 
 We click on 'Ok, run now!' and we move our attention to the terminal. In the 
-terminal we will get asked some last questions about paramenters that we did 
+terminal we will get asked some last questions about parameters that we did 
 not selected and we simply confirm that we want to use the default ones. 
 
 The analysis will now run and the output files will be saved in the 
