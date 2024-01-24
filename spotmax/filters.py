@@ -193,7 +193,7 @@ def local_semantic_segmentation(
     aggr_rp = skimage.measure.regionprops(lab)
     result = {}
     if return_image:
-        result['input_image'] = image
+        result['input_image'] = np.zeros_like(image)
     
     if do_try_all_thresholds:
         pbar = tqdm(total=len(threshold_funcs), ncols=100)
@@ -223,6 +223,8 @@ def local_semantic_segmentation(
             
             if ridge_filter_sigmas:
                 input_img = ridge(input_img, ridge_filter_sigmas)
+            
+            result['input_image'][merged_obj_slice] = input_img
             
             if method == 'neural_network':
                 predict_mask_merged = nnet_model.segment(

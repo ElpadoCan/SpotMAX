@@ -671,22 +671,23 @@ def from_spots_coords_arr_to_df(spots_coords, lab):
     zeros = [0]*len(xx)
     df_coords = pd.DataFrame({
         'Cell_ID': lab[zz, yy, xx],
+        'spot_id': range(1, len(zz)+1),
         'z': zz,
         'y': yy, 
         'x': xx,
         'z_local': zeros,
         'y_local': zeros, 
         'x_local': zeros
-    }).set_index('Cell_ID').sort_index()
+    }).set_index(['Cell_ID', 'spot_id']).sort_index()
     
     for obj in skimage.measure.regionprops(lab):
         zmin, ymin, xmin, _, _, _ = obj.bbox
-        zz = df_coords.loc[obj.label, 'z']
-        df_coords.loc[obj.label, 'z_local'] = zz - zmin
-        yy = df_coords.loc[obj.label, 'y']
-        df_coords.loc[obj.label, 'y_local'] = yy - ymin  
-        xx = df_coords.loc[obj.label, 'x']
-        df_coords.loc[obj.label, 'x_local'] = xx - xmin  
+        zz = df_coords.loc[[obj.label], 'z']
+        df_coords.loc[[obj.label], 'z_local'] = zz - zmin
+        yy = df_coords.loc[[obj.label], 'y']
+        df_coords.loc[[obj.label], 'y_local'] = yy - ymin  
+        xx = df_coords.loc[[obj.label], 'x']
+        df_coords.loc[[obj.label], 'x_local'] = xx - xmin  
     
     return df_coords
 
@@ -698,22 +699,28 @@ def from_spots_coords_to_spots_objs(spots_coords, arr_shape, spot_zyx_size):
         slices = get_slices_local_into_global_3D_arr(
             zyx_center, arr_shape, spot_mask.shape
         )
-        slice_global_to_local, slice_crop_local = slices
+        _, slice_crop_local = slices
         cropped_spot_mask = spot_mask[slice_crop_local].copy()
-        lab[slice_global_to_local][cropped_spot_mask] = i+1
-        spot_obj = skimage.measure.regionprops(lab)[0]
-        zmin, ymin, xmin, _, _, _ = spot_obj.bbox
-        spot_obj.zyx_local_center = (
-            zyx_center[0] - zmin,
-            zyx_center[1] - ymin,
-            zyx_center[2] - xmin
-        )
+        cropped_spot_mask = cropped_spot_mask.astype(np.uint32)*(i+1)
+        spot_obj = skimage.measure.regionprops(cropped_spot_mask)[0]
+        spot_obj.zyx_local_center = [round(c) for c in spot_obj.centroid]
         spots_objs.append(spot_obj)
     return spots_objs
 
-def from_spots_objs_to_spots_lab(spots_objs, arr_shape):
+def from_df_spots_objs_to_spots_lab(df_spots_objs, arr_shape):
     spots_lab = np.zeros(arr_shape, dtype=np.uint32)
-    for spot_obj in spots_objs:
-        id = spot_obj.label
-        spots_lab[spot_obj.slice][spot_obj.image] = id
+    for row in df_spots_objs.itertuples():
+        ID, spot_id = row.Index
+        spot_obj = row.spot_obj
+        dz, dy, dx = spot_obj.image.shape
+        zc_spot_local, yc_spot_local, xc_spot_local = spot_obj.zyx_local_center
+        zstart = row.z - zc_spot_local
+        ystart = row.y - yc_spot_local
+        xstart = row.x - xc_spot_local
+        spot_slice = (
+            slice(zstart, zstart+dz, None),
+            slice(ystart, ystart+dy, None),
+            slice(xstart, xstart+dx, None)
+        )
+        spots_lab[spot_slice][spot_obj.image] = spot_id
     return spots_lab

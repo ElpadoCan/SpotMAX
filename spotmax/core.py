@@ -1520,7 +1520,7 @@ class _ParamsParser(_DataLoader):
                 subsection=subsection
             )
             if model_params is None:
-                self._raise_model_params_section_missing_ini()
+                self._raise_model_params_section_missing_ini(network_type)
             model_class = model.Model(**model_params['init'])
             model_params['segment']['verbose'] = False
         except Exception as err:
@@ -3537,7 +3537,7 @@ class Kernel(_ParamsParser):
             labels = pipe.spots_semantic_segmentation(
                 aggr_spots_img, 
                 lab=aggregated_lab, 
-                spots_zyx_radii_pxl=self.metadata['deltaTolerance'],
+                spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
                 lineage_table=lineage_table,
                 do_aggregate=do_aggregate,
                 logger_func=self.logger.info,
@@ -3560,7 +3560,8 @@ class Kernel(_ParamsParser):
             spots_segmantic_segm=labels,
             detection_method=detection_method,
             spot_footprint=footprint,
-            return_spots_mask=save_spots_mask
+            return_spots_mask=save_spots_mask,
+            spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
         )
 
         df_spots_coords, num_spots_objs_txts = self._add_local_coords_from_aggr(

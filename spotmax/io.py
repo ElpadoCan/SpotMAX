@@ -6,7 +6,7 @@ import difflib
 import datetime
 import time
 import copy
-import logging
+from functools import partial
 import tifffile
 import json
 import traceback
@@ -45,6 +45,7 @@ if GUI_INSTALLED:
 
     from . import dialogs, html_func, qtworkers
 
+from cellacdc import data_structure_docs_url
 from cellacdc import myutils as acdc_myutils
 import cellacdc.features
 
@@ -466,16 +467,22 @@ def save_preocessed_img(
     save_image_data(new_filepath, np.squeeze(img_data))
 
 def add_neural_network_params(params, configPars):
-    sections = ['neural_network.init', 'neural_network.segment']
+    sections = [
+        'neural_network.init', 'neural_network.segment',
+        'bioimageio_model.init', 'bioimageio_model.segment'
+    ]
+    sub_sections = ['spots', 'ref']
     for section in sections:
-        if section not in configPars.sections():
-            continue
-        for key, value in configPars[section].items():
-            if section not in params:
-                params[section] = {}
-            params[section][key] = {
-                'desc': key, 'loadedVal': value, 'isParam': True
-            }
+        for sub_section in sub_sections:
+            section_name = f'{section}.{sub_section}'
+            if section_name not in configPars.sections():
+                continue
+            for key, value in configPars[section_name].items():
+                if section_name not in params:
+                    params[section_name] = {}
+                params[section_name][key] = {
+                    'desc': key, 'loadedVal': value, 'isParam': True
+                }
     return params
     
 def add_metadata_from_csv(csv_path, ini_params):
@@ -1067,9 +1074,17 @@ class expFolderScanner:
     def warnNoValidExperimentsFound(self, homePath, parent):
         txt = html_func.paragraph(f"""
             The following folder does not contain any valid experiment:<br><br>
-            <code>{homePath}<\code><br>
+            <code>{homePath}</code><br><br>
+            For more information about the correct folder structure see 
+            {html_func.href('here', data_structure_docs_url)}.
         """)
         msg = acdc_widgets.myMessageBox(wrapText=False)
+        helpButton = acdc_widgets.helpPushButton('Help...')
+        msg.addButton(helpButton)
+        helpButton.clicked.disconnect()
+        helpButton.clicked.connect(
+            partial(acdc_myutils.browse_url, data_structure_docs_url)
+        )
         msg.addShowInFileManagerButton(str(homePath))
         msg.warning(parent, 'No valid experiments found!', txt)
     

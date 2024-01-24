@@ -967,18 +967,18 @@ def spot_detection(
         spots_coords = np.zeros((num_spots, 3), dtype=int)
         if return_spots_mask:
             spots_objs = []
-        for s, spot_obj in enumerate(prediction_lab_rp):
-            zyx_coords = tuple([round(c) for c in spot_obj.centroid])
-            spots_coords[s] = zyx_coords
-            if not return_spots_mask:
-                continue
-            zmin, ymin, xmin, _, _, _ = spot_obj.bbox
-            spot_obj.zyx_local_center = (
-                zyx_coords[0] - zmin,
-                zyx_coords[1] - ymin,
-                zyx_coords[2] - xmin
-            )
-            spots_objs.append(spot_obj)
+            for s, spot_obj in enumerate(prediction_lab_rp):
+                zyx_coords = tuple([round(c) for c in spot_obj.centroid])
+                spots_coords[s] = zyx_coords
+                if not return_spots_mask:
+                    continue
+                zmin, ymin, xmin, _, _, _ = spot_obj.bbox
+                spot_obj.zyx_local_center = (
+                    zyx_coords[0] - zmin,
+                    zyx_coords[1] - ymin,
+                    zyx_coords[2] - xmin
+                )
+                spots_objs.append(spot_obj)
     
     if return_df:
         if lab is None:

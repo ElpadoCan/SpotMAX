@@ -71,7 +71,7 @@ class AnalysisWorker(QRunnable):
         from . import _process
         command = f'spotmax, -p, {self._ini_filepath}'
         # command = r'python, spotmax\test.py'
-        command_format = command.replace(',', '')
+        command_format = f'spotmax -p "{self._ini_filepath}"'
         self.logger.log(f'spotMAX analysis started with command `{command_format}`')
         args = [sys.executable, _process.__file__, '-c', command]
         subprocess.run(args)

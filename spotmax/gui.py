@@ -1800,8 +1800,10 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def _displaySpotDetectionResult(self, result, image):
         df_coords, spots_objs = result
-        spots_lab = transformations.from_spots_objs_to_spots_lab(
-            spots_objs, image.shape
+        df_spots_objs = df_coords.copy()
+        df_spots_objs['spot_obj'] = spots_objs
+        spots_lab = transformations.from_df_spots_objs_to_spots_lab(
+            df_spots_objs, image.shape
         )
         self.logger.info(
             f'Total number of detected spots = {len(df_coords)}'
