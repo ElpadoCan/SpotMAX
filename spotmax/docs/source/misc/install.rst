@@ -12,7 +12,7 @@ How to install SpotMAX
     stable spotMAX version. However, if you require new features to be 
     implemented as fast as possible we recommend installing from source. 
 
-    If you plan on contributing to the code, see the :ref:`how-to-contribute` 
+    If you plan to contribute to the code, see the :ref:`how-to-contribute` 
     section.
 
 Install stable version
@@ -205,7 +205,7 @@ If you want to try out experimental features (and, if you have time, maybe repor
    
     .. code-block:: 
    
-        pip install -e
+        pip install -e "."
 
     The ``.`` at the end of the command means that you want to install from 
     the current folder in the terminal. This must be the ``spotMAX`` folder 
