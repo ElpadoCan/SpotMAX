@@ -132,17 +132,17 @@ These are the steps:
         git add .
         git commit -m "commit message"
     
-    .. note::
+    .. important::
 
-        When writing the commit message, please follow the Angular Conventional  
-        Commits specification.
+        When writing the commit message, please follow the 
+        `Angular Conventional Commits`_ specification.
 
 4. **Open a Pull Request**:
     To open a Pull Request go to the GitHub page of your forked repository and 
     you will see a green button on the top-left to open the PR. Click that 
     button and add a description about your contribution. 
 
-    .. note::
+    .. tip::
 
         To modify the PR you can simply commit and push to the same branch. GitHub 
         will automatically update the PR. 
