@@ -3582,7 +3582,8 @@ class Kernel(_ParamsParser):
             print('*'*60)
             num_spots_objs_txt = '\n'.join(num_spots_objs_txts)
             self.logger.info(
-                f'Number of spots per segmented object:\n{num_spots_objs_txt}'
+                f'Frame n. {frame_i+1}: number of spots per '
+                f'segmented object:\n{num_spots_objs_txt}'
             )
             print('-'*60)
         return df_spots_coords
