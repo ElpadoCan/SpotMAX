@@ -3430,7 +3430,8 @@ class Kernel(_ParamsParser):
             lineage_table=lineage_table, 
             verbose=verbose, 
             save_spots_mask=save_spots_mask,
-            raw_spots_img=raw_spots_img
+            raw_spots_img=raw_spots_img,
+            frame_i=frame_i
         )
         
         df_spots_det, df_spots_gop = self._spots_filter(
@@ -3456,7 +3457,7 @@ class Kernel(_ParamsParser):
             return df_spots_det, df_spots_gop, *dfs_segm_obj
 
     def _add_local_coords_from_aggr(
-            self, aggr_spots_coords, aggregated_lab, spots_objs=None
+            self, aggr_spots_coords, aggregated_lab, spots_masks=None
         ):
         aggr_lab_rp = skimage.measure.regionprops(aggregated_lab)
         if len(aggr_spots_coords) == 0:
@@ -3473,8 +3474,8 @@ class Kernel(_ParamsParser):
             'z_local': zeros, 'y_local': zeros, 'x_local': zeros,
             'Cell_ID': aggregated_lab[zz, yy, xx]
         })
-        if spots_objs is not None:
-            df_spots_coords['spot_obj'] = spots_objs
+        if spots_masks is not None:
+            df_spots_coords['spot_masks'] = spots_masks
         
         df_spots_coords = df_spots_coords.set_index('Cell_ID').sort_index()
         
@@ -3512,7 +3513,8 @@ class Kernel(_ParamsParser):
             save_spots_mask=True,
             lineage_table=None, 
             verbose=True,
-            raw_spots_img=None
+            raw_spots_img=None,
+            frame_i=0
         ):
         if verbose:
             print('')
@@ -3555,7 +3557,7 @@ class Kernel(_ParamsParser):
                 raw_image=raw_spots_img
             )
         
-        aggr_spots_coords, spots_objs = pipe.spot_detection(
+        aggr_spots_coords, spots_masks = pipe.spot_detection(
             aggr_spots_img, 
             spots_segmantic_segm=labels,
             detection_method=detection_method,
@@ -3565,7 +3567,7 @@ class Kernel(_ParamsParser):
         )
 
         df_spots_coords, num_spots_objs_txts = self._add_local_coords_from_aggr(
-            aggr_spots_coords, aggregated_lab, spots_objs=spots_objs
+            aggr_spots_coords, aggregated_lab, spots_masks=spots_masks
         )
 
         # if self.debug:
@@ -4055,7 +4057,7 @@ class Kernel(_ParamsParser):
                     ref_ch_img, is_ref_ch=True, verbose=frame_i==0
                 )
                 lab = segm_data[frame_i]
-                result, df_agg = self.segment_quantify_ref_ch(
+                result = self.segment_quantify_ref_ch(
                     ref_ch_img, lab_rp=lab_rp, lab=lab, 
                     threshold_method=ref_ch_threshold_method, 
                     keep_only_largest_obj=is_ref_ch_single_obj,
@@ -4071,10 +4073,10 @@ class Kernel(_ParamsParser):
                     return_filtered_img=save_preproc_ref_ch_img           
                 )
                 if save_preproc_ref_ch_img:
-                    ref_ch_lab, ref_ch_filtered_img = result
+                    ref_ch_lab, ref_ch_filtered_img, df_agg = result
                     preproc_ref_ch_data[frame_i] = ref_ch_filtered_img
                 else:
-                    ref_ch_lab = result
+                    ref_ch_lab, df_agg = result
                 ref_ch_segm_data[frame_i] = ref_ch_lab
                 pbar.update()
             pbar.close()
@@ -4595,7 +4597,7 @@ class Kernel(_ParamsParser):
             df_spots = dfs.get(key, None)
 
             if df_spots is not None:
-                if 'spot_obj' in df_spots.columns:
+                if 'spot_mask' in df_spots.columns:
                     df_spots = io.save_spots_masks(
                         df_spots, images_path, basename, filename, 
                         spots_ch_endname, run_number, 

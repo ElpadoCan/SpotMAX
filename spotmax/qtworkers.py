@@ -66,12 +66,16 @@ class AnalysisWorker(QRunnable):
         self._is_tempfile = is_tempfile
         self.logger = workerLogger(self.signals.progress)
 
+    def getCommandForClipboard(self):
+        command_format = f'spotmax -p "{self._ini_filepath}"'
+        return command_format
+    
     @worker_exception_handler
     def run(self):
         from . import _process
         command = f'spotmax, -p, {self._ini_filepath}'
         # command = r'python, spotmax\test.py'
-        command_format = f'spotmax -p "{self._ini_filepath}"'
+        command_format = self.getCommandForClipboard()
         self.logger.log(f'spotMAX analysis started with command `{command_format}`')
         args = [sys.executable, _process.__file__, '-c', command]
         subprocess.run(args)

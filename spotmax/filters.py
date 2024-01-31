@@ -403,7 +403,7 @@ def filter_largest_sub_obj_per_obj(mask_or_labels, lab):
         filtered[obj.slice][filtered_obj_mask] = obj.label
     return filtered
 
-def _warn_feature_is_missing(self, missing_feature, logger_func):
+def _warn_feature_is_missing(missing_feature, logger_func):
     logger_func(f"\n{'='*60}")
     txt = (
         f'[WARNING]: The feature name "{missing_feature}" is not present '

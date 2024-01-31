@@ -53,6 +53,7 @@ from . import utils, config
 from . import core, printl, error_up_str
 from . import settings_path
 from . import last_used_ini_text_filepath
+from . import transformations
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -451,13 +452,13 @@ def save_preocessed_img(
         img_data, raw_img_filepath, cast_to_dtype=None, pad_width=None
     ):
     if cast_to_dtype is not None:
-        img_data = acdc_myutils.float_img_to_dtype(img_data)
+        img_data = acdc_myutils.float_img_to_dtype(img_data, cast_to_dtype)
     
     if pad_width is not None:
         img_data = np.pad(img_data, pad_width)
     
     filename = os.path.basename(raw_img_filepath)
-    filename_noext, ext = os.path.splittext(filename)
+    filename_noext, ext = os.path.splitext(filename)
     
     folderpath = os.path.dirname(raw_img_filepath)
     
@@ -2203,23 +2204,15 @@ def save_spots_masks(
     spots_ch_segm_filepath = os.path.join(images_path, spots_ch_segm_filename)
     
     spots_mask_data = np.zeros(mask_shape, dtype=np.uint32)
-    for row in df_spots.itertuples():
-        frame_i, ID, spot_id = row.Index
-        spot_obj = row.spot_obj
-        dz, dy, dx = spot_obj.image.shape
-        zc_spot_local, yc_spot_local, xc_spot_local = spot_obj.zyx_local_center
-        zstart = row.z - zc_spot_local
-        ystart = row.y - yc_spot_local
-        xstart = row.x - xc_spot_local
-        spot_slice = (
-            slice(zstart, zstart+dz, None),
-            slice(ystart, ystart+dy, None),
-            slice(xstart, xstart+dx, None)
+    for frame_i, df_spots_frame_i in df_spots.groupby(level=0):
+        spots_lab = spots_mask_data[frame_i]
+        spots_lab = transformations.from_df_spots_objs_to_spots_lab(
+            df_spots_frame_i, spots_lab.shape, spots_lab=spots_lab
         )
-        spots_mask_data[frame_i][spot_slice][spot_obj.image] = spot_id
+        spots_mask_data[frame_i] = spots_lab
     
     np.savez_compressed(spots_ch_segm_filepath, spots_mask_data)
-    df_spots = df_spots.drop(columns='spot_obj')
+    df_spots = df_spots.drop(columns='spot_mask')
     return df_spots
     
 

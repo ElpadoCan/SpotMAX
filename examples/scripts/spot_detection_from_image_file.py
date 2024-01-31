@@ -79,7 +79,7 @@ print('Detecting spots...')
 SELECTED_METHOD = 'neural_network'
 spots_labels = spots_segm_result[SELECTED_METHOD]
 
-df_spots_coords, spots_objs = spotmax.pipe.spot_detection(
+df_spots_coords, spots_masks = spotmax.pipe.spot_detection(
     spots_segm_result['input_image'],
     spots_segmantic_segm=spots_labels,
     detection_method='peak_local_max',

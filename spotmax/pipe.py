@@ -868,7 +868,8 @@ def spot_detection(
         return_spots_mask=False,
         lab=None,
         return_df=False,
-        logger_func=None
+        logger_func=None,
+        debug=False
     ):
     """Detect spots and return their coordinates
 
@@ -919,9 +920,9 @@ def spot_detection(
         {'z', 'y', 'x'} with the detected spots coordinates.
         Returned only if `return_df` is True
     
-    spots_objs : list of region properties or None
-        List of region properties where each element has an additional attribute 
-        called `zyx_local_center`. None if `return_spots_mask` is False.
+    spots_masks : list of region properties or None
+        List of spots masks as boolean arrays. None if `return_spots_mask` 
+        is False.
     """        
     if spot_footprint is None and spots_zyx_radii_pxl is not None:
         zyx_radii_pxl = [val/2 for val in spots_zyx_radii_pxl]
@@ -937,7 +938,7 @@ def spot_detection(
     else:
         spots_segmantic_segm = np.ones(np.squeeze(image).shape, int)
     
-    spots_objs = None
+    spots_masks = None
     
     if logger_func is not None:
         logger_func(f'Detecting spots with method `{detection_method}`')
@@ -954,8 +955,8 @@ def spot_detection(
         )
         spots_coords = transformations.reshape_spots_coords_to_3D(spots_coords)
         if return_spots_mask:
-            spots_objs = transformations.from_spots_coords_to_spots_objs(
-                spots_coords, image.shape, spots_zyx_radii_pxl
+            spots_masks = transformations.from_spots_coords_to_spots_masks(
+                spots_coords, spots_zyx_radii_pxl, debug=debug
             )
     elif detection_method == 'label_prediction_mask':
         prediction_lab = skimage.measure.label(spots_segmantic_segm>0)
@@ -966,19 +967,13 @@ def spot_detection(
         num_spots = len(prediction_lab_rp)
         spots_coords = np.zeros((num_spots, 3), dtype=int)
         if return_spots_mask:
-            spots_objs = []
+            spots_masks = []
             for s, spot_obj in enumerate(prediction_lab_rp):
                 zyx_coords = tuple([round(c) for c in spot_obj.centroid])
                 spots_coords[s] = zyx_coords
                 if not return_spots_mask:
                     continue
-                zmin, ymin, xmin, _, _, _ = spot_obj.bbox
-                spot_obj.zyx_local_center = (
-                    zyx_coords[0] - zmin,
-                    zyx_coords[1] - ymin,
-                    zyx_coords[2] - xmin
-                )
-                spots_objs.append(spot_obj)
+                spots_masks.append(spot_obj.image)
     
     if return_df:
         if lab is None:
@@ -989,9 +984,9 @@ def spot_detection(
         df_coords = transformations.from_spots_coords_arr_to_df(
             spots_coords, lab
         )
-        return df_coords, spots_objs
+        return df_coords, spots_masks
     else:
-        return spots_coords, spots_objs
+        return spots_coords, spots_masks
 
 def spots_calc_features_and_filter(
         image, 
@@ -1155,7 +1150,8 @@ def spots_calc_features_and_filter(
     dfs_spots_gop = []
     num_spots_filtered_log = []
     last_spot_id = 0
-    for o, obj in enumerate(rp):
+    obj_idx = 0
+    for obj in rp:
         expanded_obj = transformations.get_expanded_obj_slice_image(
             obj, delta_tol, lab
         )
@@ -1232,7 +1228,10 @@ def spots_calc_features_and_filter(
             )
             if i == 0:
                 # Store metrics at first iteration
-                dfs_spots_det[o] = df_obj_spots_gop.copy()
+                try:
+                    dfs_spots_det[obj_idx] = df_obj_spots_gop.copy()
+                except Exception as err:
+                    import pdb; pdb.set_trace()
  
             # from . import _debug
             # _debug._spots_filtering(
@@ -1257,6 +1256,8 @@ def spots_calc_features_and_filter(
         num_spots_filtered_log.append(s)
 
         dfs_spots_gop.append(df_obj_spots_gop)
+        
+        obj_idx += 1
 
         if show_progress:
             pbar.update()
@@ -1268,7 +1269,8 @@ def spots_calc_features_and_filter(
         print('*'*60)
         info = '\n'.join(num_spots_filtered_log)
         logger_func(
-            f'Number of spots after filtering valid spots:\n{info}'
+            f'Frame n. {frame_i+1}: number of spots after filtering '
+            f'valid spots:\n{info}'
         )
         print('-'*60)
         

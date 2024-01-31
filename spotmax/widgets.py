@@ -29,7 +29,7 @@ from qtpy.QtWidgets import (
     QScrollArea, QSizePolicy, QComboBox, QPushButton, QScrollBar,
     QGroupBox, QAbstractSlider, QDialog, QStyle, QSpacerItem,
     QAction, QWidgetAction, QMenu, QActionGroup, QFileDialog, QFrame,
-    QListWidget, QPlainTextEdit
+    QListWidget, QApplication
 )
 
 import pyqtgraph as pg
@@ -903,6 +903,7 @@ class formWidget(QWidget):
             addEditButton=False,
             addLabel=True,
             disableComputeButtons=False,
+            isFolderBrowse=False,
             key='',
             parent=None,
             valueSetter=None,
@@ -966,6 +967,7 @@ class formWidget(QWidget):
             self.items.append(infoButton)
         
         if addBrowseButton:
+            self.isFolderBrowse = isFolderBrowse
             browseButton = acdc_widgets.showInFileManagerButton(self)
             browseButton.setToolTip('Browse')
             browseButton.clicked.connect(self.browseButtonClicked)
@@ -1055,13 +1057,21 @@ class formWidget(QWidget):
             pass
 
     def browseButtonClicked(self):
-        file_path = getOpenImageFileName(
-            parent=self, mostRecentPath=acdc_myutils.getMostRecentPath()
-        )
-        if file_path == '':
-            return
+        if self.isFolderBrowse:
+            folderpath = QFileDialog.getExistingDirectory(
+                self, 'Select folder', acdc_myutils.getMostRecentPath()
+            )
+            if not folderpath:
+                return
+            self.widget.setText(folderpath)
+        else:
+            file_path = getOpenImageFileName(
+                parent=self, mostRecentPath=acdc_myutils.getMostRecentPath()
+            )
+            if not file_path:
+                return
 
-        self.widget.setText(file_path)
+            self.widget.setText(file_path)
         self.sigBrowseButtonClicked.emit(self)
     
     def editButtonClicked(self):
@@ -1941,6 +1951,7 @@ def ParamFormWidget(
         addWarningButton=param.get('addWarningButton', False),
         addApplyButton=param.get('addApplyButton', False),
         addBrowseButton=param.get('addBrowseButton', False),
+        isFolderBrowse=param.get('addBrowseButton', False),
         addAutoButton=param.get('addAutoButton', False),
         addEditButton=param.get('addEditButton', False),
         addLabel=param.get('addLabel', True),
@@ -2382,3 +2393,8 @@ class PlusMinusFloatLineEdit(FloatLineEdit):
             return val
         else:
             return 0.0
+
+def toClipboard(text):
+    cb = QApplication.clipboard()
+    cb.clear(mode=cb.Clipboard)
+    cb.setText(text, mode=cb.Clipboard)

@@ -473,11 +473,17 @@ class spotMAX_Win(acdc_gui.guiWin):
     @exception_handler
     def runAnalysis(self, ini_filepath, is_tempfile):
         self.isAnalysisRunning = True
+        self.stateBeforeStartingAnalysis = self.windowState()
+        self.setWindowState(Qt.WindowMinimized)
+        self.setDisabled(True)
         self.logger.info('Starting spotMAX analysis...')
         self._analysis_started_datetime = datetime.datetime.now()
         self.funcDescription = 'starting analysis process'
         worker = qtworkers.AnalysisWorker(ini_filepath, is_tempfile)
 
+        command = worker.getCommandForClipboard()
+        widgets.toClipboard(command)
+        
         worker.signals.finished.connect(self.analysisWorkerFinished)
         worker.signals.progress.connect(self.workerProgress)
         # worker.signals.initProgressBar.connect(self.workerInitProgressbar)
@@ -487,6 +493,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         
     def analysisWorkerFinished(self, args):
         self.isAnalysisRunning = False
+        self.setWindowState(self.stateBeforeStartingAnalysis)
+        self.setDisabled(False)
         ini_filepath, is_tempfile = args
         self.logger.info('Analysis finished')
         if is_tempfile:
@@ -1799,9 +1807,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.startComputeAnalysisStepWorker(*args, **kwargs)
     
     def _displaySpotDetectionResult(self, result, image):
-        df_coords, spots_objs = result
+        df_coords, spots_masks = result
         df_spots_objs = df_coords.copy()
-        df_spots_objs['spot_obj'] = spots_objs
+        df_spots_objs['spot_mask'] = spots_masks
         spots_lab = transformations.from_df_spots_objs_to_spots_lab(
             df_spots_objs, image.shape
         )

@@ -544,10 +544,10 @@ def init_df_features(df_spots_coords, obj, crop_obj_start, spots_zyx_radii):
     # Add correct local_peaks_coords considering the cropping tolerance 
     # `delta_tolerance`
     local_peaks_coords_expanded = global_peaks_coords - crop_obj_start 
-    spots_objs = None
-    if 'spot_obj' in df_spots_coords.columns:
-        spots_objs = (
-            df_spots_coords.loc[[obj.label], 'spot_obj']).to_list()
+    spots_masks = None
+    if 'spot_mask' in df_spots_coords.columns:
+        spots_masks = (
+            df_spots_coords.loc[[obj.label], 'spot_mask']).to_list()
 
     num_spots_detected = len(global_peaks_coords)
     df_features = pd.DataFrame({
@@ -562,8 +562,8 @@ def init_df_features(df_spots_coords, obj, crop_obj_start, spots_zyx_radii):
         'y_local_expanded': local_peaks_coords_expanded[:,1],
         'x_local_expanded': local_peaks_coords_expanded[:,2],
     })
-    if spots_objs is not None:
-        df_features['spot_obj'] = spots_objs
+    if spots_masks is not None:
+        df_features['spot_mask'] = spots_masks
     df_features[ZYX_RESOL_COLS] = spots_zyx_radii
 
     return df_features, local_peaks_coords_expanded
@@ -691,36 +691,24 @@ def from_spots_coords_arr_to_df(spots_coords, lab):
     
     return df_coords
 
-def from_spots_coords_to_spots_objs(spots_coords, arr_shape, spot_zyx_size):
-    lab = np.zeros(arr_shape, dtype=np.uint32)
-    spots_objs = []
+def from_spots_coords_to_spots_masks(spots_coords, spot_zyx_size, debug=False):
     spot_mask = get_local_spheroid_mask(spot_zyx_size)
-    for i, zyx_center in enumerate(spots_coords):
+    spots_masks = [
+        spot_mask.copy() for _ in range(len(spots_coords))
+    ]
+    return spots_masks
+
+def from_df_spots_objs_to_spots_lab(df_spots_objs, arr_shape, spots_lab=None):
+    if spots_lab is None:
+        spots_lab = np.zeros(arr_shape, dtype=np.uint32)
+    for row in df_spots_objs.itertuples():
+        ID, spot_id = row.Index
+        spot_mask = row.spot_mask
+        zyx_center = (row.z, row.y, row.x)
         slices = get_slices_local_into_global_3D_arr(
             zyx_center, arr_shape, spot_mask.shape
         )
-        _, slice_crop_local = slices
+        slice_global_to_local, slice_crop_local = slices
         cropped_spot_mask = spot_mask[slice_crop_local].copy()
-        cropped_spot_mask = cropped_spot_mask.astype(np.uint32)*(i+1)
-        spot_obj = skimage.measure.regionprops(cropped_spot_mask)[0]
-        spot_obj.zyx_local_center = [round(c) for c in spot_obj.centroid]
-        spots_objs.append(spot_obj)
-    return spots_objs
-
-def from_df_spots_objs_to_spots_lab(df_spots_objs, arr_shape):
-    spots_lab = np.zeros(arr_shape, dtype=np.uint32)
-    for row in df_spots_objs.itertuples():
-        ID, spot_id = row.Index
-        spot_obj = row.spot_obj
-        dz, dy, dx = spot_obj.image.shape
-        zc_spot_local, yc_spot_local, xc_spot_local = spot_obj.zyx_local_center
-        zstart = row.z - zc_spot_local
-        ystart = row.y - yc_spot_local
-        xstart = row.x - xc_spot_local
-        spot_slice = (
-            slice(zstart, zstart+dz, None),
-            slice(ystart, ystart+dy, None),
-            slice(xstart, xstart+dx, None)
-        )
-        spots_lab[spot_slice][spot_obj.image] = spot_id
+        spots_lab[slice_global_to_local][cropped_spot_mask] = spot_id
     return spots_lab

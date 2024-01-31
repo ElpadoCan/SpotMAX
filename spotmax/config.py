@@ -478,6 +478,7 @@ def _configuration_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
+            'isFolderBrowse': True,
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
