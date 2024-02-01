@@ -79,6 +79,7 @@ icon_path = os.path.join(resources_folderpath, 'spotMAX_icon.ico')
 logo_path = os.path.join(resources_folderpath, 'spotMAX_logo.png')
 
 from cellacdc import printl as acdc_printl
+from cellacdc import base_cca_dict
 def printl(*objects, **kwargs):
     acdc_printl(*objects, idx=2, **kwargs)
 
@@ -97,17 +98,6 @@ help_text = (
     'If you do not have one, use the GUI to set up the parameters.\n\n'
     'See below other arguments you can pass to the command line. Enjoy!'
 )
-
-base_lineage_table_values = {
-    'cell_cycle_stage': 'G1',
-    'generation_num': 2,
-    'relative_ID': -1,
-    'relationship': 'mother',
-    'emerg_frame_i': -1,
-    'division_frame_i': -1,
-    'is_cell_dead': 0,
-    'is_cell_excluded': 0
-}
 
 CELL_SIZE_COLUMNS = [
     'cell_area_pxl',
@@ -137,7 +127,7 @@ BASE_COLUMNS = ZYX_GLOBAL_COLS.copy()
 BASE_COLUMNS.extend(ZYX_LOCAL_COLS)
 BASE_COLUMNS.extend(ZYX_FIT_COLS)
 BASE_COLUMNS.extend(ZYX_RESOL_COLS)
-BASE_COLUMNS.extend(base_lineage_table_values.keys())
+BASE_COLUMNS.extend(base_cca_dict.keys())
 BASE_COLUMNS.extend(CELL_SIZE_COLUMNS)
 
 DFs_FILENAMES = {

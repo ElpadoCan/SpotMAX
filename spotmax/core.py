@@ -28,6 +28,7 @@ from scipy.special import erf
 import cellacdc.io
 import cellacdc.myutils as acdc_myutils
 import cellacdc.measure
+from cellacdc import base_cca_dict
 
 from . import GUI_INSTALLED, error_up_str, error_down_str
 from . import exception_handler_cli, handle_log_exception_cli
@@ -46,7 +47,7 @@ except Exception as e:
     from . import njit_replacement as njit
     prange = range
 
-from . import utils, rng, base_lineage_table_values
+from . import utils, rng
 from . import issues_url, printl, io, features, config
 from . import transformations
 from . import filters
@@ -325,7 +326,11 @@ class _DataLoader:
         idx_segm = data['df_agg'].index
         idx_acdc_df = data['lineage_table'].index
         idx_both = idx_segm.intersection(idx_acdc_df)
-        for col_name, value in base_lineage_table_values.items():
+        cca_df = data['lineage_table']
+        for col_name, value in base_cca_dict.items():
+            if col_name not in cca_df.columns:
+                continue
+            
             data['df_agg'][col_name] = value
             data['df_agg'].loc[idx_both, col_name] = (
                 data['lineage_table'].loc[idx_both, col_name]

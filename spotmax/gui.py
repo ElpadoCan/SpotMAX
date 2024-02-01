@@ -44,17 +44,17 @@ from cellacdc import load as acdc_load
 from cellacdc import io as acdc_io
 from cellacdc.myutils import get_salute_string, determine_folder_type
 from cellacdc import qrc_resources
+from cellacdc import base_cca_dict
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
 from . import widgets, config
 from . import tune, utils
 from . import core
-from . import base_lineage_table_values
 from . import transformations
 from . import icon_path
 
-LINEAGE_COLUMNS = list(base_lineage_table_values.keys())
+LINEAGE_COLUMNS = list(base_cca_dict.keys())
 
 ANALYSIS_STEP_RESULT_SLOTS = {
     'gaussSigma': '_displayGaussSigmaResult',
@@ -1042,7 +1042,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         loadedAcdcDfEndname = posData.getAcdcDfEndname()
         
         if acdcDfEndName == loadedAcdcDfEndname:
-            return posData.acdc_df[LINEAGE_COLUMNS].copy(), True
+            cca_df = posData.acdc_df.drop(
+                columns=LINEAGE_COLUMNS, errors='ignore'
+            )
+            return cca_df, True
         
         df, proceed = self.warnLoadedAcdcDfDifferentFromRequested(
             loadedAcdcDfEndname, acdcDfEndName
@@ -1169,7 +1172,10 @@ class spotMAX_Win(acdc_gui.guiWin):
             df = acdc_load._load_acdc_df_file(filepath)
             return df, True
         
-        return posData.acdc_df[LINEAGE_COLUMNS].copy(), True
+        cca_df = posData.acdc_df.drop(
+            columns=LINEAGE_COLUMNS, errors='ignore'
+        )
+        return cca_df, True
     
     def paramsToKwargs(self, is_spots_ch_required=True):
         posData = self.data[self.pos_i]
