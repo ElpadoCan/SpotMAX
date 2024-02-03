@@ -3583,7 +3583,6 @@ class Kernel(_ParamsParser):
         df_spots_coords, num_spots_objs_txts = self._add_local_coords_from_aggr(
             aggr_spots_coords, aggregated_lab, spots_masks=spots_masks
         )
-
         # if self.debug:
         #     from . import _debug
         #     ID = 36
@@ -3691,13 +3690,18 @@ class Kernel(_ParamsParser):
             df_spots_det.reset_index().groupby(['frame_i', 'Cell_ID'])
             .agg(**func)
         )
-        df_agg_det = df_agg_det.join(df_agg, how='outer')
+        df_agg_det = self._add_missing_cells_and_merge_with_df_agg(
+            df_agg, df_agg_det
+        )
         
         df_agg_gop = (
             df_spots_gop.reset_index().groupby(['frame_i', 'Cell_ID'])
             .agg(**func)
         )
-        df_agg_gop = df_agg_gop.join(df_agg, how='outer')
+        df_agg_gop = self._add_missing_cells_and_merge_with_df_agg(
+            df_agg, df_agg_gop
+        )
+        
         if df_spots_fit is not None:
             spotfit_func = {
                 name:(col, aggFunc) for name, (col, aggFunc, _) 
@@ -3708,14 +3712,11 @@ class Kernel(_ParamsParser):
                 df_spots_fit.reset_index().groupby(['frame_i', 'Cell_ID'])
                 .agg(**spotfit_func)
             )
-            df_agg_spotfit = df_agg_spotfit.join(df_agg, how='outer')
+            df_agg_spotfit = self._add_missing_cells_and_merge_with_df_agg(
+                df_agg, df_agg_spotfit
+            )
         else:
             df_agg_spotfit = None
-
-        df_agg_det = self._add_missing_cells_df_agg(df_agg, df_agg_det)
-        df_agg_gop = self._add_missing_cells_df_agg(df_agg, df_agg_gop)
-        if df_agg_spotfit is not None:
-            df_agg_spotfit = self._add_missing_cells_df_agg(df_agg, df_agg_spotfit)
 
         return df_agg_det, df_agg_gop, df_agg_spotfit
     
@@ -4370,6 +4371,8 @@ class Kernel(_ParamsParser):
         )
         df_agg_det, df_agg_gop, df_agg_spotfit = dfs_agg
 
+        import pdb; pdb.set_trace()
+        
         dfs = {
             'spots_detection': df_spots_det,
             'spots_gop': df_spots_gop,
@@ -4478,24 +4481,64 @@ class Kernel(_ParamsParser):
         pbar_exp.close()
         self.logger.info('spotMAX analysis completed.')
     
-    def _add_missing_cells_df_agg(self, df_agg_src, df_agg_dst):
+    def _add_missing_cells_and_merge_with_df_agg(self, df_agg_src, df_agg_dst):
+        """Add reference channel and cell cycle annotations columns from 
+        `df_agg_src`. Additionally, add missing cells with their default value. 
+
+        Parameters
+        ----------
+        df_agg_src : pd.DataFrame
+            Source DataFrame with all the cells (index) and reference channel 
+            and cell cycle annotations columns
+        df_agg_dst : pd.DataFrame
+            Destination DataFrame with single-cells metrics that might have 
+            missing cells. The reason why they are missing is that they were 
+            not in the single-spot DataFrame, e.g. a cell with 0 spots will not 
+            be present here and we need to add it. This DataFrame is also 
+            missing metrics from reference channel and cell cycle annotations.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame merged with `df_agg_src` plus all the cells where the 
+            missing ones have the correct default value. 
+        
+        Notes
+        -----
+        The destination DataFrame `df_agg_dst` comes from aggregating the 
+        single-spots DataFrame (e.g. aggregation calculated the number of 
+        spots per cell).  
+        
+        The source DataFrame `df_agg_src` comes from initialization with 
+        cell cycle annotations columns for each segmented object. If 
+        the reference channel is requested, this DataFrame will also contain 
+        the reference channel metrics. 
+        
+        Therefore the destination DataFrame might have missing cells but it 
+        also misses reference channel and cell cycle annotations columns. 
+        Those columns that are only in `df_agg_dst` where cells are missing 
+        are filled with default values coming from 
+        `features.get_aggregating_spots_feature_func`. Everything else that 
+        is missing will come from `df_agg_src` using a join operation. 
+        """        
+        # Get index of missign cells 
         missing_idx_df_agg_dst = df_agg_src.index.difference(df_agg_dst.index)
-        default_src_values = {
-            col:df_agg_src.at[idx, col] for col in df_agg_src.columns 
-            for idx in missing_idx_df_agg_dst
-        }
-        df_agg_dst = df_agg_dst.reindex(df_agg_src.index, fill_value=0)
+        
+        # Add missing columns (ref_ch and cca)
+        df_agg_dst = df_agg_dst.join(df_agg_src, how='outer')
+        
+        # Get the default values for missing cells
         default_dst_values = {}
         for col in df_agg_dst.columns:
             if col not in aggregate_spots_feature_func:
                 continue
             default_dst_values[col] = aggregate_spots_feature_func[col][2]
-        
-        default_values = {**default_src_values, **default_dst_values}
-        cols = default_values.keys()
-        vals = default_values.values()
 
+        # Replace missing index with default values
+        cols = list(default_dst_values.keys())
+        vals = list(default_dst_values.values())
         df_agg_dst.loc[missing_idx_df_agg_dst, cols] = vals
+
         return df_agg_dst
 
     def add_post_analysis_features(self, dfs):
@@ -4628,6 +4671,8 @@ class Kernel(_ParamsParser):
             agg_filename = f'{df_spots_filename}_aggregated.csv'
             agg_key = key.replace('spots', 'agg')
             df_agg = dfs.get(agg_key, None)
+            
+            import pdb; pdb.set_trace()
 
             if df_agg is not None:
                 df_agg.to_csv(os.path.join(spotmax_out_path, agg_filename))
