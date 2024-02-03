@@ -4370,8 +4370,6 @@ class Kernel(_ParamsParser):
             df_spots_det, df_spots_gop, df_agg, df_spots_fit=df_spots_fit
         )
         df_agg_det, df_agg_gop, df_agg_spotfit = dfs_agg
-
-        import pdb; pdb.set_trace()
         
         dfs = {
             'spots_detection': df_spots_det,
@@ -4671,8 +4669,6 @@ class Kernel(_ParamsParser):
             agg_filename = f'{df_spots_filename}_aggregated.csv'
             agg_key = key.replace('spots', 'agg')
             df_agg = dfs.get(agg_key, None)
-            
-            import pdb; pdb.set_trace()
 
             if df_agg is not None:
                 df_agg.to_csv(os.path.join(spotmax_out_path, agg_filename))
