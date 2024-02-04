@@ -32,6 +32,7 @@ from cellacdc import base_cca_dict, base_cca_tree_dict
 
 from . import GUI_INSTALLED, error_up_str, error_down_str
 from . import exception_handler_cli, handle_log_exception_cli
+from . import LT_DF_REQUIRED_COLUMNS
 
 if GUI_INSTALLED:
     from cellacdc.plot import imshow
@@ -96,6 +97,7 @@ class _DataLoader:
         data = self._crop_based_on_segm_data(data)
         data = self._add_regionprops(data)
         data = self._initialize_df_agg(data)
+        data = self._check_stop_frame_num(data)
         return data
     
     def _critical_channel_not_found(
@@ -242,6 +244,8 @@ class _DataLoader:
             table = data['lineage_table']
             if 'frame_i' not in table.columns:
                 table['frame_i'] = 0
+            
+            data = self._check_lineage_table(data)
             table = table.set_index(['frame_i', 'Cell_ID'])
             data['lineage_table'] = table
         
@@ -1098,6 +1102,70 @@ class _ParamsParser(_DataLoader):
         self._add_resolution_limit_metadata(self.metadata)
         self._add_physical_units_conversion_factors(self.metadata)
 
+    def _check_lineage_table(self, data):
+        if 'lineage_table' not in data:
+            return data
+        
+        lt_df = data['lineage_table']
+        try:
+            lt_df.drop(columns=LT_DF_REQUIRED_COLUMNS)
+        except Exception as err:
+            self._warn_lt_df_missing_columns(err)
+            data.pop('lineage_table')
+            return data
+        
+        ccs_col = lt_df['cell_cycle_stage'].dropna()
+        lt_df = lt_df.loc[ccs_col.index]
+        data['lineage_table'] = lt_df
+        return data
+        
+    def _warn_lt_df_missing_columns(self, error):
+        err_txt = str(error)
+        missing_cols = err_txt[1:err_txt.find('not found in')]
+        options = (
+            'Do not use lineage table', 'Stop the analysis'
+        )
+        default_option = 'Stop the analysis'
+        question = 'What do you want to do'
+        txt = (
+            '[WARNING]: The loaded lineage table does not contain the '
+            f'required columns. Missing columns:\n\n{missing_cols}'
+        )
+        if self._force_default:
+            self.logger.info('*'*60)
+            self.logger.info(txt)
+            io._log_forced_default(default_option, self.logger.info)
+            raise KeyError(txt)
+        
+        answer = io.get_user_input(
+            question, options=options, info_txt=txt, 
+            logger=self.logger.info, default_option=default_option
+        )
+        if answer == 'Stop the analysis':
+            self.logger.info('Analysis stopped by the user.')
+            raise KeyError(txt)
+    
+    def _check_stop_frame_num(self, data):
+        if self.metadata['SizeT'] == 1:
+            self.metadata['stopFrameNum'] = 1
+            return
+        
+        input_stop_frame_n = self.metadata['stopFrameNum']
+        segm_stop_frame_n = len(data['segm'])
+        if input_stop_frame_n == -1:
+            input_stop_frame_n = segm_stop_frame_n
+            
+        if 'lineage_table' in data:
+            lt_df = data['lineage_table']
+            cca_stop_frame_n = lt_df.index.get_level_values(0).max() + 1
+            if cca_stop_frame_n < input_stop_frame_n:
+                input_stop_frame_n = cca_stop_frame_n
+        elif segm_stop_frame_n < input_stop_frame_n:
+            input_stop_frame_n = segm_stop_frame_n
+        
+        self.metadata['stopFrameNum'] = input_stop_frame_n
+        return data
+    
     @exception_handler_cli
     def _get_missing_metadata(self):
         SECTION = 'METADATA'
@@ -1125,7 +1193,7 @@ class _ParamsParser(_DataLoader):
                 continue
             desc = options['desc']
             if desc in missing_metadata:
-                loaded_value = 1
+                loaded_value = self._params[SECTION][anchor]['initialVal']
             else:
                 loaded_value = self._params[SECTION][anchor]['loadedVal']
             loaded_timelapse_metadata[desc] = (anchor, loaded_value)
@@ -1740,7 +1808,6 @@ class GaussianModel:
         fit_coeffs = self.get_func_coeffs(leastsq_result.x, const_coeffs)
         self.pbar.close()
         
-        import pdb; pdb.set_trace()
         return fit_coeffs, leastsq_result.success
     
     @staticmethod
@@ -4004,9 +4071,6 @@ class Kernel(_ParamsParser):
         verbose = not self._params['Configuration']['reduceVerbosity']['loadedVal']
 
         stopFrameNum = self.metadata['stopFrameNum']
-        if stopFrameNum > len(segm_data):
-            stopFrameNum = len(segm_data)
-            self.metadata['stopFrameNum'] = stopFrameNum
 
         desc = 'Adding segmentation objects features'
         self._current_step = desc
@@ -4783,23 +4847,52 @@ def calcMinSpotSize(
         emWavelen, NA, physicalSizeX, physicalSizeY, physicalSizeZ,
         zResolutionLimit_um, yxResolMultiplier
     ):
-    # NOTE: The Abbe diffraction limit formula often uses the letter `d` because
-    # it is the "diameter of the aperture in meters" or simply the "minumum 
-    # resolvable distance". This should not be confused with the diameter of 
-    # the spot. The diameter of the spot can be determined using the Rayleigh 
-    # criterion, which says "two point sources are regarded as just resolved 
-    # when the principal diffraction maximum (center) of the Airy disk of one 
-    # image coincides with the first minimum of the Airy disk of the other". 
-    # In other words, `d` from the Abbe formula is the distance from the center
-    # of the Airy disk to the first minimum, hence the RADIUS of the spot.
-    # However, when computing the peaks location with `peak_local_max` we 
-    # provide a spot footprint with diameter = `d` since we cannot allow 
-    # overlapping between spots in contrast to the Rayleigh criterion.
+    """Calculate the Airy disk radius using Abbe's diffraction limit formula
+
+    Parameters
+    ----------
+    emWavelen : float
+        Emission wavelength of the reporter
+    NA : float
+        Numerical apertura
+    physicalSizeX : float
+        Pixel width in µm
+    physicalSizeY : float
+        Pixel height in µm
+    physicalSizeZ : float
+        Voxel depth in µm
+    zResolutionLimit_um : float
+        Equivalent of the Airy disk radius in the z-direction
+    yxResolMultiplier : float
+        Factor that multiplied to the Airy disk radius
+
+    Returns
+    -------
+    Tuple[float, float, float]
+        (z, y, x) radii of the Airy disk.
     
-    # Sources:
-    # - https://en.wikipedia.org/wiki/Angular_resolution
-    # - https://en.wikipedia.org/wiki/Airy_disk
-    # - https://en.wikipedia.org/wiki/Diffraction-limited_system
+    Notes
+    -----
+    The Abbe diffraction limit formula often uses the letter `d` because
+    it is the "diameter of the aperture in meters" or simply the "minumum 
+    resolvable distance". This should not be confused with the diameter of 
+    the spot. The diameter of the spot can be determined using the Rayleigh 
+    criterion, which says "two point sources are regarded as just resolved 
+    when the principal diffraction maximum (center) of the Airy disk of one 
+    image coincides with the first minimum of the Airy disk of the other". 
+    In other words, `d` from the Abbe formula is the distance from the center
+    of the Airy disk to the first minimum, hence the RADIUS of the spot.
+    However, when computing the peaks location with `peak_local_max` we 
+    provide a spot footprint with diameter = `d` since we cannot allow 
+    overlapping between spots in contrast to the Rayleigh criterion.
+    
+    References
+    ----------
+    
+    .. [1] https://en.wikipedia.org/wiki/Angular_resolution
+    .. [2] https://en.wikipedia.org/wiki/Airy_disk
+    .. [3] https://en.wikipedia.org/wiki/Diffraction-limited_system
+    """    
     try:
         airyRadius_nm = (1.22 * emWavelen)/(2*NA)
         airyRadius_um = airyRadius_nm*1E-3

@@ -108,6 +108,14 @@ CELL_SIZE_COLUMNS = [
     'cell_vol_fl_3D'
 ]
 
+LT_DF_REQUIRED_COLUMNS = [
+    'frame_i',
+    'Cell_ID',
+    'cell_cycle_stage',
+    'relationship',
+    'relative_ID'
+]
+
 error_up_str = '^'*60
 error_up_str = f'\n{error_up_str}'
 error_down_str = '^'*60

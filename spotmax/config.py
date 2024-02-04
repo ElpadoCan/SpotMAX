@@ -603,7 +603,7 @@ def _metadata_params():
         },
         'stopFrameNum': {
             'desc': 'Analyse until frame number',
-            'initialVal': 1,
+            'initialVal': -1,
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,
