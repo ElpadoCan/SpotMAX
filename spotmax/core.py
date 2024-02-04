@@ -4047,6 +4047,7 @@ class Kernel(_ParamsParser):
             text_to_append: str='',
             transformed_spots_ch_nnet: dict=None,
         ):
+        self.set_metadata()
         self._current_step = 'Loading data from images path'
         data = self.get_data_from_images_path(
             images_path, spots_ch_endname, ref_ch_endname, segm_endname, 
@@ -4071,6 +4072,11 @@ class Kernel(_ParamsParser):
         verbose = not self._params['Configuration']['reduceVerbosity']['loadedVal']
 
         stopFrameNum = self.metadata['stopFrameNum']
+        if stopFrameNum > 1:
+            self.logger.info(
+                f'Analysing until frame n. {stopFrameNum} '
+                f'("{os.path.dirname(images_path)}")'
+            )
 
         desc = 'Adding segmentation objects features'
         self._current_step = desc
