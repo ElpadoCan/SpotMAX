@@ -1151,6 +1151,19 @@ class _ParamsParser(_DataLoader):
             return
         
         input_stop_frame_n = self.metadata['stopFrameNum']
+        if input_stop_frame_n == 0 or input_stop_frame_n < -1:
+            raise ValueError(
+                f'The requested stop frame number {input_stop_frame_n} is not '
+                'valid (see parameter `Analyse until frame number` in the '
+                'INI configuration file). This must be either -1 for all '
+                'frames or a number greater than 0.'
+            )
+        
+        SizeT = self.metadata['SizeT']
+        if input_stop_frame_n > SizeT:
+            self.metadata['stopFrameNum'] = SizeT
+            return
+        
         segm_stop_frame_n = len(data['segm'])
         if input_stop_frame_n == -1:
             input_stop_frame_n = segm_stop_frame_n
@@ -4077,7 +4090,6 @@ class Kernel(_ParamsParser):
                 f'Analysing until frame n. {stopFrameNum} '
                 f'("{os.path.dirname(images_path)}")'
             )
-
         desc = 'Adding segmentation objects features'
         self._current_step = desc
         pbar = tqdm(
@@ -4132,6 +4144,7 @@ class Kernel(_ParamsParser):
                 leave=stopFrameNum>1
             )
             for frame_i in range(stopFrameNum):
+                self._current_frame_i = frame_i
                 if acdc_df is not None:
                     lineage_table = acdc_df.loc[frame_i]
                 else:
@@ -4181,7 +4194,7 @@ class Kernel(_ParamsParser):
                     cast_to_dtype=data['ref_ch.dtype'], 
                     pad_width=data['pad_width']
                 )
-
+            
             df_agg = self.ref_ch_to_physical_units(df_agg, self.metadata)
 
             data['df_agg'] = df_agg
