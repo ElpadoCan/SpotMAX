@@ -2125,41 +2125,54 @@ def save_df_spots_to_hdf(
     shutil.move(temp_filepath, dst_filepath)
     shutil.rmtree(temp_dirpath)
 
-def _save_concat_dfs_to_hdf(dfs, pos_keys, allpos_folderpath, filename):
+def _save_concat_dfs_to_hdf(dfs, keys, dst_folderpath, filename):
     temp_dirpath = tempfile.mkdtemp()
     temp_filepath = os.path.join(temp_dirpath, filename)
     store_hdf = pd.HDFStore(temp_filepath, mode='w')
-    for pos, df in zip(pos_keys, dfs):
-        store_hdf.append(pos, df)
+    for key, df in zip(keys, dfs):
+        if not isinstance(key, str):
+            # Convert iterable keys to single string
+            len(key)
+            key = ';;'.join([str(k) for k in key])
+            key = key.replace('\\', '/')
+        key = re.sub(r'[^a-zA-Z0-9]', "_", key)
+        store_hdf.append(key, df)
     store_hdf.close()
-    dst_filepath = os.path.join(allpos_folderpath, filename)
+    dst_filepath = os.path.join(dst_folderpath, filename)
     shutil.move(temp_filepath, dst_filepath)
     shutil.rmtree(temp_dirpath)
+    return df
 
-def _save_concat_dfs_to_csv(dfs, pos_keys, allpos_folderpath, filename):
-    filepath = os.path.join(allpos_folderpath, filename)
-    df = pd.concat(dfs, keys=pos_keys, names=['Position_n'])
+def _save_concat_dfs_to_csv(dfs, keys, dst_folderpath, filename, names=None):
+    if names is None:
+        names = ['Position_n']
+    filepath = os.path.join(dst_folderpath, filename)
+    df = pd.concat(dfs, keys=keys, names=names)
     df.to_csv(filepath)
+    return df
 
-def _save_concat_dfs_to_excel(dfs, pos_keys, allpos_folderpath, filename):
-    filepath = os.path.join(allpos_folderpath, filename)
-    df = pd.concat(dfs, keys=pos_keys, names=['Position_n'])
+def _save_concat_dfs_to_excel(dfs, keys, dst_folderpath, filename, names=None):
+    if names is None:
+        names = ['Position_n']
+    filepath = os.path.join(dst_folderpath, filename)
+    df = pd.concat(dfs, keys=keys, names=names)
     df.to_excel(filepath)
+    return df
     
-
-def save_concat_dfs(dfs, pos_keys, allpos_folderpath, filename, ext):
+def save_concat_dfs(dfs, keys, dst_folderpath, filename, ext, names=None):
     if ext == '.h5':
-        _save_concat_dfs_to_hdf(
-            dfs, pos_keys, allpos_folderpath, filename
+        df = _save_concat_dfs_to_hdf(
+            dfs, keys, dst_folderpath, filename
         )
     elif ext == '.csv':
-        _save_concat_dfs_to_csv(
-            dfs, pos_keys, allpos_folderpath, filename
+        df = _save_concat_dfs_to_csv(
+            dfs, keys, dst_folderpath, filename, names=names
         )
     elif ext == '.xlsx':
-        _save_concat_dfs_to_excel(
-            dfs, pos_keys, allpos_folderpath, filename
+        df = _save_concat_dfs_to_excel(
+            dfs, keys, dst_folderpath, filename, names=names
         )
+    return df
 
 def save_df_agg_to_csv(df: pd.DataFrame, folder_path: os.PathLike, filename: str):
     if df is None:
