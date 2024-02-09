@@ -1042,9 +1042,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         loadedAcdcDfEndname = posData.getAcdcDfEndname()
         
         if acdcDfEndName == loadedAcdcDfEndname:
-            cca_df = posData.acdc_df.drop(
-                columns=LINEAGE_COLUMNS, errors='ignore'
-            )
+            columns = posData.acdc_df.columns
+            cca_df = posData.acdc_df[columns.intersection(LINEAGE_COLUMNS)].copy()
             return cca_df, True
         
         df, proceed = self.warnLoadedAcdcDfDifferentFromRequested(
@@ -1172,9 +1171,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             df = acdc_load._load_acdc_df_file(filepath)
             return df, True
         
-        cca_df = posData.acdc_df.drop(
-            columns=LINEAGE_COLUMNS, errors='ignore'
-        )
+        columns = posData.acdc_df.columns
+        cca_df = posData.acdc_df[columns.intersection(LINEAGE_COLUMNS)].copy()
         return cca_df, True
     
     def paramsToKwargs(self, is_spots_ch_required=True):

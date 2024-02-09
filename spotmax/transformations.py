@@ -36,14 +36,12 @@ def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
         - `slice_crop_local`: used to crop the local mask before inserting it 
         into the image.
     """    
-    dz, dy, dx = local_shape
-
     slice_global_to_local = []
     slice_crop_local = []
     for _c, _d, _D in zip(zyx_center, local_shape, global_shape):
         _r = int(_d/2)
         _min = _c - _r
-        _max = _c + _r + 1
+        _max = _min + _d
         _min_crop, _max_crop = None, None
         if _min < 0:
             _min_crop = abs(_min)
