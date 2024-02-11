@@ -298,3 +298,8 @@ def get_normalised_spot_ref_ch_intensities(
     norm_ref_ch_intensities = norm_ref_ch_slice_dt[spheroid_mask]
 
     return norm_spot_intensities, norm_ref_ch_intensities
+
+def add_additional_spotfit_features(df_spotfit):
+    df_spotfit['Q_factor_yx'] = df_spotfit['A_fit']/df_spotfit['sigma_yx_mean_fit']
+    df_spotfit['Q_factor_z'] = df_spotfit['A_fit']/df_spotfit['sigma_z_fit']
+    return df_spotfit
