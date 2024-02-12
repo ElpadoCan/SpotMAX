@@ -988,6 +988,17 @@ def _spots_ch_params():
             'actions': None,
             'dtype': get_bool
         },
+        'dropSpotsMinDistAfterSpotfit': {
+            'desc': 'After spotFIT, drop spots that are too close',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
         'saveSpotsMask': {
             'desc': 'Save spots segmentation masks',
             'initialVal': False,

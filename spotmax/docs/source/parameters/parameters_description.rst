@@ -656,6 +656,27 @@ Spots channel
   :type: boolean
   :default: ``False`` 
 
+.. confval:: After spotFIT, drop spots that are too close
+
+  If ``True``, spotMAX will drop spots that are too close using the new spots 
+  centers determined during the spotFIT step (fitting gaussian peaks). 
+
+  If two or more peaks are within the same ellipsoid with radii equal to 
+  :confval:`Spot (z, y, x) minimum dimensions (radius)` only the brightest 
+  peak will be kept.
+
+  The distances are be calculated using the ``x_fit``, ``y_fit``, and ``z_fit`` 
+  coordinates. See :ref:`spotfit-coords`.
+
+  .. note::
+    You might need to allow more room for the peak center to move during the 
+    fitting procedure in order to determine that two peaks are in fact only one. 
+    To do this, increase :confval:`Bounds interval for the x and y peak center coord` 
+    and :confval:`Bounds interval for the z peak center coord` parameters.
+
+  :type: boolean
+  :default: ``False``
+
 .. confval:: Save spots segmentation masks
 
   If ``True``, spotMAX will save the segmentation masks of the spots in the same 
@@ -689,7 +710,7 @@ Spots channel
 SpotFIT
 -------
 
-.. confval:: Bounds interval for the x and y peak center coord.
+.. confval:: Bounds interval for the x and y peak center coord
 
   Here you can specify the half-interval width to determine the maximum and 
   the minimum of the x and y center coordinate allowed in the fitting procedure.
@@ -705,7 +726,7 @@ SpotFIT
   :type: float
   :default: ``0.1``
 
-.. confval:: Bounds interval for the z peak center coord.
+.. confval:: Bounds interval for the z peak center coord
 
   Here you can specify the half-interval width to determine the maximum and 
   the minimum of the z center coordinate allowed in the fitting procedure.

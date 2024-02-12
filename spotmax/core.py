@@ -1148,7 +1148,7 @@ class _ParamsParser(_DataLoader):
     def _check_stop_frame_num(self, data):
         if self.metadata['SizeT'] == 1:
             self.metadata['stopFrameNum'] = 1
-            return
+            return data
         
         input_stop_frame_n = self.metadata['stopFrameNum']
         if input_stop_frame_n == 0 or input_stop_frame_n < -1:
@@ -1162,7 +1162,7 @@ class _ParamsParser(_DataLoader):
         SizeT = self.metadata['SizeT']
         if input_stop_frame_n > SizeT:
             self.metadata['stopFrameNum'] = SizeT
-            return
+            return data
         
         segm_stop_frame_n = len(data['segm'])
         if input_stop_frame_n == -1:
@@ -4390,6 +4390,7 @@ class Kernel(_ParamsParser):
 
         if do_spotfit:
             zyx_spot_min_vol_um = self.metadata['zyxResolutionLimitUm']
+            spots_zyx_radii_pxl = self.metadata['zyxResolutionLimitPxl']
             zyx_voxel_size = self.metadata['zyxVoxelSize']
             desc = 'Measuring spots (spotFIT)'
             pbar = tqdm(
@@ -4411,6 +4412,7 @@ class Kernel(_ParamsParser):
                     df_spots_frame, 
                     zyx_voxel_size, 
                     zyx_spot_min_vol_um, 
+                    spots_zyx_radii_pxl=spots_zyx_radii_pxl,
                     rp=rp, 
                     delta_tol=self.metadata['deltaTolerance'], 
                     lab=lab,

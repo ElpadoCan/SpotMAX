@@ -1295,11 +1295,13 @@ def spotfit(
         df_spots, 
         zyx_voxel_size, 
         zyx_spot_min_vol_um,
+        spots_zyx_radii_pxl=None,
         delta_tol=None,
         rp=None, 
         lab=None, 
         frame_i=0, 
         ref_ch_mask_or_labels=None, 
+        drop_peaks_too_close=False,
         use_gpu=False,
         show_progress=True,
         logger_func=print,
@@ -1329,6 +1331,11 @@ def spotfit(
         in μm. The values are used to build starting masks for the spotSIZE step.
         The spotSIZE step will determine the extent of each spot, i.e., the pixels 
         that will be the input for the fitting procedure.
+    spots_zyx_radii_pxl : (z, y, x) sequence of floats, optional
+        Minimum distance between peaks in z, y, and x direction in pixels. 
+        Used only if `drop_peaks_too_close` is True. If None and 
+        `drop_peaks_too_close` is True then this will be calculated from 
+        `zyx_spot_min_vol_um` and `zyx_voxel_size`. Default is None
     delta_tol : (z, y, x) sequence of floats, optional
         If not None, these values will be used to enlarge the segmented objects. 
         It will enable correct fitting of those spots whose intensities 
@@ -1345,6 +1352,11 @@ def spotfit(
     ref_ch_mask_or_labels : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
         Instance or semantic segmentation of the reference channel. 
         Default is None
+    drop_peaks_too_close : bool, optional
+        If True, when two or more peaks are within the same ellipsoid with 
+        radii = `spots_zyx_radii_pxl` only the brightest peak is kepts. 
+        The center of the peaks is the one determined by the fitting procedure. 
+        Default is False
     use_gpu : bool, optional
         If True, some steps will run on the GPU, potentially speeding up the 
         computation. Default is False
@@ -1418,6 +1430,10 @@ def spotfit(
     
     if delta_tol is None:
         delta_tol = (0, 0, 0)
+    
+    if spots_zyx_radii_pxl and drop_peaks_too_close:
+        zyx_voxel_size
+        zyx_spot_min_vol_um
     
     dfs_spots_spotfit = []
     keys = []

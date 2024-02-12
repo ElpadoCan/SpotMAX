@@ -1,4 +1,4 @@
-r.. _single-spot-features:
+.. _single-spot-features:
 
 .. role:: m(math)
 
@@ -220,6 +220,15 @@ The pixels belonging to the final mask will be used in the spotFIT step.
   This is calculated as the mean of the intensities on the surface of all the spheorids 
   minus 3 times the standard deviation of the same intensities. If negative, 
   it is set to 0.
+
+.. _spotfit-coords:
+
+SpotFIT peak coordinates
+------------------------
+
+* **x-coordinate of the gaussian peak**: column name ``x_fit``.
+* **y-coordinate of the gaussian peak**: column name ``y_fit``.
+* **z-coordinate of the gaussian peak**: column name ``z_fit``.
 
 SpotFIT size metrics
 --------------------
