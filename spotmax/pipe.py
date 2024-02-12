@@ -14,6 +14,7 @@ from . import filters
 from . import transformations
 from . import printl
 from . import ZYX_LOCAL_COLS, ZYX_LOCAL_EXPANDED_COLS, ZYX_GLOBAL_COLS
+from . import ZYX_FIT_COLS
 from . import features
 from . import utils
 
@@ -1405,7 +1406,7 @@ def spotfit(
         The expression can be any text that can be evaluated by `pandas.eval`. 
         Default is ('spot_B_min', 'inf').
         More details here: 
-        ttps://pandas.pydata.org/docs/reference/api/pandas.eval.html
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
         
     Returns
     -------
@@ -1416,7 +1417,15 @@ def spotfit(
     
     dfs_spots_spotfit : list of pandas.DataFrames
         List of DataFrames with additional spotFIT features columns 
-        for each frame and ID of the segmented objects in `lab`
+        for each frame and ID of the segmented objects in `lab`. 
+        If `drop_peaks_too_close` is True, each DataFrame in this list 
+        will contain only the valid spots.
+    
+    dfs_spots_spotfit_iter0 : list of pandas.DataFrames
+        List of DataFrames with additional spotFIT features columns 
+        for each frame and ID of the segmented objects in `lab`. No matter 
+        the value of `drop_peaks_too_close`, each DataFrame in this list 
+        will contain all the input spots.
     
     See also
     --------
@@ -1431,11 +1440,13 @@ def spotfit(
     if delta_tol is None:
         delta_tol = (0, 0, 0)
     
-    if spots_zyx_radii_pxl and drop_peaks_too_close:
-        zyx_voxel_size
-        zyx_spot_min_vol_um
+    if spots_zyx_radii_pxl is None and drop_peaks_too_close:
+        spots_zyx_radii_pxl = np.array(
+            [v/s for v, s in zip(zyx_spot_min_vol_um, zyx_voxel_size)]
+        )
     
     dfs_spots_spotfit = []
+    dfs_spots_spotfit_iter0 = []
     keys = []
     
     if show_progress:
@@ -1443,28 +1454,75 @@ def spotfit(
         pbar = tqdm(
             total=len(rp), ncols=100, desc=desc, position=3, leave=False
         )
+    df_spots_spotfit = df_spots.drop(columns=['spot_mask'], errors='ignore')
+    non_spotfit_cols = df_spots_spotfit.columns.to_list()
     for obj in rp:
         if obj.label not in df_spots.index:
             continue
         expanded_obj = transformations.get_expanded_obj(obj, delta_tol, lab)
-        kernel.set_args(
-            expanded_obj, 
-            spots_img, 
-            df_spots, 
-            zyx_voxel_size, 
-            zyx_spot_min_vol_um, 
-            xy_center_half_interval_val=xy_center_half_interval_val, 
-            z_center_half_interval_val=z_center_half_interval_val, 
-            sigma_x_min_max_expr=sigma_x_min_max_expr,
-            sigma_y_min_max_expr=sigma_y_min_max_expr,
-            sigma_z_min_max_expr=sigma_z_min_max_expr,
-            A_min_max_expr=A_min_max_expr,
-            B_min_max_expr=B_min_max_expr,
-            ref_ch_mask_or_labels=ref_ch_mask_or_labels,
-            use_gpu=use_gpu, 
-            logger_func=logger_func
-        )
-        kernel.fit()
+        df_spots_obj = df_spots_spotfit.loc[obj.label].copy()
+        i = 0
+        while True:
+            prev_num_spots = len(df_spots_obj)
+            kernel.set_args(
+                expanded_obj, 
+                spots_img, 
+                df_spots_obj, 
+                zyx_voxel_size, 
+                zyx_spot_min_vol_um, 
+                xy_center_half_interval_val=xy_center_half_interval_val, 
+                z_center_half_interval_val=z_center_half_interval_val, 
+                sigma_x_min_max_expr=sigma_x_min_max_expr,
+                sigma_y_min_max_expr=sigma_y_min_max_expr,
+                sigma_z_min_max_expr=sigma_z_min_max_expr,
+                A_min_max_expr=A_min_max_expr,
+                B_min_max_expr=B_min_max_expr,
+                ref_ch_mask_or_labels=ref_ch_mask_or_labels,
+                use_gpu=use_gpu, 
+                logger_func=logger_func
+            )
+            kernel.fit()
+            
+            if i == 0:
+                # Store all features at first iteration
+                dfs_spots_spotfit_iter0.append(kernel.df_spotFIT_ID.copy())
+            
+            if not drop_peaks_too_close: 
+                break
+            
+            fit_coords = kernel.df_spotFIT_ID[ZYX_FIT_COLS].to_numpy()
+            fit_coords_int = np.round(fit_coords).astype(int)
+            intensities = spots_img[tuple(fit_coords_int.transpose())]
+            
+            valid_fit_coords = filters.filter_valid_points_min_distance(
+                fit_coords, spots_zyx_radii_pxl, 
+                intensities=intensities, 
+            )
+            
+            num_spots = len(valid_fit_coords)
+            if num_spots == prev_num_spots:
+                # All spots are valid --> break loop
+                break
+            
+            if num_spots == 0:
+                kernel.df_spotFIT_ID = kernel.df_spotFIT_ID[0:0]
+                break
+            
+            index_names = kernel.df_spotFIT_ID.index.names
+            zyx_index = pd.MultiIndex.from_arrays(
+                tuple(valid_fit_coords.transpose())
+            )
+            df_spots_obj = (
+                kernel.df_spotFIT_ID.reset_index()
+                .set_index(ZYX_FIT_COLS)
+                .loc[zyx_index]
+                .reset_index()
+                .set_index(index_names)
+                [non_spotfit_cols]
+            )
+            prev_num_spots = num_spots      
+            i += 1
+
         dfs_spots_spotfit.append(kernel.df_spotFIT_ID)
         keys.append((frame_i, obj.label))
         if show_progress:
@@ -1472,4 +1530,4 @@ def spotfit(
     if show_progress:
         pbar.close()
     
-    return keys, dfs_spots_spotfit
+    return keys, dfs_spots_spotfit, dfs_spots_spotfit_iter0

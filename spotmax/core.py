@@ -53,7 +53,7 @@ from . import issues_url, printl, io, features, config
 from . import transformations
 from . import filters
 from . import pipe
-from . import ZYX_GLOBAL_COLS, ZYX_LOCAL_COLS, ZYX_AGGR_COLS
+from . import ZYX_GLOBAL_COLS
 from . import ZYX_LOCAL_EXPANDED_COLS, ZYX_FIT_COLS, ZYX_RESOL_COLS
 from . import BASE_COLUMNS
 from . import DFs_FILENAMES
@@ -2464,7 +2464,7 @@ class SpotFIT(spheroid):
             self, 
             expanded_obj, 
             spots_img, 
-            df_spots, 
+            df_spots_obj, 
             zyx_vox_size, 
             zyx_spot_min_vol_um, 
             xy_center_half_interval_val=0.1, 
@@ -2483,9 +2483,8 @@ class SpotFIT(spheroid):
         self.logger_func = logger_func
         self.spots_img_local = spots_img[expanded_obj.slice]
         super().__init__(self.spots_img_local)
-        ID = expanded_obj.label
         self.ID = expanded_obj.label
-        self.df_spots_ID = df_spots.loc[ID].copy()
+        self.df_spots_ID = df_spots_obj
         self.zyx_vox_size = zyx_vox_size
         self.obj_bbox_lower = tuple(expanded_obj.crop_obj_start)
         self.obj_image = expanded_obj.image
@@ -2529,10 +2528,11 @@ class SpotFIT(spheroid):
             .set_index('id')
         )
         _df_spotFIT.index.names = ['spot_id']
+        df_spotFIT_ID = df_spots_ID.join(_df_spotFIT, how='outer')
         
-        df_spots_ID = features.add_additional_spotfit_features(self.df_spots_ID)
+        df_spotFIT_ID = features.add_additional_spotfit_features(df_spotFIT_ID)
 
-        self.df_spotFIT_ID = df_spots_ID.join(_df_spotFIT, how='outer')
+        self.df_spotFIT_ID = df_spotFIT_ID
         self.df_spotFIT_ID.index.names = ['spot_id']
 
     def spotSIZE(self):
@@ -3185,9 +3185,9 @@ class SpotFIT(spheroid):
 
         min_z, min_y, min_x = self.obj_bbox_lower
 
-        self._df_spotFIT.at[(obj_id, s), 'z_fit'] = z0_fit+min_z
-        self._df_spotFIT.at[(obj_id, s), 'y_fit'] = y0_fit+min_y
-        self._df_spotFIT.at[(obj_id, s), 'x_fit'] = x0_fit+min_x
+        self._df_spotFIT.at[(obj_id, s), 'z_fit'] = round(z0_fit+min_z, 4)
+        self._df_spotFIT.at[(obj_id, s), 'y_fit'] = round(y0_fit+min_y, 4)
+        self._df_spotFIT.at[(obj_id, s), 'x_fit'] = round(x0_fit+min_x, 4)
 
         # self._df_spotFIT.at[(obj_id, s), 'AoB_fit'] = A_fit/B_fit
 
@@ -3569,7 +3569,7 @@ class Kernel(_ParamsParser):
             'Cell_ID': aggregated_lab[zz, yy, xx]
         })
         if spots_masks is not None:
-            df_spots_coords['spot_masks'] = spots_masks
+            df_spots_coords['spot_mask'] = spots_masks
         
         df_spots_coords = df_spots_coords.set_index('Cell_ID').sort_index()
         
@@ -4254,6 +4254,9 @@ class Kernel(_ParamsParser):
             self._params[SECTION]['spotDetectionMethod']['loadedVal']
         )
         do_spotfit = self._params[SECTION]['doSpotFit']['loadedVal']
+        spotofit_drop_peaks_too_close = (
+            self._params[SECTION]['dropSpotsMinDistAfterSpotfit']['loadedVal']
+        )
         save_spots_mask = (
             self._params[SECTION]['saveSpotsMask']['loadedVal']
         )
@@ -4266,6 +4269,7 @@ class Kernel(_ParamsParser):
         if do_spotfit:
             dfs_lists['dfs_spots_spotfit'] = []
             dfs_lists['spotfit_keys'] = []
+            dfs_lists['dfs_spots_spotfit_iter0'] = []
         
         transformed_spots_ch_nnet = data.get('transformed_spots_ch')
         
@@ -4417,6 +4421,7 @@ class Kernel(_ParamsParser):
                     delta_tol=self.metadata['deltaTolerance'], 
                     lab=lab,
                     ref_ch_mask_or_labels=ref_ch_mask_or_labels,
+                    drop_peaks_too_close=spotofit_drop_peaks_too_close,
                     frame_i=frame_i, 
                     use_gpu=self._get_use_gpu(),
                     show_progress=True,
@@ -4424,6 +4429,7 @@ class Kernel(_ParamsParser):
                 )
                 dfs_lists['spotfit_keys'].extend(spotfit_result[0])
                 dfs_lists['dfs_spots_spotfit'].extend(spotfit_result[1])
+                dfs_lists['dfs_spots_spotfit_iter0'].extend(spotfit_result[2])
                 pbar.update()
             pbar.close()
             
@@ -4431,8 +4437,11 @@ class Kernel(_ParamsParser):
             df_spots_fit = pd.concat(
                 dfs_lists['dfs_spots_spotfit'], keys=keys, names=names
             )
+            df_spots_fit_iter0 = pd.concat(
+                dfs_lists['dfs_spots_spotfit_iter0'], keys=keys, names=names
+            )
             self._add_spotfit_features_to_df_spots_gop(
-                df_spots_fit, df_spots_gop
+                df_spots_fit_iter0, df_spots_gop
             )
             df_spots_fit = filters.filter_spots_from_features_thresholds(
                 df_spots_fit, gop_filtering_thresholds,

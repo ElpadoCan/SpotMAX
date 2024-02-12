@@ -529,10 +529,10 @@ class spotMAX_Win(acdc_gui.guiWin):
                 f'{txt}\n'
                 'WARNING: Analysis ended with errors. '
                 'See summary of errors below and more details in the '
-                'log file:\n\n'
-                f'`{log_path}`\n'
+                'log file:'
             )
             msg_func = 'critical'
+            msg_kwargs['commands'] = (log_path, )
         else:
             msg_func = 'information'
         self.logger.info(f'{line_str}\n{txt}\n{close_str}')
