@@ -479,3 +479,31 @@ def drop_spots_not_in_ref_ch(df, ref_ch_mask, local_peaks_coords):
     xx = local_peaks_coords[:,2]
     in_ref_ch_spots_mask = ref_ch_mask[zz, yy, xx] > 0
     return df[in_ref_ch_spots_mask]
+
+def filter_valid_points_min_distance(points, min_distance, intensities=None):
+    num_points = len(points)
+    if intensities is not None:
+        # Sort points by descending intensities
+        sorting_idxs_descending = np.flip(intensities.argsort())
+        points = points[sorting_idxs_descending]
+        
+    masked_points = np.ma.masked_array(
+        data=points, 
+        mask=np.zeros(points.shape, bool), 
+        fill_value=-1
+    )
+    valid_points_mask = np.ones(num_points, dtype=bool)
+    for i, point in enumerate(points):
+        if not valid_points_mask[i]:
+            # Skip points that have already been dropped
+            continue
+        points_ellipsoid = np.square((masked_points - point)/min_distance)
+        points_too_close_mask = np.sum(points_ellipsoid, axis=1) < 1
+        valid_points_mask[i+1:] = np.invert(points_too_close_mask[i+1:])
+        
+        # Mask dropped points to avoid computing the distance to them in 
+        # future iterations
+        masked_points.mask[points_too_close_mask] = True
+    
+    valid_points = points[valid_points_mask]
+    return valid_points

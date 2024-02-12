@@ -156,6 +156,10 @@ class Model:
             scikit-image function `skimage.measure.label` on the thresholded 
             array. If `label_components = False`, the returned array is simply 
             the thresholded binary output.
+        
+        See also
+        --------
+        `skimage.measure.label <https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.label>`__
         """        
         
         # Build slice object to get the correct output index

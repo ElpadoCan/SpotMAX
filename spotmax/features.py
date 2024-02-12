@@ -1,12 +1,17 @@
 from typing import Union
+from numbers import Number
 
 import numpy as np
 import pandas as pd
 
 import scipy.stats
 
+import skimage.feature
+
 from . import docs
 from . import printl
+from . import transformations
+from . import filters
 
 def normalise_by_dist_transform_simple(
         spot_slice_z, dist_transf, backgr_vals_z_spot
@@ -298,3 +303,65 @@ def get_normalised_spot_ref_ch_intensities(
     norm_ref_ch_intensities = norm_ref_ch_slice_dt[spheroid_mask]
 
     return norm_spot_intensities, norm_ref_ch_intensities
+
+def find_local_peaks(image, min_distance=1, footprint=None, labels=None):
+    """Find local peaks in intensity image
+
+    Parameters
+    ----------
+    image : (Y, X) or (Z, Y, X) numpy.ndarray
+        Grayscale image where to detect the peaks. It can be 2D or 3D.
+    min_distance : int or tuple of floats (one per axis of `image`), optional
+        The minimal allowed distance separating peaks. To find the maximum 
+        number of peaks, use min_distance=1. Pass a tuple of floats with one 
+        value per axis of the image if you need different minimum distances 
+        per axis of the image. This will result in only the brightest peak 
+        per ellipsoid with `radii=min_distance` centered at peak being 
+        returned. Default is 1
+    footprint : numpy.ndarray of bools, optional
+        If provided, footprint == 1 represents the local region within which 
+        to search for peaks at every point in image. Default is None
+    labels : numpy.ndarray of ints, optional
+        If provided, each unique region labels == value represents a unique 
+        region to search for peaks. Zero is reserved for background. 
+        Default is None
+
+    Returns
+    -------
+    (N, 2) or (N, 3) np.ndarray
+        The coordinates of the peaks. This is a numpy array with `N` number of 
+        rows, where `N` is the number of detected peaks, and 2 or 3 columns 
+        with order (y, x) or (z, y, x) for 2D or 3D data, respectively.
+    
+    Notes
+    -----
+    This function uses `skimage.feature.peak_local_max` for the first step of 
+    the detection. Since `footprint` is not 100% reliable in filtering 
+    peaks that are at a minimum distance = `min_distance`, we perform a 
+    second step where we ensure that only the brightest peak per ellipsoid is 
+    returned.    
+    
+    See also
+    --------
+    `skimage.feature.peak_local_max <https://scikit-image.org/docs/stable/api/skimage.feature.html#skimage.feature.peak_local_max>`__
+    """    
+    if isinstance(min_distance, Number):
+        min_distance = [min_distance]*image.ndim
+    
+    if footprint is None:
+        zyx_radii_pxl = [val/2 for val in min_distance]
+        footprint = transformations.get_local_spheroid_mask(
+            zyx_radii_pxl
+        )
+        
+    peaks_coords = skimage.feature.peak_local_max(
+        image, footprint=footprint, labels=labels
+    )
+    intensities = image[tuple(peaks_coords.transpose())]
+    valid_peaks_coords = filters.filter_valid_points_min_distance(
+        peaks_coords, min_distance, intensities=intensities
+    )
+    valid_peaks_coords = transformations.reshape_spots_coords_to_3D(
+        valid_peaks_coords
+    )
+    return peaks_coords

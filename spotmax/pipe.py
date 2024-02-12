@@ -923,13 +923,20 @@ def spot_detection(
     spots_masks : list of region properties or None
         List of spots masks as boolean arrays. None if `return_spots_mask` 
         is False.
+    
+    See also
+    --------
+    `skimage.measure.regionprops <https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops>`__
     """        
     if spot_footprint is None and spots_zyx_radii_pxl is not None:
         zyx_radii_pxl = [val/2 for val in spots_zyx_radii_pxl]
         spot_footprint = transformations.get_local_spheroid_mask(
             zyx_radii_pxl
         )
-        
+    
+    if spots_zyx_radii_pxl is None:
+        spots_zyx_radii_pxl = np.array([1, 1, 1])
+    
     if spot_footprint is not None:
         spot_footprint = np.squeeze(spot_footprint)
     
@@ -945,15 +952,17 @@ def spot_detection(
     
     if detection_method == 'peak_local_max':
         detect_image = np.squeeze(image)
+        min_distance = spots_zyx_radii_pxl
         if detect_image.ndim == 2 and spot_footprint.ndim == 3:
             # Make sure spot_footprint is 2D like the input image
             spot_footprint = spot_footprint.max(axis=0)
-        spots_coords = skimage.feature.peak_local_max(
-            np.squeeze(image), 
+            min_distance = spots_zyx_radii_pxl[-2:]
+        spots_coords = features.find_local_peaks(
+            detect_image, 
+            min_distance=min_distance,
             footprint=spot_footprint, 
-            labels=spots_segmantic_segm
+            labels=spots_segmantic_segm,
         )
-        spots_coords = transformations.reshape_spots_coords_to_3D(spots_coords)
         if return_spots_mask:
             spots_masks = transformations.from_spots_coords_to_spots_masks(
                 spots_coords, spots_zyx_radii_pxl, debug=debug
@@ -1105,6 +1114,10 @@ def spots_calc_features_and_filter(
         for each frame and ID of the segmented objects in `lab` 
     dfs_spots_gop : list of pandas.DataFrames
         Same as `dfs_spots_det` but with only the valid spots 
+    
+    See also
+    --------
+    `skimage.measure.regionprops <https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops>`__
     """    
     if verbose:
         print('')
@@ -1392,6 +1405,10 @@ def spotfit(
     dfs_spots_spotfit : list of pandas.DataFrames
         List of DataFrames with additional spotFIT features columns 
         for each frame and ID of the segmented objects in `lab`
+    
+    See also
+    --------
+    `skimage.measure.regionprops <https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops>`__
     """    
     if lab is None:
         lab = np.ones(spots_img.shape, dtype=np.uint8)
