@@ -2529,8 +2529,8 @@ class SpotFIT(spheroid):
             .set_index('id')
         )
         _df_spotFIT.index.names = ['spot_id']
-
-        df_spots_ID = self.df_spots_ID
+        
+        df_spots_ID = features.add_additional_spotfit_features(self.df_spots_ID)
 
         self.df_spotFIT_ID = df_spots_ID.join(_df_spotFIT, how='outer')
         self.df_spotFIT_ID.index.names = ['spot_id']

@@ -1,4 +1,4 @@
-.. _single-spot-features:
+r.. _single-spot-features:
 
 .. role:: m(math)
 
@@ -226,10 +226,10 @@ SpotFIT size metrics
 
 Features that are computed during the gaussian fit procedure. 
 
-* **Radius x- direction**: column name ``sigma_x_fit``.
-* **Radius y- direction**: column name ``sigma_y_fit``.
-* **Radius z- direction**: column name ``sigma_z_fit``.
-* **Mean radius xy- direction**: column name ``sigma_yx_mean_fit``.
+* **Radius x-direction**: column name ``sigma_x_fit``.
+* **Radius y-direction**: column name ``sigma_y_fit``.
+* **Radius z-direction**: column name ``sigma_z_fit``.
+* **Mean radius xy-direction**: column name ``sigma_yx_mean_fit``.
 * **Spot volume (voxel)**: column name ``spheroid_vol_vox_fit``.
 
 
@@ -244,12 +244,18 @@ SpotFIT intens. metrics
   the background.
 * **Amplitude gauss. peak**: column name ``A_fit``.
 * **Backgr. level gauss. peak**: column name ``B_fit``.
+* **Quality factor in xy-direction**: columns name ``Q_factor_yx``. 
+  Ration between ``A_fit`` and  ``sigma_yx_mean_fit``. The higher the quality 
+  factor the taller and narrower the peak.
+* **Quality factor in z-direction**: columns name ``Q_factor_z``. 
+  Ration between ``A_fit`` and  ``sigma_z_fit``. The higher the quality 
+  factor the taller and narrower the peak.
 
 
 SpotFIT Goodness-of-fit
 -----------------------
 * **RMS error gauss. fit**: column name ``RMSE_fit``. Root mean squared error 
-  betweed fitted and predicted data. The lower this value, the better was the fit. 
+  between fitted and predicted data. The lower this value, the better was the fit. 
 * **Normalised RMS error gauss. fit**: column name ``NRMSE_fit``. RMS error 
   divided by the mean of the fitted data.
 * **F-norm. RMS error gauss. fit**: column name ``F_NRMSE_fit``. Normalised RMS 
