@@ -253,10 +253,10 @@ SpotFIT intens. metrics
   the background.
 * **Amplitude gauss. peak**: column name ``A_fit``.
 * **Backgr. level gauss. peak**: column name ``B_fit``.
-* **Quality factor in xy-direction**: columns name ``Q_factor_yx``. 
-  Ration between ``A_fit`` and  ``sigma_yx_mean_fit``. The higher the quality 
+* **Quality factor in xy-direction**: column name ``Q_factor_yx``. 
+  Ratio between ``A_fit`` and  ``sigma_yx_mean_fit``. The higher the quality 
   factor the taller and narrower the peak.
-* **Quality factor in z-direction**: columns name ``Q_factor_z``. 
+* **Quality factor in z-direction**: column name ``Q_factor_z``. 
   Ration between ``A_fit`` and  ``sigma_z_fit``. The higher the quality 
   factor the taller and narrower the peak.
 
