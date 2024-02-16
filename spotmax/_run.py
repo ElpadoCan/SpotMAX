@@ -6,7 +6,7 @@ from . import printl, spotmax_path, resources_folderpath
 def run_gui(debug=False, app=None):
     from cellacdc._run import _setup_gui_libraries, _setup_app
     
-    _setup_gui_libraries()
+    _setup_gui_libraries(caller_name='SpotMAX')
 
     import spotmax
     spotmax.is_cli = False

@@ -324,18 +324,7 @@ If you want to try out experimental features (and, if you have time, maybe repor
     on conda yet, hence we will use ``pip``. 
     Pip the default package manager for Python. Here we are updating pip itself.
 
-9.  **Install Cell-ACDC** with the following command:
-   
-    .. code-block:: 
-   
-        pip install --upgrade "git+https://github.com/SchmollerLab/Cell_ACDC.git"
-
-    With this command we are installing the latest developer version of 
-    `Cell-ACDC`_. We install the developer version because spotMAX highly 
-    depends on Cell-ACDC and installing this version ensures 
-    compatibility.
-
-10. **Install spotMAX** with the following command:
+9.  **Install spotMAX** with the following command:
    
     .. code-block:: 
    
