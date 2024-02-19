@@ -2394,6 +2394,50 @@ class PlusMinusFloatLineEdit(FloatLineEdit):
         else:
             return 0.0
 
+class ExpandableGroupbox(QGroupBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._expanded = True
+        self._scheduled_expansion = None
+        self._layout = None
+    
+    def setLayout(self, layout):
+        buttonLayout = QHBoxLayout()
+        self.expandButton = acdc_widgets.showDetailsButton(txt='Show parameters')
+        self.expandButton.setChecked(True)
+        self.expandButton.sigToggled.connect(self.setExpanded)
+        buttonLayout.addWidget(self.expandButton)
+        buttonLayout.setStretch(0, 1)
+        buttonLayout.addStretch(2)
+        self._layout = layout
+        _mainLayout = QVBoxLayout()
+        _mainLayout.addLayout(buttonLayout)    
+        _mainLayout.addLayout(layout)     
+        super().setLayout(_mainLayout)
+        if self._scheduled_expansion is not None:
+            self.expandButton.setChecked(self._scheduled_expansion)
+        
+        if self.isCheckable():
+            self.toggled.connect(self.expandButton.setChecked)
+        
+    def layout(self):
+        return self._layout
+    
+    def setExpanded(self, expanded):
+        if self._layout is None:
+            self._scheduled_expansion = expanded
+            return
+        
+        self._expanded = expanded            
+        
+        for i in range(self.layout().count()):
+            item = self.layout().itemAt(i)
+            widget = item.widget()
+            if widget is None:
+                continue
+            widget.setVisible(expanded)
+        
+
 def toClipboard(text):
     cb = QApplication.clipboard()
     cb.clear(mode=cb.Clipboard)

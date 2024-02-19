@@ -1320,16 +1320,23 @@ class ParamsGroupBox(QGroupBox):
         for section, section_params in _params.items():
             formLayout = widgets.FormLayout()
             self.params[section] = {}
-            groupBox = QGroupBox(section)
             isNotCheckableGroup = (
                 section == 'File paths and channels' or section == 'METADATA'
                 or section == 'Pre-processing'
             )
+            
+            if section == 'SpotFIT':
+                groupBox = widgets.ExpandableGroupbox(section)
+                groupBox.setExpanded(False)
+            else:
+                groupBox = QGroupBox(section)
+            
             if isNotCheckableGroup:
                 groupBox.setCheckable(False)
             else:
                 groupBox.setCheckable(True)
             groupBox.setFont(font)
+            groupBox.formWidgets = []
             for row, (anchor, param) in enumerate(section_params.items()):
                 self.params[section][anchor] = param.copy()
                 formWidget = widgets.ParamFormWidget(
@@ -1343,6 +1350,8 @@ class ParamsGroupBox(QGroupBox):
                 self.params[section][anchor]['widget'] = formWidget.widget
                 self.params[section][anchor]['formWidget'] = formWidget
                 self.params[section][anchor]['groupBox'] = groupBox
+                
+                groupBox.formWidgets.append(formWidget)
 
                 isGroupChecked = param.get('isSectionInConfig', True)
                 groupBox.setChecked(isGroupChecked)
