@@ -2016,7 +2016,9 @@ class GaussianModel:
             sigma_y_guess_expr: str,
             sigma_z_guess_expr: str,
             A_guess_expr: str,
-            B_guess_expr: str,        
+            B_guess_expr: str,
+            low_limit: np.array,
+            high_limit: np.array        
         ):
         init_guess = np.zeros(num_spots_s*num_coeffs+1)
         
@@ -2049,6 +2051,7 @@ class GaussianModel:
             n += num_coeffs
         
         init_guess[-1] = self.df_spots_ID.loc[fit_ids, 'B_fit_init_guess'].min()
+        init_guess = np.clip(init_guess, low_limit, high_limit)
         
         return init_guess
     
@@ -2517,6 +2520,11 @@ class SpotFIT(spheroid):
             sigma_z_min_max_expr=('0.5', 'spotsize_z_radius_pxl'),
             A_min_max_expr=('0.0', 'spotsize_A_max'),
             B_min_max_expr=('spot_B_min', 'inf'),
+            sigma_x_guess_expr='spotsize_initial_radius_yx_pixel',
+            sigma_y_guess_expr='spotsize_initial_radius_yx_pixel',
+            sigma_z_guess_expr='spotsize_initial_radius_z_pixel',
+            A_guess_expr='spotsize_A_max',
+            B_guess_expr='spotsize_surface_median',
             verbose=0, 
             inspect=0, 
             ref_ch_mask_or_labels=None, 
@@ -2550,6 +2558,12 @@ class SpotFIT(spheroid):
         self.sigma_z_min_max_expr = sigma_z_min_max_expr
         self.A_min_max_expr = A_min_max_expr
         self.B_min_max_expr = B_min_max_expr
+        
+        self.sigma_x_guess_expr = sigma_x_guess_expr
+        self.sigma_y_guess_expr = sigma_y_guess_expr
+        self.sigma_z_guess_expr = sigma_z_guess_expr
+        self.A_guess_expr = A_guess_expr
+        self.B_guess_expr = B_guess_expr
 
     def fit(self):
         verbose = self.verbose
@@ -2613,9 +2627,14 @@ class SpotFIT(spheroid):
         # Build prev_iter_expanded_lab mask for the expansion process
         self.spot_ids = df_spots_ID.index.to_list()
         zyx_seed_size = np.array(zyx_spot_min_vol_um)/2
-        initial_z_radius, initial_yx_radius, _ = zyx_seed_size
-        self.df_spots_ID['spotsize_initial_radius_yx_pixel'] = initial_z_radius
-        self.df_spots_ID['spotsize_initial_radius_z_pixel'] = initial_yx_radius
+        zs, ys, xs = zyx_seed_size
+        zvd, yvd, _ = zyx_vox_dim
+        self.df_spots_ID['spotsize_initial_radius_yx_pixel'] = (
+            zs/zvd
+        )
+        self.df_spots_ID['spotsize_initial_radius_z_pixel'] = (
+            ys/yvd
+        )
         prev_iter_expanded_lab = self.get_spots_mask(
             0, zyx_vox_dim, zyx_seed_size, spots_centers, dtype=np.uint32,
             ids=self.spot_ids
@@ -2623,8 +2642,6 @@ class SpotFIT(spheroid):
         spots_3D_lab = np.zeros_like(prev_iter_expanded_lab)
 
         # Start expanding the labels
-        zs, ys, xs = zyx_seed_size
-        zvd, yvd, _ = zyx_vox_dim
         stop_grow_info = [] # list of (stop_id, stop_mask, stop_slice)
         stop_grow_ids = []
         max_i = 10
@@ -2869,7 +2886,16 @@ class SpotFIT(spheroid):
                 self.A_min_max_expr,
                 self.B_min_max_expr,
             )
-            init_guess_s = model.get_init_guess(fit_ids, low_limit, high_limit)
+            init_guess_s = model.get_init_guess(
+                num_spots_s, num_coeffs, fit_ids,
+                self.sigma_x_guess_expr,
+                self.sigma_y_guess_expr,
+                self.sigma_z_guess_expr,
+                self.A_guess_expr,
+                self.B_guess_expr,
+                low_limit,
+                high_limit
+            )
             bounds = (low_limit, high_limit)
             desc = f'Fitting spot {s} ({count+1}/{num_spots})'
             
@@ -3168,7 +3194,16 @@ class SpotFIT(spheroid):
                 self.A_min_max_expr,
                 self.B_min_max_expr,
             )
-            init_guess_s = model.get_init_guess(fit_ids, low_limit, high_limit)
+            init_guess_s = model.get_init_guess(
+                num_spots_s, num_coeffs, fit_ids,
+                self.sigma_x_guess_expr,
+                self.sigma_y_guess_expr,
+                self.sigma_z_guess_expr,
+                self.A_guess_expr,
+                self.B_guess_expr,
+                low_limit,
+                high_limit
+            )
             bounds = (low_limit, high_limit)
 
             # Fit with constants
@@ -4478,6 +4513,7 @@ class Kernel(_ParamsParser):
                 
                 df_spots_frame = df_spots_gop.loc[frame_i]
                 bounds_kwargs = self.get_bounds_kwargs()
+                init_guess_kwargs = self.get_init_guess_kwargs()
                 spotfit_result = pipe.spotfit(
                     self._SpotFit, 
                     raw_spots_img, 
@@ -4494,6 +4530,7 @@ class Kernel(_ParamsParser):
                     use_gpu=self._get_use_gpu(),
                     show_progress=True,
                     **bounds_kwargs,
+                    **init_guess_kwargs
                 )
                 dfs_lists['spotfit_keys'].extend(spotfit_result[0])
                 dfs_lists['dfs_spots_spotfit'].extend(spotfit_result[1])
@@ -4559,7 +4596,20 @@ class Kernel(_ParamsParser):
         for kwarg, anchor in kwargs_anchors.items():
             bounds_kwargs[kwarg] = self._params[SECTION][anchor]['loadedVal']
         return bounds_kwargs
-        
+    
+    def get_init_guess_kwargs(self):
+        SECTION = 'SpotFIT'
+        kwargs_anchors = {
+            'sigma_x_guess_expr': 'sigmaXinitGuess', 
+            'sigma_y_guess_expr': 'sigmaYinitGuess', 
+            'sigma_z_guess_expr': 'sigmaZinitGuess',
+            'A_guess_expr': 'A_fit_initGuess',
+            'B_guess_expr': 'B_fit_initGuess',
+        }
+        bounds_kwargs = {}
+        for kwarg, anchor in kwargs_anchors.items():
+            bounds_kwargs[kwarg] = self._params[SECTION][anchor]['loadedVal']
+        return bounds_kwargs
     
     @exception_handler_cli
     def _run_exp_paths(self, exp_paths):

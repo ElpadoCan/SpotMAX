@@ -1413,6 +1413,11 @@ def spotfit(
         sigma_z_min_max_expr=('0.5', 'spotsize_z_radius_pxl'),
         A_min_max_expr=('0.0', 'spotsize_A_max'),
         B_min_max_expr=('spot_B_min', 'inf'),
+        sigma_x_guess_expr='spotsize_initial_radius_yx_pixel',
+        sigma_y_guess_expr='spotsize_initial_radius_yx_pixel',
+        sigma_z_guess_expr='spotsize_initial_radius_z_pixel',
+        A_guess_expr='spotsize_A_max',
+        B_guess_expr='spotsize_surface_median',
     ):
     """Run spotFIT (fitting 3D gaussian curves) and get the related features
 
@@ -1473,14 +1478,14 @@ def spotfit(
         Default is 0.2
     sigma_x_min_max_expr : 2-tuple of str, optional
         Expressions to evaluate with `pandas.eval` to determine minimum and 
-        maximum values for bounds on `sigma_x` fitting paramter. The expression 
+        maximum values for bounds on `sigma_x_fit` fitting paramter. The expression 
         can be any text that can be evaluated by `pandas.eval`. 
         Default is ('0.5', 'spotsize_yx_radius_pxl').
         More details here: 
         https://pandas.pydata.org/docs/reference/api/pandas.eval.html
     sigma_y_min_max_expr : 2-tuple of str, optional
         Expressions to evaluate with `pandas.eval` to determine minimum and 
-        maximum values for bounds on `sigma_y` fitting paramter. The expression 
+        maximum values for bounds on `sigma_y_fit` fitting paramter. The expression 
         can be any text that can be evaluated by `pandas.eval`. 
         Default is ('0.5', 'spotsize_yx_radius_pxl').
         More details here: 
@@ -1488,7 +1493,7 @@ def spotfit(
         Default is ('0.5', 'spotsize_yx_radius_pxl').
     sigma_z_min_max_expr : 2-tuple of str, optional
         Expressions to evaluate with `pandas.eval` to determine minimum and 
-        maximum values for bounds on `sigma_z` fitting paramter. The expression 
+        maximum values for bounds on `sigma_z_fit` fitting paramter. The expression 
         can be any text that can be evaluated by `pandas.eval`. 
         Default is ('0.5', 'spotsize_z_radius_pxl').
         More details here: 
@@ -1505,6 +1510,41 @@ def spotfit(
         maximum values for bounds on `B_fit` (background) fitting paramter. 
         The expression can be any text that can be evaluated by `pandas.eval`. 
         Default is ('spot_B_min', 'inf').
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+    sigma_x_guess_expr : str, optional
+        Expressions to evaluate with `pandas.eval` to determine the initial 
+        guess for the `sigma_x_fit` fitting paramter. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        Default is 'spotsize_initial_radius_yx_pixel'.
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+    sigma_y_guess_expr : str, optional
+        Expressions to evaluate with `pandas.eval` to determine the initial 
+        guess for the `sigma_y_fit` fitting paramter. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        Default is 'spotsize_initial_radius_yx_pixel'.
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+    sigma_z_guess_expr : str, optional
+        Expressions to evaluate with `pandas.eval` to determine the initial 
+        guess for the `sigma_z_fit` fitting paramter. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        Default is 'spotsize_initial_radius_z_pixel'.
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+    A_guess_expr : str, optional
+        Expressions to evaluate with `pandas.eval` to determine the initial 
+        guess for the `A_fit` (amplitude) fitting paramter. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        Default is 'spotsize_A_max'.
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+    B_guess_expr : str, optional
+        Expressions to evaluate with `pandas.eval` to determine the initial 
+        guess for the `B_fit` (background) fitting paramter. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        Default is 'spotsize_surface_median'.
         More details here: 
         https://pandas.pydata.org/docs/reference/api/pandas.eval.html
         
@@ -1577,6 +1617,11 @@ def spotfit(
                 sigma_z_min_max_expr=sigma_z_min_max_expr,
                 A_min_max_expr=A_min_max_expr,
                 B_min_max_expr=B_min_max_expr,
+                sigma_x_guess_expr=sigma_x_guess_expr,
+                sigma_y_guess_expr=sigma_y_guess_expr,
+                sigma_z_guess_expr=sigma_z_guess_expr,
+                A_guess_expr=A_guess_expr,
+                B_guess_expr=B_guess_expr,
                 ref_ch_mask_or_labels=ref_ch_mask_or_labels,
                 use_gpu=use_gpu, 
                 logger_func=logger_func
