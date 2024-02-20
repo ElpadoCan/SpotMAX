@@ -490,7 +490,9 @@ def _compute_obj_spots_features(
         sharp_spots_img_obj, 
         raw_spots_img_obj=None, 
         min_size_spheroid_mask=None, 
+        zyx_voxel_size=None,
         dist_transform_spheroid=None,
+        optimise_for_high_spot_density=False,
         ref_ch_mask_obj=None, 
         ref_ch_img_obj=None, 
         zyx_resolution_limit_pxl=None, 
@@ -518,23 +520,31 @@ def _compute_obj_spots_features(
         level. Note that this is the preprocessed image, i.e., after 
         gaussian filtering, sharpening etc. It is used to determine the 
         threshold for peak detection and for filtering against background. 
-        The first dimension must be the number of z-slices.
+        The first dimension must be the number of z-slices.   
     raw_spots_img_obj : (Z, Y, X) ndarray or None, optional
         Raw spots' signal 3D z-stack image sliced at the segmentation
         object level. Note that this is the raw, unprocessed signal. 
         The first dimension must be  the number of z-slices. 
         If None, the features from the raw signal will not be computed.
-    min_size_spheroid_mask : (Z, Y, X) ndarray of dtype bool, optional
+    min_size_spheroid_mask : (Z, Y, X) ndarray of bools or pandas.Series of arrays, optional
         The boolean mask of the smallest spot expected. Default is None. 
         This is pre-computed using the resolution limit equations and the 
         pixel size. If None, this will be computed from 
-        `zyx_resolution_limit_pxl`.
+        `zyx_resolution_limit_pxl`. You can also pass a pandas.Series with 
+        the same index as `df_obj_spots` with one mask for each spot.
+    zyx_voxel_size : (z, y, x) sequence
+        Voxel size in z-, y-, and x- directions in μm/pixel. If None, this will 
+        be initialize to [1, 1, 1]. Default is None
     dist_transform_spheroid : (Z, Y, X) ndarray, optional
         A distance transform of the `min_size_spheroid_mask`. This will be 
         multiplied by the spots intensities to reduce the skewing effect of 
         neighbouring peaks. 
         It must have the same shape of `min_size_spheroid_mask`.
         If None, normalisation will not be performed.
+    optimise_for_high_spot_density : bool, optional
+        If True and `dist_transform_spheroid` is None, then 
+        `dist_transform_spheroid` will be initialized with the euclidean 
+        distance transform of `min_size_spheroid_mask`.
     ref_ch_mask_obj : (Z, Y, X) ndarray of dtype bool or None, optional
         Boolean mask of the reference channel, e.g., obtained by 
         thresholding. The first dimension must be  the number of z-slices.
@@ -560,7 +570,7 @@ def _compute_obj_spots_features(
         If True, displays intermediate results. Requires GUI libraries. 
         Default is False.
     """ 
-
+    
     local_peaks_coords = df_obj_spots[ZYX_LOCAL_EXPANDED_COLS].to_numpy()
     result = transformations.get_spheroids_maks(
         local_peaks_coords, obj_mask.shape, 
@@ -569,6 +579,11 @@ def _compute_obj_spots_features(
         debug=debug
     )
     spheroids_mask, min_size_spheroid_mask = result
+    
+    vox_to_fl = 1
+    if zyx_voxel_size is not None:
+        vox_to_fl = np.prod(zyx_voxel_size)
+    
     # if debug:
     #     from cellacdc.plot import imshow
     #     imshow(
@@ -598,7 +613,22 @@ def _compute_obj_spots_features(
     # Calculate background metrics
     backgr_vals = sharp_spots_img_obj[backgr_mask]
     for name, func in distribution_metrics_func.items():
-        df_obj_spots.loc[:, f'background_{name}'] = func(backgr_vals)
+        df_obj_spots.loc[:, f'background_{name}_spot_detection_image'] = (
+            func(backgr_vals)
+        )
+    
+    if raw_spots_img_obj is not None:
+        backgr_vals = raw_spots_img_obj[backgr_mask]
+        for name, func in distribution_metrics_func.items():
+            df_obj_spots.loc[:, f'background_{name}_raw_image'] = (
+                func(backgr_vals)
+            )
+    
+    backgr_vals = spots_img_obj[backgr_mask]
+    for name, func in distribution_metrics_func.items():
+        df_obj_spots.loc[:, f'background_{name}_preproc_image'] = (
+            func(backgr_vals)
+        )
     
     if raw_spots_img_obj is None:
         raw_spots_img_obj = spots_img_obj
@@ -613,12 +643,16 @@ def _compute_obj_spots_features(
     spot_ids_to_drop = []
     for row in df_obj_spots.itertuples():
         spot_id = row.Index
+        if isinstance(min_size_spheroid_mask, pd.Series):
+            spot_mask = min_size_spheroid_mask.loc[spot_id]
+        else:
+            spot_mask = min_size_spheroid_mask
         zyx_center = tuple(
             [getattr(row, col) for col in ZYX_LOCAL_EXPANDED_COLS]
         )
 
         slices = transformations.get_slices_local_into_global_3D_arr(
-            zyx_center, spots_img_obj.shape, min_size_spheroid_mask.shape
+            zyx_center, spots_img_obj.shape, spot_mask.shape
         )
         slice_global_to_local, slice_crop_local = slices
         
@@ -654,14 +688,45 @@ def _compute_obj_spots_features(
                 zyx_center[1:], block=False
             )
 
+        # Add spot volume from mask
+        spot_mask_vol = np.count_nonzero(spot_mask)
+        df_obj_spots.at[spot_id, 'spot_mask_volume_voxel'] = spot_mask_vol
+        spot_mask_vol_fl = spot_mask_vol*vox_to_fl
+        df_obj_spots.at[spot_id, 'spot_mask_volume_fl'] = spot_mask_vol_fl
+            
+        # Add background metrics at center z-slice
+        sharp_spot_bkgr_values_z = sharp_spot_obj_z[backgr_mask_z_spot]
+        features.add_distribution_metrics(
+            sharp_spot_bkgr_values_z, df_obj_spots, spot_id, 
+            col_name='background_*name_z_slice_spot_detection_image'
+        )
+        
+        zc_spot = zyx_center[0]
+        spot_bkgr_values_z = spots_img_obj[zc_spot, backgr_mask_z_spot]
+        features.add_distribution_metrics(
+            spot_bkgr_values_z, df_obj_spots, spot_id, 
+            col_name='background_*name_z_slice_preproc_image'
+        )
+        
+        if raw_spots_img_obj is not None:
+            raw_bkgr_values_z = raw_spots_img_obj[zc_spot, backgr_mask_z_spot]
+            features.add_distribution_metrics(
+                raw_bkgr_values_z, df_obj_spots, spot_id, 
+                col_name='background_*name_z_slice_raw_image'
+            )
+            
         # Crop masks
-        spheroid_mask = min_size_spheroid_mask[slice_crop_local]
+        spheroid_mask = spot_mask[slice_crop_local]
         spot_slice = spots_img_obj[slice_global_to_local]
 
         # Get the sharp spot sliced
         sharp_spot_slice_z = sharp_spot_obj_z[slice_global_to_local[-2:]]
         
-        if dist_transform_spheroid is None:
+        if optimise_for_high_spot_density:
+            dist_transform_spheroid = (
+                transformations.norm_distance_transform_edt(spot_mask)
+            )
+        elif dist_transform_spheroid is None:
             # Do not optimise for high spot density
             sharp_spot_slice_z_transf = sharp_spot_slice_z
         else:
@@ -683,7 +748,8 @@ def _compute_obj_spots_features(
         df_obj_spots.at[spot_id, 'spot_preproc_intensity_at_center'] = value
         features.add_distribution_metrics(
             spot_intensities, df_obj_spots, spot_id, 
-            col_name='spot_preproc_*name_in_spot_minimumsize_vol'
+            col_name='spot_preproc_*name_in_spot_minimumsize_vol',
+            add_bkgr_corrected_metrics=True
         )
         
         if raw_spots_img_obj is None:
@@ -697,7 +763,8 @@ def _compute_obj_spots_features(
 
             features.add_distribution_metrics(
                 raw_spot_intensities, df_obj_spots, spot_id, 
-                col_name='spot_raw_*name_in_spot_minimumsize_vol'
+                col_name='spot_raw_*name_in_spot_minimumsize_vol',
+                add_bkgr_corrected_metrics=True
             )
 
         # When comparing to the background we use the sharpened image 
@@ -761,6 +828,7 @@ def compute_spots_features(
         zyx_coords, 
         spots_zyx_radii_pxl,
         min_size_spheroid_mask=None,
+        zyx_voxel_size=None,
         delta_tol=None,
         sharp_image=None,
         lab=None, 
@@ -894,7 +962,8 @@ def spot_detection(
         in pixels. The values are used to determine the spot footprint if 
         spot_footprint is not provided. Default is None
     return_spots_mask : bool, optional
-        Used only if detection_method is 'label_prediction_mask'. 
+        This is forced to be True if `detection_method` is equal to 
+        'label_prediction_mask'.
         If True, the second element returned will be a list of region properties 
         (see scikit-image `skimage.measure.regionprops`) with an additional 
         attribute called `zyx_local_center`. Default is False
@@ -976,14 +1045,11 @@ def spot_detection(
         prediction_lab_rp = skimage.measure.regionprops(prediction_lab)
         num_spots = len(prediction_lab_rp)
         spots_coords = np.zeros((num_spots, 3), dtype=int)
-        if return_spots_mask:
-            spots_masks = []
-            for s, spot_obj in enumerate(prediction_lab_rp):
-                zyx_coords = tuple([round(c) for c in spot_obj.centroid])
-                spots_coords[s] = zyx_coords
-                if not return_spots_mask:
-                    continue
-                spots_masks.append(spot_obj.image)
+        spots_masks = []
+        for s, spot_obj in enumerate(prediction_lab_rp):
+            zyx_coords = tuple([round(c) for c in spot_obj.centroid])
+            spots_coords[s] = zyx_coords
+            spots_masks.append(spot_obj.image)
     
     if return_df:
         if lab is None:
@@ -1012,7 +1078,9 @@ def spots_calc_features_and_filter(
         ref_ch_mask_or_labels=None, 
         ref_ch_img=None,   
         keep_only_spots_in_ref_ch=False,
+        use_spots_segm_masks=False,
         min_size_spheroid_mask=None,
+        zyx_voxel_size=None,
         optimise_for_high_spot_density=False,
         dist_transform_spheroid=None,
         get_backgr_from_inside_ref_ch_mask=False,
@@ -1061,7 +1129,7 @@ def spots_calc_features_and_filter(
         It will prevent clipping the spots masks for those spots whose intensities 
         bleed outside of the object (e.g., single cell). Default is None
     raw_image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
-        Optional image to calculate features based on the raw image. The name 
+        Optional image to calculate features from. The name 
         of these features will have the text '_raw_'. Default is None
     ref_ch_mask_or_labels : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
         Instance or semantic segmentation of the reference channel. If not None, 
@@ -1073,11 +1141,19 @@ def spots_calc_features_and_filter(
     keep_only_spots_in_ref_ch : bool, optional
         If True, drops the spots that are outside of the reference channel mask. 
         Default is False
+    use_spots_segm_masks : bool, optional
+        If True and `df_spots_coords` has a column called 'spot_maks' with one 
+        spot mask for each spot then `min_size_spheroid_mask` is ignored and 
+        the spot mask from `df_spots_coords` will be used.
+        Default is False
     min_size_spheroid_mask : (M, N) numpy.ndarray or (K, M, N) numpy.ndarray or bools, optional
-        Ellipsoid mask used to calcualte those aggregated features like the 
-        mean intensity in each spot. 
-        If None, this will be created from `spots_zyx_radii_pxl`. 
-        Default is None
+        Spheroid mask used to calculate those aggregated features like the 
+        mean intensity in each spot. If this value is None, it will be created 
+        from `spots_zyx_radii_pxl`. Note that if `use_spots_segm_masks` is
+        True, this parameter might be ignored. Default is None      
+    zyx_voxel_size : (z, y, x) sequence
+        Voxel size in z-, y-, and x- directions in μm/pixel. If None, this will 
+        be initialize to [1, 1, 1]. Default is None
     optimise_for_high_spot_density : bool, optional
         If True and `dist_transform_spheroid` is None, then `dist_transform_spheroid`
         will be initialized with the euclidean distance transform of 
@@ -1140,15 +1216,32 @@ def spots_calc_features_and_filter(
             spots_zyx_radii_pxl
         )
     
-    if min_size_spheroid_mask is None:
+    if use_spots_segm_masks and 'spot_mask' not in df_spots_coords.columns:
+        use_spots_segm_masks = False
+    
+    calc_spheroid_mask = (
+        min_size_spheroid_mask is None 
+        and not use_spots_segm_masks 
+    )
+    if calc_spheroid_mask:
         min_size_spheroid_mask = transformations.get_local_spheroid_mask(
             spots_zyx_radii_pxl
         )
     
-    if optimise_for_high_spot_density and dist_transform_spheroid is None:
+    calc_dist_spheroid_mask = (
+        optimise_for_high_spot_density
+        and dist_transform_spheroid is None 
+        and not use_spots_segm_masks 
+    )
+    if calc_dist_spheroid_mask:
         dist_transform_spheroid = transformations.norm_distance_transform_edt(
             min_size_spheroid_mask
         )
+    
+    if use_spots_segm_masks:
+        # Force recalc of dist transform in _compute_obj_spots_features
+        min_size_spheroid_mask = None
+        dist_transform_spheroid = None
     
     if sharp_spots_image is None:
         sharp_spots_image = image
@@ -1188,6 +1281,9 @@ def spots_calc_features_and_filter(
         df_obj_spots_det['spot_id'] += last_spot_id
         df_obj_spots_det = df_obj_spots_det.set_index('spot_id').sort_index()
         
+        if use_spots_segm_masks:
+            min_size_spheroid_mask = df_obj_spots_det['spot_mask']
+        
         keys.append((frame_i, obj.label))
         num_spots_detected = len(df_obj_spots_det)
         last_spot_id += num_spots_detected
@@ -1205,6 +1301,7 @@ def spots_calc_features_and_filter(
         else:
             local_ref_ch_img = None
         
+        raw_spots_img_obj = None
         if raw_image is not None:
             raw_spots_img_obj = raw_image[obj_slice]
 
@@ -1226,6 +1323,7 @@ def spots_calc_features_and_filter(
             #     debug = True
             #     import pdb; pdb.set_trace()
 
+            bkgr_from_in_reg_ch = get_backgr_from_inside_ref_ch_mask
             df_obj_spots_gop = _compute_obj_spots_features(
                 local_spots_img, 
                 df_obj_spots_gop, 
@@ -1233,10 +1331,12 @@ def spots_calc_features_and_filter(
                 local_sharp_spots_img, 
                 raw_spots_img_obj=raw_spots_img_obj,
                 min_size_spheroid_mask=min_size_spheroid_mask, 
+                zyx_voxel_size=zyx_voxel_size,
                 dist_transform_spheroid=dist_transform_spheroid,
+                optimise_for_high_spot_density=optimise_for_high_spot_density,
                 ref_ch_mask_obj=local_ref_ch_mask, 
                 ref_ch_img_obj=local_ref_ch_img,
-                get_backgr_from_inside_ref_ch_mask=get_backgr_from_inside_ref_ch_mask,
+                get_backgr_from_inside_ref_ch_mask=bkgr_from_in_reg_ch,
                 zyx_resolution_limit_pxl=spots_zyx_radii_pxl,
                 debug=debug
             )

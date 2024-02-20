@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 
 from urllib.parse import urlparse
 
@@ -67,6 +68,21 @@ col_name_regex = r'[A-Za-z0-9_]+'
 confval_pattern = r'\.\. confval:: (.+)\n'
 ul_item_pattern = r'\* \*\*(.+)\*\*:'
 
+def read_rst(rst_filepath):
+    with open(rst_filepath, 'r', encoding='utf-8') as rst:
+        rst_text = rst.read()
+    
+    rst_folderpath = os.path.dirname(rst_filepath)
+    includes = re.findall(r'.. include:: ([A-Za-z0-9\._-]+)', rst_text)
+    for include_filename in includes:
+        abspath = (Path(rst_folderpath) / include_filename).resolve()
+        with open(abspath, 'r', encoding='utf-8') as txt:
+            include_text = txt.read()
+        rst_text = re.sub(
+            rf'.. include:: {include_filename}', include_text, rst_text
+        )
+    return rst_text 
+    
 def _get_section(idx, groups, rst_text, remove_directives=True):
     if remove_directives:
         rst_text = re.sub(r'\.\. (.*)\n', '', rst_text)
@@ -113,8 +129,7 @@ def param_name_to_local_html_url(param_name):
     return url
 
 def get_params_desc_mapper():
-    with open(params_desc_rst_filepath, 'r', encoding='utf-8') as rst:
-        rst_text = rst.read()
+    rst_text = read_rst(params_desc_rst_filepath)
     
     section_options_mapper = _parse_section_options(
         rst_text, confval_pattern, return_sections=True
@@ -163,16 +178,14 @@ def _parse_desc(section_options_mapper, rst_text, to_html=True):
     return section_option_mapper
 
 def parse_single_spot_features_groups():
-    with open(single_spot_features_rst_filepath, 'r', encoding='utf-8') as rst:
-        rst_text = rst.read()
+    rst_text = read_rst(single_spot_features_rst_filepath)
     
     features_groups = _parse_section_options(rst_text, ul_item_pattern)
         
     return features_groups
 
 def parse_aggr_features_groups():
-    with open(aggr_features_rst_filepath, 'r', encoding='utf-8') as rst:
-        rst_text = rst.read()
+    rst_text = read_rst(aggr_features_rst_filepath)
     
     features_groups = _parse_section_options(rst_text, ul_item_pattern)
         
@@ -199,16 +212,14 @@ def _parse_column_names(features_groups, rst_text):
     return mapper
 
 def parse_aggr_features_column_names():
-    with open(aggr_features_rst_filepath, 'r', encoding='utf-8') as rst:
-        rst_text = rst.read()
+    rst_text = read_rst(aggr_features_rst_filepath)
         
     features_groups = parse_aggr_features_groups()
     mapper = _parse_column_names(features_groups, rst_text)
     return mapper
 
 def single_spot_features_column_names():
-    with open(single_spot_features_rst_filepath, 'r', encoding='utf-8') as rst:
-        rst_text = rst.read()
+    rst_text = read_rst(single_spot_features_rst_filepath)
         
     features_groups = parse_single_spot_features_groups()
     mapper = _parse_column_names(features_groups, rst_text)

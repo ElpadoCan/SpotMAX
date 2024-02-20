@@ -465,14 +465,19 @@ def get_spheroids_maks(
         min_size_spheroid_mask = get_local_spheroid_mask(
             zyx_radii_pxl
         )
-
-    for zyx_center in zyx_coords:
+    
+    for s, zyx_center in enumerate(zyx_coords):
+        if isinstance(min_size_spheroid_mask, pd.Series):
+            spot_mask = min_size_spheroid_mask.iloc[s]
+        else:
+            spot_mask = min_size_spheroid_mask
+            
         slice_global_to_local, slice_crop_local = (
             get_slices_local_into_global_3D_arr(
-                zyx_center, mask_shape, min_size_spheroid_mask.shape
+                zyx_center, mask_shape, spot_mask.shape
             )
         )
-        local_mask = min_size_spheroid_mask[slice_crop_local]
+        local_mask = spot_mask[slice_crop_local]
         mask[slice_global_to_local][local_mask] = True
     return mask, min_size_spheroid_mask
 

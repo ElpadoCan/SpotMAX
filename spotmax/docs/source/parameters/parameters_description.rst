@@ -323,6 +323,8 @@ METADATA
   :confval:`Resolution multiplier in y- and x- direction` by adding points and 
   pressing up and down key arrows to adjust the size. 
 
+.. _Pre-processing:
+
 Pre-processing
 --------------
 

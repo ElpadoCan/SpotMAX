@@ -246,12 +246,45 @@ def add_ttest_values(
     df.at[idx, f'{name}_ttest_tstat'] = tstat
     df.at[idx, f'{name}_ttest_pvalue'] = pvalue
 
-def add_distribution_metrics(arr, df, idx, col_name='*name'):
+def add_distribution_metrics(
+        arr, df, idx, col_name='*name', add_bkgr_corrected_metrics=False
+    ):
     distribution_metrics_func = get_distribution_metrics_func()
     for name, func in distribution_metrics_func.items():
         _col_name = col_name.replace('*name', name)
         df.at[idx, _col_name] = func(arr)
     
+    if not add_bkgr_corrected_metrics:
+        return
+    
+    mean_col = col_name.replace('*name', 'mean')
+    mean_foregr_value = df.at[idx, mean_col]
+    
+    name_idx = col_name.find("*name")
+    bkgr_id = col_name[:name_idx].replace('spot_', '')
+    bkgr_col = f'background_median_{bkgr_id}image'
+    bkgr_value = df.at[idx, bkgr_col]
+    bkgr_col_z = f'background_median_z_slice_{bkgr_id}image'
+    bkgr_value_z = df.at[idx, bkgr_col_z]
+    
+    volume = df.at[idx, 'spot_mask_volume_voxel']
+    
+    mean_corr = mean_foregr_value - bkgr_value
+    mean_corr_col = col_name.replace('*name', 'backgr_corrected_mean')
+    df.at[idx, mean_corr_col] = mean_corr
+    
+    mean_corr_z = mean_foregr_value - bkgr_value_z
+    mean_corr_col_z = col_name.replace('*name', 'backgr_z_slice_corrected_mean')
+    df.at[idx, mean_corr_col_z] = mean_corr_z
+    
+    sum_corr = mean_corr*volume
+    sum_corr_col = col_name.replace('*name', 'backgr_corrected_sum')
+    df.at[idx, sum_corr_col] = sum_corr
+    
+    sum_corr_z = mean_corr_z*volume
+    sum_corr_col_z = col_name.replace('*name', 'backgr_z_slice_corrected_sum')
+    df.at[idx, sum_corr_col_z] = sum_corr_z
+     
 def add_effect_sizes(
         pos_arr, neg_arr, df, idx, name='spot_vs_backgr', 
         debug=False

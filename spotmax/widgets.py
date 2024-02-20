@@ -2182,7 +2182,7 @@ class RunNumberSpinbox(SpinBox):
             return True
         return False
 
-class SetValueBoundsFromFeaturesWidget(QWidget):
+class SetValueFromFeaturesWidget(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         
@@ -2265,10 +2265,10 @@ class SetBoundsFromFeaturesGroupBox(QGroupBox):
         
         layout = QFormLayout()
         
-        self.minimumWidget = SetValueBoundsFromFeaturesWidget()
+        self.minimumWidget = SetValueFromFeaturesWidget()
         layout.addRow('Minimum', self.minimumWidget)
         
-        self.maximumWidget = SetValueBoundsFromFeaturesWidget()
+        self.maximumWidget = SetValueFromFeaturesWidget()
         layout.addRow('Maximum', self.maximumWidget)
         
         self.setLayout(layout)

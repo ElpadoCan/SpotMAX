@@ -1108,6 +1108,66 @@ def _spotfit_params():
             'valueSetter': 'setValue',
             'dtype': get_B_fit_bounds
         },
+        'sigmaXinitGuess': {
+            'desc': 'Initial guess for sigma in x-direction',
+            'initialVal': 'spotsize_initial_radius_yx_pixel', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.SetValueFromFeaturesWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': str
+        },
+        'sigmaYinitGuess': {
+            'desc': 'Initial guess for sigma in y-direction',
+            'initialVal': 'spotsize_initial_radius_yx_pixel', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.SetValueFromFeaturesWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': str
+        },
+        'sigmaZinitGuess': {
+            'desc': 'Initial guess for sigma in z-direction',
+            'initialVal': 'spotsize_initial_radius_z_pixel', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.SetValueFromFeaturesWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': str
+        },
+        'A_fit_initGuess': {
+            'desc': 'Initial guess for the peak amplitude',
+            'initialVal': 'spotsize_A_max', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.SetValueFromFeaturesWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': str
+        },
+        'B_fit_initGuess': {
+            'desc': 'Initial guess for the peak background level',
+            'initialVal': 'spotsize_surface_median', 
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.SetValueFromFeaturesWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': str
+        },
     }
     return spotfit_params
 

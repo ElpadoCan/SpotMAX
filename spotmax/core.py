@@ -2009,11 +2009,54 @@ class GaussianModel:
         
         return low_limit, high_limit
     
-    def get_init_guess(self, fit_ids, low_limit, high_limit):
-        init_guess = low_limit + (high_limit-low_limit)/2
-        B_guess = self.df_spots_ID.loc[fit_ids, 'spot_surf_50p'].min()
-        init_guess[-1] = B_guess
+    def get_init_guess(
+            self,
+            num_spots_s, num_coeffs, fit_ids,
+            sigma_x_guess_expr: str,
+            sigma_y_guess_expr: str,
+            sigma_z_guess_expr: str,
+            A_guess_expr: str,
+            B_guess_expr: str,        
+        ):
+        init_guess = np.zeros(num_spots_s*num_coeffs+1)
+        
+        all_exprs = {
+            'sigma_x_fit': sigma_x_guess_expr,
+            'sigma_y_fit': sigma_y_guess_expr,
+            'sigma_z_fit': sigma_z_guess_expr,
+            'A_fit': A_guess_expr,
+            'B_fit': B_guess_expr,
+        }
+        for feature, expression in all_exprs.items():
+            self.df_spots_ID = self.df_spots_ID.eval(
+                f'{feature}_init_guess = {expression}')
+        
+        n = 0
+        for spot_idx in fit_ids:
+            zyx_cols = ZYX_LOCAL_EXPANDED_COLS
+            z0, y0, x0 = self.df_spots_ID.loc[spot_idx, zyx_cols]
+            
+            sigma_x_ig = self.df_spots_ID.at[spot_idx, 'sigma_x_fit_init_guess']
+            sigma_y_ig = self.df_spots_ID.at[spot_idx, 'sigma_y_fit_init_guess']
+            sigma_z_ig = self.df_spots_ID.at[spot_idx, 'sigma_z_fit_init_guess']
+            
+            A_fit_ig = self.df_spots_ID.at[spot_idx, 'A_fit_init_guess']
+            
+            init_guess_spot = np.array([
+                z0, y0, x0, sigma_z_ig, sigma_y_ig, sigma_x_ig, A_fit_ig
+            ])
+            init_guess[n:n+num_coeffs] = init_guess_spot
+            n += num_coeffs
+        
+        init_guess[-1] = self.df_spots_ID.loc[fit_ids, 'B_fit_init_guess'].min()
+        
         return init_guess
+    
+    # def get_init_guess(self, fit_ids, low_limit, high_limit):
+    #     init_guess = low_limit + (high_limit-low_limit)/2
+    #     B_guess = self.df_spots_ID.loc[fit_ids, 'spotsize_surface_median'].min()
+    #     init_guess[-1] = B_guess
+    #     return init_guess
     
     def get_bounds_init_guess(
             self, num_spots_s, num_coeffs, fit_ids,
@@ -2592,7 +2635,7 @@ class SpotFIT(spheroid):
         self.spots_z_size_pxl = [(zs+max_size)/zvd]*num_spots
         expanding_steps = [0]*num_spots
         self.Bs_guess = [0]*num_spots
-        _spot_surf_5ps = [0]*num_spots
+        _spot_surf_5percentiles = [0]*num_spots
         _spot_surf_means = [0]*num_spots
         _spot_surf_stds = [0]*num_spots
         _spot_B_mins = [0]*num_spots
@@ -2654,7 +2697,7 @@ class SpotFIT(spheroid):
                     self.spots_img_local[s_obj.slice][local_spot_surf_mask]
                 )
                 self.Bs_guess[o] = np.median(raw_spot_surf_vals)
-                _spot_surf_5ps[o] = np.quantile(raw_spot_surf_vals, 0.05)
+                _spot_surf_5percentiles[o] = np.quantile(raw_spot_surf_vals, 0.05)
                 _mean = raw_spot_surf_vals.mean()
                 _spot_surf_means[o] = _mean
                 _std = raw_spot_surf_vals.std()
@@ -2695,10 +2738,10 @@ class SpotFIT(spheroid):
         self.df_spots_ID['spotsize_z_radius_pxl'] = self.spots_z_size_pxl
         self.df_spots_ID['spotsize_limit'] = [limit]*num_spots
 
-        self.df_spots_ID['spot_surf_50p'] = self.Bs_guess
-        self.df_spots_ID['spot_surf_5p'] = _spot_surf_5ps
-        self.df_spots_ID['spot_surf_mean'] = _spot_surf_means
-        self.df_spots_ID['spot_surf_std'] = _spot_surf_stds
+        self.df_spots_ID['spotsize_surface_median'] = self.Bs_guess
+        self.df_spots_ID['spotsize_surface_5perc'] = _spot_surf_5percentiles
+        self.df_spots_ID['spotsize_surface_mean'] = _spot_surf_means
+        self.df_spots_ID['spotsize_surface_std'] = _spot_surf_stds
         self.df_spots_ID['spot_B_min'] = _spot_B_mins
         
         self.df_spots_ID = self.df_spots_ID.drop(index=drop_spots_ids)
@@ -3463,6 +3506,7 @@ class Kernel(_ParamsParser):
             zyx_resolution_limit_pxl, 
             sharp_spots_img=None,
             raw_spots_img=None, 
+            preproc_spots_img=None,
             transf_spots_nnet_img=None,
             ref_ch_img=None, 
             ref_ch_mask_or_labels=None, 
@@ -3517,8 +3561,12 @@ class Kernel(_ParamsParser):
             transf_spots_nnet_img = raw_spots_img
         
         df_spots_coords = self._spots_detection(
-            sharp_spots_img, lab, detection_method,
-            threshold_method, do_aggregate, spot_footprint,
+            sharp_spots_img, 
+            lab, 
+            detection_method,
+            threshold_method, 
+            do_aggregate, 
+            spot_footprint,
             transf_spots_nnet_img=transf_spots_nnet_img,
             spots_ch_segm_mask=spots_ch_segm_mask, 
             lineage_table=lineage_table, 
@@ -3529,15 +3577,20 @@ class Kernel(_ParamsParser):
         )
         
         df_spots_det, df_spots_gop = self._spots_filter(
-            df_spots_coords, spots_img, 
+            df_spots_coords, 
+            spots_img, 
             sharp_spots_img, 
             ref_ch_img, 
             ref_ch_mask_or_labels, 
             get_backgr_from_inside_ref_ch_mask, 
-            lab, rp, frame_i, 
+            lab, 
+            rp, 
+            frame_i, 
+            detection_method,
             zyx_resolution_limit_pxl,
             min_size_spheroid_mask=min_size_spheroid_mask,
             dfs_lists=dfs_lists,
+            preproc_spots_img=preproc_spots_img,
             raw_spots_img=raw_spots_img,
             keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch, 
             gop_filtering_thresholds=gop_filtering_thresholds,
@@ -3682,11 +3735,21 @@ class Kernel(_ParamsParser):
         return df_spots_coords
         
     def _spots_filter(
-            self, df_spots_coords, spots_img, sharp_spots_img, 
-            ref_ch_img, ref_ch_mask_or_labels,  get_backgr_from_inside_ref_ch_mask, 
-            lab, rp, frame_i, zyx_resolution_limit_pxl, 
+            self, 
+            df_spots_coords, 
+            spots_img, 
+            sharp_spots_img, 
+            ref_ch_img, 
+            ref_ch_mask_or_labels,  
+            get_backgr_from_inside_ref_ch_mask, 
+            lab, 
+            rp, 
+            frame_i, 
+            detection_method,
+            zyx_resolution_limit_pxl, 
             dfs_lists=None,
             min_size_spheroid_mask=None,
+            preproc_spots_img=None,
             raw_spots_img=None, 
             gop_filtering_thresholds=None, 
             keep_only_spots_in_ref_ch=False, 
@@ -3707,6 +3770,8 @@ class Kernel(_ParamsParser):
         delta_tol = self.metadata['deltaTolerance']
         spots_zyx_radii = zyx_resolution_limit_pxl
         
+        use_spots_segm_masks = detection_method != 'peak_local_max'
+        
         features_filter_result = pipe.spots_calc_features_and_filter(
             spots_img, 
             spots_zyx_radii,
@@ -3721,7 +3786,9 @@ class Kernel(_ParamsParser):
             ref_ch_mask_or_labels=ref_ch_mask_or_labels,
             ref_ch_img=ref_ch_img,
             keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch,
+            use_spots_segm_masks=use_spots_segm_masks,
             min_size_spheroid_mask=min_size_spheroid_mask,
+            zyx_voxel_size=self.metadata['zyxVoxelSize'],
             dist_transform_spheroid=dist_transform_spheroid,
             get_backgr_from_inside_ref_ch_mask=get_backgr_from_inside_ref_ch_mask,
             show_progress=True,
@@ -4332,6 +4399,7 @@ class Kernel(_ParamsParser):
                 frame_i=frame_i, lab=lab, rp=rp,
                 ref_ch_mask_or_labels=ref_ch_mask_or_labels, 
                 df_agg=df_agg,
+                preproc_spots_img=preproc_spots_img,
                 raw_spots_img=raw_spots_img, 
                 transf_spots_nnet_img=transf_spots_nnet_img,
                 dfs_lists=dfs_lists,

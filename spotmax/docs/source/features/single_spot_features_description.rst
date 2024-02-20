@@ -10,6 +10,126 @@ corresponding column name.
 
 .. contents::
 
+.. _Background metrics from spot detection input image:
+
+Background metrics from spot detection input image
+--------------------------------------------------
+
+These are the background metrics computed from the background pixels in the 
+same image that is used to detect spots. The image used to detect spots is 
+the pre-processed image (see the :ref:`Pre-processing` parameters) after the 
+sharpening filter.
+
+.. note:: 
+
+  Background metrics ending with ``z_slice`` are calculated from the center 
+  z-slice of each spot
+
+.. include:: _background_description.rst
+
+* **Mean**: column name ``background_mean_spot_detection_image``.
+* **Mean z-slice**: column name ``background_mean_z_slice_spot_detection_image``.
+* **Sum**: column name ``background_sum_spot_detection_image``.
+* **Sum z-slice**: column name ``background_sum_z_slice_spot_detection_image``.
+* **Median**: column name ``background_median_spot_detection_image``.
+* **Median z-slice**: column name ``background_median_z_slice_spot_detection_image``.
+* **Min**: column name ``background_min_spot_detection_image``.
+* **Min z-slice**: column name ``background_min_z_slice_spot_detection_image``.
+* **Max**: column name ``background_max_spot_detection_image``.
+* **Max z-slice**: column name ``background_max_z_slice_spot_detection_image``.
+* **25 percentile**: column name ``background_25_percentile_spot_detection_image``.
+* **25 percentile z-slice**: column name ``background_25_percentile z-slice_spot_detection_image``.
+* **75 percentile**: column name ``background_75_percentile_spot_detection_image``.
+* **75 percentile z-slice**: column name ``background_75_percentile z-slice_spot_detection_image``.
+* **5 percentile**: column name ``background_5_percentile_spot_detection_image``.
+* **5 percentile z-slice**: column name ``background_5_percentile z-slice_spot_detection_image``.
+* **95 percentile**: column name ``background_95_percentile_spot_detection_image``.
+* **95 percentile z-slice**: column name ``background_95_percentile z-slice_spot_detection_image``.
+
+.. _Background metrics from raw intensities:
+
+Background metrics from raw intensities
+---------------------------------------
+
+These are the background metrics computed from the background pixels in the 
+raw image. 
+
+.. note:: 
+
+  Background metrics ending with ``z_slice`` are calculated from the center 
+  z-slice of each spot
+
+.. include:: _background_description.rst
+
+* **Mean**: column name ``background_mean_raw_image``.
+* **Mean z-slice**: column name ``background_mean_z_slice_raw_image``.
+* **Sum**: column name ``background_sum_raw_image``.
+* **Sum z-slice**: column name ``background_sum_z_slice_raw_image``.
+* **Median**: column name ``background_median_raw_image``.
+* **Median z-slice**: column name ``background_median_z_slice_raw_image``.
+* **Min**: column name ``background_min_raw_image``.
+* **Min z-slice**: column name ``background_min_z_slice_raw_image``.
+* **Max**: column name ``background_max_raw_image``.
+* **Max z-slice**: column name ``background_max_z_slice_raw_image``.
+* **25 percentile**: column name ``background_25_percentile_raw_image``.
+* **25 percentile z-slice**: column name ``background_25_percentile z-slice_raw_image``.
+* **75 percentile**: column name ``background_75_percentile_raw_image``.
+* **75 percentile z-slice**: column name ``background_75_percentile z-slice_raw_image``.
+* **5 percentile**: column name ``background_5_percentile_raw_image``.
+* **5 percentile z-slice**: column name ``background_5_percentile z-slice_raw_image``.
+* **95 percentile**: column name ``background_95_percentile_raw_image``.
+* **95 percentile z-slice**: column name ``background_95_percentile z-slice_raw_image``.
+
+.. _Background metrics from preproc. intensities:
+
+Background metrics from preproc. intensities
+--------------------------------------------
+
+These are the background metrics computed from the background pixels in the
+pre-processed image (see the :ref:`Pre-processing` parameters) before the 
+sharpening filter.
+
+.. note:: 
+
+  Background metrics ending with ``z_slice`` are calculated from the center 
+  z-slice of each spot
+
+.. include:: _background_description.rst
+
+* **Mean**: column name ``background_mean_preproc_image``.
+* **Mean z-slice**: column name ``background_mean_z_slice_preproc_image``.
+* **Sum**: column name ``background_sum_preproc_image``.
+* **Sum z-slice**: column name ``background_sum_z_slice_preproc_image``.
+* **Median**: column name ``background_median_preproc_image``.
+* **Median z-slice**: column name ``background_median_z_slice_preproc_image``.
+* **Min**: column name ``background_min_preproc_image``.
+* **Min z-slice**: column name ``background_min_z_slice_preproc_image``.
+* **Max**: column name ``background_max_preproc_image``.
+* **Max z-slice**: column name ``background_max_z_slice_preproc_image``.
+* **25 percentile**: column name ``background_25_percentile_preproc_image``.
+* **25 percentile z-slice**: column name ``background_25_percentile z-slice_preproc_image``.
+* **75 percentile**: column name ``background_75_percentile_preproc_image``.
+* **75 percentile z-slice**: column name ``background_75_percentile z-slice_preproc_image``.
+* **5 percentile**: column name ``background_5_percentile_preproc_image``.
+* **5 percentile z-slice**: column name ``background_5_percentile z-slice_preproc_image``.
+* **95 percentile**: column name ``background_95_percentile_preproc_image``.
+* **95 percentile z-slice**: column name ``background_95_percentile z-slice_preproc_image``.
+
+.. _Size of the spots metrics:
+
+Size of the spots metrics
+-------------------------
+
+The spot mask is the spheroid with radii equal to 
+:confval:`Spot (z, y, x) minimum dimensions (radius)` if 
+:confval:`Spots detection method` is 'Detect local peaks'. Otherwise, when using 
+'Label prediction mask' the spot mask is the actual segmentation of the 
+spots.
+
+* **Spot mask volume (voxel)**: column name ``spot_mask_volume_voxel``.
+* **Spot mask volume (fL)**: column name ``spot_mask_volume_fl``.
+
+
 .. _Effect size (vs. backgr.):
 
 Effect size (vs. backgr.)
@@ -22,15 +142,7 @@ to calculate the effect size (see below).
 In this case, the ``vs. backgr.`` means that the background is the negative sample, 
 i.e., the Noise part in the SNR. 
 
-Without a reference channel, the background is determined as the pixels outside of the spots 
-and inside the segmented object (e.g., the single cell). To determine if a pixel is inside 
-or outside of the spot, spotMAX will construct a mask for the spots using spheroids 
-centered on each detected spot with size given by the values you provide in the 
-``METADATA`` section of the INI parameters file. Note that if you are working 
-with a reference channel and you set the parameter 
-``Use the ref. channel mask to determine background = True`` then the backround 
-will be determined as the pixels outside of the spots and inside the reference 
-channel mask.
+.. include:: _background_description.rst
 
 This metric is useful to determine how bright the spots are compared to the 
 background. As a rule of thumb, 0.2 is a small effect, while 0.8 could mean 
@@ -70,7 +182,13 @@ a mask for the spots using spheroids centered on each detected spot with size
 given by the values you provide in the ``METADATA`` section of the INI parameters 
 file.
 
-Note that we cannot compare the intensities of two different channels without any 
+.. note:: 
+
+  If the parameter :confval:`Spots detection method` is equal to 
+  ``Label prediction mask`` the spheroids are replaced with the spot mask from 
+  labelling the prediction mask (i.e., segmentation of the spots).
+
+Since we cannot compare the intensities of two different channels without any 
 normalization (since they are often different stains or fluorophores and they 
 are excited at different light intensities). Before computing the effect size, 
 spotMAX will normalize each channel individually by dividing with the median of 
@@ -155,11 +273,27 @@ Raw spots intensities distribution metrics. As the name suggested, these are
 calculated on the raw image without any filter applied to it. Note that intensities 
 are converted to float data type and scaled to the range 0-1 by dividing by the maximum intensity value according 
 to the data type of the image (e.g., for 8-bit the maximum is 255). This scaling, 
-does not affect the relative differences between intensities. The pixels belonging to 
-a specific spot are determined by constructing a spehroid with size 
+does not affect the relative differences between intensities. 
+
+The pixels belonging to  a specific spot are determined by constructing a 
+spehroid with radii equal to  
+:confval:`Spot (z, y, x) minimum dimensions (radius)` if 
+:confval:`Spots detection method` is 'Detect local peaks'. Otherwise, when using 
+'Label prediction mask' the spheroids are replace by the spot mask of the 
+actual segmentation of the spots.
+
+.. note:: 
+
+  Background correction is performed by subtracting the median of the 
+  corresponding background pixels. 
+  For more info, see the sections about the background metrics.
 
 * **Mean**: column name ``spot_raw_mean_in_spot_minimumsize_vol``.
+* **Background corrected mean**: column name ``spot_raw_backgr_corrected_mean_in_spot_minimumsize_vol``.
+* **Z-slice background corrected mean**: column name ``spot_raw_backgr_z_slice_corrected_mean_in_spot_minimumsize_vol``.
 * **Sum**: column name ``spot_raw_sum_in_spot_minimumsize_vol``.
+* **Background corrected sum**: column name ``spot_raw_backgr_corrected_sum_in_spot_minimumsize_vol``.
+* **Z-slice background corrected sum**: column name ``spot_raw_backgr_z_slice_corrected_sum_in_spot_minimumsize_vol``.
 * **Median**: column name ``spot_raw_median_in_spot_minimumsize_vol``.
 * **Min**: column name ``spot_raw_min_in_spot_minimumsize_vol``.
 * **Max**: column name ``spot_raw_max_in_spot_minimumsize_vol``.
@@ -177,8 +311,25 @@ calculated on the image after it went through the gaussian filter.
 Note that the gaussian filter also scales the intensities to the range
 0-1. 
 
+The pixels belonging to  a specific spot are determined by constructing a 
+spehroid with radii equal to  
+:confval:`Spot (z, y, x) minimum dimensions (radius)` if 
+:confval:`Spots detection method` is 'Detect local peaks'. Otherwise, when using 
+'Label prediction mask' the spheroids are replace by the spot mask of the 
+actual segmentation of the spots.
+
+.. note:: 
+
+  Background correction is performed by subtracting the median of the 
+  corresponding background pixels. 
+  For more info, see the sections about the background metrics.
+
 * **Mean**: column name ``spot_preproc_mean_in_spot_minimumsize_vol``.
+* **Background corrected mean**: column name ``spot_preproc_backgr_corrected_mean_in_spot_minimumsize_vol``.
+* **Z-slice background corrected mean**: column name ``spot_preproc_backgr_z_slice_corrected_mean_in_spot_minimumsize_vol``.
 * **Sum**: column name ``spot_preproc_sum_in_spot_minimumsize_vol``.
+* **Background corrected sum**: column name ``spot_preproc_backgr_corrected_sum_in_spot_minimumsize_vol``.
+* **Z-slice background corrected sum**: column name ``spot_preproc_backgr_z_slice_corrected_sum_in_spot_minimumsize_vol``.
 * **Median**: column name ``spot_preproc_median_in_spot_minimumsize_vol``.
 * **Min**: column name ``spot_preproc_min_in_spot_minimumsize_vol``.
 * **Max**: column name ``spot_preproc_max_in_spot_minimumsize_vol``.
@@ -212,10 +363,10 @@ The pixels belonging to the final mask will be used in the spotFIT step.
 * **Mean radius xy- direction (pixel)**: column name ``spotsize_yx_radius_pxl``.
 * **Radius z- direction (pixel)**: column name ``spotsize_z_radius_pxl``.
 * **Threshold value to stop growing process**: column name ``spotsize_limit``.
-* **Median of the spot's surface intensities**: column name ``spot_surf_50p``.
-* **5 percentile of the spot's surface intensities**: column name ``spot_surf_5p``.
-* **Mean of the spot's surface intensities**: column name ``spot_surf_mean``.
-* **Standard dev. of the spot's surface intensities**: column name ``spot_surf_std``.
+* **Median of the spot's surface intensities**: column name ``spotsize_surface_median``.
+* **5 percentile of the spot's surface intensities**: column name ``spotsize_surface_5perc``.
+* **Mean of the spot's surface intensities**: column name ``spotsize_surface_mean``.
+* **Standard dev. of the spot's surface intensities**: column name ``spotsize_surface_std``.
 * **Default minium backround level allowed for spotfit**: column name ``spot_B_min``. 
   This is calculated as the mean of the intensities on the surface of all the spheorids 
   minus 3 times the standard deviation of the same intensities. If negative, 
@@ -288,3 +439,9 @@ Post-analysis metrics
 * **Consecutive spots distance from fit coords (micro-m)**: column name ``consecutive_spots_distance_fit_voxel``. 
   Euclidean distance between consecutive pairs of spots without a specific order.
   Unit is pixels and the coordinates used are the fitted center from spotFIT step.
+
+
+.. toctree:: 
+    :hidden:
+
+    _background_description.rst

@@ -2218,6 +2218,7 @@ def save_spots_masks(
     
     spots_mask_data = np.zeros(mask_shape, dtype=np.uint32)
     for frame_i, df_spots_frame_i in df_spots.groupby(level=0):
+        df_spots_frame_i = df_spots_frame_i.loc[frame_i]
         spots_lab = spots_mask_data[frame_i]
         spots_lab = transformations.from_df_spots_objs_to_spots_lab(
             df_spots_frame_i, spots_lab.shape, spots_lab=spots_lab
