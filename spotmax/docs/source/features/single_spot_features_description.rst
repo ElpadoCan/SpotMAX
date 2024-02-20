@@ -38,13 +38,13 @@ sharpening filter.
 * **Max**: column name ``background_max_spot_detection_image``.
 * **Max z-slice**: column name ``background_max_z_slice_spot_detection_image``.
 * **25 percentile**: column name ``background_25_percentile_spot_detection_image``.
-* **25 percentile z-slice**: column name ``background_25_percentile z-slice_spot_detection_image``.
+* **25 percentile z-slice**: column name ``background_25_percentile_z_slice_spot_detection_image``.
 * **75 percentile**: column name ``background_75_percentile_spot_detection_image``.
-* **75 percentile z-slice**: column name ``background_75_percentile z-slice_spot_detection_image``.
+* **75 percentile z-slice**: column name ``background_75_percentile_z_slice_spot_detection_image``.
 * **5 percentile**: column name ``background_5_percentile_spot_detection_image``.
-* **5 percentile z-slice**: column name ``background_5_percentile z-slice_spot_detection_image``.
+* **5 percentile z-slice**: column name ``background_5_percentile_z_slice_spot_detection_image``.
 * **95 percentile**: column name ``background_95_percentile_spot_detection_image``.
-* **95 percentile z-slice**: column name ``background_95_percentile z-slice_spot_detection_image``.
+* **95 percentile z-slice**: column name ``background_95_percentile_z_slice_spot_detection_image``.
 
 .. _Background metrics from raw intensities:
 
@@ -72,13 +72,13 @@ raw image.
 * **Max**: column name ``background_max_raw_image``.
 * **Max z-slice**: column name ``background_max_z_slice_raw_image``.
 * **25 percentile**: column name ``background_25_percentile_raw_image``.
-* **25 percentile z-slice**: column name ``background_25_percentile z-slice_raw_image``.
+* **25 percentile z-slice**: column name ``background_25_percentile_z_slice_raw_image``.
 * **75 percentile**: column name ``background_75_percentile_raw_image``.
-* **75 percentile z-slice**: column name ``background_75_percentile z-slice_raw_image``.
+* **75 percentile z-slice**: column name ``background_75_percentile_z_slice_raw_image``.
 * **5 percentile**: column name ``background_5_percentile_raw_image``.
-* **5 percentile z-slice**: column name ``background_5_percentile z-slice_raw_image``.
+* **5 percentile z-slice**: column name ``background_5_percentile_z_slice_raw_image``.
 * **95 percentile**: column name ``background_95_percentile_raw_image``.
-* **95 percentile z-slice**: column name ``background_95_percentile z-slice_raw_image``.
+* **95 percentile z-slice**: column name ``background_95_percentile_z_slice_raw_image``.
 
 .. _Background metrics from preproc. intensities:
 
@@ -107,13 +107,13 @@ sharpening filter.
 * **Max**: column name ``background_max_preproc_image``.
 * **Max z-slice**: column name ``background_max_z_slice_preproc_image``.
 * **25 percentile**: column name ``background_25_percentile_preproc_image``.
-* **25 percentile z-slice**: column name ``background_25_percentile z-slice_preproc_image``.
+* **25 percentile z-slice**: column name ``background_25_percentile_z_slice_preproc_image``.
 * **75 percentile**: column name ``background_75_percentile_preproc_image``.
-* **75 percentile z-slice**: column name ``background_75_percentile z-slice_preproc_image``.
+* **75 percentile z-slice**: column name ``background_75_percentile_z_slice_preproc_image``.
 * **5 percentile**: column name ``background_5_percentile_preproc_image``.
-* **5 percentile z-slice**: column name ``background_5_percentile z-slice_preproc_image``.
+* **5 percentile z-slice**: column name ``background_5_percentile_z_slice_preproc_image``.
 * **95 percentile**: column name ``background_95_percentile_preproc_image``.
-* **95 percentile z-slice**: column name ``background_95_percentile z-slice_preproc_image``.
+* **95 percentile z-slice**: column name ``background_95_percentile_z_slice_preproc_image``.
 
 .. _Size of the spots metrics:
 
