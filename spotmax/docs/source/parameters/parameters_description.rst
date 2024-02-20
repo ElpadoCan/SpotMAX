@@ -814,6 +814,76 @@ SpotFIT
   :type: string
   :default: ``spot_B_min, inf``
 
+.. confval:: Initial guess for sigma in x-direction
+
+  Here you can specify the initial guess in the fitting routine for the 
+  paramter :m:`sigma_x` in the gaussian curve equation.
+
+  .. note::
+
+    For the values you can specify any mathematical combination of the 
+    available single spot features (see :ref:`single-spot-features`). Numbers 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+
+  :type: string
+  :default: ``spotsize_initial_radius_yx_pixel``
+
+.. confval:: Initial guess for sigma in y-direction
+
+  Here you can specify the initial guess in the fitting routine for the 
+  paramter :m:`sigma_y` in the gaussian curve equation.
+
+  .. note::
+
+    For the values you can specify any mathematical combination of the 
+    available single spot features (see :ref:`single-spot-features`). Numbers 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+
+  :type: string
+  :default: ``spotsize_initial_radius_yx_pixel``
+
+.. confval:: Initial guess for sigma in z-direction
+
+  Here you can specify the initial guess in the fitting routine for the 
+  paramter :m:`sigma_z` in the gaussian curve equation.
+
+  .. note::
+
+    For the values you can specify any mathematical combination of the 
+    available single spot features (see :ref:`single-spot-features`). Numbers 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+
+  :type: string
+  :default: ``spotsize_initial_radius_z_pixel``
+
+.. confval:: Initial guess for the peak amplitude
+
+  Here you can specify the initial guess in the fitting routine for the 
+  paramter :m:`A` in the gaussian curve equation.
+
+  .. note::
+
+    For the values you can specify any mathematical combination of the 
+    available single spot features (see :ref:`single-spot-features`). Numbers 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+
+  :type: string
+  :default: ``spotsize_A_max``
+
+.. confval:: Initial guess for the peak background level
+
+  Here you can specify the initial guess in the fitting routine for the 
+  paramter :m:`B` in the gaussian curve equation.
+
+  .. note::
+
+    For the values you can specify any mathematical combination of the 
+    available single spot features (see :ref:`single-spot-features`). Numbers 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+
+  :type: string
+  :default: ``spotsize_surface_median``
+
 .. _config-params:
 
 Configuration

@@ -2208,9 +2208,9 @@ class SetValueFromFeaturesWidget(QWidget):
     
     def initCalculatorWindow(self):
         features_groups = features.get_features_groups()
-        spotsize_features = features_groups['SpotSIZE metrics']
+        spotsize_features = features_groups.pop('SpotSIZE metrics')
         features_groups = {
-            'SpotSIZE metrics': spotsize_features
+            'SpotSIZE metrics': spotsize_features, **features_groups
         }
         all_features_to_col_mapper = (
             features.feature_names_to_col_names_mapper()
