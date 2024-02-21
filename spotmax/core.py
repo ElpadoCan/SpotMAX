@@ -357,10 +357,12 @@ class _ParamsParser(_DataLoader):
         self.is_cli = is_cli
     
     def _setup_logger_file_handler(self, log_folder_path):
+        os.makedirs(log_folder_path, exist_ok=np.True_)
+        
         if not os.path.isdir(log_folder_path):
             raise FileNotFoundError(
-                'The provided path to the log does not exist or '
-                f'is not a folder path. Path: "{log_folder_path}"'
+                'The `Folder path of the log file` is not a folder path. '
+                f'Path: "{log_folder_path}"'
             ) 
         
         if self.logs_path == os.path.normpath(log_folder_path):
