@@ -4531,8 +4531,9 @@ class Kernel(_ParamsParser):
                     frame_i=frame_i, 
                     use_gpu=self._get_use_gpu(),
                     show_progress=True,
+                    verbose=verbose,
                     **bounds_kwargs,
-                    **init_guess_kwargs
+                    **init_guess_kwargs, 
                 )
                 dfs_lists['spotfit_keys'].extend(spotfit_result[0])
                 dfs_lists['dfs_spots_spotfit'].extend(spotfit_result[1])
@@ -4550,10 +4551,13 @@ class Kernel(_ParamsParser):
             self._add_spotfit_features_to_df_spots_gop(
                 df_spots_fit_iter0, df_spots_gop
             )
-            df_spots_fit = filters.filter_spots_from_features_thresholds(
+            df_spots_fit = pipe.filter_spots_from_features_thresholds(
                 df_spots_fit, gop_filtering_thresholds,
-                is_spotfit=True, debug=False,
-                logger_func=self.logger.info
+                is_spotfit=True, 
+                frame_i=frame_i,
+                debug=False,
+                logger_func=self.logger.info, 
+                verbose=verbose
             )
             # df_spots_fit = self._filter_spots_by_size(
             #     df_spots_fit, spotfit_minsize, spotfit_maxsize

@@ -1,3 +1,5 @@
+from collections import defaultdict
+from unittest import result
 from tqdm import tqdm
 
 import numpy as np
@@ -1255,7 +1257,7 @@ def spots_calc_features_and_filter(
     keys = []
     dfs_spots_det = []
     dfs_spots_gop = []
-    num_spots_filtered_log = []
+    filtered_spots_info = defaultdict(dict)
     last_spot_id = 0
     obj_idx = 0
     for obj in rp:
@@ -1272,9 +1274,9 @@ def spots_calc_features_and_filter(
         )
         df_obj_spots_det, expanded_obj_coords = result
         if df_obj_spots_det is None:
-            # 0 spots for this obj (object ID not present in index)
-            s = f'  * Object ID {obj.label} = 0 --> 0 (0 iterations)'
-            num_spots_filtered_log.append(s)
+            filtered_spots_info[obj.label]['start_num_spots'] = 0
+            filtered_spots_info[obj.label]['end_num_spots'] = 0
+            filtered_spots_info[obj.label]['num_iter'] = 0
             continue
         
         # Increment spot_id with previous object
@@ -1311,6 +1313,8 @@ def spots_calc_features_and_filter(
                 df_obj_spots_gop, local_ref_ch_mask, expanded_obj_coords
             )
         
+        start_num_spots = len(df_obj_spots_det)
+        filtered_spots_info[obj.label]['start_num_spots'] = start_num_spots
         debug = False
         i = 0
         while True:     
@@ -1342,20 +1346,18 @@ def spots_calc_features_and_filter(
             )
             if i == 0:
                 # Store metrics at first iteration
-                try:
-                    dfs_spots_det[obj_idx] = df_obj_spots_gop.copy()
-                except Exception as err:
-                    import pdb; pdb.set_trace()
+                dfs_spots_det[obj_idx] = df_obj_spots_gop.copy()
  
             # from . import _debug
             # _debug._spots_filtering(
             #     local_spots_img, df_obj_spots_gop, obj, obj_image
             # )
             
-            df_obj_spots_gop = filters.filter_spots_from_features_thresholds(
+            df_obj_spots_gop = filter_spots_from_features_thresholds(
                 df_obj_spots_gop, gop_filtering_thresholds,
                 is_spotfit=False, debug=False,
-                logger_func=logger_func
+                logger_func=logger_func, 
+                verbose=False
             )
             num_spots_filtered = len(df_obj_spots_gop)   
 
@@ -1365,9 +1367,8 @@ def spots_calc_features_and_filter(
 
             i += 1
 
-        nsd, nsf = num_spots_detected, num_spots_filtered
-        s = f'  * Object ID {obj.label} = {nsd} --> {nsf} ({i} iterations)'
-        num_spots_filtered_log.append(s)
+        filtered_spots_info[obj.label]['end_num_spots'] = num_spots_filtered
+        filtered_spots_info[obj.label]['num_iter'] = i
 
         dfs_spots_gop.append(df_obj_spots_gop)
         
@@ -1378,17 +1379,43 @@ def spots_calc_features_and_filter(
     if show_progress:
         pbar.close()
     
-    if verbose:
-        print('')
-        print('*'*60)
-        info = '\n'.join(num_spots_filtered_log)
-        logger_func(
-            f'Frame n. {frame_i+1}: number of spots after filtering '
-            f'valid spots:\n{info}'
-        )
-        print('-'*60)
+    _log_filtered_number_spots(
+        verbose, frame_i, filtered_spots_info, logger_func, 
+        category='valid spots based on features'
+    )
         
     return keys, dfs_spots_det, dfs_spots_gop
+
+def _log_filtered_number_spots(
+        verbose, frame_i, filtered_spots_info, logger_func, 
+        category='valid spots'
+    ):
+    if not verbose:
+        return
+    
+    num_spots_filtered_log = []
+    for ID, info_ID in filtered_spots_info.items():
+        start_num_spots = info_ID['start_num_spots']
+        end_num_spots = info_ID['end_num_spots']
+        num_iter = info_ID['num_iter']
+        if start_num_spots == end_num_spots:
+            continue
+        txt = (
+            f'  * Object ID {ID} = {start_num_spots} --> {end_num_spots} '
+            f'({num_iter} iterations)'
+        )
+        num_spots_filtered_log.append(txt)
+    
+    if num_spots_filtered_log:
+        info = '\n'.join(num_spots_filtered_log)
+    else:
+        info = 'All spots were valid'
+        
+    print('')
+    header = f'Frame n. {frame_i+1}: number of spots after filtering {category}:'
+    print('*'*len(header))
+    logger_func(f'{header}\n\n{info}')
+    print('-'*len(header))
 
 def spotfit(
         kernel,
@@ -1405,6 +1432,7 @@ def spotfit(
         drop_peaks_too_close=False,
         use_gpu=False,
         show_progress=True,
+        verbose=True,
         logger_func=print,
         xy_center_half_interval_val=0.1, 
         z_center_half_interval_val=0.2, 
@@ -1417,7 +1445,7 @@ def spotfit(
         sigma_y_guess_expr='spotsize_initial_radius_yx_pixel',
         sigma_z_guess_expr='spotsize_initial_radius_z_pixel',
         A_guess_expr='spotsize_A_max',
-        B_guess_expr='spotsize_surface_median',
+        B_guess_expr='spotsize_surface_median',  
     ):
     """Run spotFIT (fitting 3D gaussian curves) and get the related features
 
@@ -1468,6 +1496,9 @@ def spotfit(
         computation. Default is False
     show_progress : bool, optional
         If True, display progressbars. Default is False
+    verbose : bool, optional
+        If True, additional information text will be printed to the terminal. 
+        Default is True
     logger_func : callable, optional
         Function used to print or log process information. Default is print
     xy_center_half_interval_val : float, optional
@@ -1596,11 +1627,14 @@ def spotfit(
         )
     df_spots_spotfit = df_spots.drop(columns=['spot_mask'], errors='ignore')
     non_spotfit_cols = df_spots_spotfit.columns.to_list()
+    filtered_spots_info = defaultdict(dict)
     for obj in rp:
         if obj.label not in df_spots.index:
             continue
         expanded_obj = transformations.get_expanded_obj(obj, delta_tol, lab)
         df_spots_obj = df_spots_spotfit.loc[obj.label].copy()
+        start_num_spots = len(df_spots_obj)
+        filtered_spots_info[obj.label]['start_num_spots'] = start_num_spots
         i = 0
         while True:
             prev_num_spots = len(df_spots_obj)
@@ -1669,6 +1703,9 @@ def spotfit(
             prev_num_spots = num_spots      
             i += 1
 
+        filtered_spots_info[obj.label]['end_num_spots'] = num_spots
+        filtered_spots_info[obj.label]['num_iter'] = i
+        
         dfs_spots_spotfit.append(kernel.df_spotFIT_ID)
         keys.append((frame_i, obj.label))
         if show_progress:
@@ -1676,4 +1713,108 @@ def spotfit(
     if show_progress:
         pbar.close()
     
+    _log_filtered_number_spots(
+        verbose, frame_i, filtered_spots_info, logger_func, 
+        category='spots that are not too close (spotFIT)'
+    )
+    
     return keys, dfs_spots_spotfit, dfs_spots_spotfit_iter0
+
+def filter_spots_from_features_thresholds(
+        df_features: pd.DataFrame, 
+        features_thresholds: dict, 
+        is_spotfit=False,
+        frame_i=0,
+        debug=False,
+        logger_func=print, 
+        verbose=True,   
+    ):
+    """Filter valid spots based on features ranges
+
+    Parameters
+    ----------
+    df_features : pd.DataFrame
+        Pandas DataFrame with 'spot_id' or ('Cell_ID', 'spot_id') as index and 
+        the features as columns.
+    features_thresholds : dict
+        A dictionary of features and thresholds to use for filtering. The 
+        keys are the feature names that mush coincide with one of the columns'
+        names. The values are a tuple of `(min, max)` thresholds.
+        For example, for filtering spots that have the t-statistic of the 
+        t-test spot vs reference channel > 0 and the p-value < 0.025 
+        (i.e. spots are significantly brighter than reference channel) 
+        we pass the following dictionary:
+        ```
+        features_thresholds = {
+            'spot_vs_ref_ch_ttest_pvalue': (None,0.025),
+            'spot_vs_ref_ch_ttest_tstat': (0, None)
+        }
+        ```
+        where `None` indicates the absence of maximum or minimum.
+    is_spotfit : bool, optional
+        If False, features ending with '_fit' will be ignored. Default is False
+    verbose : bool, optional
+        If True, additional information text will be printed to the terminal. 
+        Default is True
+    debug : bool, optional
+        If True, it can be used for debugging like printing additional 
+        internal steps or visualize intermediate results.
+    logger_func : callable, optional
+        Function used to print or log process information. Default is print
+
+    Returns
+    -------
+    pd.DataFrame
+        The filtered DataFrame
+    """
+    df_filtered = filters.filter_spots_from_features_thresholds(
+        df_features, 
+        features_thresholds,
+        is_spotfit=is_spotfit, 
+        debug=debug,
+        logger_func=logger_func
+    )
+    if verbose:
+        _log_filtered_number_spots_from_dfs(
+            df_features, df_filtered, frame_i, logger_func=logger_func
+        )
+    return df_filtered
+
+def _log_filtered_number_spots_from_dfs(
+        start_df, end_df, frame_i, logger_func=print, 
+        category='valid spots based on spotFIT features'
+    ):
+    start_num_spots_df = (
+        start_df.reset_index()
+        [['Cell_ID', 'spot_id']]
+        .groupby('Cell_ID')
+        .count()
+        .rename(columns={'spot_id': 'Before filtering'})
+    )
+    end_num_spots_df = (
+        end_df.reset_index()
+        [['Cell_ID', 'spot_id']]
+        .groupby('Cell_ID')
+        .count()
+        .rename(columns={'spot_id': 'After filtering'})
+    )
+    
+    dfs = [start_num_spots_df, end_num_spots_df]
+    start_end_df = pd.concat(dfs, axis=1).fillna(0)
+    
+    different_nums_mask = (
+        start_end_df['Before filtering'] 
+        != start_end_df['After filtering'] 
+    )
+    different_nums_df = start_end_df[different_nums_mask]
+    
+    if different_nums_df.empty:
+        info = 'All spots are valid'
+    else:
+        info = different_nums_df
+    
+    print('')
+    header = f'Frame n. {frame_i+1}: number of spots after filtering {category}:'
+    print('*'*len(header))
+    logger_func(f'{header}\n\n{info}')
+    print('-'*len(header))

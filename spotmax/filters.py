@@ -413,62 +413,70 @@ def _warn_feature_is_missing(missing_feature, logger_func):
     logger_func(txt)
 
 def filter_spots_from_features_thresholds(
-            df_features: pd.DataFrame, 
-            features_thresholds: dict, is_spotfit=False,
-            debug=False,
-            logger_func=None
-        ):
-        """_summary_
+        df_features: pd.DataFrame, 
+        features_thresholds: dict, is_spotfit=False,
+        debug=False,
+        logger_func=print
+    ):
+    """Filter valid spots based on features ranges
 
-        Parameters
-        ----------
-        df_features : pd.DataFrame
-            Pandas DataFrame with 'spot_id' as index and the features as columns.
-        features_thresholds : dict
-            A dictionary of features and thresholds to use for filtering. The 
-            keys are the feature names that mush coincide with one of the columns'
-            names. The values are a tuple of `(min, max)` thresholds.
-            For example, for filtering spots that have the t-statistic of the 
-            t-test spot vs reference channel > 0 and the p-value < 0.025 
-            (i.e. spots are significantly brighter than reference channel) 
-            we pass the following dictionary:
-            ```
-            features_thresholds = {
-                'spot_vs_ref_ch_ttest_pvalue': (None,0.025),
-	            'spot_vs_ref_ch_ttest_tstat': (0, None)
-            }
-            ```
-            where `None` indicates the absence of maximum or minimum.
+    Parameters
+    ----------
+    df_features : pd.DataFrame
+        Pandas DataFrame with 'spot_id' or ('Cell_ID', 'spot_id') as index and 
+        the features as columns.
+    features_thresholds : dict
+        A dictionary of features and thresholds to use for filtering. The 
+        keys are the feature names that mush coincide with one of the columns'
+        names. The values are a tuple of `(min, max)` thresholds.
+        For example, for filtering spots that have the t-statistic of the 
+        t-test spot vs reference channel > 0 and the p-value < 0.025 
+        (i.e. spots are significantly brighter than reference channel) 
+        we pass the following dictionary:
+        ```
+        features_thresholds = {
+            'spot_vs_ref_ch_ttest_pvalue': (None,0.025),
+            'spot_vs_ref_ch_ttest_tstat': (0, None)
+        }
+        ```
+        where `None` indicates the absence of maximum or minimum.
+    is_spotfit : bool, optional
+        If False, features ending with '_fit' will be ignored. Default is False
+    debug : bool, optional
+        If True, it can be used for debugging like printing additional 
+        internal steps or visualize intermediate results.
+    logger_func : callable, optional
+        Function used to print or log process information. Default is print
 
-        Returns
-        -------
-        pd.DataFrame
-            The filtered DataFrame
-        """      
-        queries = []  
-        for feature_name, thresholds in features_thresholds.items():
-            if not is_spotfit and feature_name.endswith('_fit'):
-                # Ignore _fit features if not spotfit
-                continue
-            if is_spotfit and not feature_name.endswith('_fit'):
-                # Ignore non _fit features if spotfit
-                continue
-            if feature_name not in df_features.columns:
-                # Warn and ignore missing features
-                _warn_feature_is_missing(feature_name, logger_func)
-                continue
-            _min, _max = thresholds
-            if _min is not None:
-                queries.append(f'({feature_name} > {_min})')
-            if _max is not None:
-                queries.append(f'({feature_name} < {_max})')
+    Returns
+    -------
+    pd.DataFrame
+        The filtered DataFrame
+    """      
+    queries = []  
+    for feature_name, thresholds in features_thresholds.items():
+        if not is_spotfit and feature_name.endswith('_fit'):
+            # Ignore _fit features if not spotfit
+            continue
+        if is_spotfit and not feature_name.endswith('_fit'):
+            # Ignore non _fit features if spotfit
+            continue
+        if feature_name not in df_features.columns:
+            # Warn and ignore missing features
+            _warn_feature_is_missing(feature_name, logger_func)
+            continue
+        _min, _max = thresholds
+        if _min is not None:
+            queries.append(f'({feature_name} > {_min})')
+        if _max is not None:
+            queries.append(f'({feature_name} < {_max})')
 
-        if not queries:
-            return df_features
-        
-        query = ' & '.join(queries)
+    if not queries:
+        return df_features
+    
+    query = ' & '.join(queries)
 
-        return df_features.query(query)
+    return df_features.query(query)
 
 def drop_spots_not_in_ref_ch(df, ref_ch_mask, local_peaks_coords):
     if ref_ch_mask is None:
