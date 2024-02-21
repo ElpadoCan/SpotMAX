@@ -3049,10 +3049,7 @@ class SpotFIT(spheroid):
             obj_s_idxs = df_obj['neigh_idx'].iloc[0]
             # Iterate single spots
             for s in obj_s_idxs:
-                try:
-                    s_id = df_obj.at[(obj_id, s), 'id']
-                except Exception as err:
-                    import pdb; pdb.set_trace()
+                s_id = df_obj.at[(obj_id, s), 'id']
                 s_intersect_idx = df_obj.at[(obj_id, s), 'intersecting_idx']
                 z_s, y_s, x_s = np.nonzero(spots_3D_lab_ID==s_id)
 

@@ -1654,15 +1654,16 @@ def spotfit(
                 break
             
             index_names = kernel.df_spotFIT_ID.index.names
-            zyx_index = pd.MultiIndex.from_arrays(
+            filter_zyx_index = pd.MultiIndex.from_arrays(
                 tuple(valid_fit_coords.transpose())
             )
             df_spots_obj = (
                 kernel.df_spotFIT_ID.reset_index()
                 .set_index(ZYX_FIT_COLS)
-                .loc[zyx_index]
+                .loc[filter_zyx_index]
                 .reset_index()
                 .set_index(index_names)
+                .sort_index()
                 [non_spotfit_cols]
             )
             prev_num_spots = num_spots      
