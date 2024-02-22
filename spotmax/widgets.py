@@ -412,10 +412,14 @@ class FeatureRangeSelector:
     
     def selectFeature(self):
         self.selectFeatureDialog = FeatureSelectorDialog(
-            parent=self.selectButton, multiSelection=False, 
-            expandOnDoubleClick=True, isTopLevelSelectable=False, 
-            infoTxt='Select feature', allItemsExpanded=False,
-            title='Select feature'
+            parent=self.selectButton, 
+            multiSelection=False, 
+            expandOnDoubleClick=True, 
+            isTopLevelSelectable=False, 
+            infoTxt='Select feature', 
+            allItemsExpanded=False,
+            title='Select feature', 
+            allowNoSelection=False
         )
         self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
         # self.selectFeatureDialog.resizeVertical()

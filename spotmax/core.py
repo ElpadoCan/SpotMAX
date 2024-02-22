@@ -31,7 +31,9 @@ import cellacdc.measure
 from cellacdc import base_cca_dict, base_cca_tree_dict
 
 from . import GUI_INSTALLED, error_up_str, error_down_str
-from . import exception_handler_cli, handle_log_exception_cli
+from . import (
+    exception_handler_cli, handle_log_exception_cli
+)
 from . import LT_DF_REQUIRED_COLUMNS
 
 if GUI_INSTALLED:
@@ -4146,7 +4148,6 @@ class Kernel(_ParamsParser):
         
         transformed_data = self.nnet_model.preprocess(input_data)
         return transformed_data
-        
     
     @handle_log_exception_cli
     def _run_from_images_path(
@@ -4660,6 +4661,7 @@ class Kernel(_ParamsParser):
                 self.logger.info(f'Analysing "...{os.sep}{rel_path}"...')
                 images_path = os.path.join(pos_path, 'Images')
                 self._current_pos_path = pos_path
+                t0 = time.perf_counter()
                 dfs, data = self._run_from_images_path(
                     images_path, 
                     spots_ch_endname=spots_ch_endname, 
@@ -4688,6 +4690,16 @@ class Kernel(_ParamsParser):
                     df_spots_file_ext=df_spots_file_ext
                 )
                 pbar_pos.update()
+                t1 = time.perf_counter()
+                print('\n')
+                print('='*60)
+                elpased_seconds = t1-t0
+                elapsed_delta = str(timedelta(seconds=elpased_seconds))
+                self.logger.info(
+                    f'Execution time = {elapsed_delta} HH:mm:ss'
+                    f'(Path: "{pos_path}")'
+                )
+                print('='*60)
             pbar_pos.close()
             pbar_exp.update()
         pbar_exp.close()
