@@ -2631,12 +2631,8 @@ class SpotFIT(spheroid):
         zyx_seed_size = np.array(zyx_spot_min_vol_um)/2
         zs, ys, xs = zyx_seed_size
         zvd, yvd, _ = zyx_vox_dim
-        self.df_spots_ID['spotsize_initial_radius_yx_pixel'] = (
-            zs/zvd
-        )
-        self.df_spots_ID['spotsize_initial_radius_z_pixel'] = (
-            ys/yvd
-        )
+        self.df_spots_ID['spotsize_initial_radius_yx_pixel'] = ys/yvd
+        self.df_spots_ID['spotsize_initial_radius_z_pixel'] =  zs/zvd
         prev_iter_expanded_lab = self.get_spots_mask(
             0, zyx_vox_dim, zyx_seed_size, spots_centers, dtype=np.uint32,
             ids=self.spot_ids
