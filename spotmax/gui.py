@@ -343,9 +343,9 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def addSpotsCoordinatesTriggered(self):
         posData = self.data[self.pos_i]
-        h5files = posData.getSpotmaxH5files()
+        df_spots_files = posData.getSpotmaxSingleSpotsfiles()
         self.spotsItems.setPosition(posData.spotmax_out_path)
-        toolbutton = self.spotsItems.addLayer(h5files)
+        toolbutton = self.spotsItems.addLayer(df_spots_files)
         if toolbutton is None:
             self.logger.info(
                 'Add spots layer process cancelled.'

@@ -1731,9 +1731,9 @@ class SpotsItems:
         self.buttons = []
         self.parent = parent
 
-    def addLayer(self, h5files):
+    def addLayer(self, df_spots_files):
         win = dialogs.SpotsItemPropertiesDialog(
-            h5files, 
+            df_spots_files, 
             spotmax_out_path=self.spotmax_out_path,
             parent=self.parent
         )
@@ -1742,7 +1742,7 @@ class SpotsItems:
             return
 
         toolbutton = self.addToolbarButton(win.state)
-        toolbutton.h5files = h5files
+        toolbutton.df_spots_files = df_spots_files
         self.buttons.append(toolbutton)
         self.createSpotItem(win.state, toolbutton)
         self.loadSpotsTables(toolbutton)
@@ -1765,7 +1765,7 @@ class SpotsItems:
     
     def editAppearance(self, button):
         win = dialogs.SpotsItemPropertiesDialog(
-            button.h5files, state=button.state, 
+            button.df_spots_files, state=button.state, 
             spotmax_out_path=self.spotmax_out_path,
             parent=self.parent
         )

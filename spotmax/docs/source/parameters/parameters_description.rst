@@ -484,12 +484,13 @@ Reference channel
 
   If ``True``, spotMAX will save the segmentation masks of the reference channel in 
   the same folder where the reference channel's data is located. 
-  The file will be named with the pattern ``<basename>_<ref_ch_name>_segm_mask_<text_to_append>.npz`` 
+  The file will be named with the pattern ``<basename>_run_num<run_number>_<ref_ch_name>_segm_mask_<text_to_append>.npz`` 
   where ``<basename>`` is the common part of all the file names in the Position 
-  folder, the ``<ref_ch_name>`` is the text provided at the 
-  :confval:`Reference channel end name or path` parameter, and 
-  ``<text_to_append>`` is the text provided at the 
-  :confval:`Text to append at the end of the output files` parameter.
+  folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
+  the ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name or path` 
+  parameter, and ``<text_to_append>`` is the text provided at the 
+  :confval:`Text to append at the end of the output files` 
+  parameter.
 
   :type: boolean
   :default: ``False``
@@ -686,10 +687,12 @@ Spots channel
   folder where the spots's data is located. 
   
   The file will be named with the pattern 
-  ``<basename>_<spots_ch_name>_segm_mask_<text_to_append>.npz`` where ``<basename>`` 
-  is the common part of all the file names in the Position folder, the 
-  ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name or path` parameter, 
-  and ``<text_to_append>`` is the text provided at the :confval:`Text to append at the end of the output files` 
+  ``<basename>_run_num<run_number>_<spots_ch_name>_segm_mask_<text_to_append>.npz`` 
+  where ``<basename>`` is the common part of all the file names in the Position 
+  folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
+  the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name or path` 
+  parameter, and ``<text_to_append>`` is the text provided at the 
+  :confval:`Text to append at the end of the output files` 
   parameter.
 
   :type: boolean

@@ -288,8 +288,10 @@ def rst_urls_to_hrefs_mapper(rst_text):
     return label_to_hrefs_mapper
 
 def rst_to_qt_html(rst_sub_text, rst_global_text=''):
-    valid_chars = r'[,A-Za-z0-9μ\-\.=_ \<\>\(\)\\]'
+    valid_chars = r'[,A-Za-z0-9μ\-\.=_ \<\>\(\)\\\&;]'
     html_text = rst_sub_text.strip('\n')
+    html_text = html_text.replace('<', '&lt;')
+    html_text = html_text.replace('>', '&gt;')
     
     label_to_hrefs_mapper = rst_urls_to_hrefs_mapper(rst_global_text)
     
