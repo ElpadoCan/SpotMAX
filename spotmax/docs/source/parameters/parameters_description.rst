@@ -303,7 +303,8 @@ METADATA
 .. confval:: Spot (z, y, x) minimum dimensions (radius)
 
   This is not a parameter. On the GUI here you will see the result of minimum 
-  spot radii estimation, both in pixels and micrometers. 
+  spot radii estimation, both in pixels and micrometers. It will also be saved 
+  in the INI configuration file.
   
   .. note::
 
