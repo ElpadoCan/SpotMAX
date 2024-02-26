@@ -5,7 +5,6 @@ import pathlib
 import time
 import shutil
 import tempfile
-from tkinter import ANCHOR
 import traceback
 from pprint import pprint
 from functools import partial
@@ -910,11 +909,13 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         col = 0
         row = 0
         if infoText is None:
-            txt = (
-                '<i>Add some points and run autotuning to view spots features</i>'
+            txt = html_func.span(
+                '<i>Add some points and run autotuning to view spots features</i>',
+                font_color='red'
             )
         else:
             txt = infoText
+        self._infoText = txt
         self.infoLabel = QLabel(txt)
         layout.addWidget(self.infoLabel, row, col, 1, 2, alignment=Qt.AlignCenter)
         
@@ -960,10 +961,7 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         self.setLayout(mainLayout)
     
     def resetFeatures(self):
-        txt = (
-            '<i>Add some points and run autotuning to view spots features</i>'
-        )
-        self.infoLabel.setText(txt)
+        self.infoLabel.setText(self._infoText)
     
     def setFeatures(self, point_features: pd.Series):
         frame_i, z, x, y = point_features.name
@@ -1426,31 +1424,26 @@ class ParamsGroupBox(QGroupBox):
         except Exception as e:
             traceback.print_exc()
 
-    def connectActions(self):
-        self.pixelWidthWidget.widget.valueChanged.connect(
-            self.updateMinSpotSize
-        )
-        self.pixelHeightWidget.widget.valueChanged.connect(
-            self.updateMinSpotSize
-        )
-        self.voxelDepthWidget.widget.valueChanged.connect(
-            self.updateMinSpotSize
-        )
-        self.emWavelenWidget.widget.valueChanged.connect(
-            self.updateMinSpotSize
-        )
-        self.numApertureWidget.widget.valueChanged.connect(
-            self.updateMinSpotSize
-        )
-        self.yxResolLimitMultiplierWidget.widget.valueChanged.connect(
-            self.updateMinSpotSize
-        )
-
+    def updateIsZstack(self, SizeZ):
+        isZstack = SizeZ > 1
+        metadata = self.params['METADATA']
+        spotMinSizeLabels = metadata['spotMinSizeLabels']['widget']
+        spotMinSizeLabels.setIsZstack(isZstack)
+        self.updateMinSpotSize()
+    
+    def zyxVoxelSize(self):
+        metadata = self.params['METADATA']
+        physicalSizeX = metadata['pixelWidth']['widget'].value()
+        physicalSizeY = metadata['pixelHeight']['widget'].value()
+        physicalSizeZ = metadata['voxelDepth']['widget'].value()
+        return (physicalSizeZ, physicalSizeY, physicalSizeX)
+    
     def updateMinSpotSize(self, value=0.0):
         metadata = self.params['METADATA']
         physicalSizeX = metadata['pixelWidth']['widget'].value()
         physicalSizeY = metadata['pixelHeight']['widget'].value()
         physicalSizeZ = metadata['voxelDepth']['widget'].value()
+        SizeZ = metadata['SizeZ']['widget'].value()
         emWavelen = metadata['emWavelen']['widget'].value()
         NA = metadata['numAperture']['widget'].value()
         zResolutionLimit_um = metadata['zResolutionLimit']['widget'].value()
@@ -1459,6 +1452,10 @@ class ParamsGroupBox(QGroupBox):
             emWavelen, NA, physicalSizeX, physicalSizeY, physicalSizeZ,
             zResolutionLimit_um, yxResolMultiplier
         )
+        if SizeZ == 1:
+            zyxMinSize_pxl = (float('nan'), *zyxMinSize_pxl[1:])
+            zyxMinSize_um = (float('nan'), *zyxMinSize_um[1:])
+        
         zyxMinSize_pxl_txt = (f'{[round(val, 4) for val in zyxMinSize_pxl]} pxl'
             .replace(']', ')')
             .replace('[', '(')

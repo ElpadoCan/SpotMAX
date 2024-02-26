@@ -623,7 +623,9 @@ def _metadata_params():
             'addApplyButton': False,
             'addAutoButton': False,
             'formWidgetFunc': 'acdc_widgets.IntLineEdit',
-            'actions': None,
+            'actions': (
+                ('valueChanged', 'updateIsZstack'),
+            ),
             'dtype': int,
             'valueSetter': 'setValue'
         },
@@ -733,7 +735,7 @@ def _metadata_params():
             'addInfoButton': True,
             'addWarningButton': True,
             'addComputeButton': True,
-            'formWidgetFunc': 'widgets._spotMinSizeLabels',
+            'formWidgetFunc': 'widgets.SpotMinSizeLabels',
             'actions': None,
             'isParam': False
         }

@@ -306,15 +306,9 @@ METADATA
   spot radii estimation, both in pixels and micrometers. It will also be saved 
   in the INI configuration file.
   
-  .. note::
+  If :confval:`Number of z-slices (SizeZ)` is 1 the radius in the z-direction 
+  will be equal to `Nan` (not a number).
 
-    These values are the **radii** of the ellipsoid that determines the extent 
-    of each spot (i.e., the pixels that belong to a spot). However, they are 
-    also the **diameter** of the spot footprint, which is the minimum volume 
-    where only one spot can be detected. This is because two spots can be 
-    resolved as long as the distance between their centers is less or equal 
-    than the radius of each spot (see the "Abbe diffraction limit").
-  
   In the GUI, you will see a warning sign beside the parameter when any of the 
   values are lower than 2 pixels. This is because it would result in a spot 
   footprint with a radius of 1 pixel, effctively detecting spots one every 
@@ -323,6 +317,15 @@ METADATA
   In the :ref:`tune-parameters-tab` on the GUI you can visually set the 
   :confval:`Resolution multiplier in y- and x- direction` by adding points and 
   pressing up and down key arrows to adjust the size. 
+
+  .. note::
+
+    These values are the **radii** of the ellipsoid that determines the extent 
+    of each spot (i.e., the pixels that belong to a spot). However, they are 
+    also the **diameter** of the spot footprint, which is the minimum volume 
+    where only one spot can be detected. This is because two spots can be 
+    resolved as long as the distance between their centers is less or equal 
+    than the radius of each spot (see the "Abbe diffraction limit").
 
 .. _Pre-processing:
 
@@ -497,13 +500,17 @@ Reference channel
 
 .. confval:: Save pre-processed reference channel image
 
-  If ``True``, spotMAX will save the segmentation mask of the reference channel 
-  in the same folder where the reference channel's data is located. 
+  If ``True``, spotMAX will save the pre-processed reference channel's signal 
+  image. This is the image used by spotMAX to segment the reference channel.
   
   The file will be named with the pattern 
-  ``<ref_ch_image_filename>_preprocessed.<ext>`` where ``<ref_ch_image_filename>`` 
-  is the file name of the loaded file with the reference channel data and ``<ext>`` 
-  is the same extension of the file with the reference channel data.
+  ``<basename>_run_num<run_number>_<ref_ch_name>_preprocessed_<text_to_append>.<ext>`` 
+  where ``<basename>`` is the common part of all the file names in the Position 
+  folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
+  the ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name or path` 
+  parameter, and ``<text_to_append>`` is the text provided at the 
+  :confval:`Text to append at the end of the output files` 
+  parameter.
 
   :type: boolean
   :default: ``False``
@@ -700,13 +707,17 @@ Spots channel
 
 .. confval:: Save pre-processed spots image
 
-  If ``True``, spotMAX will save the segmentation masks of the spots in the same 
-  folder where the spots's data is located. 
+  If ``True``, spotMAX will save the pre-processed spots' signal image. This is 
+  the image used by spotMAX as input for spot detection.
   
   The file will be named with the pattern 
-  ``<spots_image_filename>_preprocessed.<ext>`` where ``<spots_image_filename>`` 
-  is the file name of the loaded file with the spots channel data and ``<ext>`` 
-  is the same extension of the file with the spots channel data.
+  ``<basename>_run_num<run_number>_<spots_ch_name>_preprocessed_<text_to_append>.<ext>`` 
+  where ``<basename>`` is the common part of all the file names in the Position 
+  folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
+  the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name or path` 
+  parameter, and ``<text_to_append>`` is the text provided at the 
+  :confval:`Text to append at the end of the output files` 
+  parameter.
 
   :type: boolean
   :default: ``False``

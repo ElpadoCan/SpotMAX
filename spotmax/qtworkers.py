@@ -164,6 +164,7 @@ class TuneKernelWorker(Runnable):
     
     @worker_exception_handler
     def run(self):
+        print('\n')
         self.logger.log('Running auto-tuning process...')
         result = self._kernel.run(
             logger_func=self.logger.log, emitDebug=self.emitDebugSignal

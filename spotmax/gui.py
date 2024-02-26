@@ -617,6 +617,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.hideAcdcToolbars()
         
         self.setFocusGraphics()
+        
+        self.modeToolBar.setVisible(False)
     
     def enableZstackWidgets(self, enabled):
         super().enableZstackWidgets(enabled)
@@ -782,19 +784,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         segm_data_cropped = kwargs['segm_data_cropped']
         crop_to_global_coords = kwargs['crop_to_global_coords']
         
+        kernel.set_crop_to_global_coords(crop_to_global_coords)
+        
         kernel.set_image_data(image_data_cropped)
-        kernel.set_segm_data(segm_data_cropped)
-        
-        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
-        
-        trueItem = autoTuneGroupbox.trueItem
-        coords = trueItem.coordsToNumpy(includeData=True)
-        kernel.set_tzyx_true_spots_coords(coords, crop_to_global_coords)
-        
-        falseItem = autoTuneGroupbox.falseItem
-        coords = falseItem.coordsToNumpy(includeData=True)
-        kernel.set_tzyx_false_spots_coords(coords, crop_to_global_coords)
+        kernel.set_segm_data(segm_data_cropped)      
         
         self.startTuneKernelWorker(kernel)
         
@@ -971,6 +964,17 @@ class spotMAX_Win(acdc_gui.guiWin):
             widget.activateCheckbox.setChecked(False)
             widget.activateCheckbox.click()
     
+    def checkReinitTuneKernel(self):
+        posData = self.data[self.pos_i]
+        if not hasattr(posData, 'tuneKernel'):
+            return
+        
+        if posData.tuneKernel.image_data() is None:
+            return
+        
+        posData.tuneKernel.init_input_data()
+        
+    
     def tabControlPageChanged(self, index):
         if not self.dataIsLoaded:
             return
@@ -986,6 +990,15 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.isAutoTuneTabActive = True
         elif index == 2:
             autoTuneTabWidget.setAutoTuneItemsVisible(False)
+        
+        if index == 0:
+            # To be safe, we reinit tune kernel since changin pre-processing 
+            # parameters renders current kernel's image data obsolete
+            self.checkReinitTuneKernel()
+        
+        if index != 1:
+            autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+            autoTuneTabWidget.addAutoTunePointsButton.setChecked(False)
     
     def setAutoTunePointSize(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -1224,7 +1237,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             ref_ch_ridge_sigmas = [ref_ch_ridge_sigmas]
         
         spotsParams = ParamsGroupBox.params['Spots channel']
-        optimise_with_edt = (
+        optimise_for_high_spot_density = (
             spotsParams['optimiseWithEdt']['widget'].isChecked()
         )
         detection_method = (
@@ -1237,6 +1250,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         tune_features_range = autoTuneTabWidget.selectedFeatures()
         
+        zyx_voxel_size = ParamsGroupBox.zyxVoxelSize()
+        
+        use_spots_segm_masks = detection_method != 'peak_local_max'
+        
         kwargs = {
             'lab': None, 
             'gauss_sigma': gauss_sigma, 
@@ -1247,11 +1264,13 @@ class spotMAX_Win(acdc_gui.guiWin):
             'do_remove_hot_pixels': do_remove_hot_pixels,
             'lineage_table': lineage_table, 
             'do_aggregate': do_aggregate, 
-            'optimise_with_edt': optimise_with_edt,
+            'optimise_for_high_spot_density': optimise_for_high_spot_density,
             'use_gpu': use_gpu, 'sigma': gauss_sigma, 
             'ref_ch_endname': refChEndName,
             'tune_features_range': tune_features_range,
-            'detection_method': detection_method
+            'detection_method': detection_method,
+            'zyx_voxel_size': zyx_voxel_size,
+            'use_spots_segm_masks': use_spots_segm_masks
         }
         
         return kwargs
@@ -1826,6 +1845,12 @@ class spotMAX_Win(acdc_gui.guiWin):
             f'Number of detected spots per objects:\n'
             f'{df_spots_count}'
         )
+        if image.ndim == 2:
+            image = image[np.newaxis]
+        
+        if spots_lab.ndim == 2:
+            spots_lab = spots_lab[np.newaxis]
+        
         from cellacdc.plot import imshow
         imshow(
             image, 
@@ -1835,6 +1860,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def _displaySpotFootprint(self, spot_footprint, image):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        metadataParams = ParamsGroupBox.params['METADATA']
+        SizeZ = metadataParams['SizeZ']['widget'].value()
+        if SizeZ == 1:
+            spot_footprint = spot_footprint.max(axis=0)
+            
         from cellacdc.plot import imshow
         imshow(
             spot_footprint, 
@@ -2253,6 +2284,17 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.startTuneKernelWorker(kernel)
         
     def startTuneKernelWorker(self, kernel):
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+        
+        trueItem = autoTuneGroupbox.trueItem
+        coords = trueItem.coordsToNumpy(includeData=True)
+        kernel.set_tzyx_true_spots_coords(coords)
+        
+        falseItem = autoTuneGroupbox.falseItem
+        coords = falseItem.coordsToNumpy(includeData=True)
+        kernel.set_tzyx_false_spots_coords(coords)
+        
         worker = qtworkers.TuneKernelWorker(kernel)
         self.connectDefaultWorkerSlots(worker)
         worker.signals.finished.connect(self.tuneKernelWorkerFinished)

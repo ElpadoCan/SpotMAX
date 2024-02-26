@@ -289,7 +289,7 @@ def global_semantic_segmentation(
         bioimageio_params=None,
         bioimageio_input_image=None
     ):    
-    if image.ndim != 3 or image.ndim != 3:
+    if image.ndim not in (2, 3):
         ndim = image.ndim
         raise TypeError(
             f'Input image has {ndim} dimensions. Only 2D and 3D is supported.'
@@ -361,7 +361,7 @@ def global_semantic_segmentation(
         input_image_dict = {'input_image': aggr_img}
         result = {**input_image_dict, **result}
     
-    result = {key:np.squeeze(img) for key, img in result.items()}
+    # result = {key:np.squeeze(img) for key, img in result.items()}
     
     if return_only_output_mask:
         if nnet_model is not None:

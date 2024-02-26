@@ -449,23 +449,32 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
     return params
 
 def save_preocessed_img(
-        img_data, raw_img_filepath, cast_to_dtype=None, pad_width=None
+        img_data, raw_img_filepath, basename, ch_endname, run_number, 
+        text_to_append='', cast_to_dtype=None, pad_width=None
     ):
+    if not basename.endswith('_'):
+        basename = f'{basename}_'
+        
     if cast_to_dtype is not None:
         img_data = acdc_myutils.float_img_to_dtype(img_data, cast_to_dtype)
     
     if pad_width is not None:
         img_data = np.pad(img_data, pad_width)
     
-    filename = os.path.basename(raw_img_filepath)
-    filename_noext, ext = os.path.splitext(filename)
+    in_filename = os.path.basename(raw_img_filepath)
+    _, ext = os.path.splitext(in_filename)
     
-    folderpath = os.path.dirname(raw_img_filepath)
+    out_filename = f'{basename}_run_num{run_number}_{ch_endname}_preprocessed'
+    if text_to_append:
+        if not text_to_append.startswith('_'):
+            text_to_append = f'_{text_to_append}'
+        out_filename = f'{out_filename}{text_to_append}'
+    out_filename = f'{out_filename}{ext}'    
+    in_folderpath = os.path.dirname(raw_img_filepath)
     
-    new_filename = f'{filename_noext}_preprocessed{ext}'
-    new_filepath = os.path.join(folderpath, new_filename)
+    out_filepath = os.path.join(in_folderpath, out_filename)
     
-    save_image_data(new_filepath, np.squeeze(img_data))
+    save_image_data(out_filepath, np.squeeze(img_data))
 
 def add_neural_network_params(params, configPars):
     sections = [
@@ -2180,13 +2189,17 @@ def save_df_agg_to_csv(df: pd.DataFrame, folder_path: os.PathLike, filename: str
 
 def save_ref_ch_mask(
         ref_ch_segm_data, images_path, ref_ch_endname, basename, 
-        text_to_append='', pad_width=None
+        run_number, text_to_append='', pad_width=None
     ):
     if not basename.endswith('_'):
         basename = f'{basename}_'
-    ref_ch_segm_filename = f'{basename}{ref_ch_endname}_segm_mask'
+    ref_ch_segm_filename = (
+        f'{basename}run_num{run_number}_{ref_ch_endname}_segm_mask'
+    )
     if text_to_append:
-        ref_ch_segm_filename = f'{ref_ch_segm_filename}_{text_to_append}'
+        if not text_to_append.startswith('_'):
+            text_to_append = f'_{text_to_append}'
+        ref_ch_segm_filename = f'{ref_ch_segm_filename}{text_to_append}'
     
     ref_ch_segm_filename = f'{ref_ch_segm_filename}.npz'
     ref_ch_segm_filepath = os.path.join(images_path, ref_ch_segm_filename)
@@ -2211,7 +2224,9 @@ def save_spots_masks(
     
     spots_ch_segm_filename = f'{basename}{spots_ch_segm_filename}_segm_mask'
     if text_to_append:
-        spots_ch_segm_filename = f'{spots_ch_segm_filename}_{text_to_append}'
+        if not text_to_append.startswith('_'):
+            text_to_append = f'_{text_to_append}'
+        spots_ch_segm_filename = f'{spots_ch_segm_filename}{text_to_append}'
     
     spots_ch_segm_filename = f'{spots_ch_segm_filename}.npz'
     spots_ch_segm_filepath = os.path.join(images_path, spots_ch_segm_filename)

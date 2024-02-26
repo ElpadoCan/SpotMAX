@@ -4160,6 +4160,7 @@ class Kernel(_ParamsParser):
             lineage_table_endname: str='', 
             text_to_append: str='',
             transformed_spots_ch_nnet: dict=None,
+            run_number=1
         ):
         self.set_metadata()
         self._current_step = 'Loading data from images path'
@@ -4284,14 +4285,25 @@ class Kernel(_ParamsParser):
             if save_ref_ch_segm:
                 basename = data.get('basename', '')
                 io.save_ref_ch_mask(
-                    ref_ch_segm_data, images_path, ref_ch_endname, basename,
-                    text_to_append=text_to_append, pad_width=data['pad_width']
+                    ref_ch_segm_data, 
+                    images_path, 
+                    ref_ch_endname, 
+                    basename,
+                    run_number,
+                    text_to_append=text_to_append, 
+                    pad_width=data['pad_width']
                 )
             
             if save_preproc_ref_ch_img:
+                basename = data.get('basename', '')
                 raw_ref_ch_data_filepath = data['ref_ch.filepath']
                 io.save_preocessed_img(
-                    preproc_ref_ch_data, raw_ref_ch_data_filepath, 
+                    preproc_ref_ch_data, 
+                    raw_ref_ch_data_filepath, 
+                    basename,
+                    ref_ch_endname, 
+                    run_number,
+                    text_to_append=text_to_append,
                     cast_to_dtype=data['ref_ch.dtype'], 
                     pad_width=data['pad_width']
                 )
@@ -4311,10 +4323,10 @@ class Kernel(_ParamsParser):
         min_size_spheroid_mask = transformations.get_local_spheroid_mask(
             zyx_resolution_limit_pxl
         )
-        optimise_with_edt = (
+        optimise_for_high_spot_density = (
             self._params['Spots channel']['optimiseWithEdt']['loadedVal']
         ) 
-        if optimise_with_edt:
+        if optimise_for_high_spot_density:
             edt_spheroid = transformations.norm_distance_transform_edt(
                 min_size_spheroid_mask
             )
@@ -4456,9 +4468,15 @@ class Kernel(_ParamsParser):
         pbar.close()
         
         if save_preproc_spots_img:
+            basename = data.get('basename', '')
             raw_spots_data_filepath = data['spots_ch.filepath']
             io.save_preocessed_img(
-                preproc_spots_data, raw_spots_data_filepath, 
+                preproc_spots_data, 
+                raw_spots_data_filepath, 
+                basename,
+                spots_ch_endname,
+                run_number,
+                text_to_append=text_to_append,
                 cast_to_dtype=data['spots_ch.dtype'], 
                 pad_width=data['pad_width']
             )
@@ -4671,7 +4689,8 @@ class Kernel(_ParamsParser):
                     ref_ch_segm_endname=ref_ch_segm_endname, 
                     lineage_table_endname=lineage_table_endname,
                     text_to_append=text_to_append,
-                    transformed_spots_ch_nnet=transformed_data_nnet[pos]
+                    transformed_spots_ch_nnet=transformed_data_nnet[pos],
+                    run_number=run_number
                 )      
                 if dfs is None:
                     # Error raised, logged while dfs is None
@@ -4881,8 +4900,12 @@ class Kernel(_ParamsParser):
             if df_spots is not None:
                 if 'spot_mask' in df_spots.columns:
                     df_spots = io.save_spots_masks(
-                        df_spots, images_path, basename, filename, 
-                        spots_ch_endname, run_number, 
+                        df_spots, 
+                        images_path, 
+                        basename, 
+                        filename, 
+                        spots_ch_endname, 
+                        run_number, 
                         text_to_append=text_to_append,
                         mask_shape=uncropped_shape
                     )

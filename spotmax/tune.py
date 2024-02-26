@@ -16,15 +16,15 @@ from . import ZYX_GLOBAL_COLS
 
 class TuneKernel:
     def __init__(self):
-        self._image_data = None
-        self._segm_data = None
-        self._ref_ch_data = None
+        self.init_input_data()
     
     def set_kwargs(self, kwargs):
         self._kwargs = kwargs
     
-    def set_tzyx_true_spots_coords(self, tzyx_coords, crop_to_global_coords):
+    def set_crop_to_global_coords(self, crop_to_global_coords):
         self._crop_to_global_coords = crop_to_global_coords
+    
+    def set_tzyx_true_spots_coords(self, tzyx_coords):
         self._tzyx_true_spots_coords = tzyx_coords
         self._true_spots_coords_df = pd.DataFrame(
             columns=['frame_i', 'z_global', 'y_global', 'x_global'], 
@@ -32,16 +32,15 @@ class TuneKernel:
         )
         self._true_spots_coords_df[['z', 'y', 'x']] = (
             self._true_spots_coords_df[['z_global', 'y_global', 'x_global']]
-            - crop_to_global_coords
+            - self.crop_to_global_coords()
         )
     
     def true_spots_coords_df(self):
         return self._true_spots_coords_df
 
-    def set_tzyx_false_spots_coords(self, tzyx_coords, crop_to_global_coords):
+    def set_tzyx_false_spots_coords(self, tzyx_coords):
         if len(tzyx_coords) == 0:
             tzyx_coords = None
-        self._crop_to_global_coords = crop_to_global_coords
         self._tzyx_false_spots_coords = tzyx_coords
         self._false_spots_coords_df = pd.DataFrame(
             columns=['frame_i', 'z_global', 'y_global', 'x_global'], 
@@ -49,7 +48,7 @@ class TuneKernel:
         )
         self._false_spots_coords_df[['z', 'y', 'x']] = (
             self._false_spots_coords_df[['z_global', 'y_global', 'x_global']]
-            - crop_to_global_coords
+            - self.crop_to_global_coords()
         )
     
     def to_global_coords(self, df):
@@ -73,6 +72,11 @@ class TuneKernel:
     
     def set_ref_ch_data(self, ref_ch_data):
         self._ref_ch_data = cellacdc.myutils.img_to_float(ref_ch_data)
+    
+    def init_input_data(self):
+        self._image_data = None
+        self._segm_data = None
+        self._ref_ch_data = None
     
     def ref_ch_data(self):
         return self._ref_ch_data
@@ -192,7 +196,7 @@ class TuneKernel:
             
             kwargs_keys = [
                 'lab', 'do_remove_hot_pixels', 'gauss_sigma', 'use_gpu', 
-                'use_gpu'
+                'use_gpu', 'zyx_voxel_size', 'optimise_for_high_spot_density'
             ]
             features_kwargs = {key:input_kwargs[key] for key in kwargs_keys}
             spots_zyx_radii = input_kwargs['spots_zyx_radii_pxl']

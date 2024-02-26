@@ -843,7 +843,7 @@ class SpotPredictionMethodWidget(QWidget):
             ini_params, use_default_for_missing=True
         )
 
-class _spotMinSizeLabels(QWidget):
+class SpotMinSizeLabels(QWidget):
     def __init__(self):
         QWidget.__init__(self)
         font = config.font()
@@ -857,15 +857,23 @@ class _spotMinSizeLabels(QWidget):
         layout.addWidget(self.umLabel)
         layout.addWidget(self.pixelLabel)
         self.setLayout(layout)
+        self._isZstack = False
 
+    def setIsZstack(self, isZstack):
+        self._isZstack = isZstack
+    
     def setText(self, text):
         self.umLabel.setText(text)
         self.pixelLabel.setText(text)
     
     def text(self):
         roundPixels = [str(round(val, 2)) for val in self.pixelValues()]
+        if not self._isZstack:
+            roundPixels[0] = 'nan'
         textPixel = ', '.join(roundPixels)
         roundUm = [str(round(val, 3)) for val in self.umValues()]
+        if not self._isZstack:
+            roundUm[0] = 'nan'
         textUm = ', '.join(roundUm)
         indent = ' '*45
         text = f'({textPixel}) pixel\n{indent}({textUm}) micrometer'
@@ -874,12 +882,18 @@ class _spotMinSizeLabels(QWidget):
     def pixelValues(self):
         text = self.pixelLabel.text()
         all_floats_re = re.findall(float_regex(), text)
-        return [float(val) for val in all_floats_re]
+        values = [float(val) for val in all_floats_re]
+        if len(values) == 2:
+            values.insert(0, 1)
+        return values
 
     def umValues(self):
         text = self.umLabel.text()
         all_floats_re = re.findall(float_regex(), text)
-        return [float(val) for val in all_floats_re]
+        values = [float(val) for val in all_floats_re]
+        if len(values) == 2:
+            values.insert(0, 1)
+        return values
 
 class formWidget(QWidget):
     sigApplyButtonClicked = Signal(object)

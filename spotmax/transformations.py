@@ -1,6 +1,6 @@
 import os
-from typing import Type
 
+import math
 import numpy as np
 import pandas as pd
 
@@ -36,6 +36,12 @@ def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
         - `slice_crop_local`: used to crop the local mask before inserting it 
         into the image.
     """    
+    if len(global_shape) == 2:
+        global_shape = (1, *global_shape)
+    
+    if len(local_shape) == 2:
+        local_shape = (1, *local_shape)
+        
     slice_global_to_local = []
     slice_crop_local = []
     for _c, _d, _D in zip(zyx_center, local_shape, global_shape):
@@ -441,7 +447,8 @@ def index_aggregated_segm_into_input_lab(lab, aggregated_segm, aggregated_lab):
 
 def get_local_spheroid_mask(spots_zyx_radii_pxl, logger_func=print):
     zr, yr, xr = spots_zyx_radii_pxl
-    wh, d = int(np.ceil(yr)), int(np.ceil(zr))
+    wh = int(np.ceil(yr))
+    d = int(np.ceil(zr))
 
     # Generate a sparse meshgrid to evaluate 3D spheroid mask
     z, y, x = np.ogrid[-d:d+1, -wh:wh+1, -wh:wh+1]
@@ -453,6 +460,10 @@ def get_local_spheroid_mask(spots_zyx_radii_pxl, logger_func=print):
         # mask = mask[np.any(mask, axis=(0,1))]
     else:
         mask = (x**2 + y**2)/(yr**2) <= 1
+    
+    if d == 1:
+        # If depth is 1 we expect a single z-slice mask (instead of 3)
+        mask = mask.max(axis=0)[np.newaxis]
     
     return mask
 
@@ -704,6 +715,10 @@ def from_spots_coords_to_spots_masks(spots_coords, spot_zyx_size, debug=False):
 def from_df_spots_objs_to_spots_lab(df_spots_objs, arr_shape, spots_lab=None):
     if spots_lab is None:
         spots_lab = np.zeros(arr_shape, dtype=np.uint32)
+    
+    if spots_lab.ndim == 2:
+        spots_lab = spots_lab[np.newaxis]
+    
     for row in df_spots_objs.itertuples():
         ID, spot_id = row.Index
         spot_mask = row.spot_mask

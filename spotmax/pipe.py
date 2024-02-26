@@ -535,8 +535,7 @@ def _compute_obj_spots_features(
         `zyx_resolution_limit_pxl`. You can also pass a pandas.Series with 
         the same index as `df_obj_spots` with one mask for each spot.
     zyx_voxel_size : (z, y, x) sequence
-        Voxel size in z-, y-, and x- directions in μm/pixel. If None, this will 
-        be initialize to [1, 1, 1]. Default is None
+        Voxel size in z-, y-, and x- directions in μm/pixel. Default is None
     dist_transform_spheroid : (Z, Y, X) ndarray, optional
         A distance transform of the `min_size_spheroid_mask`. This will be 
         multiplied by the spots intensities to reduce the skewing effect of 
@@ -836,8 +835,8 @@ def compute_spots_features(
         lab=None, 
         dist_transform_spheroid=None,
         do_remove_hot_pixels=False, 
+        optimise_for_high_spot_density=False,
         gauss_sigma=0.0, 
-        optimise_with_edt=True,
         use_gpu=True, 
         logger_func=print
     ):
@@ -851,7 +850,7 @@ def compute_spots_features(
             spots_zyx_radii_pxl
         )
     
-    if optimise_with_edt and dist_transform_spheroid is None:
+    if optimise_for_high_spot_density and dist_transform_spheroid is None:
         dist_transform_spheroid = transformations.norm_distance_transform_edt(
             min_size_spheroid_mask
         )
@@ -915,7 +914,9 @@ def compute_spots_features(
             sharp_spots_img_obj, 
             raw_spots_img_obj=raw_spots_img_obj, 
             min_size_spheroid_mask=min_size_spheroid_mask, 
+            zyx_voxel_size=zyx_voxel_size,
             dist_transform_spheroid=dist_transform_spheroid,
+            optimise_for_high_spot_density=optimise_for_high_spot_density,
             ref_ch_mask_obj=None, 
             ref_ch_img_obj=None, 
             zyx_resolution_limit_pxl=spots_zyx_radii_pxl, 
@@ -1009,13 +1010,16 @@ def spot_detection(
     if spots_zyx_radii_pxl is None:
         spots_zyx_radii_pxl = np.array([1, 1, 1])
     
-    if spot_footprint is not None:
-        spot_footprint = np.squeeze(spot_footprint)
+    if spots_segmantic_segm is None:
+        spots_segmantic_segm = np.ones(image.shape, int)
     
-    if spots_segmantic_segm is not None:
-        spots_segmantic_segm = np.squeeze(spots_segmantic_segm.astype(int))
-    else:
-        spots_segmantic_segm = np.ones(np.squeeze(image).shape, int)
+    is_zstack = True
+    if image.ndim==2 or (image.ndim==3 and image.shape[0]==1):
+        is_zstack = False
+    
+    if spot_footprint is not None and not is_zstack and spot_footprint.ndim==3:
+        # Make sure that spot_footprint is 2D with 2D input image
+        spot_footprint = spot_footprint.max(axis=0)
     
     spots_masks = None
     
@@ -1024,16 +1028,16 @@ def spot_detection(
     
     if detection_method == 'peak_local_max':
         detect_image = np.squeeze(image)
+        labels = np.squeeze(spots_segmantic_segm)
         min_distance = spots_zyx_radii_pxl
-        if detect_image.ndim == 2 and spot_footprint.ndim == 3:
-            # Make sure spot_footprint is 2D like the input image
-            spot_footprint = spot_footprint.max(axis=0)
+        if not is_zstack and len(min_distance) == 3:
+            # Make sure that min_distance is 2 valus for 2D images
             min_distance = spots_zyx_radii_pxl[-2:]
         spots_coords = features.find_local_peaks(
             detect_image, 
             min_distance=min_distance,
             footprint=spot_footprint, 
-            labels=spots_segmantic_segm,
+            labels=labels,
         )
         if return_spots_mask:
             spots_masks = transformations.from_spots_coords_to_spots_masks(
