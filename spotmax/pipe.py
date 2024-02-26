@@ -1033,6 +1033,7 @@ def spot_detection(
         if not is_zstack and len(min_distance) == 3:
             # Make sure that min_distance is 2 valus for 2D images
             min_distance = spots_zyx_radii_pxl[-2:]
+        
         spots_coords = features.find_local_peaks(
             detect_image, 
             min_distance=min_distance,

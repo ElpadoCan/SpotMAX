@@ -87,6 +87,11 @@ def DoG_spots(image, spots_zyx_radii_pxl, use_gpu=False, logger_func=print):
         spots_zyx_radii_pxl = spots_zyx_radii_pxl[1:]
     
     sigma1 = spots_zyx_radii_pxl/(1+SQRT_2)
+    
+    if 0 in sigma1:
+        raise TypeError(
+            f'Sharpening filter input sigmas cannot be 0. `zyx_sigma1 = {sigma1}`'
+        )
         
     blurred1 = gaussian(
         image, sigma1, use_gpu=use_gpu, logger_func=logger_func
@@ -103,6 +108,7 @@ def DoG_spots(image, spots_zyx_radii_pxl, use_gpu=False, logger_func=print):
     sharp_rescaled = skimage.exposure.rescale_intensity(
         sharpened, out_range=out_range
     )
+    
     return sharp_rescaled
 
 def threshold(

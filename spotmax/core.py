@@ -1074,7 +1074,11 @@ class _ParamsParser(_DataLoader):
             yx_resolution_multiplier
         )
         if metadata['SizeZ'] == 1:
-            zyx_resolution_limit_pxl = (0, *zyx_resolution_limit_pxl[1:])
+            zyx_resolution_limit_pxl = (1, *zyx_resolution_limit_pxl[1:])
+            zyx_resolution_limit_um = (
+                1/physical_size_z, *zyx_resolution_limit_um[1:]
+            )
+            
         metadata['zyxResolutionLimitPxl'] = zyx_resolution_limit_pxl
         metadata['zyxResolutionLimitUm'] = zyx_resolution_limit_um
         deltaTolerance = transformations.get_expand_obj_delta_tolerance(
@@ -3391,12 +3395,6 @@ class Kernel(_ParamsParser):
         print('')
         self.logger.info(f'Applying sharpening filter...')
 
-        # if self.debug:
-        #     return np.load(
-        #         r'G:\My Drive\01_Postdoc_HMGU\Python_MyScripts\MIA\Git'
-        #         r'\spotMAX_v2\data\test_simone_pos\2_test_missed_spots_edges_worm'
-        #         r'\Position_2\Images\20909_SampleD_Gonad1_fused_sharpened.npy'
-        #     )
         use_gpu = self._get_use_gpu()
         
         resolution_limit_radii = metadata['zyxResolutionLimitPxl']
@@ -3564,7 +3562,7 @@ class Kernel(_ParamsParser):
             dfs_lists=None, 
             save_spots_mask=True,
             verbose=True,
-        ):
+        ):        
         if sharp_spots_img is None:
             sharp_spots_img = spots_img
 
