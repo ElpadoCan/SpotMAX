@@ -383,67 +383,81 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
     for section, section_params in zip(sections, section_params):
         anchors = list(section_params.keys())
         for anchor in anchors:
-            option = section_params[anchor]['desc']
-            defaultVal = section_params[anchor]['initialVal']
-            config_value = None
-            if not configPars.has_section(section):
-                params[section][anchor]['isSectionInConfig'] = False
-                params[section][anchor]['loadedVal'] = None
-                continue
+            isEditableDesc = section_params[anchor].get('useEditableLabel', False)
+            if isEditableDesc:
+                options = configPars.options(section)
             else:
-                params[section][anchor]['isSectionInConfig'] = True
+                options = (section_params[anchor]['desc'],)
             
-            is_option_in_ini = configPars.has_option(section, option)
-            is_do_spotfit = option == 'Compute spots size (fit gaussian peak(s))'
-            
-            if not is_option_in_ini and is_do_spotfit:
-                # New doSpotFit desc is not in INI --> check old one
-                option = 'Compute spots size'
-            
-            if not configPars.has_option(section, option):
-                params[section][anchor]['loadedVal'] = None
-                continue
-            
-            if cast_dtypes:
-                dtype = params[section][anchor].get('dtype')
-            else:
-                dtype = None
-            
-            try:
-                str_val = configPars.get(section, option)
-            except Exception as e:
-                str_val = None
+            for o, option in enumerate(options):
+                if o > 0:
+                    added_anchor = f'{anchor}_{o}'
+                    params[section][added_anchor] = (
+                        params[section][anchor].copy()
+                    )
+                    anchor = added_anchor
                 
-            if callable(dtype):
-                config_value = dtype(configPars.get(section, option))
-            elif isinstance(defaultVal, bool):
+                defaultVal = section_params[anchor]['initialVal']
+                config_value = None
+                if not configPars.has_section(section):
+                    params[section][anchor]['isSectionInConfig'] = False
+                    params[section][anchor]['loadedVal'] = None
+                    continue
+                else:
+                    params[section][anchor]['isSectionInConfig'] = True
+                
+                is_option_in_ini = configPars.has_option(section, option)
+                is_do_spotfit = option == 'Compute spots size (fit gaussian peak(s))'
+                
+                if not is_option_in_ini and is_do_spotfit:
+                    # New doSpotFit desc is not in INI --> check old one
+                    option = 'Compute spots size'
+                
+                if not configPars.has_option(section, option):
+                    params[section][anchor]['loadedVal'] = None
+                    continue
+                
+                if cast_dtypes:
+                    dtype = params[section][anchor].get('dtype')
+                else:
+                    dtype = None
+                
                 try:
-                    config_value = configPars.getboolean(section, option)
+                    str_val = configPars.get(section, option)
                 except Exception as e:
-                    config_value = None
-            elif isinstance(defaultVal, float):
-                try:
-                    config_value = configPars.getfloat(section, option)
-                except Exception as e:
-                    config_value = str_val
-            elif isinstance(defaultVal, int):
-                try:
-                    config_value = configPars.getint(section, option)
-                except Exception as e:
-                    config_value = str_val
-            elif isinstance(defaultVal, str) or defaultVal is None:
-                try:
-                    config_value = configPars.get(section, option)
-                except Exception as e:
-                    config_value = None
+                    str_val = None
+                    
+                if callable(dtype):
+                    config_value = dtype(configPars.get(section, option))
+                elif isinstance(defaultVal, bool):
+                    try:
+                        config_value = configPars.getboolean(section, option)
+                    except Exception as e:
+                        config_value = None
+                elif isinstance(defaultVal, float):
+                    try:
+                        config_value = configPars.getfloat(section, option)
+                    except Exception as e:
+                        config_value = str_val
+                elif isinstance(defaultVal, int):
+                    try:
+                        config_value = configPars.getint(section, option)
+                    except Exception as e:
+                        config_value = str_val
+                elif isinstance(defaultVal, str) or defaultVal is None:
+                    try:
+                        config_value = configPars.get(section, option)
+                    except Exception as e:
+                        config_value = None
 
-            if option == 'Spots segmentation method':
-                if config_value == 'Neural network':
-                    # Keep compatibility with oldere ini files that had 
-                    # Spots segmentation method = Neural network
-                    config_value = 'spotMAX AI'
-            
-            params[section][anchor]['loadedVal'] = config_value
+                if option == 'Spots segmentation method':
+                    if config_value == 'Neural network':
+                        # Keep compatibility with oldere ini files that had 
+                        # Spots segmentation method = Neural network
+                        config_value = 'spotMAX AI'
+                
+                params[section][anchor]['loadedVal'] = config_value
+                params[section][anchor]['desc'] = option
     
     params = add_neural_network_params(params, configPars)
     return params

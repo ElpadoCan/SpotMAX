@@ -59,7 +59,7 @@ We want to keep only spots that have an Glass's effect size greater than 0.8. Th
 you select the feature and you set the minimum to 0.8. When you save to the INI 
 parameters file you will get this entry in the section ``[Spots channel]``:
 
-.. code-block::
+.. code-block:: ini
     
     Features and thresholds for filtering true spots = 
 	    spot_vs_backgr_effect_size_glass, 0.8, None

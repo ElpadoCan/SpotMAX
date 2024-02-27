@@ -179,7 +179,8 @@ def get_distribution_metrics_func():
         'q25': lambda arr: _try_quantile(arr, 0.25),
         'q75': lambda arr: _try_quantile(arr, 0.75),
         'q05': lambda arr: _try_quantile(arr, 0.05),
-        'q95': lambda arr: _try_quantile(arr, 0.95)
+        'q95': lambda arr: _try_quantile(arr, 0.95),
+        'std': lambda arr: _try_metric_func(np.std, arr),
     }
     return metrics_func
 
@@ -391,9 +392,11 @@ def find_local_peaks(image, min_distance=1, footprint=None, labels=None):
         footprint = transformations.get_local_spheroid_mask(
             zyx_radii_pxl
         )
-        
+    
     peaks_coords = skimage.feature.peak_local_max(
-        image, footprint=footprint, labels=labels
+        image, 
+        footprint=footprint, 
+        labels=labels.astype('int32')
     )
     intensities = image[tuple(peaks_coords.transpose())]
     valid_peaks_coords = filters.filter_valid_points_min_distance(

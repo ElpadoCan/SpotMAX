@@ -72,7 +72,6 @@ settings_path = os.path.join(spotmax_appdata_path, 'settings')
 if not os.path.exists(settings_path):
     os.makedirs(settings_path)
 
-default_ini_path = os.path.join(spotmax_appdata_path, 'config.ini')
 colorItems_path = os.path.join(settings_path, 'colorItems.json')
 gui_settings_csv_path = os.path.join(settings_path, 'gui_settings.csv')
 

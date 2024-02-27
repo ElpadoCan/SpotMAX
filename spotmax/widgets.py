@@ -903,6 +903,8 @@ class formWidget(QWidget):
     sigWarningButtonClicked = Signal(object)
     sigLinkClicked = Signal(str)
     sigEditClicked = Signal(object)
+    sigAddField = Signal(object)
+    sigRemoveField = Signal(str, str, int)
 
     def __init__(
             self, widget,
@@ -911,6 +913,9 @@ class formWidget(QWidget):
             stretchWidget=True,
             labelTextLeft='',
             labelTextRight='',
+            labelTextMiddle='',
+            confvalText='',
+            useEditableLabel=False,
             font=None,
             addInfoButton=False,
             addApplyButton=False,
@@ -920,6 +925,8 @@ class formWidget(QWidget):
             addAutoButton=False,
             addEditButton=False,
             addLabel=True,
+            addAddFieldButton=False,
+            stretchFactors=None,
             disableComputeButtons=False,
             isFolderBrowse=False,
             key='',
@@ -934,12 +941,20 @@ class formWidget(QWidget):
         self.key = key
         self.addLabel = addLabel
         self.labelTextLeft = labelTextLeft
+        self.confvalText = confvalText
+        self.labelTextMiddle = labelTextMiddle
+        self.labelTextRight = labelTextRight
         self._isComputeButtonConnected = False
         self.infoHtmlText = infoHtmlText
+        self.stretchFactors = stretchFactors
+        self.useEditableLabel = useEditableLabel
 
-        widget.setParent(self)
-        widget.parentFormWidget = self
+        if widget is not None:
+            widget.setParent(self)
+            widget.parentFormWidget = self
 
+        self.initialVal = initialVal
+        self.valueSetter = valueSetter
         self.setValue(initialVal, valueSetter=valueSetter)
         
         self.items = []
@@ -948,14 +963,25 @@ class formWidget(QWidget):
             font = QFont()
             font.setPixelSize(11)
 
+        self.labelLeft = None
         if addLabel:
-            self.labelLeft = acdc_widgets.QClickableLabel(widget)
-            self.labelLeft.setText(labelTextLeft)
+            if useEditableLabel:
+                self.labelLeft = EditableLabel(labelTextLeft)
+            else:
+                self.labelLeft = acdc_widgets.QClickableLabel(widget)
+                self.labelLeft.setText(labelTextLeft)
             self.labelLeft.setFont(font)
             self.items.append(self.labelLeft)
         else:
             self.items.append(None)
 
+        self.labelMiddle = None
+        if labelTextMiddle:
+            self.labelMiddle = acdc_widgets.QClickableLabel(widget)
+            self.labelMiddle.setText(labelTextMiddle)
+            self.labelMiddle.setFont(font)
+            self.items.append(self.labelMiddle)
+        
         if not stretchWidget:
             widgetLayout = QHBoxLayout()
             widgetLayout.addStretch(1)
@@ -969,6 +995,15 @@ class formWidget(QWidget):
         self.labelRight.setText(labelTextRight)
         self.labelRight.setFont(font)
         self.items.append(self.labelRight)
+        
+        self.addFieldButton = None
+        if addAddFieldButton:
+            self.fieldIdx = 0
+            addFieldButton = acdc_widgets.addPushButton()
+            addFieldButton.setToolTip('Add new entry')
+            addFieldButton.clicked.connect(self.addField)
+            self.addFieldButton = addFieldButton
+            self.items.append(addFieldButton)
 
         if addInfoButton:
             infoButton = acdc_widgets.infoPushButton(self)
@@ -1041,32 +1076,120 @@ class formWidget(QWidget):
             self.labelLeft.clicked.connect(self.tryChecking)
         self.labelRight.clicked.connect(self.tryChecking)
     
+    def addField(self):
+        items = [None]*len(self.items)
+        
+        i = 0
+        if self.labelLeft is not None:
+            labelLeft = self.labelLeft.__class__(self.labelTextLeft)
+            labelLeft.setFont(font)
+            items[i] = labelLeft
+            i += 1
+        
+        if self.labelMiddle is not None:
+            label = self.labelMiddle.__class__(self.labelTextMiddle)
+            label.setFont(font)
+            items[i] = label
+            i += 1
+        
+        widget = self.widget.__class__()
+        self.setValue(
+            self.initialVal, 
+            valueSetter=self.valueSetter,
+            widget=widget
+        )
+        items[i] = widget
+        i += 1
+        
+        label = self.labelRight.__class__(self.labelTextRight)
+        label.setFont(font)
+        items[i] = label
+        i += 1
+        
+        delButton = acdc_widgets.delPushButton()
+        items[i] = delButton
+        delButton.clicked.connect(self.removeField)
+        
+        # Replace None items with buttons spacers (hidden with retained size)
+        missing_items_idxs = [i for i, item in enumerate(items) if item is None]
+        for missing_idx in missing_items_idxs:
+            button = acdc_widgets.infoPushButton(self)
+            button.setRetainSizeWhenHidden(True)
+            button.hide()
+            items[missing_idx] = button
+        
+        delButton.items = items
+        
+        self.row += 1
+        # adderFunc and row are defined in FormLayout.addFormWidget
+        self.adderFunc(self, self.row, items=items)
+        
+        newFormWidget = formWidget(
+            None,
+            labelTextLeft=self.labelTextLeft,
+            labelTextMiddle=self.labelTextMiddle,
+            labelTextRight=self.labelTextRight,
+        )
+        newFormWidget.widget = widget
+        newFormWidget.items = self.items
+        newFormWidget.section = self.section
+        newFormWidget.anchor = self.anchor
+        newFormWidget.useEditableLabel = self.useEditableLabel
+        newFormWidget.addFieldButton = self.addFieldButton
+        newFormWidget.delFieldButton = delButton
+        newFormWidget.labelLeft = labelLeft
+        self.fieldIdx += 1
+        newFormWidget.fieldIdx = self.fieldIdx
+        delButton.newFormWidget = newFormWidget
+        
+        self.sigAddField.emit(newFormWidget)
+    
+    def removeField(self):
+        delButton = self.sender()
+        for item in delButton.items:
+            item.hide()
+            # _layout is defined in FormLayout.addFormWidget
+            self._layout.removeWidget(item)
+        self.row -= 1
+        
+        self.sigRemoveField.emit(self.section, self.anchor, self.fieldIdx)
+        self.fieldIdx -= 1
+        
+        delButton.newFormWidget.hide()
+        
+        del delButton.newFormWidget
+        del delButton.items
+        del delButton
+    
     def setComputeButtonConnected(self, connected):
         self._isComputeButtonConnected = connected
     
     def text(self):
         return self.labelTextLeft
     
-    def setValue(self, value, valueSetter=None):
+    def setValue(self, value, valueSetter=None, widget=None):
         if value is None:
             return
         
+        if widget is None:
+            widget = self.widget
+        
         if valueSetter is not None:
             if isinstance(valueSetter, str):
-                getattr(self.widget, valueSetter)(value)
+                getattr(widget, valueSetter)(value)
             else:
                 valueSetter(value)
             return 
         
         if isinstance(value, bool):
-            self.widget.setChecked(value)
+            widget.setChecked(value)
         elif isinstance(value, str):
             try:
-                self.widget.setCurrentText(value)
+                widget.setCurrentText(value)
             except AttributeError:
-                self.widget.setText(value)
+                widget.setText(value)
         elif isinstance(value, float) or isinstance(value, int):
-            self.widget.setValue(value)
+            widget.setValue(value)
 
     def tryChecking(self, label):
         try:
@@ -1133,7 +1256,11 @@ class formWidget(QWidget):
             return False
     
     def showInfo(self):
-        url = docs.param_name_to_url(self.text())
+        if self.confvalText:
+            url_key = self.confvalText
+        else:
+            url_key = self.text()
+        url = docs.param_name_to_url(url_key)
         
         msg = acdc_widgets.myMessageBox(wrapText=False)
         txt = f'{html_func.paragraph(self.infoHtmlText)}<br>'
@@ -1150,8 +1277,11 @@ class FormLayout(QGridLayout):
     def __init__(self):
         QGridLayout.__init__(self)
 
-    def addFormWidget(self, formWidget, row=0):
-        for col, item in enumerate(formWidget.items):
+    def _addItems(self, formWidget, row, items=None):
+        if items is None:
+            items = formWidget.items
+        
+        for col, item in enumerate(items):
             if item is None:
                 continue
             
@@ -1163,7 +1293,7 @@ class FormLayout(QGridLayout):
             
             if col==0:
                 alignment = Qt.AlignRight
-            elif col==2:
+            elif col==len(formWidget.items)-1:
                 alignment = Qt.AlignLeft
             else:
                 alignment = None
@@ -1174,7 +1304,34 @@ class FormLayout(QGridLayout):
                     self.addWidget(item, row, col, 1, colspan, alignment=alignment)
             except TypeError:
                 self.addLayout(item, row, col, 1, colspan)
+    
+    def _addItemsAsLayout(self, formWidget, row, items=None):
+        _layout = QHBoxLayout()
+        if items is None:
+            items = formWidget.items
+        colspan = len(items)
+        for col, item in enumerate(items):
+            if item is None:
+                continue
+            _layout.addWidget(item)
+            try:
+                _layout.setStretch(col, formWidget.stretchFactors[col])
+            except IndexError:
+                _layout.setStretch(col, 0)
+        
+        self.addLayout(_layout, row, 0, 1, colspan)
+    
+    def addFormWidget(self, formWidget, row=0):
+        if formWidget.stretchFactors is not None:
+            self._addItemsAsLayout(formWidget, row)
+            formWidget.adderFunc = self._addItemsAsLayout
+        else:
+            self._addItems(formWidget, row)
+            formWidget.adderFunc = self._addItems
+            
         formWidget.row = row
+        formWidget._layout = self
+        
 
 class ReadOnlyElidingLineEdit(acdc_widgets.ElidingLineEdit):
     def __init__(self, parent=None):
@@ -1954,17 +2111,21 @@ def ParamFormWidget(
         widgetFunc = globals()[attr]
     
     section = config.get_section_from_anchor(anchor)
-    labelTextLeft = param.get('desc', '')
-    key = (section, labelTextLeft)
+    confvalText = param.get('confvalText', param.get('desc', ''))
+    key = (section, confvalText)
     infoHtmlText = section_option_to_desc_mapper.get(key, '')
     
     return formWidget(
         widgetFunc(),
         anchor=anchor,
         labelTextLeft=param.get('desc', ''),
+        confvalText=param.get('confvalText', ''),
+        labelTextMiddle=param.get('labelTextMiddle', ''),
+        useEditableLabel=param.get('useEditableLabel', ''),
         initialVal=param.get('initialVal', None),
         stretchWidget=param.get('stretchWidget', True),
         addInfoButton=param.get('addInfoButton', True),
+        addAddFieldButton=param.get('addAddFieldButton', False),
         addComputeButton=param.get('addComputeButton', False),
         addWarningButton=param.get('addWarningButton', False),
         addApplyButton=param.get('addApplyButton', False),
@@ -1972,6 +2133,7 @@ def ParamFormWidget(
         isFolderBrowse=param.get('addBrowseButton', False),
         addAutoButton=param.get('addAutoButton', False),
         addEditButton=param.get('addEditButton', False),
+        stretchFactors=param.get('stretchFactors'),
         addLabel=param.get('addLabel', True),
         valueSetter=param.get('valueSetter'),
         disableComputeButtons=True,
@@ -2200,6 +2362,35 @@ class RunNumberSpinbox(SpinBox):
             return True
         return False
 
+class SetCustomCombinedMeasurement(QWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        
+        _layout = QVBoxLayout()
+        _layout.setContentsMargins(0, 0, 0, 0)
+        
+        self._nameLabel = QLabel('Expression')
+        self._nameLabel.setFont(font)
+        
+        self._entryWidget = SetValueFromFeaturesWidget()
+        
+        _layout.addWidget(self._nameLabel)
+        _layout.addWidget(self._entryWidget)
+        
+        self.setLayout(_layout)
+    
+    def setValue(self, value):
+        self._entryWidget.setText(str(value))
+    
+    def value(self):
+        return self._entryWidget.text()
+
+    def text(self):
+        return self.value()
+
+    def setText(self, text):
+        self.setValue(text)
+
 class SetValueFromFeaturesWidget(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -2255,6 +2446,9 @@ class SetValueFromFeaturesWidget(QWidget):
     
     def setValue(self, text):
         self.readOnlyLineEdit.setText(text)
+    
+    def setText(self, text):
+        self.setValue(text)
     
     def value(self):
         return self.readOnlyLineEdit.text()
@@ -2453,8 +2647,36 @@ class ExpandableGroupbox(QGroupBox):
             widget = item.widget()
             if widget is None:
                 continue
-            widget.setVisible(expanded)
+            widget.setVisible(expanded)       
+
+class EditableLabel(QWidget):
+    clicked = Signal(object)
+    
+    def __init__(self, name, parent=None):
+        super().__init__(parent)
         
+        _layout = QVBoxLayout()
+        _layout.setContentsMargins(0, 0, 0, 0)
+        
+        self._nameLabel = QLabel(name)
+        
+        self._lineEdit = acdc_widgets.alphaNumericLineEdit()
+        self._lineEdit.setAlignment(Qt.AlignCenter)
+        
+        _layout.addWidget(self._nameLabel)
+        _layout.addWidget(self._lineEdit)
+        
+        self.setLayout(_layout)
+    
+    def setValue(self, value):
+        self._lineEdit.setText(str(value))
+    
+    def value(self):
+        return self._lineEdit.text()
+
+    def text(self):
+        return self.value()
+
 
 def toClipboard(text):
     cb = QApplication.clipboard()

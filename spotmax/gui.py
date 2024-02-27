@@ -140,7 +140,17 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
-            pass
+            ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+            for section, section_options in ParamsGroupBox.params.items():
+                for anchor, options in section_options.items():
+                    printl(
+                        section, 
+                        anchor, 
+                        options['desc'], 
+                        options['initialVal'],
+                        options.get('loadedVal')
+                    )
+            ini_params = ParamsGroupBox.configIni
         super().keyPressEvent(event)
     
     def gui_setCursor(self, modifiers, event):

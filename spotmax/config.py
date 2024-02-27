@@ -22,7 +22,7 @@ if GUI_INSTALLED:
 else:
     from . import utils
 
-from . import io, colorItems_path, default_ini_path
+from . import io, colorItems_path
 
 class ConfigParser(configparser.ConfigParser):
     def __init__(self, *args, **kwargs):
@@ -175,6 +175,9 @@ def get_ridge_sigmas(text):
             'Pass either a single number or a list of numbers'
         )
     return sigmas
+
+def get_custom_combined_measurements(text):
+    ...
 
 class InvalidThresholdFunc:
     def __init__(self, func_name):
@@ -1173,6 +1176,28 @@ def _spotfit_params():
     }
     return spotfit_params
 
+def _custom_combined_measurements_params():
+    custom_combined_meas_params = {
+        'customCombinedMeas': {
+            'desc': 'Column name',
+            'confvalText': 'Custom combined measurement',
+            'initialVal': '',
+            'useEditableLabel': True,
+            'stretchFactors': (2, 0, 3, 0),
+            'addAddFieldButton': True,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'labelTextMiddle': '\n = ',
+            'formWidgetFunc': 'widgets.SetCustomCombinedMeasurement',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': str
+        },
+    }
+    return custom_combined_meas_params
+
 def get_section_from_anchor(anchor_to_search):
     params = analysisInputsParams()
     for section, section_params in params.items():
@@ -1188,11 +1213,12 @@ def getDefaultParams():
         'Reference channel': _ref_ch_params(),
         'Spots channel': _spots_ch_params(),
         'SpotFIT': _spotfit_params(),
+        'Custom combined measurements': _custom_combined_measurements_params(),
         'Configuration': _configuration_params()
     }
     return params
 
-def analysisInputsParams(params_path=default_ini_path, cast_dtypes=True):
+def analysisInputsParams(params_path=None, cast_dtypes=True):
     # NOTE: if you change the anchors (i.e., the key of each second level
     # dictionary, e.g., 'spotsEndName') remember to change them also in
     # _docs.paramsInfoText dictionary keys

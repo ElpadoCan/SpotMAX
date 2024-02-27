@@ -45,6 +45,9 @@ sharpening filter.
 * **5 percentile z-slice**: column name ``background_5_percentile_z_slice_spot_detection_image``.
 * **95 percentile**: column name ``background_95_percentile_spot_detection_image``.
 * **95 percentile z-slice**: column name ``background_95_percentile_z_slice_spot_detection_image``.
+* **Standard deviation**: column name ``background_std_spot_detection_image``.
+* **Standard deviation z-slice**: column name ``background_std_z_slice_spot_detection_image``.
+
 
 .. _Background metrics from raw intensities:
 
@@ -79,6 +82,8 @@ raw image.
 * **5 percentile z-slice**: column name ``background_5_percentile_z_slice_raw_image``.
 * **95 percentile**: column name ``background_95_percentile_raw_image``.
 * **95 percentile z-slice**: column name ``background_95_percentile_z_slice_raw_image``.
+* **Standard deviation**: column name ``background_std_raw_image``.
+* **Standard deviation z-slice**: column name ``background_std_z_slice_raw_image``.
 
 .. _Background metrics from preproc. intensities:
 
@@ -114,6 +119,8 @@ sharpening filter.
 * **5 percentile z-slice**: column name ``background_5_percentile_z_slice_preproc_image``.
 * **95 percentile**: column name ``background_95_percentile_preproc_image``.
 * **95 percentile z-slice**: column name ``background_95_percentile_z_slice_preproc_image``.
+* **Standard deviation**: column name ``background_std_preproc_image``.
+* **Standard deviation z-slice**: column name ``background_std_z_slice_preproc_image``.
 
 .. _Size of the spots metrics:
 
@@ -301,6 +308,7 @@ actual segmentation of the spots.
 * **75 percentile**: column name ``spot_raw_q75_in_spot_minimumsize_vol``.
 * **5 percentile**: column name ``spot_raw_q05_in_spot_minimumsize_vol``.
 * **95 percentile**: column name ``spot_raw_q95_in_spot_minimumsize_vol``.
+* **Standard deviation**: column name ``spot_raw_std_in_spot_minimumsize_vol``.
 
 
 Preprocessed intens. metrics
@@ -337,6 +345,7 @@ actual segmentation of the spots.
 * **75 percentile**: column name ``spot_preproc_q75_in_spot_minimumsize_vol``.
 * **5 percentile**: column name ``spot_preproc_q05_in_spot_minimumsize_vol``.
 * **95 percentile**: column name ``spot_preproc_q95_in_spot_minimumsize_vol``.
+* **Standard deviation**: column name ``spot_preproc_std_in_spot_minimumsize_vol``.
 
 .. _spotfit-features:
 

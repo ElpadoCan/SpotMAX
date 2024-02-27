@@ -430,6 +430,29 @@ class guiTabControl(QTabWidget):
         self.sender().setChecked(False)
     
     def setValuesFromParams(self, params):
+        # Check if we need to add new widgets for sections with addFieldButton
+        for section, section_options in params.items():
+            for anchor, options in section_options.items():
+                if not options.get('addAddFieldButton', False):
+                    continue
+                
+                splitted = anchor.split('_')
+                if len(splitted) == 1:
+                    continue
+                
+                parentAnchor = splitted[0]
+                fieldIdx = splitted[-1]
+                try:
+                    fieldIdx = int(fieldIdx)
+                except Exception as err:
+                    continue
+                
+                widget_options = (
+                    self.parametersQGBox.params[section][parentAnchor]
+                )
+                formWidget = widget_options['formWidget']                
+                formWidget.addField()
+        
         for section, anchorOptions in self.parametersQGBox.params.items():
             for anchor, options in anchorOptions.items():
                 formWidget = options['formWidget']
@@ -445,6 +468,11 @@ class guiTabControl(QTabWidget):
                 # printl(section, anchor, val)
                 valueSetter = params[section][anchor].get('valueSetter')
                 formWidget.setValue(val, valueSetter=valueSetter)
+                if formWidget.useEditableLabel:
+                    formWidget.labelLeft.setValue(
+                        params[section][anchor]['desc']
+                    )
+        
         self.parametersQGBox.updateMinSpotSize()
         spotsParams = self.parametersQGBox.params['Spots channel']
         spotPredMethodWidget = spotsParams['spotPredictionMethod']['widget']
@@ -475,6 +503,16 @@ class guiTabControl(QTabWidget):
         
         return False
     
+    def removeAddedFields(self):
+        sections = list(self.parametersQGBox.params.keys())
+        for section in sections:
+            anchorOptions = self.parametersQGBox.params[section]
+            anchors = list(anchorOptions.keys())
+            for anchor in anchors:
+                formWidget = anchorOptions[anchor]['formWidget']
+                if hasattr(formWidget, 'delFieldButton'):
+                    formWidget.delFieldButton.click()
+    
     def loadPreviousParams(self, filePath):
         self.logging_func(f'Loading analysis parameters from "{filePath}"...')
         acdc_myutils.addToRecentPaths(os.path.dirname(filePath))
@@ -482,6 +520,7 @@ class guiTabControl(QTabWidget):
         proceed = self.validateIniFile(filePath)
         if not proceed:
             return
+        self.removeAddedFields()
         params = config.analysisInputsParams(filePath, cast_dtypes=False)
         self.setValuesFromParams(params)
         self.parametersQGBox.setSelectedMeasurements(filePath)
@@ -1348,10 +1387,22 @@ class ParamsGroupBox(QGroupBox):
                 self.params[section][anchor]['widget'] = formWidget.widget
                 self.params[section][anchor]['formWidget'] = formWidget
                 self.params[section][anchor]['groupBox'] = groupBox
+                if formWidget.useEditableLabel:
+                    self.params[section][anchor]['desc'] = (
+                        formWidget.labelLeft.text()
+                    )
+                    
+                if formWidget.addFieldButton is not None:
+                    formWidget.sigAddField.connect(
+                        self.addFieldToParams
+                    )
+                    formWidget.sigRemoveField.connect(
+                        self.removeFieldFromParams
+                    )
                 
                 groupBox.formWidgets.append(formWidget)
 
-                isGroupChecked = param.get('isSectionInConfig', True)
+                isGroupChecked = param.get('isSectionInConfig', False)
                 groupBox.setChecked(isGroupChecked)
 
                 if param.get('editSlot') is not None:
@@ -1373,6 +1424,32 @@ class ParamsGroupBox(QGroupBox):
 
         self.setLayout(mainLayout)
         self.updateMinSpotSize()
+    
+    def addFieldToParams(self, formWidget):
+        if formWidget.fieldIdx == 0:
+            return
+        
+        section = formWidget.section
+        anchor = formWidget.anchor
+        groupBox = self.params[section][anchor]['groupBox']
+
+        defaultParams = config.getDefaultParams()
+        added_anchor = f'{anchor}_{formWidget.fieldIdx}'
+        self.params[section][added_anchor] = defaultParams[section][anchor]
+        anchor = added_anchor
+        
+        self.params[section][anchor]['widget'] = formWidget.widget
+        self.params[section][anchor]['formWidget'] = formWidget
+        self.params[section][anchor]['groupBox'] = groupBox        
+        if formWidget.useEditableLabel:
+            self.params[section][anchor]['desc'] = (
+                formWidget.labelLeft.text()
+            )   
+    
+    def removeFieldFromParams(self, section, anchor, fieldIdx):
+        if fieldIdx > 0:
+            anchor = f'{anchor}_{fieldIdx}'
+        self.params[section].pop(anchor)
     
     def addFoldersToAnalyse(self, formWidget):
         preSelectedPaths = formWidget.widget.text().split('\n')
@@ -1519,8 +1596,20 @@ class ParamsGroupBox(QGroupBox):
                 else:
                     value = widget.value()
                 
+                try:
+                    # Editable labels (see widgets.FormWidget) have dynamic 
+                    # text for the description
+                    formWidget = options['formWidget']
+                    desc = formWidget.labelLeft.text()
+                except Exception as err:
+                    desc = options['desc']
+                
+                if not desc:
+                    continue
+                
                 ini_params[section][anchor] = {
-                    'desc': options['desc'], 'loadedVal': value, 
+                    'desc': desc, 
+                    'loadedVal': value, 
                     'initialVal': initialVal
                 }
         

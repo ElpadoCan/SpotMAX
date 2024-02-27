@@ -9,11 +9,18 @@
 .. _GitHub page: https://github.com/ElpadoCan/spotMAX
 .. _BioImage Model Zoo: https://bioimage.io/#/
 .. _INI configuration file templates: https://github.com/ElpadoCan/spotMAX/tree/main/examples/ini_config_files_template
+.. _pandas.eval: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.eval.html
 
 .. |edit-button| image:: ../../../resources/icons/cog.svg
     :width: 20
 
 .. |compute| image:: ../images/compute.png
+    :width: 20
+
+.. |addIcon| image:: ../images/add.svg
+    :width: 20
+  
+.. |infoIcon| image:: ../images/info.svg
     :width: 20
     
 .. _params-desc:
@@ -589,7 +596,7 @@ Spots channel
   
   In the INI configuration file you could write
   
-  .. code-block:: 
+  .. code-block:: ini
     
     Features and thresholds for filtering true spots =
       spot_vs_ref_ch_ttest_pvalue, None, 0.025
@@ -768,7 +775,9 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. The 
+    mathematical expression must be a valid expression that can be evaluated 
+    with the Python library `pandas.eval`_.
 
   :type: string
   :default: ``0.5, spotsize_yx_radius_pxl``
@@ -782,7 +791,9 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. The 
+    mathematical expression must be a valid expression that can be evaluated 
+    with the Python library `pandas.eval`_.
   
   :type: string
   :default: ``0.5, spotsize_yx_radius_pxl``
@@ -796,7 +807,9 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. The 
+    mathematical expression must be a valid expression that can be evaluated 
+    with the Python library `pandas.eval`_.
 
   :type: string
   :default: ``0.5, spotsize_z_radius_pxl``
@@ -810,7 +823,8 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    are also allowed. 
+    are also allowed. The mathematical expression must be a valid expression 
+    that can be evaluated with the Python library `pandas.eval`_.
 
   :type: string
   :default: ``0.0, spotsize_A_max``
@@ -824,7 +838,8 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    are also allowed. 
+    are also allowed. The mathematical expression must be a valid expression 
+    that can be evaluated with the Python library `pandas.eval`_.
 
   :type: string
   :default: ``spot_B_min, inf``
@@ -838,7 +853,9 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. The 
+    mathematical expression must be a valid expression that can be evaluated 
+    with the Python library `pandas.eval`_.
 
   :type: string
   :default: ``spotsize_initial_radius_yx_pixel``
@@ -852,7 +869,9 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. The 
+    mathematical expression must be a valid expression that can be evaluated 
+    with the Python library `pandas.eval`_.
 
   :type: string
   :default: ``spotsize_initial_radius_yx_pixel``
@@ -866,7 +885,9 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. The 
+    mathematical expression must be a valid expression that can be evaluated 
+    with the Python library `pandas.eval`_.
 
   :type: string
   :default: ``spotsize_initial_radius_z_pixel``
@@ -880,7 +901,9 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. The 
+    mathematical expression must be a valid expression that can be evaluated 
+    with the Python library `pandas.eval`_.
 
   :type: string
   :default: ``spotsize_A_max``
@@ -894,10 +917,57 @@ SpotFIT
 
     For the values you can specify any mathematical combination of the 
     available single spot features (see :ref:`single-spot-features`). Numbers 
-    and ``± inf`` (i.e., no lower-upper limit) are also allowed. 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. The 
+    mathematical expression must be a valid expression that can be evaluated 
+    with the Python library `pandas.eval`_.
 
   :type: string
   :default: ``spotsize_surface_median``
+
+.. _custom_combined_meas:
+
+Custom combined measurements
+----------------------------
+
+.. confval:: Custom combined measurement
+
+  Here you can define as many single-spot custom combined measurement as you 
+  want. These new measurements can then be used as features to filter valid 
+  spots using the :confval:`Features and thresholds for filtering true spots` 
+  parameter. Custom combined measurements can also be used to define subsequent 
+  measurements.
+  
+  First, you need to decide on a new column name for the metric 
+  (only undescores, letters, and numbers are allowed). Next, you need to define 
+  a mathematical expression that combines one or more existing metrics. 
+  See the section :ref:`single-spot-features` for more details on the available 
+  metrics. 
+
+  The combined measurements can be defined in the GUI or directly in the INI 
+  configuration file in a new section called ``[Custom combined measurements]``. 
+  
+  In this example you can see two custom measurements as they are defined in 
+  the INI parameters file:
+
+  .. code-block:: ini
+    
+    [Custom combined measurements]
+    spot_peak_to_backgr_ratio = spot_raw_max_in_spot_minimumsize_vol/background_median_z_slice_raw_image
+    spot_IQR = spot_raw_q75_in_spot_minimumsize_vol - spot_raw_q25_in_spot_minimumsize_vol
+
+  To add new measurements, in the GUI click on the |addIcon| ``Add button`` 
+  beside the |infoIcon| ``Info button``.
+
+  .. note::
+
+    For the values you can specify any mathematical combination of the 
+    available single spot features (see :ref:`single-spot-features`). Numbers 
+    and ``± inf`` (i.e., no lower-upper limit) are also allowed. The 
+    mathematical expression must be a valid expression that can be evaluated 
+    with the Python library `pandas.eval`_.
+
+  :type: str
+  :default: ````
 
 .. _config-params:
 
