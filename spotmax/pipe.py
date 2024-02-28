@@ -1158,7 +1158,7 @@ def _replace_None_with_empty_dfs(dfs_spots_gop):
         return dfs_spots_gop
     
     if df_template is None:
-        import pdb; pdb.set_trace()
+        return dfs_spots_gop
         
     empty_df = pd.DataFrame({
         col:pd.Series(dtype=df_template[col].dtype) 

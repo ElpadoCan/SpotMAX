@@ -4555,8 +4555,6 @@ class Kernel(_ParamsParser):
         df_spots_det = pd.concat(
             dfs_lists['dfs_spots_detection'], keys=keys, names=names
         )
-        if 'closest_ID' in df_spots_det:
-            df_spots_det['closest_ID'] = df_spots_det['closest_ID'].astype(int)
         
         df_spots_gop = pd.concat(
             dfs_lists['dfs_spots_gop_test'], keys=keys, names=names
