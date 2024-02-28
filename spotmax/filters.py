@@ -297,6 +297,7 @@ def global_semantic_segmentation(
         return_only_output_mask=False, 
         do_try_all_thresholds=True,
         pre_aggregated=False,
+        x_slice_idxs=None,
         bioimageio_model=None,
         bioimageio_params=None,
         bioimageio_input_image=None
@@ -311,6 +312,9 @@ def global_semantic_segmentation(
         threshold_func=threshold_func, try_all=do_try_all_thresholds
     )
     
+    if x_slice_idxs is None:
+        pre_aggregated = False
+    
     if pre_aggregated:
         aggr_img = image
         aggregated_lab = lab
@@ -319,9 +323,10 @@ def global_semantic_segmentation(
         aggregated = transformations.aggregate_objs(
             image, lab, lineage_table=lineage_table, 
             zyx_tolerance=zyx_tolerance,
-            additional_imgs_to_aggr=[nnet_input_data, bioimageio_input_image]
+            additional_imgs_to_aggr=[nnet_input_data, bioimageio_input_image], 
+            return_x_slice_idxs=True 
         )
-        aggr_img, aggregated_lab, aggr_imgs = aggregated
+        aggr_img, aggregated_lab, aggr_imgs, x_slice_idxs = aggregated
         aggr_transf_spots_nnet_img = aggr_imgs[0]
         aggr_transf_spots_bioimageio_img = aggr_imgs[1]
     
@@ -361,8 +366,8 @@ def global_semantic_segmentation(
             keep_subobj_intact = keep_objects_touching_lab_intact
             reindexed_result[method] = (
                 transformations.index_aggregated_segm_into_input_lab(
-                    lab, aggr_segm, aggregated_lab, 
-                    keep_objects_touching_lab_intact=keep_subobj_intact
+                    lab, aggr_segm, aggregated_lab, x_slice_idxs,
+                    keep_objects_touching_lab_intact=keep_subobj_intact, 
             ))
         result = reindexed_result
         if return_image:

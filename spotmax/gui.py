@@ -309,6 +309,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.computeDockWidget.widget().sigRunAnalysis.connect(
             self.runAnalysis
         )
+        self.computeDockWidget.widget().sigParametersLoaded.connect(
+            self.parametersLoaded
+        )
         self.addSpotsCoordinatesAction.triggered.connect(
             self.addSpotsCoordinatesTriggered
         )
@@ -450,6 +453,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.measurementsMenu.setDisabled(False)
         self.setMeasurementsAction.setText('Set Cell-ACDC measurements...')
+        
+        self.lastLoadedIniFilepath = None
+    
+    def parametersLoaded(self, ini_filepath):
+        self.lastLoadedIniFilepath = ini_filepath
     
     def showComputeDockWidget(self, checked=False):
         if self.showParamsDockButton.isExpand:
@@ -625,6 +633,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.setFocusGraphics()
         
         self.modeToolBar.setVisible(False)
+        
+        QTimer.singleShot(300, self.autoRange)
     
     def enableZstackWidgets(self, enabled):
         super().enableZstackWidgets(enabled)
@@ -2136,7 +2146,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         spotsParams = ParamsGroupBox.params['Spots channel']
         spotPredictionMethodWidget = spotsParams[anchor]['widget']
         spotPredictionMethodWidget.setDefaultPixelWidth(value)
-    
+
     def connectParamsGroupBoxSignals(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         for section, params in ParamsGroupBox.params.items():
@@ -2489,7 +2499,34 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         spotPredictionMethodWidget.setDefaultUseGpu(use_gpu)
     
+    def checkLoadLoadedIniFilepath(self):
+        if self.lastLoadedIniFilepath is None:
+            return True
+        
+        txt = html_func.paragraph(f"""
+            You previously loaded parameters from this file:<br><br>
+            <code>{self.lastLoadedIniFilepath}</code><br><br>
+            Do you want to <b>update them</b> based on the loaded Position folder?
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        _, _, yesButton = msg.warning(
+            self, 'Update parameters?', txt, 
+            buttonsTexts=(
+                'Cancel', 
+                'No, keep the parameters as they are', 
+                'Yes, update them'
+            ), 
+            path_to_browse=os.path.dirname(self.lastLoadedIniFilepath)
+        )
+        return msg.clickedButton == yesButton
+    
     def setAnalysisParameters(self):
+        proceed = self.checkLoadLoadedIniFilepath()
+        if not proceed:
+            self.logger.info(
+                'Initializing parameters from Position folder cancelled.'
+            )
+            return
         paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
         posData = self.data[self.pos_i]
         self.computeDockWidget.widget().loadPreviousParamsButton.setStartPath(

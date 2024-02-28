@@ -152,7 +152,10 @@ def get_aggregate_obj_slice(
     )
     return obj_slice
 
-def _aggregate_objs(img_data, lab, zyx_tolerance=None, debug=False):
+def _aggregate_objs(
+        img_data, lab, zyx_tolerance=None, debug=False, 
+        return_x_slice_idxs=False
+    ):
     # Add tolerance based on resolution limit
     if zyx_tolerance is not None:
         dz, dy, dx = zyx_tolerance
@@ -178,7 +181,10 @@ def _aggregate_objs(img_data, lab, zyx_tolerance=None, debug=False):
         max_depth = Z
     if max_height > Y:
         max_height = Y
-
+    
+    if return_x_slice_idxs:
+        x_slice_idxs = []
+    
     # Aggregate data horizontally by slicing object centered at 
     # centroid and using largest object as slicing box
     aggr_shape = (max_depth, max_height, tot_width)
@@ -199,16 +205,23 @@ def _aggregate_objs(img_data, lab, zyx_tolerance=None, debug=False):
         )
         obj_width = obj_slice[-1].stop - obj_slice[-1].start
         excess_width += w - obj_width
-        aggregated_img[:, :, last_w:last_w+obj_width] = img_data[obj_slice]
+        slice_x_end = last_w+obj_width
+        aggregated_img[:, :, last_w:slice_x_end] = img_data[obj_slice]
         obj_lab = lab[obj_slice].copy()
         obj_lab[obj_lab != obj.label] = 0
-        aggregated_lab[:, :, last_w:last_w+obj_width] = obj_lab
+        aggregated_lab[:, :, last_w:slice_x_end] = obj_lab
         last_w += obj_width
+        if return_x_slice_idxs:
+            x_slice_idxs.append(slice_x_end)
     if excess_width > 0:
         # Trim excess width result of adding dx to all objects
         aggregated_img = aggregated_img[..., :-excess_width]
         aggregated_lab = aggregated_lab[..., :-excess_width]
-    return aggregated_img, aggregated_lab
+    
+    if return_x_slice_idxs:
+        return aggregated_img, aggregated_lab, x_slice_idxs
+    else:
+        return aggregated_img, aggregated_lab
 
 def _merge_moth_bud(lineage_table, lab, return_bud_images=False):
     if lineage_table is None:
@@ -260,14 +273,16 @@ def _separate_moth_buds(lab_merged, bud_images):
 
 def aggregate_objs(
         img_data, lab, zyx_tolerance=None, return_bud_images=True, 
-        additional_imgs_to_aggr=None, lineage_table=None, debug=False
+        additional_imgs_to_aggr=None, lineage_table=None, debug=False, 
+        return_x_slice_idxs=False
     ):
     lab_merged, bud_images = _merge_moth_bud(
         lineage_table, lab, return_bud_images=return_bud_images
     )
         
-    aggregated_img, aggregated_lab = _aggregate_objs(
-        img_data, lab_merged, zyx_tolerance=zyx_tolerance, debug=debug
+    aggregated_img, aggregated_lab, x_slice_idxs = _aggregate_objs(
+        img_data, lab_merged, zyx_tolerance=zyx_tolerance, debug=debug, 
+        return_x_slice_idxs=True
     )
     if additional_imgs_to_aggr is not None:
         additional_aggr_imgs = []
@@ -290,7 +305,10 @@ def aggregate_objs(
     aggregated_lab = _separate_moth_buds(
         aggregated_lab, bud_images
     )
-    return aggregated_img, aggregated_lab, additional_aggr_imgs
+    if return_x_slice_idxs:
+        return aggregated_img, aggregated_lab, additional_aggr_imgs, x_slice_idxs
+    else:
+        return aggregated_img, aggregated_lab, additional_aggr_imgs
 
 class SliceImageFromSegmObject:
     def __init__(self, lab, lineage_table=None):
@@ -425,50 +443,58 @@ def deaggregate_img(aggr_img, aggregated_lab, lab):
     return deaggr_img
 
 def index_aggregated_segm_into_input_lab(
-        lab, aggregated_segm, aggregated_lab, 
+        lab, aggregated_segm, aggregated_lab, x_slice_idxs,
         keep_objects_touching_lab_intact=False
-    ):
+    ):    
+    with open('x_slice_idxs.txt', 'w') as txt:
+        txt.write(str(x_slice_idxs))
+        
     subobj_labels = np.zeros_like(lab)
     rp = skimage.measure.regionprops(lab)
     obj_idxs = {obj.label:obj for obj in rp}
+    aggr_rp = skimage.measure.regionprops(aggregated_lab)
+    aggr_obj_idxs = {aggr_obj.label:aggr_obj for aggr_obj in aggr_rp}
     if not keep_objects_touching_lab_intact:
-        aggr_rp = skimage.measure.regionprops(aggregated_lab)
-        aggr_subobj_lab = aggregated_segm.copy().astype(np.uint32)
-        aggr_subobj_lab[aggregated_lab == 0] = 0
-        aggr_obj_origin = {}
-        for aggr_obj in aggr_rp:
-            mask = np.logical_and(aggr_obj.image, aggr_subobj_lab[aggr_obj.slice])
-            aggr_subobj_lab[aggr_obj.slice][mask] = aggr_obj.label
-            aggr_obj_origin[aggr_obj.label] = aggr_obj.bbox[:3]
-        aggr_segm_rp = skimage.measure.regionprops(aggr_subobj_lab)
-        for aggr_segm_obj in aggr_segm_rp:
-            obj = obj_idxs[aggr_segm_obj.label]
-            z0, y0, x0 = aggr_obj_origin[aggr_segm_obj.label]
-            local_coords = aggr_segm_obj.coords - (z0, y0, x0)
-            global_coords = local_coords + obj.bbox[:3]
-            zz, yy, xx = (
-                global_coords[:,0], 
-                global_coords[:,1], 
-                global_coords[:,2]
-            )
-            subobj_labels[zz, yy, xx] = obj.label
-    else:
-        aggr_subobj_lab = skimage.measure.label(aggregated_segm>0)
-        aggr_subobj_rp = skimage.measure.regionprops(aggr_subobj_lab)
-        for subobj in aggr_subobj_rp:
-            masked = aggregated_lab[subobj.slice][subobj.image]
-            unique_vals, counts = np.unique(masked, return_counts=True)
-            unique_foregr_vals_mask = unique_vals>0
-            unique_foregr_vals = unique_vals[unique_foregr_vals_mask]
-            counts_foregr = counts[unique_foregr_vals_mask]
-            if unique_foregr_vals.size == 0:
-                # Sub object is not touching any obj --> do not add
-                continue
-            
-            max_count_idx = counts_foregr.argmax()
-            ID = unique_foregr_vals[max_count_idx]
-            
-            subobj_labels[subobj.slice][subobj.image] = ID
+        aggregated_segm[aggregated_lab == 0] = False
+    
+    aggr_subobj_lab = np.zeros(aggregated_segm.shape, dtype=np.uint32)
+    
+    start_x_slice = 0
+    last_max_id = 0
+    for end_x_slice in x_slice_idxs:
+        sliced_subobj_mask = aggregated_segm[..., start_x_slice:end_x_slice] > 0
+        sliced_subobj_lab = skimage.measure.label(sliced_subobj_mask)
+        sliced_subobj_lab[sliced_subobj_mask] = (
+            sliced_subobj_lab[sliced_subobj_mask] + last_max_id
+        )
+        aggr_subobj_lab[..., start_x_slice:end_x_slice] = sliced_subobj_lab
+        last_max_id = sliced_subobj_lab.max()
+        start_x_slice = end_x_slice
+    
+    aggr_subobj_rp = skimage.measure.regionprops(aggr_subobj_lab)
+    for subobj in aggr_subobj_rp:
+        masked = aggregated_lab[subobj.slice][subobj.image]
+        unique_vals, counts = np.unique(masked, return_counts=True)
+        unique_foregr_vals_mask = unique_vals>0
+        unique_foregr_vals = unique_vals[unique_foregr_vals_mask]
+        counts_foregr = counts[unique_foregr_vals_mask]
+        if unique_foregr_vals.size == 0:
+            # Sub object is not touching any obj --> do not add
+            continue
+        
+        max_count_idx = counts_foregr.argmax()
+        ID = unique_foregr_vals[max_count_idx]
+        obj = obj_idxs[ID]
+        aggr_obj = aggr_obj_idxs[ID]
+        z0, y0, x0 = aggr_obj.bbox[:3]
+        sub_obj_local_coords = subobj.coords - (z0, y0, x0)
+        sub_obj_global_coords = sub_obj_local_coords + obj.bbox[:3]
+        zz, yy, xx = (
+            sub_obj_global_coords[:,0], 
+            sub_obj_global_coords[:,1], 
+            sub_obj_global_coords[:,2]
+        )
+        subobj_labels[zz, yy, xx] = ID
     
     return subobj_labels
 

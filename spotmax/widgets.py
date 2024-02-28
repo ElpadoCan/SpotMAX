@@ -833,9 +833,13 @@ class SpotPredictionMethodWidget(QWidget):
     
     def nnet_params_from_ini_sections(self, ini_params):
         from spotmax.nnet.model import get_model_params_from_ini_params
-        self.nnetParams = get_model_params_from_ini_params(
+        nnetParams = get_model_params_from_ini_params(
             ini_params, use_default_for_missing=True
         )
+        if nnetParams is None:
+            return
+        
+        self.nnetParams = nnetParams
     
     def bioimageio_params_from_ini_sections(self, ini_params):
         from spotmax.BioImageIO.model import get_model_params_from_ini_params

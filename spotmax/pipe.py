@@ -102,6 +102,7 @@ def spots_semantic_segmentation(
         do_try_all_thresholds=True,
         return_only_segm=False,
         pre_aggregated=False,
+        x_slice_idxs=None,
         raw_image=None
     ):  
     """Pipeline to perform semantic segmentation on the spots channel, 
@@ -193,6 +194,8 @@ def spots_semantic_segmentation(
     pre_aggregated : bool, optional
         If True and do_aggregate is True, run segmentation on the entire input 
         image without aggregating segmented objects. Default is False
+    x_slice_idxs : list, optional
+        ...
     raw_image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
         If not None, neural network and BioImage.IO models will segment 
         the raw image. Default is None
@@ -277,6 +280,7 @@ def spots_semantic_segmentation(
             do_try_all_thresholds=do_try_all_thresholds,
             return_only_output_mask=return_only_segm,
             pre_aggregated=pre_aggregated,
+            x_slice_idxs=x_slice_idxs,
             bioimageio_model=bioimageio_model,
             bioimageio_params=bioimageio_params,
             bioimageio_input_image=raw_image
@@ -321,6 +325,7 @@ def reference_channel_semantic_segm(
         bioimageio_params=None,
         raw_image=None,
         pre_aggregated=False,
+        x_slice_idxs=None,
         show_progress=False
     ):    
     """Pipeline to segment the reference channel.
@@ -390,6 +395,8 @@ def reference_channel_semantic_segm(
     pre_aggregated : bool, optional
         If True and do_aggregate is True, run segmentation on the entire input 
         image without aggregating segmented objects. Default is False
+    x_slice_idxs : list, optional
+        ...
     raw_image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
         If not None, neural network and BioImage.IO models will segment 
         the raw image. Default is None
@@ -457,6 +464,7 @@ def reference_channel_semantic_segm(
             return_only_output_mask=return_only_segm,
             do_try_all_thresholds=do_try_all_thresholds,
             pre_aggregated=pre_aggregated,
+            x_slice_idxs=x_slice_idxs,
             bioimageio_model=bioimageio_model,
             bioimageio_params=bioimageio_params,
             bioimageio_input_image=raw_image

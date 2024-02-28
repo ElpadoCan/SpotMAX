@@ -274,6 +274,7 @@ class guiQuickSettingsGroupbox(QGroupBox):
 class guiTabControl(QTabWidget):
     sigRunAnalysis = Signal(str, bool)
     sigSetMeasurements = Signal()
+    sigParametersLoaded = Signal(str)
 
     def __init__(self, parent=None, logging_func=print):
         super().__init__(parent)
@@ -525,6 +526,7 @@ class guiTabControl(QTabWidget):
         self.setValuesFromParams(params)
         self.parametersQGBox.setSelectedMeasurements(filePath)
         self.showParamsLoadedMessageBox()
+        self.sigParametersLoaded.emit(filePath)
         if self.parametersQGBox.selectedMeasurements is None:
             QTimer.singleShot(100, self.loadPreviousParamsButton.confirmAction)
             return

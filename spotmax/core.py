@@ -3730,9 +3730,10 @@ class Kernel(_ParamsParser):
             sharp_spots_img, lab, lineage_table=lineage_table, 
             zyx_tolerance=self.metadata['deltaTolerance'],
             additional_imgs_to_aggr=[spots_ch_segm_mask, transf_spots_nnet_img],
-            debug=self.debug
+            debug=self.debug, 
+            return_x_slice_idxs=True
         )
-        aggr_spots_img, aggregated_lab, aggr_imgs = aggregated
+        aggr_spots_img, aggregated_lab, aggr_imgs, x_slice_idxs = aggregated
         aggr_spots_ch_segm_mask = aggr_imgs[0]
         aggr_transf_spots_nnet_img = aggr_imgs[1]
         
@@ -3757,6 +3758,7 @@ class Kernel(_ParamsParser):
                 keep_input_shape=True,
                 return_only_segm=True,
                 pre_aggregated=True,
+                x_slice_idxs=x_slice_idxs,
                 raw_image=raw_spots_img
             )
         
