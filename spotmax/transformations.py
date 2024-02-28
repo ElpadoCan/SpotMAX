@@ -602,11 +602,11 @@ def to_local_zyx_coords(obj, global_zyx_coords):
 def init_df_features(
         df_spots_coords, obj, crop_obj_start, spots_zyx_radii, ID=None
     ):
-    if obj.label not in df_spots_coords.index:
-        return None, []
-    
     if ID is None:
         ID = obj.label
+        
+    if obj.label not in df_spots_coords.index:
+        return None, []
     
     local_peaks_coords = (
         df_spots_coords.loc[[ID], ZYX_LOCAL_COLS]
@@ -799,7 +799,7 @@ def add_closest_ID_col(df_spots_coords, lab, zyx_coords_cols):
         return df_spots_coords
     
     df_spots_coords['closest_ID'] = df_spots_coords.index.to_list()
-    zyx_coords = df_spots_coords.loc[0, zyx_coords_cols].to_numpy()
+    zyx_coords = df_spots_coords.loc[[0], zyx_coords_cols].to_numpy()
     closest_IDs = []
     for zc, yc, xc in zyx_coords:
         if lab.ndim == 3:
@@ -809,7 +809,7 @@ def add_closest_ID_col(df_spots_coords, lab, zyx_coords_cols):
         
         closest_ID = cellacdc.core.nearest_nonzero_2D(lab_2D, yc, xc)
         closest_IDs.append(closest_ID)
-    df_spots_coords.loc[0, 'closest_ID'] = closest_IDs
+    df_spots_coords.loc[[0], 'closest_ID'] = closest_IDs
     return df_spots_coords
     
         

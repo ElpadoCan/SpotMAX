@@ -1157,6 +1157,9 @@ def _replace_None_with_empty_dfs(dfs_spots_gop):
     if not None_idxs:
         return dfs_spots_gop
     
+    if df_template is None:
+        import pdb; pdb.set_trace()
+        
     empty_df = pd.DataFrame({
         col:pd.Series(dtype=df_template[col].dtype) 
         for col in df_template.columns}
@@ -1171,7 +1174,7 @@ def _init_df_spots_IDs_0(
         df_spots_coords, lab, rp, delta_tol, spots_zyx_radii_pxl, 
         last_spot_id
     ):
-    closest_IDs = df_spots_coords.loc[0, 'closest_ID'].to_list()
+    closest_IDs = df_spots_coords.loc[[0], 'closest_ID'].to_list()
     IDs = [obj.label for obj in rp]
     dfs_spots_IDs_0 = {}
     for closest_ID in closest_IDs:
@@ -1188,7 +1191,8 @@ def _init_df_spots_IDs_0(
             df_spots_closest_ID, obj_closest_ID, crop_obj_start_closest_ID, 
             spots_zyx_radii_pxl, ID=0
         )
-        df_spots_IDs_0['spot_id'] += last_spot_id
+        if df_spots_IDs_0 is None:
+            continue
         last_spot_id = df_spots_IDs_0['spot_id'].max()
         dfs_spots_IDs_0[closest_ID] = (
             df_spots_IDs_0.set_index('spot_id').sort_index()
