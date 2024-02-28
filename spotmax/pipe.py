@@ -46,7 +46,7 @@ def preprocess_image(
             image, spots_zyx_radii_pxl, use_gpu=use_gpu, 
             logger_func=logger_func
         )
-    elif gauss_sigma>0:
+    elif gauss_sigma != 0:
         image = filters.gaussian(
             image, gauss_sigma, use_gpu=use_gpu, logger_func=logger_func
         )
@@ -88,6 +88,7 @@ def spots_semantic_segmentation(
         do_remove_hot_pixels=False,
         lineage_table=None,
         do_aggregate=True,
+        keep_objects_touching_lab_intact=True,
         use_gpu=False,
         logger_func=print,
         thresholding_method=None,
@@ -143,6 +144,11 @@ def spots_semantic_segmentation(
         https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
     do_aggregate : bool, optional
         If True, perform segmentation on all the cells at once. Default is True
+    keep_objects_touching_lab_intact : bool, optional
+        If True, objects that are partially touching any of the segmentation 
+        masks present in `lab` will be entirely kept. If False, the part of 
+        these objects that is outside of the segmentation masks will be 
+        removed. Default is True
     use_gpu : bool, optional
         If True, some steps will run on the GPU, potentially speeding up the 
         computation. Default is False
@@ -257,12 +263,16 @@ def spots_semantic_segmentation(
             spots_zyx_radii_pxl
         )
         result = filters.global_semantic_segmentation(
-            image, lab, lineage_table=lineage_table, 
+            image, lab, 
+            lineage_table=lineage_table, 
             zyx_tolerance=zyx_tolerance, 
             threshold_func=thresholding_method, 
-            logger_func=logger_func, return_image=True,
+            logger_func=logger_func, 
+            return_image=True,
             keep_input_shape=keep_input_shape,
-            nnet_model=nnet_model, nnet_params=nnet_params,
+            keep_objects_touching_lab_intact=keep_objects_touching_lab_intact,
+            nnet_model=nnet_model,
+            nnet_params=nnet_params,
             nnet_input_data=nnet_input_data,
             do_try_all_thresholds=do_try_all_thresholds,
             return_only_output_mask=return_only_segm,
@@ -273,9 +283,13 @@ def spots_semantic_segmentation(
         )
     else:
         result = filters.local_semantic_segmentation(
-            image, lab, threshold_func=thresholding_method, 
-            lineage_table=lineage_table, return_image=True,
-            nnet_model=nnet_model, nnet_params=nnet_params,
+            image, lab, 
+            threshold_func=thresholding_method, 
+            lineage_table=lineage_table, 
+            return_image=True,
+            clear_outside_objs=not keep_objects_touching_lab_intact,
+            nnet_model=nnet_model, 
+            nnet_params=nnet_params,
             nnet_input_data=nnet_input_data,
             do_try_all_thresholds=do_try_all_thresholds,
             return_only_output_mask=return_only_segm,
@@ -438,6 +452,7 @@ def reference_channel_semantic_segm(
             threshold_func=thresholding_method, 
             logger_func=logger_func, return_image=True,
             keep_input_shape=keep_input_shape,
+            keep_objects_touching_lab_intact=False,
             ridge_filter_sigmas=ridge_filter_sigmas,
             return_only_output_mask=return_only_segm,
             do_try_all_thresholds=do_try_all_thresholds,
@@ -448,9 +463,12 @@ def reference_channel_semantic_segm(
         )
     else:
         result = filters.local_semantic_segmentation(
-            image, lab, threshold_func=thresholding_method, 
-            lineage_table=lineage_table, return_image=True,
-            do_max_proj=False, clear_outside_objs=True,
+            image, lab, 
+            threshold_func=thresholding_method, 
+            lineage_table=lineage_table, 
+            return_image=True,
+            do_max_proj=False, 
+            clear_outside_objs=True,
             ridge_filter_sigmas=ridge_filter_sigmas,
             return_only_output_mask=return_only_segm,
             do_try_all_thresholds=do_try_all_thresholds,
@@ -485,6 +503,27 @@ def _add_spot_vs_ref_location(ref_ch_mask, zyx_center, df, idx):
     )
     df.at[idx, 'spot_dist_2D_from_ref_ch'] = dist_2D_from_ref_ch
 
+def _debug_compute_obj_spots_features(
+        row, raw_spots_img_obj, zyx_center, sharp_spot_obj_z, 
+        backgr_mask_z_spot, spheroids_mask
+    ):
+    print('')
+    zyx_local = tuple(
+        [getattr(row, col) for col in ZYX_LOCAL_COLS]
+    )
+    zyx_global = tuple(
+        [getattr(row, col) for col in ZYX_GLOBAL_COLS]
+    )
+    print(f'Local coordinates = {zyx_local}')
+    print(f'Global coordinates = {zyx_global}')
+    print(f'Spot raw intensity at center = {raw_spots_img_obj[zyx_center]}')
+    from ._debug import _compute_obj_spots_metrics
+    win = _compute_obj_spots_metrics(
+        sharp_spot_obj_z, backgr_mask_z_spot, 
+        spheroids_mask[zyx_center[0]], 
+        zyx_center[1:], block=False
+    )
+
 def _compute_obj_spots_features(
         spots_img_obj, 
         df_obj_spots, 
@@ -499,6 +538,7 @@ def _compute_obj_spots_features(
         ref_ch_img_obj=None, 
         zyx_resolution_limit_pxl=None, 
         get_backgr_from_inside_ref_ch_mask=False,
+        custom_combined_measurements=None,
         logger_func=print,
         show_progress=True,
         debug=False
@@ -565,6 +605,12 @@ def _compute_obj_spots_features(
         Resolution limit in (z, y, x) direction in pixels. Default is None. 
         If `min_size_spheroid_mask` is None, this will be used to computed 
         the boolean mask of the smallest spot expected.
+    custom_combined_measurements : dict or None, optional
+        If not None, this is a dictionary of new column names as keys and 
+        mathematical expressions that combines standard single-spot features. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
     logger_func : callable, optional
         Function used to print or log process information. Default is print
     debug : bool, optional
@@ -672,21 +718,9 @@ def _compute_obj_spots_features(
             continue
         
         if debug:
-            print('')
-            zyx_local = tuple(
-                [getattr(row, col) for col in ZYX_LOCAL_COLS]
-            )
-            zyx_global = tuple(
-                [getattr(row, col) for col in ZYX_GLOBAL_COLS]
-            )
-            print(f'Local coordinates = {zyx_local}')
-            print(f'Global coordinates = {zyx_global}')
-            print(f'Spot raw intensity at center = {raw_spots_img_obj[zyx_center]}')
-            from ._debug import _compute_obj_spots_metrics
-            win = _compute_obj_spots_metrics(
-                sharp_spot_obj_z, backgr_mask_z_spot, 
-                spheroids_mask[zyx_center[0]], 
-                zyx_center[1:], block=False
+            _debug_compute_obj_spots_features(
+                row, raw_spots_img_obj, zyx_center, sharp_spot_obj_z, 
+                backgr_mask_z_spot, spheroids_mask
             )
 
         # Add spot volume from mask
@@ -822,6 +856,13 @@ def _compute_obj_spots_features(
         pbar.close()
     if spot_ids_to_drop:
         df_obj_spots = df_obj_spots.drop(index=spot_ids_to_drop)
+    
+    if custom_combined_measurements is not None:
+        df_obj_spots = features.add_custom_combined_measurements(
+            df_obj_spots, logger_func=logger_func, 
+            **custom_combined_measurements,   
+        )
+    
     return df_obj_spots
 
 def compute_spots_features(
@@ -989,7 +1030,8 @@ def spot_detection(
         (N, 3) array of integers where each row is the (z, y, x) coordinates 
         of one peak. Returned only if `return_df` is False
     
-    df_coords : pandas.DataFrame with Cell_ID as index and columns 
+    df_coords : pandas.DataFrame 
+        DataFrame with Cell_ID as index and columns 
         {'z', 'y', 'x'} with the detected spots coordinates.
         Returned only if `return_df` is True
     
@@ -1071,6 +1113,75 @@ def spot_detection(
     else:
         return spots_coords, spots_masks
 
+def _replace_None_with_empty_dfs(dfs_spots_gop):
+    """Replace Nones in `dfs_spots_gop` with empty DataFrames
+
+    Parameters
+    ----------
+    dfs_spots_gop : list
+        List of DataFrames as calculated in `pipe.spots_calc_features_and_filter` 
+
+    Returns
+    -------
+    list
+        List of DataFrames as calculated in `pipe.spots_calc_features_and_filter`
+        with Nones replaced with empty DataFrames
+    
+    Notes
+    -----
+    When the spot center does not lie on a segmented object but its mask still 
+    touches it we keep those spots with Cell_ID = 0. However, we keep them 
+    only in the detected spots and we dropped them for the valid spots. 
+    To achieve this, in `pipe.spots_calc_features_and_filter` we temporarily 
+    place None in the `dfs_spots_gop` and we replace the Nones with empty 
+    DataFrames in order to use the same keys for both `dfs_spots_gop` and 
+    `dfs_spots_det` (where `dfs_spots_det` keys might be (frame_i, 0))
+    
+    """    
+    None_idxs = []
+    df_template = None
+    for d, df in enumerate(dfs_spots_gop):
+        if df is not None:
+            df_template = df
+        else:
+            None_idxs.append(d)
+    
+    if not None_idxs:
+        return dfs_spots_gop
+    
+    empty_df = pd.DataFrame({
+        col:pd.Series(dtype=df_template[col].dtype) 
+        for col in df_template.columns}
+    )
+    for i in None_idxs:
+        dfs_spots_gop[i] = empty_df
+    
+    return dfs_spots_gop
+    
+
+def _init_df_spots_IDs_0(
+        df_spots_coords, lab, rp, delta_tol, spots_zyx_radii_pxl
+    ):
+    closest_IDs = df_spots_coords.loc[0, 'closest_ID'].to_list()
+    IDs = [obj.label for obj in rp]
+    dfs_spots_IDs_0 = {}
+    for closest_ID in closest_IDs:
+        df_spots_closest_ID = (
+            df_spots_coords[df_spots_coords['closest_ID']==closest_ID]
+        )
+        closest_ID_idx = IDs.index(closest_ID)
+        obj_closest_ID = rp[closest_ID_idx]
+        expanded_obj_closest_ID = transformations.get_expanded_obj_slice_image(
+            obj_closest_ID, delta_tol, lab
+        )
+        _, _, crop_obj_start_closest_ID = expanded_obj_closest_ID
+        df_spots_IDs_0, _ = transformations.init_df_features(
+            df_spots_closest_ID, obj_closest_ID, crop_obj_start_closest_ID, 
+            spots_zyx_radii_pxl, ID=0
+        )
+        dfs_spots_IDs_0[closest_ID] = df_spots_IDs_0
+    return dfs_spots_IDs_0
+
 def spots_calc_features_and_filter(
         image, 
         spots_zyx_radii_pxl,
@@ -1091,6 +1202,7 @@ def spots_calc_features_and_filter(
         optimise_for_high_spot_density=False,
         dist_transform_spheroid=None,
         get_backgr_from_inside_ref_ch_mask=False,
+        custom_combined_measurements=None,
         show_progress=True,
         verbose=True,
         logger_func=print
@@ -1179,6 +1291,12 @@ def spots_calc_features_and_filter(
         If True, the background will be determined from the pixels that are
         outside of the spots, but inside the reference channel mask. 
         Default is False
+    custom_combined_measurements : dict or None, optional
+        If not None, this is a dictionary of new column names as keys and 
+        mathematical expressions that combines standard single-spot features. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
     show_progress : bool, optional
         If True, display progressbars. Default is False
     verbose : bool, optional
@@ -1262,6 +1380,15 @@ def spots_calc_features_and_filter(
     keys = []
     dfs_spots_det = []
     dfs_spots_gop = []
+    dfs_spots_IDs_0 = None
+    if 0 in df_spots_coords.index and 'closest_ID' in df_spots_coords.columns:
+        dfs_spots_IDs_0 = _init_df_spots_IDs_0(
+            df_spots_coords, lab, rp, delta_tol, spots_zyx_radii_pxl
+        )
+        keys.extend([(frame_i, 0)]*len(dfs_spots_IDs_0))
+        dfs_spots_det.extend(dfs_spots_IDs_0.values())
+        dfs_spots_gop.extend([None]*len(dfs_spots_IDs_0))
+    
     filtered_spots_info = defaultdict(dict)
     last_spot_id = 0
     obj_idx = 0
@@ -1327,10 +1454,6 @@ def spots_calc_features_and_filter(
             if num_spots_prev == 0:
                 num_spots_filtered = 0
                 break
-            
-            # if obj.label == 36:
-            #     debug = True
-            #     import pdb; pdb.set_trace()
 
             bkgr_from_in_reg_ch = get_backgr_from_inside_ref_ch_mask
             df_obj_spots_gop = _compute_obj_spots_features(
@@ -1347,12 +1470,14 @@ def spots_calc_features_and_filter(
                 ref_ch_img_obj=local_ref_ch_img,
                 get_backgr_from_inside_ref_ch_mask=bkgr_from_in_reg_ch,
                 zyx_resolution_limit_pxl=spots_zyx_radii_pxl,
-                debug=debug
+                custom_combined_measurements=custom_combined_measurements,
+                debug=debug, 
+                logger_func=logger_func
             )
             if i == 0:
                 # Store metrics at first iteration
                 dfs_spots_det[obj_idx] = df_obj_spots_gop.copy()
- 
+            
             # from . import _debug
             # _debug._spots_filtering(
             #     local_spots_img, df_obj_spots_gop, obj, obj_image
@@ -1374,7 +1499,7 @@ def spots_calc_features_and_filter(
 
         filtered_spots_info[obj.label]['end_num_spots'] = num_spots_filtered
         filtered_spots_info[obj.label]['num_iter'] = i
-
+        
         dfs_spots_gop.append(df_obj_spots_gop)
         
         obj_idx += 1
@@ -1383,6 +1508,8 @@ def spots_calc_features_and_filter(
             pbar.update()
     if show_progress:
         pbar.close()
+    
+    dfs_spots_gop = _replace_None_with_empty_dfs(dfs_spots_gop)
     
     _log_filtered_number_spots(
         verbose, frame_i, filtered_spots_info, logger_func, 
@@ -1414,7 +1541,7 @@ def _log_filtered_number_spots(
     if num_spots_filtered_log:
         info = '\n'.join(num_spots_filtered_log)
     else:
-        info = 'All spots were valid'
+        info = 'All spots are valid'
         
     print('')
     header = f'Frame n. {frame_i+1}: number of spots after filtering {category}:'
@@ -1435,10 +1562,12 @@ def spotfit(
         frame_i=0, 
         ref_ch_mask_or_labels=None, 
         drop_peaks_too_close=False,
+        return_df=False,
         use_gpu=False,
         show_progress=True,
         verbose=True,
         logger_func=print,
+        custom_combined_measurements=None,
         xy_center_half_interval_val=0.1, 
         z_center_half_interval_val=0.2, 
         sigma_x_min_max_expr=('0.5', 'spotsize_yx_radius_pxl'),
@@ -1496,6 +1625,9 @@ def spotfit(
         radii = `spots_zyx_radii_pxl` only the brightest peak is kepts. 
         The center of the peaks is the one determined by the fitting procedure. 
         Default is False
+    return_df : bool, optional
+        If True, returns a pandas DataFrame. More details on the returned 
+        items section below. Default is False
     use_gpu : bool, optional
         If True, some steps will run on the GPU, potentially speeding up the 
         computation. Default is False
@@ -1506,6 +1638,12 @@ def spotfit(
         Default is True
     logger_func : callable, optional
         Function used to print or log process information. Default is print
+    custom_combined_measurements : dict or None, optional
+        If not None, this is a dictionary of new column names as keys and 
+        mathematical expressions that combines standard single-spot features. 
+        The expression can be any text that can be evaluated by `pandas.eval`. 
+        More details here: 
+        https://pandas.pydata.org/docs/reference/api/pandas.eval.html
     xy_center_half_interval_val : float, optional
         Half interval width for bounds on x and y center coordinates during fit. 
         Default is 0.1
@@ -1590,19 +1728,30 @@ def spotfit(
         List of keys that can be used to concatenate the 
         dataframes with 
         `pandas.concat(dfs_spots_spotfit, keys=keys, names=['frame_i', 'Cell_ID'])`
+        Returned only if `return_df` is False
     
     dfs_spots_spotfit : list of pandas.DataFrames
         List of DataFrames with additional spotFIT features columns 
         for each frame and ID of the segmented objects in `lab`. 
         If `drop_peaks_too_close` is True, each DataFrame in this list 
-        will contain only the valid spots.
+        will contain only the valid spots. Returned only if `return_df` is False
     
     dfs_spots_spotfit_iter0 : list of pandas.DataFrames
         List of DataFrames with additional spotFIT features columns 
         for each frame and ID of the segmented objects in `lab`. No matter 
         the value of `drop_peaks_too_close`, each DataFrame in this list 
-        will contain all the input spots.
+        will contain all the input spots. Returned only if `return_df` is False
     
+    df_spotfit : pandas.DataFrame 
+        DataFrame with Cell_ID as index and all the spotFIT features as columns.
+        If `drop_peaks_too_close` is True this DataFrame will contain only 
+        valid spots. Returned only if `return_df` is True 
+    
+    df_spotfit_iter0 : pandas.DataFrame 
+        DataFrame with Cell_ID as index and all the spotFIT features as columns.
+        No matter the value of `drop_peaks_too_close` this DataFrame will 
+        contain all the input spots. Returned only if `return_df` is True 
+        
     See also
     --------
     `skimage.measure.regionprops <https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops>`__
@@ -1666,6 +1815,10 @@ def spotfit(
                 logger_func=logger_func
             )
             kernel.fit()
+            if custom_combined_measurements is not None:
+                kernel.add_custom_combined_features(
+                    **custom_combined_measurements
+                )
             
             if i == 0:
                 # Store all features at first iteration
@@ -1720,10 +1873,18 @@ def spotfit(
     
     _log_filtered_number_spots(
         verbose, frame_i, filtered_spots_info, logger_func, 
-        category='spots that are not too close (spotFIT)'
+        category='spots that are NOT too close (spotFIT)'
     )
-    
-    return keys, dfs_spots_spotfit, dfs_spots_spotfit_iter0
+    if not return_df:
+        return keys, dfs_spots_spotfit, dfs_spots_spotfit_iter0
+    else:
+        df_spots_spotfit = pd.concat(
+            dfs_spots_spotfit, keys=keys, names=['frame_i', 'Cell_ID']
+        )
+        df_spots_spotfit_iter0 = pd.concat(
+            dfs_spots_spotfit_iter0, keys=keys, names=['frame_i', 'Cell_ID']
+        )
+        return df_spots_spotfit, df_spots_spotfit_iter0
 
 def filter_spots_from_features_thresholds(
         df_features: pd.DataFrame, 

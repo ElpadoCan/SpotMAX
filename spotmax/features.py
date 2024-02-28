@@ -406,3 +406,27 @@ def find_local_peaks(image, min_distance=1, footprint=None, labels=None):
         valid_peaks_coords
     )
     return peaks_coords
+
+def add_custom_combined_measurements(df, logger_func=print, **features_exprs):
+    """_summary_
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input DataFrame with standard features.
+    logger_func : callable, optional
+        Function used to print or log process information. Default is print
+    features_exprs : dict, options
+        Dictionary of {column_name: expr} where `column_name = expr` will 
+        be evaluated with pandas.eval
+    """    
+    for colname, expression in features_exprs.items():
+        expr_to_eval = f'{colname} = {expression}'
+        try:
+            df = df.eval(expr_to_eval)
+        except Exception as err:
+            logger_func(
+                f'[WARNING]: could not add feature `{expr_to_eval}`. '
+                'Might retry later. Skipping it for now.'
+            )
+    return df

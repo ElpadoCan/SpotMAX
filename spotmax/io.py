@@ -385,7 +385,10 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
         for anchor in anchors:
             isEditableDesc = section_params[anchor].get('useEditableLabel', False)
             if isEditableDesc:
-                options = configPars.options(section)
+                if section in configPars.sections():
+                    options = configPars.options(section)
+                else:
+                    options = ('', )
             else:
                 options = (section_params[anchor]['desc'],)
             
@@ -402,6 +405,7 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
                 if not configPars.has_section(section):
                     params[section][anchor]['isSectionInConfig'] = False
                     params[section][anchor]['loadedVal'] = None
+                    params[section][anchor]['desc'] = option
                     continue
                 else:
                     params[section][anchor]['isSectionInConfig'] = True
@@ -547,6 +551,8 @@ def writeConfigINI(params=None, ini_path=None):
             if not param.get('isParam', True):
                 continue
             key = param['desc']
+            if not key:
+                continue
             val = param.get('loadedVal')
             if val is None:
                 val = param['initialVal']

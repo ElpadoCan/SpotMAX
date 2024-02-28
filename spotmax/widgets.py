@@ -2373,6 +2373,7 @@ class SetCustomCombinedMeasurement(QWidget):
         self._nameLabel.setFont(font)
         
         self._entryWidget = SetValueFromFeaturesWidget()
+        self._entryWidget.calculatorWindow.setExpandedAll(False)
         
         _layout.addWidget(self._nameLabel)
         _layout.addWidget(self._entryWidget)

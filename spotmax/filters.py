@@ -128,15 +128,19 @@ def threshold(
     return image > thresh_val
 
 def threshold_masked_by_obj(
-        image, mask, threshold_func, do_max_proj=False, return_thresh_val=False
+        image, mask, threshold_func, do_max_proj=False, 
+        return_thresh_val=False, use_mask=True,
     ):
     if do_max_proj and image.ndim == 3:
         input_img = image.max(axis=0)
         mask = mask.max(axis=0)
     else:
         input_img = image
-        
-    masked = input_img[mask>0]
+    
+    if use_mask:
+        masked = input_img[mask>0]
+    else:
+        masked = input_img
     try:
         thresh_val = threshold_func(masked)
         thresholded = image > thresh_val
@@ -244,7 +248,8 @@ def local_semantic_segmentation(
                 # Threshold
                 predict_mask_merged = threshold_masked_by_obj(
                     input_img, obj_mask_lab, thresh_func, 
-                    do_max_proj=do_max_proj
+                    do_max_proj=do_max_proj, 
+                    use_mask=clear_outside_objs
                 )
                 # predict_mask_merged[~(obj_mask_lab>0)] = False
 
@@ -283,7 +288,8 @@ def global_semantic_segmentation(
         threshold_func='', 
         logger_func=print, 
         return_image=False,
-        keep_input_shape=True, 
+        keep_input_shape=True,
+        keep_objects_touching_lab_intact=True,
         nnet_model=None, 
         nnet_params=None,
         nnet_input_data=None, 
@@ -352,9 +358,11 @@ def global_semantic_segmentation(
     if keep_input_shape:
         reindexed_result = {}
         for method, aggr_segm in result.items():
+            keep_subobj_intact = keep_objects_touching_lab_intact
             reindexed_result[method] = (
                 transformations.index_aggregated_segm_into_input_lab(
-                    lab, aggr_segm, aggregated_lab
+                    lab, aggr_segm, aggregated_lab, 
+                    keep_objects_touching_lab_intact=keep_subobj_intact
             ))
         result = reindexed_result
         if return_image:

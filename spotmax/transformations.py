@@ -8,6 +8,7 @@ import scipy.ndimage
 import skimage.measure
 
 import cellacdc.io
+import cellacdc.core
 
 from . import utils, rng
 from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS
@@ -423,27 +424,53 @@ def deaggregate_img(aggr_img, aggregated_lab, lab):
         deaggr_img[obj.slice] = aggr_img[aggr_obj.slice]
     return deaggr_img
 
-def index_aggregated_segm_into_input_lab(lab, aggregated_segm, aggregated_lab):
-    segm_lab = np.zeros_like(lab)
+def index_aggregated_segm_into_input_lab(
+        lab, aggregated_segm, aggregated_lab, 
+        keep_objects_touching_lab_intact=False
+    ):
+    subobj_labels = np.zeros_like(lab)
     rp = skimage.measure.regionprops(lab)
     obj_idxs = {obj.label:obj for obj in rp}
-    aggr_rp = skimage.measure.regionprops(aggregated_lab)
-    aggr_segm_labels = aggregated_segm.copy().astype(np.uint32)
-    aggr_segm_labels[aggregated_lab == 0] = 0
-    aggr_obj_origin = {}
-    for aggr_obj in aggr_rp:
-        mask = np.logical_and(aggr_obj.image, aggr_segm_labels[aggr_obj.slice])
-        aggr_segm_labels[aggr_obj.slice][mask] = aggr_obj.label
-        aggr_obj_origin[aggr_obj.label] = aggr_obj.bbox[:3]
-    aggr_segm_rp = skimage.measure.regionprops(aggr_segm_labels)
-    for aggr_segm_obj in aggr_segm_rp:
-        obj = obj_idxs[aggr_segm_obj.label]
-        z0, y0, x0 = aggr_obj_origin[aggr_segm_obj.label]
-        local_coords = aggr_segm_obj.coords - (z0, y0, x0)
-        global_coords = local_coords + obj.bbox[:3]
-        zz, yy, xx = global_coords[:,0], global_coords[:,1], global_coords[:,2]
-        segm_lab[zz, yy, xx] = obj.label
-    return segm_lab
+    if not keep_objects_touching_lab_intact:
+        aggr_rp = skimage.measure.regionprops(aggregated_lab)
+        aggr_subobj_lab = aggregated_segm.copy().astype(np.uint32)
+        aggr_subobj_lab[aggregated_lab == 0] = 0
+        aggr_obj_origin = {}
+        for aggr_obj in aggr_rp:
+            mask = np.logical_and(aggr_obj.image, aggr_subobj_lab[aggr_obj.slice])
+            aggr_subobj_lab[aggr_obj.slice][mask] = aggr_obj.label
+            aggr_obj_origin[aggr_obj.label] = aggr_obj.bbox[:3]
+        aggr_segm_rp = skimage.measure.regionprops(aggr_subobj_lab)
+        for aggr_segm_obj in aggr_segm_rp:
+            obj = obj_idxs[aggr_segm_obj.label]
+            z0, y0, x0 = aggr_obj_origin[aggr_segm_obj.label]
+            local_coords = aggr_segm_obj.coords - (z0, y0, x0)
+            global_coords = local_coords + obj.bbox[:3]
+            zz, yy, xx = (
+                global_coords[:,0], 
+                global_coords[:,1], 
+                global_coords[:,2]
+            )
+            subobj_labels[zz, yy, xx] = obj.label
+    else:
+        aggr_subobj_lab = skimage.measure.label(aggregated_segm>0)
+        aggr_subobj_rp = skimage.measure.regionprops(aggr_subobj_lab)
+        for subobj in aggr_subobj_rp:
+            masked = aggregated_lab[subobj.slice][subobj.image]
+            unique_vals, counts = np.unique(masked, return_counts=True)
+            unique_foregr_vals_mask = unique_vals>0
+            unique_foregr_vals = unique_vals[unique_foregr_vals_mask]
+            counts_foregr = counts[unique_foregr_vals_mask]
+            if unique_foregr_vals.size == 0:
+                # Sub object is not touching any obj --> do not add
+                continue
+            
+            max_count_idx = counts_foregr.argmax()
+            ID = unique_foregr_vals[max_count_idx]
+            
+            subobj_labels[subobj.slice][subobj.image] = ID
+    
+    return subobj_labels
 
 def get_local_spheroid_mask(spots_zyx_radii_pxl, logger_func=print):
     zr, yr, xr = spots_zyx_radii_pxl
@@ -546,12 +573,17 @@ def to_local_zyx_coords(obj, global_zyx_coords):
     local_zyx_coords = local_zyx_coords[zyx_centers_mask]
     return local_zyx_coords
 
-def init_df_features(df_spots_coords, obj, crop_obj_start, spots_zyx_radii):
+def init_df_features(
+        df_spots_coords, obj, crop_obj_start, spots_zyx_radii, ID=None
+    ):
     if obj.label not in df_spots_coords.index:
         return None, []
     
+    if ID is None:
+        ID = obj.label
+    
     local_peaks_coords = (
-        df_spots_coords.loc[[obj.label], ZYX_LOCAL_COLS]
+        df_spots_coords.loc[[ID], ZYX_LOCAL_COLS]
     ).to_numpy()
     zyx_local_to_global = [s.start for s in obj.slice]
     global_peaks_coords = local_peaks_coords + zyx_local_to_global
@@ -559,9 +591,6 @@ def init_df_features(df_spots_coords, obj, crop_obj_start, spots_zyx_radii):
     # `delta_tolerance`
     local_peaks_coords_expanded = global_peaks_coords - crop_obj_start 
     spots_masks = None
-    if 'spot_mask' in df_spots_coords.columns:
-        spots_masks = (
-            df_spots_coords.loc[[obj.label], 'spot_mask']).to_list()
 
     num_spots_detected = len(global_peaks_coords)
     df_features = pd.DataFrame({
@@ -576,8 +605,16 @@ def init_df_features(df_spots_coords, obj, crop_obj_start, spots_zyx_radii):
         'y_local_expanded': local_peaks_coords_expanded[:,1],
         'x_local_expanded': local_peaks_coords_expanded[:,2],
     })
-    if spots_masks is not None:
+    if 'spot_mask' in df_spots_coords.columns:
+        spots_masks = (
+            df_spots_coords.loc[[ID], 'spot_mask']).to_list()
         df_features['spot_mask'] = spots_masks
+    
+    if 'closest_ID' in df_spots_coords.columns:
+        closest_IDs = (
+            df_spots_coords.loc[[ID], 'closest_ID']).to_list()
+        df_features['closest_ID'] = closest_IDs
+    
     df_features[ZYX_RESOL_COLS] = spots_zyx_radii
 
     return df_features, local_peaks_coords_expanded
@@ -730,3 +767,24 @@ def from_df_spots_objs_to_spots_lab(df_spots_objs, arr_shape, spots_lab=None):
         cropped_spot_mask = spot_mask[slice_crop_local].copy()
         spots_lab[slice_global_to_local][cropped_spot_mask] = spot_id
     return spots_lab
+
+def add_closest_ID_col(df_spots_coords, lab, zyx_coords_cols):
+    if 0 not in df_spots_coords.index:
+        return df_spots_coords
+    
+    df_spots_coords['closest_ID'] = df_spots_coords.index.to_list()
+    zyx_coords = df_spots_coords.loc[0, zyx_coords_cols].to_numpy()
+    closest_IDs = []
+    for zc, yc, xc in zyx_coords:
+        if lab.ndim == 3:
+            lab_2D = lab[zc]
+        else:
+            lab_2D = lab
+        
+        closest_ID = cellacdc.core.nearest_nonzero_2D(lab_2D, yc, xc)
+        closest_IDs.append(closest_ID)
+    df_spots_coords.loc[0, 'closest_ID'] = closest_IDs
+    return df_spots_coords
+    
+        
+    

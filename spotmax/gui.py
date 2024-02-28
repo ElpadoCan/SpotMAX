@@ -140,17 +140,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
-            ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
-            for section, section_options in ParamsGroupBox.params.items():
-                for anchor, options in section_options.items():
-                    printl(
-                        section, 
-                        anchor, 
-                        options['desc'], 
-                        options['initialVal'],
-                        options.get('loadedVal')
-                    )
-            ini_params = ParamsGroupBox.configIni
+            pass
         super().keyPressEvent(event)
     
     def gui_setCursor(self, modifiers, event):
@@ -591,6 +581,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.addSpotsCoordinatesAction.setToolTip(
             'Visualize detected spots from a previous analysis'
         )
+        
+        # Disable save actions from acdc gui
+        self.saveAsAction.setDisabled(True)
+        self.saveAction.setDisabled(True)
+        self.quickSaveAction.setDisabled(True)
+        self.newAction.setDisabled(True)
     
     def gui_createToolBars(self):
         super().gui_createToolBars()
@@ -1711,7 +1707,6 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def _displayRefChGaussSigmaResult(self, result, image):
         from cellacdc.plot import imshow
-        posData = self.data[self.pos_i]
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
@@ -1727,7 +1722,6 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def _displayRidgeFilterResult(self, result, image):
         from cellacdc.plot import imshow
-        posData = self.data[self.pos_i]
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
@@ -2629,6 +2623,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             )
         )
         return msg.clickedButton == yesButton
+    
+    def askSaveOnClosing(self, event):
+        return True
     
     def closeEvent(self, event):
         self.stopAutoTuning()

@@ -55,7 +55,7 @@ from . import issues_url, printl, io, features, config
 from . import transformations
 from . import filters
 from . import pipe
-from . import ZYX_GLOBAL_COLS
+from . import ZYX_GLOBAL_COLS, ZYX_AGGR_COLS, ZYX_LOCAL_COLS
 from . import ZYX_LOCAL_EXPANDED_COLS, ZYX_FIT_COLS, ZYX_RESOL_COLS
 from . import BASE_COLUMNS
 from . import DFs_FILENAMES
@@ -575,8 +575,12 @@ class _ParamsParser(_DataLoader):
                 path_to_report_ini = configPars[SECTION][options['desc']]
                 if io.is_part_of_path(value, path_to_report_ini):
                     continue
-                
-            configPars[SECTION][options['desc']] = value
+            
+            key = options['desc']
+            if not key:
+                continue
+            
+            configPars[SECTION][key] = value
 
         with open(params_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
@@ -1377,6 +1381,10 @@ class _ParamsParser(_DataLoader):
                 value = parser_func(default_val)
             else:
                 value = str(default_val)
+            
+            if not desc:
+                continue
+            
             configPars[section_name][desc] = value
         
         with open(ini_filepath, 'w', encoding="utf-8") as file:
@@ -3311,6 +3319,13 @@ class SpotFIT(spheroid):
 
         self._df_spotFIT.at[(obj_id, s), 'solution_found_fit'] = (
             int(solution_found))
+    
+    def add_custom_combined_features(self, **custom_combined_measurements):
+        self.df_spotFIT_ID = features.add_custom_combined_measurements(
+            self.df_spotFIT_ID, 
+            logger_func=self.logger_func, 
+            **custom_combined_measurements,   
+        )
 
 class Kernel(_ParamsParser):
     def __init__(self, debug=False, is_cli=True):
@@ -3561,6 +3576,7 @@ class Kernel(_ParamsParser):
             spot_footprint=None, 
             dfs_lists=None, 
             save_spots_mask=True,
+            custom_combined_measurements=None,
             verbose=True,
         ):        
         if sharp_spots_img is None:
@@ -3628,6 +3644,7 @@ class Kernel(_ParamsParser):
             keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch, 
             gop_filtering_thresholds=gop_filtering_thresholds,
             dist_transform_spheroid=dist_transform_spheroid,
+            custom_combined_measurements=custom_combined_measurements,
             verbose=verbose,
         )
         if df_spots_det is not None:
@@ -3650,14 +3667,20 @@ class Kernel(_ParamsParser):
             zz, yy, xx = aggr_spots_coords.T
         zeros = [0]*len(zz)
         df_spots_coords = pd.DataFrame({
-            'z_aggr': zz, 'y_aggr': yy, 'x_aggr': xx, 
-            'z_local': zeros, 'y_local': zeros, 'x_local': zeros,
             'Cell_ID': aggregated_lab[zz, yy, xx]
         })
+        df_spots_coords[ZYX_AGGR_COLS[0]] = zz
+        df_spots_coords[ZYX_AGGR_COLS[1]] = yy
+        df_spots_coords[ZYX_AGGR_COLS[2]] = xx
+        df_spots_coords[ZYX_LOCAL_COLS] = 0
         if spots_masks is not None:
             df_spots_coords['spot_mask'] = spots_masks
         
         df_spots_coords = df_spots_coords.set_index('Cell_ID').sort_index()
+        
+        df_spots_coords = transformations.add_closest_ID_col(
+            df_spots_coords, aggregated_lab, ZYX_AGGR_COLS
+        )
         
         num_spots_objs_txts = []
         pbar = tqdm(
@@ -3787,6 +3810,7 @@ class Kernel(_ParamsParser):
             gop_filtering_thresholds=None, 
             keep_only_spots_in_ref_ch=False, 
             dist_transform_spheroid=None,
+            custom_combined_measurements=None,
             verbose=True,
         ):        
         if dfs_lists is None:
@@ -3805,6 +3829,7 @@ class Kernel(_ParamsParser):
         
         use_spots_segm_masks = detection_method != 'peak_local_max'
         
+        bkgr_from_refch = get_backgr_from_inside_ref_ch_mask
         features_filter_result = pipe.spots_calc_features_and_filter(
             spots_img, 
             spots_zyx_radii,
@@ -3823,7 +3848,8 @@ class Kernel(_ParamsParser):
             min_size_spheroid_mask=min_size_spheroid_mask,
             zyx_voxel_size=self.metadata['zyxVoxelSize'],
             dist_transform_spheroid=dist_transform_spheroid,
-            get_backgr_from_inside_ref_ch_mask=get_backgr_from_inside_ref_ch_mask,
+            get_backgr_from_inside_ref_ch_mask=bkgr_from_refch,
+            custom_combined_measurements=custom_combined_measurements,
             show_progress=True,
             verbose=verbose,
             logger_func=self.logger.info,
@@ -4147,6 +4173,24 @@ class Kernel(_ParamsParser):
         transformed_data = self.nnet_model.preprocess(input_data)
         return transformed_data
     
+    def get_custom_combined_measurements(self):
+        SECTION = 'Custom combined measurements'
+        custom_combined_measurements = {}
+        if SECTION not in self._params:
+            return custom_combined_measurements
+        
+        for anchor, options in self._params[SECTION].items():
+            colname = options['desc']
+            if not colname:
+                continue
+            
+            expression = options['loadedVal']
+            if not expression:
+                continue
+            
+            custom_combined_measurements[colname] = expression
+        return custom_combined_measurements
+    
     @handle_log_exception_cli
     def _run_from_images_path(
             self, images_path, 
@@ -4382,6 +4426,8 @@ class Kernel(_ParamsParser):
             dfs_lists['spotfit_keys'] = []
             dfs_lists['dfs_spots_spotfit_iter0'] = []
         
+        custom_combined_measurements = self.get_custom_combined_measurements()
+        
         transformed_spots_ch_nnet = data.get('transformed_spots_ch')
         
         transformed_spots_ch_nnet = self.check_preprocess_data_nnet_across_time(
@@ -4460,6 +4506,7 @@ class Kernel(_ParamsParser):
                 do_aggregate=do_aggregate,
                 lineage_table=lineage_table,
                 save_spots_mask=save_spots_mask,
+                custom_combined_measurements=custom_combined_measurements,
                 verbose=verbose
             )
             pbar.update()
@@ -4506,9 +4553,11 @@ class Kernel(_ParamsParser):
         df_spots_det = pd.concat(
             dfs_lists['dfs_spots_detection'], keys=keys, names=names
         )
+        if 'closest_ID' in df_spots_det:
+            df_spots_det['closest_ID'] = df_spots_det['closest_ID'].astype(int)
         df_spots_gop = pd.concat(
             dfs_lists['dfs_spots_gop_test'], keys=keys, names=names
-        )
+        ).drop(columns='closest_ID', errors='ignore')
 
         if do_spotfit:
             zyx_spot_min_vol_um = self.metadata['zyxResolutionLimitUm']
@@ -4545,6 +4594,8 @@ class Kernel(_ParamsParser):
                     use_gpu=self._get_use_gpu(),
                     show_progress=True,
                     verbose=verbose,
+                    logger_func=self.logger.info,
+                    custom_combined_measurements=custom_combined_measurements,
                     **bounds_kwargs,
                     **init_guess_kwargs, 
                 )

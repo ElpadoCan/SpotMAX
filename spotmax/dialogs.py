@@ -1003,7 +1003,7 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         self.infoLabel.setText(self._infoText)
     
     def setFeatures(self, point_features: pd.Series):
-        frame_i, z, x, y = point_features.name
+        frame_i, z, y, x = point_features.name
         self.xLineEntry.setText(str(x))
         self.yLineEntry.setText(str(y))
         self.zLineEntry.setText(str(z))
