@@ -4555,6 +4555,7 @@ class Kernel(_ParamsParser):
         )
         if 'closest_ID' in df_spots_det:
             df_spots_det['closest_ID'] = df_spots_det['closest_ID'].astype(int)
+        
         df_spots_gop = pd.concat(
             dfs_lists['dfs_spots_gop_test'], keys=keys, names=names
         ).drop(columns='closest_ID', errors='ignore')
@@ -4764,7 +4765,7 @@ class Kernel(_ParamsParser):
                 elpased_seconds = t1-t0
                 elapsed_delta = str(timedelta(seconds=elpased_seconds))
                 self.logger.info(
-                    f'Execution time = {elapsed_delta} HH:mm:ss'
+                    f'Execution time = {elapsed_delta} HH:mm:ss '
                     f'(Path: "{pos_path}")'
                 )
                 print('='*60)

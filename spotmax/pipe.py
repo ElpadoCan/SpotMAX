@@ -1160,7 +1160,8 @@ def _replace_None_with_empty_dfs(dfs_spots_gop):
     
 
 def _init_df_spots_IDs_0(
-        df_spots_coords, lab, rp, delta_tol, spots_zyx_radii_pxl
+        df_spots_coords, lab, rp, delta_tol, spots_zyx_radii_pxl, 
+        last_spot_id
     ):
     closest_IDs = df_spots_coords.loc[0, 'closest_ID'].to_list()
     IDs = [obj.label for obj in rp]
@@ -1179,8 +1180,12 @@ def _init_df_spots_IDs_0(
             df_spots_closest_ID, obj_closest_ID, crop_obj_start_closest_ID, 
             spots_zyx_radii_pxl, ID=0
         )
-        dfs_spots_IDs_0[closest_ID] = df_spots_IDs_0
-    return dfs_spots_IDs_0
+        df_spots_IDs_0['spot_id'] += last_spot_id
+        last_spot_id = df_spots_IDs_0['spot_id'].max()
+        dfs_spots_IDs_0[closest_ID] = (
+            df_spots_IDs_0.set_index('spot_id').sort_index()
+        )
+    return dfs_spots_IDs_0, last_spot_id
 
 def spots_calc_features_and_filter(
         image, 
@@ -1381,17 +1386,18 @@ def spots_calc_features_and_filter(
     dfs_spots_det = []
     dfs_spots_gop = []
     dfs_spots_IDs_0 = None
+    last_spot_id = 0
     if 0 in df_spots_coords.index and 'closest_ID' in df_spots_coords.columns:
-        dfs_spots_IDs_0 = _init_df_spots_IDs_0(
-            df_spots_coords, lab, rp, delta_tol, spots_zyx_radii_pxl
+        dfs_spots_IDs_0, last_spot_id = _init_df_spots_IDs_0(
+            df_spots_coords, lab, rp, delta_tol, spots_zyx_radii_pxl, 
+            last_spot_id
         )
         keys.extend([(frame_i, 0)]*len(dfs_spots_IDs_0))
         dfs_spots_det.extend(dfs_spots_IDs_0.values())
         dfs_spots_gop.extend([None]*len(dfs_spots_IDs_0))
     
     filtered_spots_info = defaultdict(dict)
-    last_spot_id = 0
-    obj_idx = 0
+    obj_idx = len(keys)
     for obj in rp:
         expanded_obj = transformations.get_expanded_obj_slice_image(
             obj, delta_tol, lab
