@@ -1602,7 +1602,7 @@ class Gaussian3SigmasLineEdit(acdc_widgets.VectorLineEdit):
         super().__init__(parent=parent, initial=initial)
         
         float_re = float_regex()
-        vector_regex = fr'\(?\[?{float_re},\s?{float_re},\s?{float_re}\)?\]?'
+        vector_regex = fr'\(?\[?{float_re}?,?\s?{float_re},\s?{float_re}\)?\]?'
         regex = fr'^{vector_regex}$|^{float_re}$'
         self.validRegex = regex
         
