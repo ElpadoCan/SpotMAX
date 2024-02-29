@@ -790,7 +790,7 @@ class _ParamsParser(_DataLoader):
             f'File path: "{ini_filepath}"'
         )
         if self._force_default:
-            self.logger.info('*'*60)
+            self.logger.info('*'*100)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
             answer = default_option
@@ -887,7 +887,7 @@ class _ParamsParser(_DataLoader):
             f'{exp_path}'
         )
         if self._force_default:
-            self.logger.info('*'*60)
+            self.logger.info('*'*100)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
             return user_run_num
@@ -914,7 +914,7 @@ class _ParamsParser(_DataLoader):
             f'{exp_path}'
         )
         if self._force_default:
-            self.logger.info('*'*60)
+            self.logger.info('*'*100)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
             return new_run_num
@@ -1144,7 +1144,7 @@ class _ParamsParser(_DataLoader):
             f'required columns. Missing columns:\n\n{missing_cols}'
         )
         if self._force_default:
-            self.logger.info('*'*60)
+            self.logger.info('*'*100)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
             raise KeyError(txt)
@@ -1277,7 +1277,7 @@ class _ParamsParser(_DataLoader):
         
         missing_metadata_str = [f'    * {v}' for v in missing_metadata]
         missing_metadata_format = '\n'.join(missing_metadata_str)
-        print('*'*60)
+        print('*'*100)
         err_msg = (
             f'The parameters file "{self.ini_params_filename}" is missing '
             'the following REQUIRED metadata:\n\n'
@@ -1290,7 +1290,7 @@ class _ParamsParser(_DataLoader):
         )
         self.logger.info(err_msg)
         if self.is_cli:
-            print('*'*60)
+            print('*'*100)
             self.logger.info(
                 'spotMAX execution aborted because some metadata are missing. '
                 'See details above.'
@@ -1415,7 +1415,7 @@ class _ParamsParser(_DataLoader):
             'Display default values'
         )
         if self._force_default:
-            self.logger.info('*'*60)
+            self.logger.info('*'*100)
             self.logger.info(info_txt)
             io._log_forced_default(options[0], self.logger.info)
             self._set_default_val_params(missing_params)
@@ -1439,7 +1439,7 @@ class _ParamsParser(_DataLoader):
                 self.logger.info(
                     f'Default values:\n\n{default_values_format}'
                 )
-                print('-'*60)
+                print('-'*100)
                 info_txt = ''
     
     def _check_correlated_missing_ref_ch_params(self, missing_params):
@@ -1534,7 +1534,7 @@ class _ParamsParser(_DataLoader):
             )
             self.logger.info(err_msg)
             if self.is_cli:
-                print('*'*60)
+                print('*'*100)
                 self.logger.info(
                     'spotMAX execution aborted because some parameters are missing. '
                     'See details above.'
@@ -1576,7 +1576,7 @@ class _ParamsParser(_DataLoader):
             f'but ALSO to segment the ref. channel.'
         )
         if self._force_default:
-            self.logger.info('*'*60)
+            self.logger.info('*'*100)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
             return 'do_not_segment_ref_ch'
@@ -1623,7 +1623,7 @@ class _ParamsParser(_DataLoader):
             model_module = 'spotmax.BioImageIO.model'
         
         try:
-            self.logger.info('-'*60)                
+            self.logger.info('-'*100)                
             self.logger.info(f'Initializing {network_type}...')
             model = import_module(model_module)
             model_params = model.get_model_params_from_ini_params(
@@ -1702,7 +1702,7 @@ class _ParamsParser(_DataLoader):
         loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
         for exp_path in loaded_exp_paths:
             if not os.path.exists(exp_path):
-                self.logger.info('='*60)
+                self.logger.info('='*100)
                 txt = (
                     '[ERROR]: The provided experiment path does not exist: '
                     f'{exp_path}{error_up_str}'
@@ -1711,7 +1711,7 @@ class _ParamsParser(_DataLoader):
                 self.logger.info('spotMAX aborted due to ERROR. See above more details.')
                 return False
             if not os.path.isdir(exp_path):
-                self.logger.info('='*60)
+                self.logger.info('='*100)
                 txt = (
                     '[ERROR]: The provided experiment path is not a folder: '
                     f'{exp_path}{error_up_str}'
@@ -3783,13 +3783,13 @@ class Kernel(_ParamsParser):
 
         if verbose:
             print('')
-            print('*'*60)
+            print('*'*100)
             num_spots_objs_txt = '\n'.join(num_spots_objs_txts)
             self.logger.info(
                 f'Frame n. {frame_i+1}: number of spots per '
                 f'segmented object:\n{num_spots_objs_txt}'
             )
-            print('-'*60)
+            print('-'*100)
         return df_spots_coords
         
     def _spots_filter(
@@ -3954,7 +3954,7 @@ class Kernel(_ParamsParser):
     def _critical_feature_is_missing(self, missing_feature, df):
         format_colums = [f'    * {col}' for col in df.columns]
         format_colums = '\n'.join(format_colums)
-        self.logger.info(f"\n{'='*60}")
+        self.logger.info(f"\n{'='*100}")
         txt = (
             f'[ERROR]: The feature name "{missing_feature}" is not present in the table.\n\n'
             f'Available features are:\n\n{format_colums}{error_up_str}'
@@ -4087,11 +4087,11 @@ class Kernel(_ParamsParser):
         report_filepath = self._report['report_filepath']
         with open(report_filepath, 'w') as rst:
             rst.write(report_formatted) 
-        self.logger.info('#'*60)
+        self.logger.info('#'*100)
         self.logger.info(
             f'Final report saved to "{report_filepath}"'
         )
-        self.logger.info('#'*60)
+        self.logger.info('#'*100)
 
     def log_warning_report(self, warning_txt):
         if self._current_pos_path not in self._report['pos_info']:
@@ -4105,13 +4105,13 @@ class Kernel(_ParamsParser):
     def log_exception_report(self, error, traceback_str=''):
         if self._force_close_on_critical:
             print('')
-            print('-'*60)
+            print('-'*100)
             self.logger.info(
                 f'  - Error at frame index {self._current_frame_i}\n'
                 f'  - Analysis step "{self._current_step}"\n'
                 f'  - Folder path "{self._current_pos_path}"'
             )
-            print('-'*60)
+            print('-'*100)
             self.quit(error)
         else:
             self.logger.exception(traceback_str)
@@ -4761,14 +4761,14 @@ class Kernel(_ParamsParser):
                 pbar_pos.update()
                 t1 = time.perf_counter()
                 print('\n')
-                print('='*60)
+                print('='*100)
                 elpased_seconds = t1-t0
                 elapsed_delta = str(timedelta(seconds=elpased_seconds))
                 self.logger.info(
                     f'Execution time = {elapsed_delta} HH:mm:ss '
                     f'(Path: "{pos_path}")'
                 )
-                print('='*60)
+                print('='*100)
             pbar_pos.close()
             pbar_exp.update()
         pbar_exp.close()
@@ -5021,10 +5021,10 @@ class Kernel(_ParamsParser):
         if not self.is_cli and error is not None:
             raise error
 
-        self.logger.info('='*60)
+        self.logger.info('='*100)
         if error is not None:
             self.logger.exception(traceback.format_exc())
-            print('-'*60)
+            print('-'*100)
             self.logger.info(f'[ERROR]: {error}{error_up_str}')
             err_msg = (
                 'spotMAX aborted due to **error**. '
@@ -5042,7 +5042,7 @@ class Kernel(_ParamsParser):
                 'spotMAX command-line interface closed. '
                 f'{utils.get_salute_string()}'
             )
-        self.logger.info('='*60)
+        self.logger.info('='*100)
         exit()
 
 def eucl_dist_point_2Dyx(points, all_others):

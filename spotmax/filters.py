@@ -66,7 +66,7 @@ def gaussian(image, sigma, use_gpu=False, logger_func=print):
             filtered = gpu_gaussian_filter(image, sigma)
             filtered = cp.asnumpy(filtered)
         except Exception as err:
-            logger_func('*'*60)
+            logger_func('*'*100)
             logger_func(err)
             logger_func(
                 '[WARNING]: GPU acceleration of the gaussian filter failed. '
@@ -423,7 +423,7 @@ def filter_largest_sub_obj_per_obj(mask_or_labels, lab):
     return filtered
 
 def _warn_feature_is_missing(missing_feature, logger_func):
-    logger_func(f"\n{'='*60}")
+    logger_func(f"\n{'='*100}")
     txt = (
         f'[WARNING]: The feature name "{missing_feature}" is not present '
         'in the table. It cannot be used for filtering spots at '

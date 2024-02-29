@@ -321,7 +321,7 @@ def add_effect_sizes(
             print(f'Positive mean = {pos_mean}')
             print(f'Negative mean = {negative_mean}')
             print(f'Negative std = {negative_std}')
-            print('-'*60)
+            print('-'*100)
         import pdb; pdb.set_trace()
 
 def get_normalised_spot_ref_ch_intensities(

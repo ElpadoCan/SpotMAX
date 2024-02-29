@@ -1697,9 +1697,9 @@ class ParamsGroupBox(QGroupBox):
         params = self.configIniParams()
         configPars = io.writeConfigINI(params, ini_filepath)
         self.saveSelectedMeasurements(configPars, ini_filepath)
-        print('-'*60)
+        print('-'*100)
         print(f'Configuration file saved to: "{ini_filepath}"')
-        print('*'*60)
+        print('*'*100)
 
     def showInfo(self):
         print(self.sender().label.text())

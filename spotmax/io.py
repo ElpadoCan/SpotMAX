@@ -2089,11 +2089,11 @@ def _get_user_input_cli(
     return selected_option
 
 def _log_forced_default(default_option, logger):
-    logger('-'*60)
+    logger('-'*100)
     logger(f'Automatically selected default option: "{default_option}"{error_up_str}')
 
 def _raise_EOFerror(logger=print):
-    logger('*'*60)
+    logger('*'*100)
     logger(
         '[ERROR]: The terminal cannot get inputs. See Warning above. '
         'To force the default options, run spotMAX with the "-f" flag, i.e. '
@@ -2113,7 +2113,7 @@ def get_user_input(
     else:
         # Ger user input in the cli
         try:
-            logger('*'*60)
+            logger('*'*100)
             answer_txt = _get_user_input_cli(
                 question_text, options, default_option=default_option, 
                 info_txt=info_txt, logger=logger, dtype=dtype,
@@ -2123,7 +2123,7 @@ def get_user_input(
                 logger(f'Selected option: "{answer_txt}"')
             else:
                 logger(f'Closing spotMAX...')
-            logger('*'*60)
+            logger('*'*100)
         except EOFError:
             answer_txt = None
             logger(info_txt)

@@ -520,8 +520,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             f'    * Ended on: {self._analysis_finished_datetime.strftime(ff)}\n'
             f'    * Total execution time = {delta_sec} H:mm:ss\n'
         )
-        line_str = '-'*60
-        close_str = '*'*60
+        line_str = '-'*100
+        close_str = '*'*100
         msg_kwargs = {
             'path_to_browse': os.path.dirname(log_path),
             'browse_button_text': 'Show log file'
@@ -1406,7 +1406,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         if nnet_params is None:
             return
         
-        text = '-'*60
+        text = '-'*100
         text = (
             f'{text}\nRunning {model_name} with the following parameters:\n'
         )
@@ -1418,7 +1418,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         for param, value in nnet_params['segment'].items():
             text = f'{text}    - {param}: {value}\n'
             
-        closing = '*'*60
+        closing = '*'*100
         text = f'{text}{closing}'
         self.logger.info(text)        
         
