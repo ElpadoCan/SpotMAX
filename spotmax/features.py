@@ -1,5 +1,6 @@
 from typing import Union
 from numbers import Number
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -238,7 +239,9 @@ def add_ttest_values(
         logger_func=printl
     ):
     try:
-        tstat, pvalue = scipy.stats.ttest_ind(arr1, arr2, equal_var=False)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            tstat, pvalue = scipy.stats.ttest_ind(arr1, arr2, equal_var=False)
     except FloatingPointError as e:
         logger_func(
             '[WARNING]: FloatingPointError while performing t-test.'
