@@ -103,12 +103,15 @@ File paths and channels
 .. confval:: Spots channel segmentation end name or path
 
   Last part of the file name or full path of the file containing the mask where 
-  to search for spots. Before detecting the spots, spotMAX will segment the 
-  spots' channel with automatic thresholding or a neural network. 
+  to search for spots. 
   
-  If you perform this step externally, you can provide here the file containing 
-  that data and spotMAX will move directly to spot detection without segmenting 
-  the spots.
+  If you use this parameter, spotMAX will ignore the 
+  :confval:`Spots segmentation method` and will move directly to spot detection.
+
+  Use this parameter if you already have the spots segmented with an external 
+  software.
+
+  File formats supported: ``.tif``, ``.tiff``, ``.h5``, ``.npz``, or ``.npy``.
 
   :type: string
   :default: ``''``
@@ -116,11 +119,19 @@ File paths and channels
 .. confval:: Ref. channel segmentation end name or path
 
   Last part of the file name or full path of the file containing the 
-  segmentation mask of the reference channel. See the parameter **Reference 
-  channel end name or path** for more details about the reference channel. 
+  segmentation mask of the reference channel. 
   
-  Provide a file name here when you are performing the segmentation 
-  of the reference channel externally to spotMAX. 
+  If you use this parameter, spotMAX will ignore the parameters 
+  :confval:`Ref. channel segmentation method` and 
+  :confval:`Segment reference channel`.
+  
+  See the parameter :confval:`Reference channel end name or path` for more 
+  details about the reference channel. 
+  
+  Use this parameter if you already have the reference channel segmented with 
+  an external software.
+
+  File formats supported: ``.tif``, ``.tiff``, ``.h5``, ``.npz``, or ``.npy``.
 
   :type: string
   :default: ``''``

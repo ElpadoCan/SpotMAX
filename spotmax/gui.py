@@ -53,6 +53,7 @@ from . import tune, utils
 from . import core
 from . import transformations
 from . import icon_path
+from . import issues_url
 
 LINEAGE_COLUMNS = list(base_cca_dict.keys())
 
@@ -344,9 +345,24 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.addSpotsCoordinatesAction.trigger()        
     
+    def warnNoSpotsFilesFound(self, spotmax_out_path):
+        txt = html_func.paragraph(f"""
+            There are no valid files in the following folder:<br><br>
+            <code>{spotmax_out_path}</code><br><br>
+            This could be because the number of detected spots was 0, or 
+            you did not run any analysis yet.<br><br>
+            If you need help with this feel free to reach out on or 
+            {html_func.href('GitHub page', issues_url)}.
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(self, 'No valid files found', txt)
+    
     def addSpotsCoordinatesTriggered(self):
         posData = self.data[self.pos_i]
         df_spots_files = posData.getSpotmaxSingleSpotsfiles()
+        if not df_spots_files:
+            self.warnNoSpotsFilesFound(posData.spotmax_out_path)
+            return
         self.spotsItems.setPosition(posData.spotmax_out_path)
         toolbutton = self.spotsItems.addLayer(df_spots_files)
         if toolbutton is None:
