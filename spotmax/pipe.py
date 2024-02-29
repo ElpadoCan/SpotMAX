@@ -19,6 +19,7 @@ from . import ZYX_LOCAL_COLS, ZYX_LOCAL_EXPANDED_COLS, ZYX_GLOBAL_COLS
 from . import ZYX_FIT_COLS
 from . import features
 from . import utils
+from . import core
 
 distribution_metrics_func = features.get_distribution_metrics_func()
 effect_size_func = features.get_effect_size_func()
@@ -506,10 +507,8 @@ def reference_channel_semantic_segm(
 def _add_spot_vs_ref_location(ref_ch_mask, zyx_center, df, idx):
     is_spot_in_ref_ch = int(ref_ch_mask[zyx_center] > 0)
     df.at[idx, 'is_spot_inside_ref_ch'] = is_spot_in_ref_ch
-    _, dist_2D_from_ref_ch = utils.nearest_nonzero(
-        ref_ch_mask[zyx_center[0]], zyx_center[1], zyx_center[2]
-    )
-    df.at[idx, 'spot_dist_2D_from_ref_ch'] = dist_2D_from_ref_ch
+    _, dist_from_ref_ch = core.nearest_nonzero(ref_ch_mask, zyx_center)
+    df.at[idx, 'spot_distance_from_ref_ch'] = dist_from_ref_ch
 
 def _debug_compute_obj_spots_features(
         row, raw_spots_img_obj, zyx_center, sharp_spot_obj_z, 

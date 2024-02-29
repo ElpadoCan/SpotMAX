@@ -14,6 +14,7 @@ from . import utils, rng
 from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS
 from . import features
 from . import io
+from . import core
 
 from . import printl, error_up_str
 
@@ -802,13 +803,8 @@ def add_closest_ID_col(df_spots_coords, lab, zyx_coords_cols):
     
     zyx_coords = df_spots_coords.loc[[0], zyx_coords_cols].to_numpy()
     closest_IDs = []
-    for zc, yc, xc in zyx_coords:
-        if lab.ndim == 3:
-            lab_2D = lab[zc]
-        else:
-            lab_2D = lab
-        
-        closest_ID = cellacdc.core.nearest_nonzero_2D(lab_2D, yc, xc)
+    for point in zyx_coords:        
+        closest_ID, _ = core.nearest_nonzero(lab, point)
         closest_IDs.append(closest_ID)
     df_spots_coords.loc[[0], 'closest_ID'] = closest_IDs
     return df_spots_coords

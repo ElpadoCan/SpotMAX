@@ -2214,7 +2214,7 @@ def save_ref_ch_mask(
     if not basename.endswith('_'):
         basename = f'{basename}_'
     ref_ch_segm_filename = (
-        f'{basename}run_num{run_number}_{ref_ch_endname}_segm_mask'
+        f'{basename}run_num{run_number}_{ref_ch_endname}_ref_ch_segm_mask'
     )
     if text_to_append:
         if not text_to_append.startswith('_'):
@@ -2242,7 +2242,7 @@ def save_spots_masks(
     desc = f'_{spots_ch_endname}'
     spots_ch_segm_filename = spots_ch_segm_filename.replace('*desc*', desc)
     
-    spots_ch_segm_filename = f'{basename}{spots_ch_segm_filename}_segm_mask'
+    spots_ch_segm_filename = f'{basename}{spots_ch_segm_filename}_spots_segm_mask'
     if text_to_append:
         if not text_to_append.startswith('_'):
             text_to_append = f'_{text_to_append}'

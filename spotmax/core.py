@@ -145,14 +145,15 @@ class _DataLoader:
             lineage_table_endname: str
         ):
         channels = {
-            spots_ch_endname: 'spots_ch', 
-            ref_ch_endname: 'ref_ch', 
-            segm_endname: 'segm',
-            spots_ch_segm_endname: 'spots_ch_segm',
-            ref_ch_segm_endname: 'ref_ch_segm'
+            f'{spots_ch_endname};;1': 'spots_ch', 
+            f'{ref_ch_endname};;2': 'ref_ch', 
+            f'{segm_endname};;3': 'segm',
+            f'{spots_ch_segm_endname};;4': 'spots_ch_segm',
+            f'{ref_ch_segm_endname};;5': 'ref_ch_segm'
         }
         data = {'basename': io.get_basename(utils.listdir(images_path))}
-        for channel, key in channels.items():
+        for channel_id, key in channels.items():
+            channel = channel_id.split(';;')[0]
             if not channel:
                 continue
             ch_path = cellacdc.io.get_filepath_from_channel_name(
@@ -4193,6 +4194,79 @@ class Kernel(_ParamsParser):
             custom_combined_measurements[colname] = expression
         return custom_combined_measurements
     
+    def _preprocess_and_segment_ref_channel(
+            self, 
+            ref_ch_data,
+            stopFrameNum,
+            acdc_df,
+            segm_rp,
+            segm_data,
+            df_agg,
+            do_aggregate, 
+            save_preproc_ref_ch_img,
+            verbose=True
+        ):
+        print('')
+        self.logger.info('Segmenting reference channel...')
+        self._current_step = 'Segmenting reference channel'
+        SECTION = 'Reference channel'
+        ref_ch_threshold_method = (
+            self._params[SECTION]['refChThresholdFunc']['loadedVal']
+        )
+        is_ref_ch_single_obj = (
+            self._params[SECTION]['refChSingleObj']['loadedVal']
+        )
+        ridge_filter_sigmas = (
+            self._params[SECTION]['refChRidgeFilterSigmas']['loadedVal']
+        )
+        vox_to_um3 = self.metadata.get('vox_to_um3_factor', 1)
+        ref_ch_segm_data = np.zeros(ref_ch_data.shape, dtype=np.uint32)
+        preproc_ref_ch_data = None
+        if save_preproc_ref_ch_img:
+            preproc_ref_ch_data = np.zeros_like(ref_ch_data)
+        desc = 'Frames completed (segm. ref. ch.)'
+        pbar = tqdm(
+            total=stopFrameNum, ncols=100, desc=desc, position=2, 
+            leave=stopFrameNum>1
+        )
+        for frame_i in range(stopFrameNum):
+            self._current_frame_i = frame_i
+            if acdc_df is not None:
+                lineage_table = acdc_df.loc[frame_i]
+            else:
+                lineage_table = None
+            lab_rp = segm_rp[frame_i]
+            ref_ch_img = ref_ch_data[frame_i]
+            raw_ref_ch_img = ref_ch_img.copy()
+            ref_ch_img = self._preprocess(
+                ref_ch_img, is_ref_ch=True, verbose=frame_i==0
+            )
+            lab = segm_data[frame_i]
+            result = self.segment_quantify_ref_ch(
+                ref_ch_img, lab_rp=lab_rp, lab=lab, 
+                threshold_method=ref_ch_threshold_method, 
+                keep_only_largest_obj=is_ref_ch_single_obj,
+                df_agg=df_agg, 
+                frame_i=frame_i, 
+                do_aggregate=do_aggregate,
+                lineage_table=lineage_table, 
+                vox_to_um3=vox_to_um3,
+                zyx_tolerance=self.metadata['deltaTolerance'],
+                ridge_filter_sigmas=ridge_filter_sigmas,
+                verbose=verbose, 
+                raw_ref_ch_img=raw_ref_ch_img,
+                return_filtered_img=save_preproc_ref_ch_img           
+            )
+            if save_preproc_ref_ch_img:
+                ref_ch_lab, ref_ch_filtered_img, df_agg = result
+                preproc_ref_ch_data[frame_i] = ref_ch_filtered_img
+            else:
+                ref_ch_lab, df_agg = result
+            ref_ch_segm_data[frame_i] = ref_ch_lab
+            pbar.update()
+        pbar.close()
+        return ref_ch_segm_data, preproc_ref_ch_data           
+    
     @handle_log_exception_cli
     def _run_from_images_path(
             self, images_path, 
@@ -4256,76 +4330,34 @@ class Kernel(_ParamsParser):
             pbar.update()
         pbar.close()
         
+        SECTION = 'Reference channel'
         segment_ref_ch = (
             ref_ch_data is not None and do_segment_ref_ch
             and ref_ch_segm_data is None
         )
+        save_preproc_ref_ch_img = (
+            self._params[SECTION]['saveRefChPreprocImage']['loadedVal']
+        )
+        save_ref_ch_segm = (
+            self._params[SECTION]['saveRefChMask']['loadedVal']
+        )
         if segment_ref_ch:
-            print('')
-            self.logger.info('Segmenting reference channel...')
-            self._current_step = 'Segmenting reference channel'
-            SECTION = 'Reference channel'
-            ref_ch_threshold_method = (
-                self._params[SECTION]['refChThresholdFunc']['loadedVal']
+            result = self._preprocess_and_segment_ref_channel(
+                ref_ch_data, 
+                stopFrameNum, 
+                acdc_df, 
+                segm_rp,
+                segm_data,
+                df_agg,
+                do_aggregate, 
+                save_preproc_ref_ch_img,
+                verbose=verbose
             )
-            is_ref_ch_single_obj = (
-                self._params[SECTION]['refChSingleObj']['loadedVal']
-            )
-            ridge_filter_sigmas = (
-                self._params[SECTION]['refChRidgeFilterSigmas']['loadedVal']
-            )
-            save_ref_ch_segm = (
-                self._params[SECTION]['saveRefChMask']['loadedVal']
-            )
-            save_preproc_ref_ch_img = (
-                self._params[SECTION]['saveRefChPreprocImage']['loadedVal']
-            )
-            vox_to_um3 = self.metadata.get('vox_to_um3_factor', 1)
-            ref_ch_segm_data = np.zeros(ref_ch_data.shape, dtype=np.uint32)
-            if save_preproc_ref_ch_img:
-                preproc_ref_ch_data = np.zeros_like(ref_ch_data)
-            desc = 'Frames completed (segm. ref. ch.)'
-            pbar = tqdm(
-                total=stopFrameNum, ncols=100, desc=desc, position=2, 
-                leave=stopFrameNum>1
-            )
-            for frame_i in range(stopFrameNum):
-                self._current_frame_i = frame_i
-                if acdc_df is not None:
-                    lineage_table = acdc_df.loc[frame_i]
-                else:
-                    lineage_table = None
-                lab_rp = segm_rp[frame_i]
-                ref_ch_img = ref_ch_data[frame_i]
-                raw_ref_ch_img = ref_ch_img.copy()
-                ref_ch_img = self._preprocess(
-                    ref_ch_img, is_ref_ch=True, verbose=frame_i==0
-                )
-                lab = segm_data[frame_i]
-                result = self.segment_quantify_ref_ch(
-                    ref_ch_img, lab_rp=lab_rp, lab=lab, 
-                    threshold_method=ref_ch_threshold_method, 
-                    keep_only_largest_obj=is_ref_ch_single_obj,
-                    df_agg=df_agg, 
-                    frame_i=frame_i, 
-                    do_aggregate=do_aggregate,
-                    lineage_table=lineage_table, 
-                    vox_to_um3=vox_to_um3,
-                    zyx_tolerance=self.metadata['deltaTolerance'],
-                    ridge_filter_sigmas=ridge_filter_sigmas,
-                    verbose=verbose, 
-                    raw_ref_ch_img=raw_ref_ch_img,
-                    return_filtered_img=save_preproc_ref_ch_img           
-                )
-                if save_preproc_ref_ch_img:
-                    ref_ch_lab, ref_ch_filtered_img, df_agg = result
-                    preproc_ref_ch_data[frame_i] = ref_ch_filtered_img
-                else:
-                    ref_ch_lab, df_agg = result
-                ref_ch_segm_data[frame_i] = ref_ch_lab
-                pbar.update()
-            pbar.close()
+            ref_ch_segm_data, preproc_ref_ch_data = result
+            df_agg = self.ref_ch_to_physical_units(df_agg, self.metadata)
 
+            data['df_agg'] = df_agg
+            data['ref_ch_segm'] = ref_ch_segm_data
             if save_ref_ch_segm:
                 basename = data.get('basename', '')
                 io.save_ref_ch_mask(
@@ -4337,7 +4369,6 @@ class Kernel(_ParamsParser):
                     text_to_append=text_to_append, 
                     pad_width=data['pad_width']
                 )
-            
             if save_preproc_ref_ch_img:
                 basename = data.get('basename', '')
                 raw_ref_ch_data_filepath = data['ref_ch.filepath']
@@ -4351,11 +4382,6 @@ class Kernel(_ParamsParser):
                     cast_to_dtype=data['ref_ch.dtype'], 
                     pad_width=data['pad_width']
                 )
-            
-            df_agg = self.ref_ch_to_physical_units(df_agg, self.metadata)
-
-            data['df_agg'] = df_agg
-            data['ref_ch_segm'] = ref_ch_segm_data
         
         if 'spots_ch' not in data:
             dfs = {'agg_detection': data['df_agg']}
@@ -5183,3 +5209,20 @@ def ceil(val, precision=0):
 
 def floor(val, precision=0):
     return np.true_divide(np.floor(val * 10**precision), 10**precision)
+
+
+def nearest_nonzero(arr, point):
+    value = arr[tuple(point)]
+    if value != 0:
+        return value, 0
+    
+    nonzero_coords = np.column_stack(np.nonzero(arr))
+    if nonzero_coords.size == 0:
+        return 0, np.nan
+    
+    diff = np.subtract(nonzero_coords, point)
+    dist = np.linalg.norm(diff, axis=1)
+    min_idx = dist.argmin()
+    min_dist_point = tuple(nonzero_coords[min_idx])
+    min_dist = dist[min_idx]
+    return arr[min_dist_point], min_dist

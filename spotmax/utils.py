@@ -871,19 +871,6 @@ class widgetBlinker:
         self._blinkTimer.stop()
         self._widget.setStyleSheet(f'{self._off_style}')
 
-def nearest_nonzero(arr: np.ndarray, y: int, x: int):
-    value = arr[y,x]
-    if value == 0:
-        r, c = np.nonzero(arr)
-        dist = ((r - y)**2 + (c - x)**2)
-        min_idx = dist.argmin()
-        min_dist = dist[min_idx]
-        return arr[r[min_idx], c[min_idx]], min_dist
-    else:
-        min_dist = 0
-        return value, min_dist
-
-
 def _get_all_filepaths(start_path):
     filepaths = []
     for dirpath, dirnames, filenames in os.walk(start_path):

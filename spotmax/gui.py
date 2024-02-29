@@ -349,8 +349,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         txt = html_func.paragraph(f"""
             There are no valid files in the following folder:<br><br>
             <code>{spotmax_out_path}</code><br><br>
-            This could be because the number of detected spots was 0, or 
-            you did not run any analysis yet.<br><br>
+            This could be because the number of detected spots was 0,  
+            you did not run any analysis yet, or the analysis ended 
+            with errors.<br><br>
             If you need help with this feel free to reach out on or 
             {html_func.href('GitHub page', issues_url)}.
         """)
