@@ -1,5 +1,5 @@
-SpotMAX API Reference
-=====================
+API Reference
+=============
 
 .. contents::
 

@@ -967,7 +967,8 @@ Custom combined measurements
     with the Python library `pandas.eval`_.
 
   :type: str
-  :default: ````
+  :default: ``''``
+
 
 .. _config-params:
 

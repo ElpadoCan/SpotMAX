@@ -448,9 +448,3 @@ Post-analysis metrics
 * **Consecutive spots distance from fit coords (micro-m)**: column name ``consecutive_spots_distance_fit_voxel``. 
   Euclidean distance between consecutive pairs of spots without a specific order.
   Unit is pixels and the coordinates used are the fitted center from spotFIT step.
-
-
-.. toctree:: 
-    :hidden:
-
-    _background_description.rst
