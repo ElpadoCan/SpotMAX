@@ -419,7 +419,10 @@ Reference channel
 
   1. Gaussian filter (if :confval:`Ref. channel gaussian filter sigma` > 0)
   2. Ridge filter, to enhance network-like structures (if :confval:`Sigmas used to enhance network-like structures` > 0)
-  3. Automatic thresholding using the method selected by the :confval:`Ref. channel threshold function` parameter.
+  3. Segmentation with one of the following methods (see :confval:`Ref. channel segmentation method`):
+     
+     a. Automatic thresholding using the method selected in the :confval:`Ref. channel threshold function` parameter.
+     b. Any of the models available on the `BioImage Model Zoo`_ webpage.
 
   Note that the :confval:`Aggregate cells prior analysis` applies here too. 
   Do not aggregate if the signal's intensities varies widely between segmented 
