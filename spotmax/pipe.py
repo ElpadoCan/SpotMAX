@@ -1917,7 +1917,7 @@ def filter_spots_from_features_thresholds(
 
     Parameters
     ----------
-    df_features : pd.DataFrame
+    df_features : pandas.DataFrame
         Pandas DataFrame with 'spot_id' or ('Cell_ID', 'spot_id') as index and 
         the features as columns.
     features_thresholds : dict
@@ -1928,12 +1928,14 @@ def filter_spots_from_features_thresholds(
         t-test spot vs reference channel > 0 and the p-value < 0.025 
         (i.e. spots are significantly brighter than reference channel) 
         we pass the following dictionary:
-        ```
-        features_thresholds = {
-            'spot_vs_ref_ch_ttest_pvalue': (None,0.025),
-            'spot_vs_ref_ch_ttest_tstat': (0, None)
-        }
-        ```
+		
+        .. code-block:: python
+        
+            features_thresholds = {
+                'spot_vs_ref_ch_ttest_pvalue': (None,0.025),
+                'spot_vs_ref_ch_ttest_tstat': (0, None)
+            }
+		
         where `None` indicates the absence of maximum or minimum.
     is_spotfit : bool, optional
         If False, features ending with '_fit' will be ignored. Default is False
@@ -1948,7 +1950,7 @@ def filter_spots_from_features_thresholds(
 
     Returns
     -------
-    pd.DataFrame
+    pandas.DataFrame
         The filtered DataFrame
     """
     df_filtered = filters.filter_spots_from_features_thresholds(

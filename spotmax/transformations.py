@@ -795,10 +795,11 @@ def from_df_spots_objs_to_spots_lab(df_spots_objs, arr_shape, spots_lab=None):
     return spots_lab
 
 def add_closest_ID_col(df_spots_coords, lab, zyx_coords_cols):
+    df_spots_coords['closest_ID'] = df_spots_coords.index.to_list()
+    
     if 0 not in df_spots_coords.index:
         return df_spots_coords
     
-    df_spots_coords['closest_ID'] = df_spots_coords.index.to_list()
     zyx_coords = df_spots_coords.loc[[0], zyx_coords_cols].to_numpy()
     closest_IDs = []
     for zc, yc, xc in zyx_coords:
