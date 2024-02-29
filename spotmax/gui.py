@@ -322,7 +322,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def checkDataLoaded(self):
-        if self.dataIsLoaded:
+        if self.isDataLoaded:
             return True
         
         txt = html_func.paragraph("""
@@ -563,7 +563,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             self, 'Visualize results?', txt, buttonsTexts=('No', 'Yes')
         )
         if msg.clickedButton == yesButton:
-            if not self.dataIsLoaded:
+            if not self.isDataLoaded:
                 txt = html_func.paragraph("""
             In order to visualize the results you need to <b>load some 
             image data first</b>.<br><br>
@@ -992,7 +992,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
     
     def tabControlPageChanged(self, index):
-        if not self.dataIsLoaded:
+        if not self.isDataLoaded:
             return
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget        
@@ -2356,7 +2356,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget.initAutoTuneColors(trueColor, falseColor)
     
     def autoTuningTrueFalseToggled(self, checked):
-        if not self.dataIsLoaded:
+        if not self.isDataLoaded:
             return
         self.isAutoTuningForegr = checked
         self.autoTuningSetItemsColor(checked)
@@ -2445,13 +2445,13 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.setAutoTunePointSize()
     
     def startAutoTuning(self):
-        if not self.dataIsLoaded:
+        if not self.isDataLoaded:
             return
         self.isAutoTuneRunning = True
         self.doAutoTune()
         
     def stopAutoTuning(self):
-        if not self.dataIsLoaded:
+        if not self.isDataLoaded:
             return
         self.isAutoTuneRunning = False
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
