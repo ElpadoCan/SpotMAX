@@ -2637,7 +2637,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.setVisibleAutoTunePoints()
     
     def updatePos(self):
-        self.setSaturBarLabel()
+        self.setStatusBarLabel()
         self.checkManageVersions()
         self.removeAlldelROIsCurrentFrame()
         proceed_cca, never_visited = self.get_data()
