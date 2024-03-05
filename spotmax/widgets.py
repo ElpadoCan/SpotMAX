@@ -2547,8 +2547,25 @@ class SetBoundsFromFeaturesGroupBox(QGroupBox):
     
     def text(self):
         return self.value()
+
+class LowHighRangeWidget(QWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+    
+    def setValue(self, *low_high):
+        if low_high is None or not low_high:
+            low_high = 0, 0
         
+        low, high = low_high
+    
+    def value(self):
+        ...
         
+
+class Stack3DsegmRangeWidget(LowHighRangeWidget):
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent=parent)
+
 class sigmaXBoundsWidget(SetBoundsFromFeaturesGroupBox):
     def __init__(self, parent=None) -> None:
         super().__init__(parent=parent)

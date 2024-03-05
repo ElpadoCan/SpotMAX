@@ -125,6 +125,16 @@ def get_gauss_sigma(text):
         )
     return sigma
 
+def get_stack_3d_segm_range(text):
+    if not text:
+        return (0, 0)
+    
+    text = text.replace(' ', '')
+    text = text.replace('(', '')
+    text = text.replace(')', '')
+    low, high = text.split(',')
+    return int(low), int(high)
+
 def get_sigma_xy_bounds(text):
     if text == 'Default' or not text:
         return ('0.5', 'spotsize_yx_radius_pxl')
@@ -794,6 +804,18 @@ def _pre_processing_params():
             'actions': None,
             'dtype': get_bool
         },
+        # 'stack3DsegmRange': {
+        #     'desc': 'Stack 3D segm. masks range',
+        #     'initialVal': '(0, 0)',
+        #     'stretchWidget': True,
+        #     'addInfoButton': True,
+        #     'addComputeButton': False,
+        #     'addApplyButton': False,
+        #     'formWidgetFunc': 'widgets.Stack3DsegmRangeWidget',
+        #     'actions': None,
+        #     'valueSetter': 'setValue',
+        #     'dtype': get_stack_3d_segm_range
+        # },
     }
     return pre_processing_params
 

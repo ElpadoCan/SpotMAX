@@ -1,3 +1,4 @@
+from logging import warning
 from typing import Union
 from numbers import Number
 import warnings
@@ -158,7 +159,9 @@ def get_aggregating_spots_feature_func():
 
 def _try_metric_func(func, *args):
     try:
-        val = func(*args)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore")
+            val = func(*args)
     except Exception as e:
         val = np.nan
     return val

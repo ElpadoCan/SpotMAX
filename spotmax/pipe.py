@@ -638,8 +638,8 @@ def reference_channel_quantify(
             )
         
         # Add background corrected metrics
-        backgr_val = df_ref_ch['background_ref_ch_median_intensity'].iloc[0]
-        mean_val = df_ref_ch['ref_ch_mean_intensity'].iloc[0]
+        backgr_val = df_ref_ch['background_ref_ch_median_intensity']
+        mean_val = df_ref_ch['ref_ch_mean_intensity']
         backr_corr_mean = mean_val - backgr_val
         df_ref_ch.loc[:, 'ref_ch_backgr_corrected_mean_intensity'] = (
             backr_corr_mean
@@ -647,6 +647,7 @@ def reference_channel_quantify(
         df_ref_ch.loc[:, 'ref_ch_backgr_corrected_sum_intensity'] = (
             backr_corr_mean*vol_voxels
         )
+        
         
         for sub_obj in ref_ch_rp:
             sub_vol_vox = np.count_nonzero(sub_obj.image)
@@ -664,8 +665,15 @@ def reference_channel_quantify(
                 )
             
             # Add background corrected metrics
-            sub_mean_val = df_ref_ch['sub_obj_ref_ch_mean_intensity'].iloc[0]
-            sub_backr_corr_mean = sub_mean_val - backgr_val
+            try:
+                sub_mean_val = (
+                    df_ref_ch[sub_obj.label, 'sub_obj_ref_ch_mean_intensity']
+                )
+                sub_backgr_val = backgr_val.loc[sub_obj.label]
+                sub_backr_corr_mean = sub_mean_val - sub_backgr_val
+            except Exception as err:
+                sub_backr_corr_mean = np.nan
+            
             col = 'sub_obj_ref_ch_backgr_corrected_mean_intensity'
             df_ref_ch.loc[sub_obj.label, col] = sub_backr_corr_mean
             col = 'sub_obj_ref_ch_backgr_corrected_sum_intensity'

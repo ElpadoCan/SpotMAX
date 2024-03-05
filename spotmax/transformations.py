@@ -446,10 +446,7 @@ def deaggregate_img(aggr_img, aggregated_lab, lab):
 def index_aggregated_segm_into_input_lab(
         lab, aggregated_segm, aggregated_lab, x_slice_idxs,
         keep_objects_touching_lab_intact=False
-    ):    
-    with open('x_slice_idxs.txt', 'w') as txt:
-        txt.write(str(x_slice_idxs))
-        
+    ):            
     subobj_labels = np.zeros_like(lab)
     rp = skimage.measure.regionprops(lab)
     obj_idxs = {obj.label:obj for obj in rp}
@@ -464,12 +461,14 @@ def index_aggregated_segm_into_input_lab(
     last_max_id = 0
     for end_x_slice in x_slice_idxs:
         sliced_subobj_mask = aggregated_segm[..., start_x_slice:end_x_slice] > 0
-        sliced_subobj_lab = skimage.measure.label(sliced_subobj_mask)
+        sliced_subobj_lab = skimage.measure.label(sliced_subobj_mask) 
         sliced_subobj_lab[sliced_subobj_mask] = (
             sliced_subobj_lab[sliced_subobj_mask] + last_max_id
         )
         aggr_subobj_lab[..., start_x_slice:end_x_slice] = sliced_subobj_lab
-        last_max_id = sliced_subobj_lab.max()
+        max_id = sliced_subobj_lab.max()
+        if max_id > 0:
+            last_max_id = max_id
         start_x_slice = end_x_slice
     
     aggr_subobj_rp = skimage.measure.regionprops(aggr_subobj_lab)
