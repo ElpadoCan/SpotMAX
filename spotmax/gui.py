@@ -360,7 +360,11 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def addSpotsCoordinatesTriggered(self):
         posData = self.data[self.pos_i]
-        df_spots_files = posData.getSpotmaxSingleSpotsfiles()
+        df_spots_files = {}
+        for _posData in self.data:
+            df_spots_files[_posData.spotmax_out_path] = (
+                _posData.getSpotmaxSingleSpotsfiles()
+            )
         if not df_spots_files:
             self.warnNoSpotsFilesFound(posData.spotmax_out_path)
             return
@@ -378,6 +382,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             posData.frame_i, toolbutton=toolbutton,
             z=self.currentZ(checkIfProj=True)
         )
+        guiTabControl = self.computeDockWidget.widget()
+        guiTabControl.setCurrentIndex(2)
     
     def currentZ(self, checkIfProj=True):
         posData = self.data[self.pos_i]
@@ -440,8 +446,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     def reInitGui(self):
         super().reInitGui()
         
-        self.annotateToolbar.setDisabled(True)
-        self.annotateToolbar.setVisible(False)
+        self.loadCustomAnnotationsAction.setDisabled(True)
+        self.addCustomAnnotationAction.setDisabled(True)
         
         for toolButton in self.spotsItems.buttons:
             self.spotmaxToolbar.removeAction(toolButton.action)
@@ -2439,14 +2445,20 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.ax1.addItem(autoTuneGroupbox.trueItem)
         self.ax1.addItem(autoTuneGroupbox.falseItem)
         self.autoTuningSetItemsColor(True)
-    
-    def updatePos(self):
-        super().updatePos()
-        self.initTuneKernel()
         
     def initTuneKernel(self):
         posData = self.data[self.pos_i]
         posData.tuneKernel = tune.TuneKernel()
+    
+    def PosScrollBarMoved(self, pos_n):
+        self.pos_i = pos_n-1
+        self.updateFramePosLabel()
+        proceed_cca, never_visited = self.get_data()
+        posData = self.data[self.pos_i]
+        self.spotsItems.setPosition(posData.spotmax_out_path)
+        self.spotsItems.loadSpotsTables()
+        self.updateAllImages()
+        self.setStatusBarLabel()
         
     def connectLeftClickButtons(self):
         super().connectLeftClickButtons()
@@ -2651,6 +2663,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.zoomToCells()
         self.updateScrollbars()
         self.computeSegm()
+        self.initTuneKernel()
 
     def show(self):
         super().show()

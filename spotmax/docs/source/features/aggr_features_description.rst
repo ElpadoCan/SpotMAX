@@ -6,9 +6,16 @@ Aggregated features description
 ===============================
 
 Description of all the features saved by spotMAX for each segmented object 
-(aggregated) and the corresponding column name. These are simple aggregations 
-like averaging and sum. See the related feature in the :ref:`single-spot-features` 
-section for more details.
+(e.g., single cells, see :confval:`Cells segmentation end name or path` 
+parameter) and the corresponding column name. These are simple aggregations 
+like averaging and sum. 
+
+.. seealso::
+
+  For more details, see the corresponding feature in the :ref:`single-spot-features` 
+  section. For example, the aggregated metric with column name 
+  ``mean_sigma_x_fit`` is the mean of the single spot metric called 
+  ``sigma_x_fit`` between spots of the same input object (e.g., single cells). 
 
 .. contents::
 
@@ -41,13 +48,9 @@ Spotfit Goodness-of-fit
 * **Mean normalised RMS error gauss. fit**: column name ``mean_NRMSE_fit``.
 * **Mean F-norm. RMS error gauss. fit**: column name ``mean_F_NRMSE_fit``.
   
-Reference channel
------------------
-* **Ref. channel volume**: column name ``ref_ch_vol_``.
-* **Ref. ch. number of fragments**: column name ``ref_ch_num_fragments``.
-  
-Segmented objects size
-----------------------
+Segmented objects size (e.g., single cells)
+-------------------------------------------
+
 * **Area of the segmented object (pixel)**: column name ``cell_area_pxl``.
 * **Area of the segmented object (micro-m^2)**: column name ``cell_area_um2``.
 * **Estimated 3D volume from 2D mask (pixel)**: column name ``cell_vol_vox``. 

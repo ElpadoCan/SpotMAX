@@ -2,7 +2,7 @@ import sys
 import time
 import re
 import traceback
-import typing
+from natsort import natsorted
 import webbrowser
 from pprint import pprint
 from functools import partial
@@ -318,10 +318,10 @@ class FeatureSelectorButton(QPushButton):
 class FeatureSelectorDialog(acdc_apps.TreeSelectorDialog):
     sigClose = Signal()
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, category='spots', **kwargs) -> None:
         super().__init__(**kwargs)
 
-        features_groups = features.get_features_groups()
+        features_groups = features.get_features_groups(category=category)
         self.addTree(features_groups)
 
         self.setFont(font)
@@ -377,14 +377,23 @@ class CheckableSpinBoxWidgets:
         return self.spinbox.value()
 
 class FeatureRangeSelector:
-    def __init__(self) -> None:
+    def __init__(self, category='spots') -> None:
+        self.category = category
+        
         self.lowRangeWidgets = CheckableSpinBoxWidgets()
         self.highRangeWidgets = CheckableSpinBoxWidgets()        
         
+        features_groups = features.get_features_groups(category=category)
+        texts = [
+            f'{group}, {name}' for group, names in features_groups.items() 
+            for name in names 
+        ]
+        lengths = [len(text) for text in texts]
+        max_len_idx = lengths.index(max(lengths))
+        longestText = texts[max_len_idx]
+        
         self.selectButton = FeatureSelectorButton('Click to select feature...')
-        self.selectButton.setSizeLongestText(
-            'Spotfit intens. metric, Foregr. integral gauss. peak'
-        )
+        self.selectButton.setSizeLongestText(longestText)
         self.selectButton.clicked.connect(self.selectFeature)
         self.selectButton.setCursor(Qt.PointingHandCursor)
 
@@ -410,8 +419,9 @@ class FeatureRangeSelector:
         topLevelText, childText = text.split(', ')
         return {topLevelText: childText}
     
-    def selectFeature(self):
+    def selectFeature(self): 
         self.selectFeatureDialog = FeatureSelectorDialog(
+            category=self.category,
             parent=self.selectButton, 
             multiSelection=False, 
             expandOnDoubleClick=True, 
@@ -419,7 +429,7 @@ class FeatureRangeSelector:
             infoTxt='Select feature', 
             allItemsExpanded=False,
             title='Select feature', 
-            allowNoSelection=False
+            allowNoSelection=False,
         )
         self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
         # self.selectFeatureDialog.resizeVertical()
@@ -435,22 +445,25 @@ class FeatureRangeSelector:
         feature_name = selection[group_name][0]
         featureText = f'{group_name}, {feature_name}'
         self.selectButton.setFeatureText(featureText)
-        column_name = features.feature_names_to_col_names_mapper()[featureText]
+        col_names_mapper = features.feature_names_to_col_names_mapper(
+            category=self.category
+        )
+        column_name = col_names_mapper[featureText]
         lowValue = self.lowRangeWidgets.value()
         highValue = self.highRangeWidgets.value()
         self.selectButton.setToolTip(f'{column_name}')
 
 class GopFeaturesAndThresholdsGroupbox(QGroupBox):
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, category='spots') -> None:
         super().__init__(parent)
 
-        self.setTitle('Features and thresholds for filtering true spots')
+        self.setTitle(f'Features and thresholds for filtering true {category}')
         # self.setCheckable(True)
 
         self._layout = QGridLayout()
         self._layout.setVerticalSpacing(0)
 
-        firstSelector = FeatureRangeSelector()
+        firstSelector = FeatureRangeSelector(category=category)
         self.addButton = acdc_widgets.addPushButton('  Add feature    ')
         self.addButton.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
@@ -496,18 +509,20 @@ class GopFeaturesAndThresholdsGroupbox(QGroupBox):
     def setValue(self, value):
         pass
             
-
 class _GopFeaturesAndThresholdsButton(QPushButton):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, category='spots'):
         super().__init__(parent)
         super().setText(' Set features or view the selected ones... ')
         self.selectedFeaturesWindow = dialogs.GopFeaturesAndThresholdsDialog(
-            parent=self
+            parent=self, category=category
         )
         self.clicked.connect(self.setFeatures)
+        col_names_mapper = features.feature_names_to_col_names_mapper(
+            category=category
+        )
         self.col_to_feature_mapper = {
             value:key for key, value 
-            in features.feature_names_to_col_names_mapper().items()
+            in col_names_mapper.items()
         }
         self.selectedFeaturesWindow.hide()
     
@@ -538,7 +553,7 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
             super().setText(' Set features or view the selected ones... ')
             return
         paramsText = ''
-        gop_thresholds = config.get_gop_thresholds(text)
+        gop_thresholds = config.get_features_thresholds_filter(text)
         featuresGroupBox = self.selectedFeaturesWindow.setFeaturesGroupbox
         for i, (col_name, values) in enumerate(gop_thresholds.items()):
             low_val, high_val = values
@@ -879,7 +894,7 @@ class SpotMinSizeLabels(QWidget):
         if not self._isZstack:
             roundUm[0] = 'nan'
         textUm = ', '.join(roundUm)
-        indent = ' '*45
+        indent = ' '*41
         text = f'({textPixel}) pixel\n{indent}({textUm}) micrometer'
         return text
     
@@ -1906,9 +1921,12 @@ class SpotsItems:
         self.buttons = []
         self.parent = parent
 
-    def addLayer(self, df_spots_files):
+    def addLayer(self, df_spots_files: dict):
+        all_df_spots_files = set()
+        for files in df_spots_files.values():
+            all_df_spots_files.update(files)
         win = dialogs.SpotsItemPropertiesDialog(
-            df_spots_files, 
+            natsorted(all_df_spots_files), 
             spotmax_out_path=self.spotmax_out_path,
             parent=self.parent
         )
@@ -1932,7 +1950,7 @@ class SpotsItems:
         toolbutton.setCheckable(True)
         toolbutton.sigToggled.connect(self.buttonToggled)
         toolbutton.sigEditAppearance.connect(self.editAppearance)
-        toolbutton.filename = state['h5_filename']
+        toolbutton.filename = state['selected_file']
         return toolbutton
     
     def buttonToggled(self, button, checked):
@@ -2049,6 +2067,7 @@ class SpotsItems:
     
     def setPosition(self, spotmax_out_path):
         self.spotmax_out_path = spotmax_out_path
+        self.posChanged = True
     
     def _loadSpotsTable(self, toolbutton):
         spotmax_out_path = self.spotmax_out_path
@@ -2068,9 +2087,16 @@ class SpotsItems:
     
     def _setDataButton(self, toolbutton, frame_i, z=None):
         scatterItem = toolbutton.item
-        if frame_i == scatterItem.frame_i and z == scatterItem.z:
-            return
         if toolbutton.df is None:
+            scatterItem.setData([], [])
+            return
+        
+        noNeedToUpdate = (
+            frame_i == scatterItem.frame_i
+            and z == scatterItem.z
+            and not self.posChanged
+        )
+        if noNeedToUpdate:
             return
         
         data = toolbutton.df.loc[frame_i]
@@ -2087,6 +2113,7 @@ class SpotsItems:
         scatterItem.setData(xx, yy)
         scatterItem.z = z
         scatterItem.frame_i = frame_i
+        self.posChanged = False
 
     def setData(self, frame_i, toolbutton=None, z=None):
         if toolbutton is None:
@@ -2687,3 +2714,7 @@ def toClipboard(text):
     cb = QApplication.clipboard()
     cb.clear(mode=cb.Clipboard)
     cb.setText(text, mode=cb.Clipboard)
+
+class RefChannelFeaturesThresholdsButton(_GopFeaturesAndThresholdsButton):
+    def __init__(self, parent=None):
+        super().__init__(parent, category='ref. channel objects')

@@ -193,8 +193,12 @@ def get_effect_size_func():
     }
     return effect_size_func
 
-def get_features_groups():
-    return docs.parse_single_spot_features_groups()
+def get_features_groups(category='spots'):
+    if category == 'spots':
+        return docs.parse_single_spot_features_groups()
+
+    if category == 'ref. channel objects':
+        return docs.parse_ref_ch_featurs_groups()
 
 def get_aggr_features_groups():
     return docs.parse_aggr_features_groups()
@@ -205,8 +209,12 @@ def aggr_feature_names_to_col_names_mapper():
 def single_spot_feature_names_to_col_names_mapper():
     return docs.single_spot_features_column_names()
 
-def feature_names_to_col_names_mapper():
-    return single_spot_feature_names_to_col_names_mapper()
+def feature_names_to_col_names_mapper(category='spots'):
+    if category == 'spots':
+        return single_spot_feature_names_to_col_names_mapper()
+    
+    if category == 'ref. channel objects':
+        return docs.ref_ch_features_column_names()
 
 def true_positive_feauture_inequality_direction_mapper():
     mapper = {}
@@ -432,4 +440,14 @@ def add_custom_combined_measurements(df, logger_func=print, **features_exprs):
                 f'[WARNING]: could not add feature `{expr_to_eval}`. '
                 'Might retry later. Skipping it for now.'
             )
+    return df
+
+def _init_df_ref_ch(ref_ch_rp):
+    nrows = len(ref_ch_rp)
+    index = [sub_obj.label for sub_obj in ref_ch_rp]
+    col_names = list(docs.ref_ch_features_column_names().values())
+    ncols = len(col_names)
+    data = np.zeros((nrows, ncols))
+    df = pd.DataFrame(data=data, columns=col_names, index=index)
+    df.index.name = 'sub_obj_id'
     return df

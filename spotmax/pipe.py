@@ -21,9 +21,6 @@ from . import features
 from . import utils
 from . import core
 
-distribution_metrics_func = features.get_distribution_metrics_func()
-effect_size_func = features.get_effect_size_func()
-
 def preprocess_image(
         image, 
         lab=None, 
@@ -504,6 +501,269 @@ def reference_channel_semantic_segm(
     
     return result
 
+def reference_channel_quantify(
+        ref_ch_segm,
+        ref_ch_img,
+        lab=None, 
+        lab_rp=None,
+        filtering_features_thresholds=None,
+        df_agg=None,
+        frame_i=0, 
+        vox_to_um3=None,
+        logger_func=print,
+        verbose=True
+    ):
+    """Calculate reference channel features and filter valid objects
+
+    Parameters
+    ----------
+    ref_ch_segm : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray of ints
+        Segmentation mask of the reference channel
+    ref_ch_img : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray
+        Input reference channel image.
+    lab : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray of ints, optional
+        Optional input segmentation image with the masks of the objects, i.e. 
+        single cells. Default is None. Default is None
+    lab_rp : list of skimage.measure.RegionProperties, optional
+        If not None, list of properties of objects in `lab` as returned by 
+        skimage.measure.regionprops(lab). If None, this will be computed 
+        with `skimage.measure.regionprops(lab)`. Default is None
+    filtering_features_thresholds : dict of {'feature_name': (min_value, max_value)}, optional
+        Features and their maximum and minimum values to filter valid reference 
+        channel segmented objects. 
+        An object is valid when `feature_name` is greater than `min_value` and 
+        lower than `max_value`. If a value is None it means there is no minimum 
+        or maximum threshold. Default is None
+    df_agg : pd.DataFrame, optional
+        Optional input DataFrame where to insert default features. The default 
+        feautures are `ref_ch_num_fragments`, `ref_ch_vol_vox`, and 
+        `ref_ch_vol_fl`. Default is None
+    frame_i : int, optional
+        Frame index in timelapse data. Default is 0
+    vox_to_um3 : float, optional
+        Optional factor used to convert voxels to micrometer cubed (equivalent 
+        to fL). Default is None
+    logger_func : callable, optional
+        Function used to print or log process information. Default is print
+    verbose : bool, optional
+        If True, additional information text will be printed to the terminal. 
+        Default is True
+
+    Returns
+    -------
+    df_agg : pandas.DataFrame
+        DataFrame with index `('frame_i', 'Cell_ID')` and three default 
+        columns where 'Cell_ID' is the ID of the obejcts in `lab`.
+        If input `df_agg` is not None, these columns will be added to it. 
+        The default feautures are `ref_ch_num_fragments`, `ref_ch_vol_vox`, and 
+        `ref_ch_vol_fl`.
+    df_ref_ch : pandas.DataFrame
+        DataFrame with index `('frame_i', 'Cell_ID', 'sub_obj_id')` and all the
+        features columns. 'Cell_ID' is the ID of the obejcts in `lab`, and
+        'sub_obj_id' is the id of each reference channel sub-object per 
+        single-cell. 
+        If input `filtering_features_thresholds`, is not None, the objects 
+        whose features are outside of the requested ranges are dropped from the
+        output table.
+    filtered_ref_ch_segm : pandas.DataFrame
+        _description_
+    """    
+    if verbose and frame_i == 0:
+        print('')
+        logger_func('Quantifying reference channel...')
+        
+    if lab:
+        lab = np.ones(ref_ch_segm.shape, dtype=np.uint8)
+    
+    if lab_rp is None:
+        lab_rp = skimage.measure.regionprops(lab)
+        
+    if df_agg is None:
+        df_agg = pd.DataFrame({
+            'frame_i': [frame_i]*len(lab_rp),
+            'Cell_ID': [obj.label for obj in lab_rp]
+        })
+    
+    distribution_metrics_func = features.get_distribution_metrics_func()
+    
+    dfs_ref_ch = []
+    keys = []
+    sub_objs = {}
+    
+    desc = 'Quantifying reference channel'
+    pbar = tqdm(
+        total=len(lab_rp), ncols=100, desc=desc, position=3, 
+        leave=False
+    )
+    for obj in lab_rp:
+        ID = obj.label
+        
+        ref_ch_lab_local = ref_ch_segm[obj.slice].copy()
+        ref_ch_lab_local[ref_ch_lab_local!=obj.label] = 0
+        ref_ch_mask_local = ref_ch_lab_local > 0
+        
+        ref_ch_img_local = ref_ch_img[obj.slice]
+
+        # Add num of fragments
+        ref_ch_lab = skimage.measure.label(ref_ch_mask_local)
+        ref_ch_rp = skimage.measure.regionprops(ref_ch_lab)
+        num_fragments = len(ref_ch_rp)
+        df_agg.at[(frame_i, ID), 'ref_ch_num_fragments'] = num_fragments
+        
+        df_ref_ch = features._init_df_ref_ch(ref_ch_rp)
+        df_ref_ch['ref_ch_num_fragments'] = num_fragments
+        
+        # Add volumes
+        vol_voxels = np.count_nonzero(ref_ch_mask_local)
+        df_agg.at[(frame_i, ID), 'ref_ch_vol_vox'] = vol_voxels
+        df_ref_ch['ref_ch_vol_vox'] = vol_voxels
+        if vox_to_um3 is not None:
+            vol_fl = vol_voxels*vox_to_um3
+            df_agg.at[(frame_i, ID), 'ref_ch_vol_fl'] = vol_fl
+            df_ref_ch['ref_ch_vol_fl'] = vol_fl
+        
+        # Add background metrics
+        bkgr_mask = np.logical_and(~ref_ch_mask_local, obj.image)
+        backgr_vals = ref_ch_img_local[bkgr_mask]
+        for name, func in distribution_metrics_func.items():
+            df_ref_ch.loc[:, f'background_ref_ch_{name}_intensity'] = (
+                func(backgr_vals)
+            )
+        
+        # Add intensity metrics
+        foregr_vals = ref_ch_img_local[ref_ch_mask_local]
+        for name, func in distribution_metrics_func.items():
+            df_ref_ch.loc[:, f'ref_ch_{name}_intensity'] = (
+                func(foregr_vals)
+            )
+        
+        # Add background corrected metrics
+        backgr_val = df_ref_ch['background_ref_ch_median_intensity'].iloc[0]
+        mean_val = df_ref_ch['ref_ch_mean_intensity'].iloc[0]
+        backr_corr_mean = mean_val - backgr_val
+        df_ref_ch.loc[:, 'ref_ch_backgr_corrected_mean_intensity'] = (
+            backr_corr_mean
+        )
+        df_ref_ch.loc[:, 'ref_ch_backgr_corrected_sum_intensity'] = (
+            backr_corr_mean*vol_voxels
+        )
+        
+        for sub_obj in ref_ch_rp:
+            sub_vol_vox = np.count_nonzero(sub_obj.image)
+            df_ref_ch.at[sub_obj.label, 'sub_obj_vol_vox'] = sub_vol_vox
+            
+            if vox_to_um3 is not None:
+                sub_vol_fl = sub_vol_vox*vox_to_um3 
+                df_ref_ch.at[sub_obj.label, 'sub_obj_vol_fl'] = sub_vol_fl
+            
+            # Add intensity metrics
+            sub_foregr_vals = ref_ch_img_local[sub_obj.slice][sub_obj.image]
+            for name, func in distribution_metrics_func.items():
+                df_ref_ch.loc[sub_obj.label, f'ref_ch_{name}_intensity'] = (
+                    func(sub_foregr_vals)
+                )
+            
+            # Add background corrected metrics
+            sub_mean_val = df_ref_ch['sub_obj_ref_ch_mean_intensity'].iloc[0]
+            sub_backr_corr_mean = sub_mean_val - backgr_val
+            col = 'sub_obj_ref_ch_backgr_corrected_mean_intensity'
+            df_ref_ch.loc[sub_obj.label, col] = sub_backr_corr_mean
+            col = 'sub_obj_ref_ch_backgr_corrected_sum_intensity'
+            df_ref_ch.loc[sub_obj.label, col] = sub_backr_corr_mean*sub_vol_vox
+            
+            sub_objs[(ID, sub_obj.label)] = (obj, sub_obj)
+        
+        dfs_ref_ch.append(df_ref_ch)
+        keys.append((frame_i, ID))
+        
+        pbar.update()
+    pbar.close()
+    
+    df_ref_ch = pd.concat(
+        dfs_ref_ch, keys=keys, names=['frame_i', 'Cell_ID']
+    )
+    
+    if filtering_features_thresholds is None:
+        return df_agg, df_ref_ch, ref_ch_segm
+    
+    df_ref_ch = filters.filter_df_from_features_thresholds(
+        df_ref_ch, 
+        filtering_features_thresholds,
+        logger_func=logger_func
+    )
+    
+    # Filter valid segmentation masks
+    filtered_ref_ch_segm = np.zeros_like(ref_ch_segm)
+    for (ID, id), _ in df_ref_ch.groupby(level=(1, 2)):
+        obj, sub_obj = sub_objs[(ID, id)]
+        obj, sub_obj = sub_objs[(ID, id)]
+        filtered_ref_ch_segm[obj.slice][sub_obj.slice][sub_obj.image] = (
+            ref_ch_segm[obj.slice][sub_obj.slice][sub_obj.image]
+        )
+    
+    if np.array_equal(filtered_ref_ch_segm, ref_ch_segm):
+        return df_agg, df_ref_ch, ref_ch_segm
+    
+    # Correct metrics that depends on filtering valid objects (total volume 
+    # and background are different after removing some objects)
+    for obj in lab_rp:
+        ID = obj.label
+        idx = (frame_i, obj.label)
+        try:
+            df_ref_ch_obj = df_ref_ch.loc[idx]
+        except KeyError as err:
+            continue
+        
+        ref_ch_lab_local = filtered_ref_ch_segm[obj.slice].copy()
+        ref_ch_lab_local[ref_ch_lab_local!=obj.label] = 0
+        ref_ch_mask_local = ref_ch_lab_local > 0
+        
+        ref_ch_img_local = ref_ch_img[obj.slice]
+        
+        ref_ch_num_fragments = len(df_ref_ch_obj)
+        df_ref_ch.loc[idx, 'ref_ch_num_fragments'] = ref_ch_num_fragments
+        
+        ref_ch_vol_vox = df_ref_ch.loc[idx, 'sub_obj_vol_vox'].sum()
+        df_ref_ch.loc[idx, 'ref_ch_vol_vox'] = ref_ch_vol_vox
+        if vox_to_um3 is not None:
+            vol_fl = ref_ch_vol_vox*vox_to_um3
+            df_agg.at[(frame_i, ID), 'ref_ch_vol_fl'] = vol_fl
+            df_ref_ch.loc[idx, 'ref_ch_vol_fl'] = vol_fl
+        
+        # Add background metrics
+        bkgr_mask = np.logical_and(~ref_ch_mask_local, obj.image)
+        backgr_vals = ref_ch_img_local[bkgr_mask]
+        for name, func in distribution_metrics_func.items():
+            df_ref_ch.loc[idx, f'background_ref_ch_{name}_intensity'] = (
+                func(backgr_vals)
+            )
+        
+        # Add background corrected metrics
+        backgr_colname = 'background_ref_ch_median_intensity'
+        backgr_val = df_ref_ch.loc[idx, backgr_colname]
+        
+        mean_colname = 'ref_ch_mean_intensity'
+        mean_val = df_ref_ch.loc[idx, mean_colname]
+        backr_corr_mean = mean_val - backgr_val
+        df_ref_ch.loc[idx, 'ref_ch_backgr_corrected_mean_intensity'] = (
+            backr_corr_mean
+        )
+        df_ref_ch.loc[idx, 'ref_ch_backgr_corrected_sum_intensity'] = (
+            backr_corr_mean*vol_voxels
+        )
+        
+        # Correct sub-object background corrected metrics        
+        mean_corr_col = 'sub_obj_ref_ch_backgr_corrected_mean_intensity'
+        df_ref_ch.loc[idx, mean_corr_col] -= backgr_val
+    
+        sum_corr_col = 'sub_obj_ref_ch_backgr_corrected_sum_intensity'
+        df_ref_ch.loc[idx, sum_corr_col] = (
+            df_ref_ch.loc[idx, mean_corr_col]
+            * df_ref_ch.loc[idx, 'sub_obj_vol_vox']
+        )
+    
+    return df_agg, df_ref_ch, filtered_ref_ch_segm
+
 def _add_spot_vs_ref_location(ref_ch_mask, zyx_center, df, idx):
     is_spot_in_ref_ch = int(ref_ch_mask[zyx_center] > 0)
     df.at[idx, 'is_spot_inside_ref_ch'] = is_spot_in_ref_ch
@@ -624,6 +884,8 @@ def _compute_obj_spots_features(
         If True, displays intermediate results. Requires GUI libraries. 
         Default is False.
     """ 
+    
+    distribution_metrics_func = features.get_distribution_metrics_func()
     
     local_peaks_coords = df_obj_spots[ZYX_LOCAL_EXPANDED_COLS].to_numpy()
     result = transformations.get_spheroids_maks(
@@ -1952,7 +2214,7 @@ def filter_spots_from_features_thresholds(
     pandas.DataFrame
         The filtered DataFrame
     """
-    df_filtered = filters.filter_spots_from_features_thresholds(
+    df_filtered = filters.filter_df_from_features_thresholds(
         df_features, 
         features_thresholds,
         is_spotfit=is_spotfit, 

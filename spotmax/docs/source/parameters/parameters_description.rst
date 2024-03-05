@@ -504,6 +504,49 @@ Reference channel
   :type: string
   :default: ``threshold_otsu``
 
+.. confval:: Features for filtering ref. channel objects
+
+  List of reference channel features with their threshold values 
+  (minimum and maximum allowed) that will be used to filter valid reference 
+  channel objects. 
+  
+  In the GUI you can set these by clicking on the ``Set features or view the selected ones...`` 
+  button. 
+  
+  In the INI configuration file you could write
+  
+  .. code-block:: ini
+    
+    Features for filtering ref. channel objects =
+      sub_obj_vol_vox, 10, None
+  
+  This example uses one feature: the ``sub_obj_vol_vox`` which is the 
+  volume in voxels of each separated sub-object of the reference channel in each 
+  single object (e.g., single cells). 
+  
+  The thresholds are written as ``min, max``, where ``None`` means "no threshold". 
+  Therefore, non touching obejcts of the reference channel masks 
+  (inside each segmented objects, e.g., the single cell) whose volume is less 
+  than 10 voxels will be removed.
+
+  See the section :ref:`ref_ch_features` for more details about the features 
+  you can use for filtering.
+
+.. confval:: Save reference channel features
+
+  If ``True``, spotMAX will save an additional file with tabular data containing 
+  features based on the reference channel masks and intensities. 
+
+  The file will be saved in the ``spotMAX_output`` folder with the the name's 
+  pattern ``<run_number>_3_ref_channel_features_<text_to_append>.csv``, where 
+  ``<run_number>`` is the run number defined at :confval:`Run number`, and 
+  ``<text_to_append>`` is the text provided at the 
+  :confval:`Text to append at the end of the output files` 
+  parameter. 
+
+  See the section :ref:`ref_ch_features` for more details about the features 
+  saved in this table.
+
 .. confval:: Save reference channel segmentation masks
 
   If ``True``, spotMAX will save the segmentation masks of the reference channel in 
@@ -621,7 +664,7 @@ Spots channel
   for details about these features). The thresholds, are written as ``min, max`` 
   after the feature name. Therefore, with the line ``spot_vs_ref_ch_ttest_pvalue, None, 0.025`` 
   spotMAX will keep only those spots whose p-value of the t-test against the 
-  reference channel is below 0.025. Equally, wiht the ``spot_vs_ref_ch_ttest_tstat, 0.0, None`` 
+  reference channel is below 0.025. Equally, with the ``spot_vs_ref_ch_ttest_tstat, 0.0, None`` 
   spotMAX will keep only those spots whose t-statistic of the t-test against the 
   reference channel is above 0.0. Using this syntax, you can filter using an 
   arbitrary number single-spot features described in the :ref:`single-spot-features` 

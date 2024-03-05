@@ -401,7 +401,6 @@ Features that are computed during the gaussian fit procedure.
 * **Mean radius xy-direction**: column name ``sigma_yx_mean_fit``.
 * **Spot volume (voxel)**: column name ``spheroid_vol_vox_fit``.
 
-
 SpotFIT intens. metrics
 -----------------------
 

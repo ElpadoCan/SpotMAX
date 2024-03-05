@@ -6,3 +6,4 @@ Features description
 
     single_spot_features_description
     aggr_features_description
+    ref_ch_features_description

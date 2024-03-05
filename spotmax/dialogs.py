@@ -43,6 +43,7 @@ from . import printl, font
 from . import tune, docs
 from . import gui_settings_csv_path as settings_csv_path
 from . import last_selection_meas_filepath
+from . import palettes
 
 class QBaseDialog(QDialog):
     def __init__(self, parent=None):
@@ -63,15 +64,18 @@ class QBaseDialog(QDialog):
             self.loop.exit()
 
 class GopFeaturesAndThresholdsDialog(QBaseDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, category='spots'):
         self.cancel = True
         super().__init__(parent)
 
-        self.setWindowTitle('Features and thresholds for filtering true spots')
+        self.setWindowTitle(
+            f'Features and thresholds for filtering valid {category}')
 
         mainLayout = QVBoxLayout()
 
-        self.setFeaturesGroupbox = widgets.GopFeaturesAndThresholdsGroupbox()
+        self.setFeaturesGroupbox = widgets.GopFeaturesAndThresholdsGroupbox(
+            category=category
+        )
         mainLayout.addWidget(self.setFeaturesGroupbox)
         mainLayout.addStretch(1)
 
@@ -2487,8 +2491,8 @@ class selectPathsSpotmax(QBaseDialog):
 
         doc = QTextDocument()
         item = selectedItems[0]
-        label = self.pathSelector.itemWidget(item, 0)
-        doc.setHtml(label.text())
+        text = item.text(0)
+        doc.setHtml(text)
         plainText = doc.toPlainText()
         parent = item.parent()
         if parent is None:
@@ -2505,8 +2509,7 @@ class selectPathsSpotmax(QBaseDialog):
             )
         else:
             posFoldername = re.findall('(.+) \(', plainText)[0]
-            parentLabel = label = self.pathSelector.itemWidget(parent, 0)
-            doc.setHtml(parentLabel.text())
+            doc.setHtml(parent.text(0))
             parentText = doc.toPlainText()
             relPath1 = re.findall('...(.+) \(', parentText)[0]
             relPath1 = pathlib.Path(relPath1)
@@ -2823,14 +2826,17 @@ class iniFileWidget(QBaseDialog):
     
     def setIniText(self, configPars):
         htmlText = ''
+        palette = palettes.ini_hex_colors()
+        section_hex = palette['section']
+        option_hex = palette['option']
         for section in configPars.sections():
-            sectionText = html_func.span(f'[{section}]', font_color='#8449AB')
+            sectionText = html_func.span(f'[{section}]', font_color=section_hex)
             htmlText = f'{htmlText}{sectionText}<br>'
             for option in configPars.options(section):
                 value = configPars[section][option]
                 # option = option.replace('Î¼', '&micro;')
                 optionText = html_func.span(
-                    f'<i>{option}</i> = ', font_color='#464646'
+                    f'<i>{option}</i> = ', font_color=option_hex
                 )
                 value = value.replace('\n', '<br>&nbsp;&nbsp;&nbsp;&nbsp;')
                 htmlText = f'{htmlText}{optionText}{value}<br>'
@@ -2841,7 +2847,8 @@ class iniFileWidget(QBaseDialog):
         super().show(block=False)
         self.move(self.pos().x(), 20)
         height = int(self.screen().size().height()*0.7)
-        self.resize(int(self.width()*1.3), height)
+        width = round(height*0.85)
+        self.resize(width, height)
         super().show(block=block)
     
     def ok_cb(self):
@@ -3124,7 +3131,7 @@ def getSelectedExpPaths(utilityName, parent=None):
 class SpotsItemPropertiesDialog(QBaseDialog):
     sigDeleteSelecAnnot = Signal(object)
 
-    def __init__(self, h5files, spotmax_out_path, parent=None, state=None):
+    def __init__(self, df_spots_files, spotmax_out_path, parent=None, state=None):
         self.cancel = True
         self.loop = None
         self.clickedButton = None
@@ -3132,13 +3139,13 @@ class SpotsItemPropertiesDialog(QBaseDialog):
 
         super().__init__(parent)
 
-        self.setWindowTitle('Spots scatter plot item')
+        self.setWindowTitle('Load spots table to visualize')
 
         layout = acdc_widgets.FormLayout()
 
         row = 0
         h5fileCombobox = QComboBox()
-        h5fileCombobox.addItems(h5files)
+        h5fileCombobox.addItems(df_spots_files)
         if state is not None:
             h5fileCombobox.setCurrentText(state['h5_filename'])
             h5fileCombobox.setDisabled(True)
@@ -3147,11 +3154,11 @@ class SpotsItemPropertiesDialog(QBaseDialog):
             Select which table you want to plot.
         """)
         h5FileInfoTxt = (f'{html_func.paragraph(body_txt)}')
-        self.h5FileWidget = acdc_widgets.formWidget(
+        self.dfSpotsFileWidget = acdc_widgets.formWidget(
             h5fileCombobox, addInfoButton=True, labelTextLeft='Table to plot: ',
             parent=self, infoTxt=h5FileInfoTxt
         )
-        layout.addFormWidget(self.h5FileWidget, row=row)
+        layout.addFormWidget(self.dfSpotsFileWidget, row=row)
         self.h5fileCombobox.currentTextChanged.connect(self.setSizeFromTable)
 
         row += 1
@@ -3333,7 +3340,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         self.cancel = False
         self.clickedButton = self.okButton
         self.toolTip = (
-            f'Table name: {self.h5FileWidget.widget.currentText()}\n\n'
+            f'Table name: {self.dfSpotsFileWidget.widget.currentText()}\n\n'
             f'Edit properties: right-click on button\n\n'
             f'Description: {self.descWidget.widget.toPlainText()}\n\n'
             f'SHORTCUT: "{self.shortcutWidget.widget.text()}"'
@@ -3343,7 +3350,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         self.symbol = re.findall(r"\'(.+)\'", symbol)[0]
 
         self.state = {
-            'h5_filename': self.h5FileWidget.widget.currentText(),
+            'selected_file': self.dfSpotsFileWidget.widget.currentText(),
             'symbol_text':  self.symbolWidget.widget.currentText(),
             'pg_symbol': self.symbol,
             'shortcut': self.shortcutWidget.widget.text(),

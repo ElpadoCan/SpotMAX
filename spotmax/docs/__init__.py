@@ -25,6 +25,13 @@ aggr_features_rst_filepath = os.path.join(
 )
 aggr_features_rst_filepath = f'{aggr_features_rst_filepath}.rst'
 
+ref_ch_features_filename = 'ref_ch_features_description'
+ref_ch_features_relpath = f'features/{ref_ch_features_filename}'
+ref_ch_features_rst_filepath = os.path.join(
+    source_path, *ref_ch_features_relpath.split('/')
+)
+ref_ch_features_rst_filepath = f'{ref_ch_features_rst_filepath}.rst'
+
 params_desc_filename = 'parameters_description'
 params_desc_relpath = f'parameters/{params_desc_filename}'
 params_desc_rst_filepath = os.path.join(
@@ -184,6 +191,13 @@ def parse_single_spot_features_groups():
         
     return features_groups
 
+def parse_ref_ch_featurs_groups():
+    rst_text = read_rst(ref_ch_features_rst_filepath)
+    
+    features_groups = _parse_section_options(rst_text, ul_item_pattern)
+        
+    return features_groups
+
 def parse_aggr_features_groups():
     rst_text = read_rst(aggr_features_rst_filepath)
     
@@ -222,5 +236,12 @@ def single_spot_features_column_names():
     rst_text = read_rst(single_spot_features_rst_filepath)
         
     features_groups = parse_single_spot_features_groups()
+    mapper = _parse_column_names(features_groups, rst_text)
+    return mapper
+
+def ref_ch_features_column_names():
+    rst_text = read_rst(ref_ch_features_rst_filepath)
+        
+    features_groups = parse_ref_ch_featurs_groups()
     mapper = _parse_column_names(features_groups, rst_text)
     return mapper

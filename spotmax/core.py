@@ -29,6 +29,7 @@ import cellacdc.io
 import cellacdc.myutils as acdc_myutils
 import cellacdc.measure
 from cellacdc import base_cca_dict, base_cca_tree_dict
+from cellacdc.load import read_json
 
 from . import GUI_INSTALLED, error_up_str, error_down_str
 from . import (
@@ -69,9 +70,6 @@ CHANNELS_KEYS = (
     'spots_ch', 'ref_ch', 'ref_ch_segm', 'spots_ch_segm', 'segm',
     'transformed_spots_ch'
 )
-distribution_metrics_func = features.get_distribution_metrics_func()
-effect_size_func = features.get_effect_size_func()
-aggregate_spots_feature_func = features.get_aggregating_spots_feature_func()
 
 class _DataLoader:
     def __init__(self, debug=False, log=print):
@@ -98,7 +96,7 @@ class _DataLoader:
         data = self._reshape_data(data, self.metadata)
         data = self._crop_based_on_segm_data(data)
         data = self._add_regionprops(data)
-        data = self._initialize_df_agg(data)
+        data = self._initialize_df_agg(data, images_path, segm_endname)
         data = self._check_stop_frame_num(data)
         return data
     
@@ -313,7 +311,49 @@ class _DataLoader:
 
         return data
     
-    def _initialize_df_agg(self, data):
+    def _add_custom_annotations_columns(
+            self, df_agg, images_path, segm_endname
+        ):
+        custom_annot_params_json_file = None
+        for file in utils.listdir(images_path):
+            if file.endswith('custom_annot_params.json'):
+                custom_annot_params_json_file = file
+                break
+        else:
+            return df_agg
+        
+        custom_annot_params_json_filepath = os.path.join(
+            images_path, custom_annot_params_json_file
+        )
+        customAnnot = read_json(custom_annot_params_json_filepath)
+        if not customAnnot:
+            return df_agg
+        
+        acdc_output_endname = segm_endname.replace('segm', 'acdc_output')
+        acdc_output_endname = acdc_output_endname.replace('.npz', '.csv')
+        
+        for file in utils.listdir(images_path):
+            if file.endswith(acdc_output_endname):
+                acdc_output_filename = file
+                break
+        else:
+            return df_agg
+
+        acdc_output_filepath = os.path.join(images_path, acdc_output_filename)
+        idx = ['frame_i', 'Cell_ID']
+        
+        acdc_df = pd.read_csv(acdc_output_filepath).set_index(idx)
+        custom_annot_cols = list(customAnnot.keys())
+        
+        custom_annot_cols = acdc_df.columns.intersection(custom_annot_cols)
+        common_idx = acdc_df.index.intersection(df_agg.index)
+        
+        df_agg.loc[common_idx, custom_annot_cols] = (
+            acdc_df.loc[common_idx, custom_annot_cols]
+        )
+        return df_agg
+    
+    def _initialize_df_agg(self, data, images_path, segm_endname):
         segm_data = data['segm']
         frame_idxs = []
         IDs = []
@@ -325,8 +365,13 @@ class _DataLoader:
         df_data = {'frame_i': frame_idxs, 'Cell_ID': IDs}
         df_agg = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
         df_agg['analysis_datetime'] = pd.Timestamp.now()
-        data['df_agg'] = df_agg
 
+        df_agg = self._add_custom_annotations_columns(
+            df_agg, images_path, segm_endname
+        )
+        
+        data['df_agg'] = df_agg
+        
         if 'lineage_table' not in data:
             return data
         
@@ -3425,30 +3470,17 @@ class Kernel(_ParamsParser):
         slicer = transformations.SliceImageFromSegmObject(lab, lineage_table)
         return slicer.slice(image, obj)
     
-    def _add_aggregated_ref_ch_features(
-            self, df_agg, frame_i, ID, ref_ch_mask_local, vox_to_um3=None
-        ):
-        vol_voxels = np.count_nonzero(ref_ch_mask_local)
-        df_agg.at[(frame_i, ID), 'ref_ch_vol_vox'] = vol_voxels
-        if vox_to_um3 is not None:
-            df_agg.at[(frame_i, ID), 'ref_ch_vol_fl'] = vol_voxels*vox_to_um3
-
-        ref_ch_lab = skimage.measure.label(ref_ch_mask_local)
-        rp = skimage.measure.regionprops(ref_ch_lab)
-        num_fragments = len(rp)
-        df_agg.at[(frame_i, ID), 'ref_ch_num_fragments'] = num_fragments
-        
-        return df_agg
-    
     def add_ref_ch_features(
             self, 
             df_agg,
             lab_rp,
             ref_ch_segm,
+            ref_ch_img,
             vox_to_um3=None,
             frame_i=0,
             verbose=True
         ):
+        df_ref_ch = df_agg.copy()
         if verbose and frame_i == 0:
             print('')
             self.logger.info('Quantifying reference channel...')
@@ -3461,15 +3493,18 @@ class Kernel(_ParamsParser):
             ref_ch_lab_local = ref_ch_segm[obj.slice].copy()
             ref_ch_lab_local[ref_ch_lab_local!=obj.label] = 0
             ref_ch_mask_local = ref_ch_lab_local > 0
+            
+            ref_ch_img_local = ref_ch_img[obj.slice]
 
             # Add numerical features
-            df_agg = self._add_aggregated_ref_ch_features(
-                df_agg, frame_i, obj.label, ref_ch_mask_local, 
+            df_agg, df_ref_ch = self._add_aggregated_ref_ch_features(
+                df_agg, df_ref_ch, frame_i, obj.label, 
+                ref_ch_mask_local, ref_ch_img_local,
                 vox_to_um3=vox_to_um3
             )
             pbar.update()
         pbar.close()
-        return df_agg
+        return df_agg, df_ref_ch
     
     def ref_ch_to_physical_units(self, df_agg, metadata):
         vox_to_um3_factor = metadata['vox_to_um3_factor']
@@ -3487,7 +3522,8 @@ class Kernel(_ParamsParser):
             lab=None, lineage_table=None, keep_only_largest_obj=False, 
             do_aggregate=False, df_agg=None, frame_i=0, 
             vox_to_um3=None, zyx_tolerance=None, ridge_filter_sigmas=0.0, 
-            verbose=True, raw_ref_ch_img=None, return_filtered_img=False   
+            verbose=True, raw_ref_ch_img=None, return_filtered_img=False,
+            filtering_features_thresholds=None   
         ):
         if self._is_lab_all_zeros(lab):
             df_agg['ref_ch_vol_vox'] = np.nan
@@ -3506,6 +3542,9 @@ class Kernel(_ParamsParser):
             IDs = [obj.label for obj in lab_rp]
             df_data = {'frame_i': [frame_i]*len(IDs), 'Cell_ID': IDs}
             df_agg = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
+        
+        if filtering_features_thresholds is None:
+            filtering_features_thresholds = {}
         
         if isinstance(threshold_method, str):
             threshold_func = getattr(skimage.filters, threshold_method)
@@ -3536,17 +3575,23 @@ class Kernel(_ParamsParser):
         else:
             ref_ch_segm = result
         
-        df_agg = self.add_ref_ch_features(
-            df_agg, lab_rp, ref_ch_segm, 
+        df_agg, df_ref_ch, ref_ch_segm = pipe.reference_channel_quantify(
+            ref_ch_segm,
+            ref_ch_img,
+            lab=None, 
+            lab_rp=lab_rp,
+            df_agg=df_agg,
+            frame_i=frame_i, 
             vox_to_um3=vox_to_um3,
-            frame_i=frame_i,
+            filtering_features_thresholds=filtering_features_thresholds,
+            logger_func=self.logger.info,
             verbose=verbose
         )
         
         if return_filtered_img:
-            return ref_ch_segm, ref_ch_filtered_img, df_agg
+            return ref_ch_segm, ref_ch_filtered_img, df_agg, df_ref_ch
         else:
-            return ref_ch_segm, df_agg
+            return ref_ch_segm, df_agg, df_ref_ch
 
     @exception_handler_cli
     def spots_detection(
@@ -3890,6 +3935,9 @@ class Kernel(_ParamsParser):
             self, df_spots_det: pd.DataFrame, df_spots_gop: pd.DataFrame, 
             df_agg: pd.DataFrame, df_spots_fit: pd.DataFrame=None
         ):
+        aggregate_spots_feature_func = (
+            features.get_aggregating_spots_feature_func()
+        )
         func = {
             name:(col, aggFunc) for name, (col, aggFunc, _) 
             in aggregate_spots_feature_func.items() 
@@ -4210,14 +4258,18 @@ class Kernel(_ParamsParser):
         self.logger.info('Segmenting reference channel...')
         self._current_step = 'Segmenting reference channel'
         SECTION = 'Reference channel'
+        ref_ch_section = self._params[SECTION]
         ref_ch_threshold_method = (
-            self._params[SECTION]['refChThresholdFunc']['loadedVal']
+            ref_ch_section['refChThresholdFunc']['loadedVal']
         )
         is_ref_ch_single_obj = (
-            self._params[SECTION]['refChSingleObj']['loadedVal']
+            ref_ch_section['refChSingleObj']['loadedVal']
         )
         ridge_filter_sigmas = (
-            self._params[SECTION]['refChRidgeFilterSigmas']['loadedVal']
+            ref_ch_section['refChRidgeFilterSigmas']['loadedVal']
+        )
+        filtering_features_thresholds = (
+            ref_ch_section['refChFilteringFeatures']['loadedVal']
         )
         vox_to_um3 = self.metadata.get('vox_to_um3_factor', 1)
         ref_ch_segm_data = np.zeros(ref_ch_data.shape, dtype=np.uint32)
@@ -4229,6 +4281,7 @@ class Kernel(_ParamsParser):
             total=stopFrameNum, ncols=100, desc=desc, position=2, 
             leave=stopFrameNum>1
         )
+        dfs_ref_ch = []
         for frame_i in range(stopFrameNum):
             self._current_frame_i = frame_i
             if acdc_df is not None:
@@ -4253,19 +4306,22 @@ class Kernel(_ParamsParser):
                 vox_to_um3=vox_to_um3,
                 zyx_tolerance=self.metadata['deltaTolerance'],
                 ridge_filter_sigmas=ridge_filter_sigmas,
+                filtering_features_thresholds=filtering_features_thresholds,
                 verbose=verbose, 
                 raw_ref_ch_img=raw_ref_ch_img,
                 return_filtered_img=save_preproc_ref_ch_img           
             )
             if save_preproc_ref_ch_img:
-                ref_ch_lab, ref_ch_filtered_img, df_agg = result
+                ref_ch_lab, ref_ch_filtered_img, df_agg, df_ref_ch = result
                 preproc_ref_ch_data[frame_i] = ref_ch_filtered_img
             else:
-                ref_ch_lab, df_agg = result
+                ref_ch_lab, df_agg, df_ref_ch = result
             ref_ch_segm_data[frame_i] = ref_ch_lab
+            dfs_ref_ch.append(df_ref_ch)
             pbar.update()
         pbar.close()
-        return ref_ch_segm_data, preproc_ref_ch_data           
+        df_ref_ch = pd.concat(dfs_ref_ch)
+        return ref_ch_segm_data, preproc_ref_ch_data, df_ref_ch       
     
     @handle_log_exception_cli
     def _run_from_images_path(
@@ -4341,6 +4397,9 @@ class Kernel(_ParamsParser):
         save_ref_ch_segm = (
             self._params[SECTION]['saveRefChMask']['loadedVal']
         )
+        save_ref_ch_features = (
+            self._params[SECTION]['saveRefChFeatures']['loadedVal']
+        )
         if segment_ref_ch:
             result = self._preprocess_and_segment_ref_channel(
                 ref_ch_data, 
@@ -4353,7 +4412,7 @@ class Kernel(_ParamsParser):
                 save_preproc_ref_ch_img,
                 verbose=verbose
             )
-            ref_ch_segm_data, preproc_ref_ch_data = result
+            ref_ch_segm_data, preproc_ref_ch_data, df_ref_ch = result
             df_agg = self.ref_ch_to_physical_units(df_agg, self.metadata)
 
             data['df_agg'] = df_agg
@@ -4381,6 +4440,13 @@ class Kernel(_ParamsParser):
                     text_to_append=text_to_append,
                     cast_to_dtype=data['ref_ch.dtype'], 
                     pad_width=data['pad_width']
+                )
+            if save_ref_ch_features:
+                io.save_df_ref_ch_features(
+                    df_ref_ch, 
+                    run_number, 
+                    images_path,
+                    text_to_append=text_to_append,
                 )
         
         if 'spots_ch' not in data:
@@ -4554,6 +4620,9 @@ class Kernel(_ParamsParser):
                 pad_width=data['pad_width']
             )
 
+        aggregate_spots_feature_func = (
+            features.get_aggregating_spots_feature_func()
+        )
         if not dfs_lists['dfs_spots_detection']:
             missing_cols = list(aggregate_spots_feature_func.keys())
             if not do_spotfit: 
@@ -4840,6 +4909,9 @@ class Kernel(_ParamsParser):
         `features.get_aggregating_spots_feature_func`. Everything else that 
         is missing will come from `df_agg_src` using a join operation. 
         """        
+        aggregate_spots_feature_func = (
+            features.get_aggregating_spots_feature_func()
+        )
         # Get index of missign cells 
         missing_idx_df_agg_dst = df_agg_src.index.difference(df_agg_dst.index)
         

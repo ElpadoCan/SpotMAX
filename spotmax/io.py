@@ -54,6 +54,7 @@ from . import core, printl, error_up_str
 from . import settings_path
 from . import last_used_ini_text_filepath
 from . import transformations
+from . import DFs_FILENAMES
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -1040,64 +1041,19 @@ class expFolderScanner:
         return run_nums
 
     def analyseRunNumber(self, spotmaxOutPath, run):
-        numSpotCountFilesPresent = 0
-        numSpotSizeFilesPresent = 0
+        patterns = [
+            filename.replace('*rn*', str(run)).replace('*desc*', '')
+            for filename in DFs_FILENAMES.values()
+        ]
 
-        p_ellip_test_csv_filename = f'{run}_3_p-_ellip_test_data_Summary'
-        p_ellip_test_h5_filename = f'{run}_3_p-_ellip_test_data'
-
-        valid_spots_filename = f'{run}_1_valid_spots'
-        spotfit_filename = f'{run}_2_spotfit'
-
-        spotSize_csv_filename = f'{run}_4_spotfit_data_Summary'
-        spotSize_h5_filename = f'{run}_4_spotFIT_data'
+        isPosSpotCounted = False
+        isPosSpotSized = False
         for file in utils.listdir(spotmaxOutPath):
-            isSpotCountCsvPresent = (
-                file.find(p_ellip_test_csv_filename)!=-1
-                and file.endswith('.csv')
-            )
-            isValidSpotsCsvPresent = (
-                file.find(valid_spots_filename)!=-1
-                and file.endswith('.csv')
-            )
-            if isSpotCountCsvPresent or isValidSpotsCsvPresent:
-                numSpotCountFilesPresent += 1
-
-            isSpotCount_h5_present = (
-                file.find(p_ellip_test_h5_filename)!=-1
-                and file.endswith('.h5')
-            )
-            isValidSpots_h5_present = (
-                file.find(valid_spots_filename)!=-1
-                and file.endswith('.h5')
-            )
-            if isSpotCount_h5_present or isValidSpots_h5_present:
-                numSpotCountFilesPresent += 1
-
-            isSpotSizeCsvPresent = (
-                file.find(spotSize_csv_filename)!=-1
-                and file.endswith('.csv')
-            )
-            isSpotFitCsvPresent = (
-                file.find(spotfit_filename)!=-1
-                and file.endswith('.csv')
-            )
-            if isSpotSizeCsvPresent or isSpotFitCsvPresent:
-                numSpotSizeFilesPresent += 1
-            
-            isSpotSize_h5_present = (
-                file.find(spotSize_h5_filename)!=-1
-                and file.endswith('.h5')
-            )
-            isSpotFit_h5_present = (
-                file.find(spotfit_filename)!=-1
-                and file.endswith('.h5')
-            )
-            if isSpotSize_h5_present or isSpotFit_h5_present:
-                numSpotSizeFilesPresent += 1
-
-        isPosSpotCounted = numSpotCountFilesPresent >= 2
-        isPosSpotSized = numSpotSizeFilesPresent >= 2
+            for pattern in patterns:
+                if file.find(pattern) != -1:
+                    isPosSpotCounted = True
+                    if file.find('2_spotfit') != -1:
+                        isPosSpotSized = True
 
         return isPosSpotCounted, isPosSpotSized
 
@@ -2139,6 +2095,22 @@ def save_df_spots(
         df.to_csv(os.path.join(folder_path, filename))
     else:
         save_df_spots_to_hdf(df, folder_path, filename)
+
+def save_df_ref_ch_features(
+        df_ref_ch, run_number, images_path, text_to_append=''
+    ):
+    spotmax_out_path = os.path.join(images_path, 'spotMAX_output')
+    if not os.path.exists(spotmax_out_path):
+        os.mkdir(spotmax_out_path)
+    
+    if text_to_append:
+        if not text_to_append.startswith('_'):
+            text_to_append = f'_{text_to_append}'
+    
+    filename = f'{run_number}_3_ref_channel_features{text_to_append}.csv'
+    filepath = os.path.join(spotmax_out_path, filename)
+    
+    df_ref_ch.to_csv(filepath)
 
 def save_df_spots_to_hdf(
         df: pd.DataFrame, folder_path: os.PathLike, filename: str

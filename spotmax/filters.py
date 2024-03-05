@@ -252,7 +252,7 @@ def local_semantic_segmentation(
                     use_mask=clear_outside_objs
                 )
                 # predict_mask_merged[~(obj_mask_lab>0)] = False
-
+            
             if clear_outside_objs:
                 predict_mask_merged[~(obj_mask_lab>0)] = False
             
@@ -426,12 +426,12 @@ def _warn_feature_is_missing(missing_feature, logger_func):
     logger_func(f"\n{'='*100}")
     txt = (
         f'[WARNING]: The feature name "{missing_feature}" is not present '
-        'in the table. It cannot be used for filtering spots at '
+        'in the table. It cannot be used for filtering at '
         f'this stage.{error_up_str}'
     )
     logger_func(txt)
 
-def filter_spots_from_features_thresholds(
+def filter_df_from_features_thresholds(
         df_features: pd.DataFrame, 
         features_thresholds: dict, is_spotfit=False,
         debug=False,

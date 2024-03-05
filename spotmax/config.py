@@ -264,6 +264,9 @@ def parse_log_folderpath(log_path):
     return log_path
 
 def parse_list_to_configpars(iterable: list):
+    if iterable is None:
+        return ''
+        
     if isinstance(iterable, str):
         iterable = [iterable]
     
@@ -271,7 +274,7 @@ def parse_list_to_configpars(iterable: list):
     li_str = ''.join(li_str)
     return li_str
 
-def gop_thresholds_comment():
+def features_thresholds_comment():
     s = (
         '# Save the features to use for filtering truw spots as `feature_name,max,min`.\n'
         '# You can write as many features as you want. Write each feature on its own indented line.\n'
@@ -280,12 +283,12 @@ def gop_thresholds_comment():
     )
     return s
 
-def get_gop_thresholds(gop_thresholds_to_parse):
+def get_features_thresholds_filter(features_thresholds_to_parse):
     """_summary_
 
     Parameters
     ----------
-    gop_thresholds_to_parse : str
+    features_thresholds_to_parse : str
         String formatted to contain feature names and min,max values to use 
         when filtering spots in goodness-of-peak test.
 
@@ -297,9 +300,9 @@ def get_gop_thresholds(gop_thresholds_to_parse):
             that have the Glass' effect size greater than 0.8. There is no max 
             set.
     """    
-    features_thresholds = gop_thresholds_to_parse.split('\n')
-    gop_thresholds = {}
-    for feature_thresholds in features_thresholds:
+    in_features_thresholds = features_thresholds_to_parse.split('\n')
+    out_features_thresholds = {}
+    for feature_thresholds in in_features_thresholds:
         feature_name, *thresholds_str = feature_thresholds.split(',')
         if not feature_name:
             continue
@@ -311,8 +314,8 @@ def get_gop_thresholds(gop_thresholds_to_parse):
                 thresholds[t] = float(thresh)
             except Exception as e:
                 pass
-        gop_thresholds[feature_name] = tuple(thresholds)
-    return gop_thresholds
+        out_features_thresholds[feature_name] = tuple(thresholds)
+    return out_features_thresholds
 
 def _filepaths_params():
     filepaths_params = {
@@ -884,17 +887,31 @@ def _ref_ch_params():
             'dtype': get_threshold_func,
             'parser': parse_threshold_func
         },
-        # 'calcRefChNetLen': {
-        #     'desc': 'Calculate reference channel network length',
-        #     'initialVal': False,
-        #     'stretchWidget': False,
-        #     'addInfoButton': True,
-        #     'addComputeButton': False,
-        #     'addApplyButton': False,
-        #     'formWidgetFunc': 'acdc_widgets.Toggle',
-        #     'actions': None,
-        #     'dtype': get_bool
-        # },
+        'refChFilteringFeatures': {
+            'desc': 'Features for filtering ref. channel objects',
+            'initialVal': None,
+            'stretchWidget': True,
+            'addLabel': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets.RefChannelFeaturesThresholdsButton',
+            'actions': None,
+            'dtype': get_features_thresholds_filter,
+            'parser': parse_list_to_configpars
+        },
+        'saveRefChFeatures': {
+            'desc': 'Save reference channel features',
+            'initialVal': True,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
         'saveRefChMask': {
             'desc': 'Save reference channel segmentation masks',
             'initialVal': False,
@@ -966,9 +983,9 @@ def _spots_ch_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._GopFeaturesAndThresholdsButton',
             'actions': None,
-            'dtype': get_gop_thresholds,
+            'dtype': get_features_thresholds_filter,
             'parser': parse_list_to_configpars,
-            'comment': gop_thresholds_comment,
+            'comment': features_thresholds_comment,
             'autoTuneWidget': 'widgets.SelectFeaturesAutoTune'
         },
         'optimiseWithEdt': {
