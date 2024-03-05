@@ -143,6 +143,7 @@ DFs_FILENAMES = {
     'spots_gop': '*rn*_1_valid_spots*desc*',
     'spots_spotfit': '*rn*_2_spotfit*desc*'
 }
+DF_REF_CH_FILENAME = '*rn*_3_ref_channel_features*desc*.csv'
 
 valid_true_bool_str = {
     'true', 'yes', 'on'
