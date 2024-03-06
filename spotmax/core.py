@@ -1499,6 +1499,11 @@ class _ParamsParser(_DataLoader):
             value = options['loadedVal']
             if not isinstance(value, bool):
                 continue
+
+            ignore = options.get('ignoreIfMissing', False)
+            if ignore:
+                continue
+            
             if value:
                 # At least one option suggests that ref. channel is required.
                 param_requiring_ref_ch = options['desc']
@@ -4323,6 +4328,18 @@ class Kernel(_ParamsParser):
         df_ref_ch = pd.concat(dfs_ref_ch)
         return ref_ch_segm_data, preproc_ref_ch_data, df_ref_ch       
     
+    def _extend_3D_segm_in_z(self, data, low_high_range):
+        if low_high_range == (0, 0):
+            return data
+        
+        self.logger.info(
+            f'Extending 3D segmentation masks to range {low_high_range}'
+        )
+        data['segm'] = transformations.extend_3D_segm_in_z(
+            data['segm'], low_high_range
+        )
+        return data
+    
     @handle_log_exception_cli
     def _run_from_images_path(
             self, images_path, 
@@ -4343,6 +4360,10 @@ class Kernel(_ParamsParser):
             spots_ch_segm_endname, ref_ch_segm_endname, lineage_table_endname,
             transformed_spots_ch_nnet=transformed_spots_ch_nnet
         )
+        extend_3D_segm_range = (
+            self._params['Pre-processing']['extend3DsegmRange']['loadedVal']
+        )
+        data = self._extend_3D_segm_in_z(data, extend_3D_segm_range)
         do_segment_ref_ch = (
             self._params['Reference channel']['segmRefCh']['loadedVal']
         )

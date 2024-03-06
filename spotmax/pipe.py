@@ -603,14 +603,14 @@ def reference_channel_quantify(
         ref_ch_mask_local = ref_ch_lab_local > 0
         
         ref_ch_img_local = ref_ch_img[obj.slice]
-
-        # Add num of fragments
+        
         ref_ch_lab = skimage.measure.label(ref_ch_mask_local)
         ref_ch_rp = skimage.measure.regionprops(ref_ch_lab)
-        num_fragments = len(ref_ch_rp)
-        df_agg.at[(frame_i, ID), 'ref_ch_num_fragments'] = num_fragments
-        
         df_ref_ch = features._init_df_ref_ch(ref_ch_rp)
+
+        # Add num of fragments
+        num_fragments = len(ref_ch_rp)
+        df_agg.at[(frame_i, ID), 'ref_ch_num_fragments'] = num_fragments        
         df_ref_ch['ref_ch_num_fragments'] = num_fragments
         
         # Add volumes
@@ -647,7 +647,6 @@ def reference_channel_quantify(
         df_ref_ch.loc[:, 'ref_ch_backgr_corrected_sum_intensity'] = (
             backr_corr_mean*vol_voxels
         )
-        
         
         for sub_obj in ref_ch_rp:
             sub_vol_vox = np.count_nonzero(sub_obj.image)

@@ -67,6 +67,7 @@ ANALYSIS_STEP_RESULT_SLOTS = {
     'spotDetectionMethod': '_displaySpotDetectionResult',
     'refChSegmentationMethod': '_displaySegmRefChannelResult',
     'spotMinSizeLabels': '_displaySpotFootprint',
+    'extend3DsegmRange': '_displayExtend3DsegmRange',
 }
 
 PARAMS_SLOTS = {
@@ -84,7 +85,10 @@ PARAMS_SLOTS = {
     ),
     'spotMinSizeLabels': (
         'sigComputeButtonClicked', '_computeSpotFootprint'
-    )
+    ),
+    'extend3DsegmRange' : (
+        'sigComputeButtonClicked', '_computeExtend3DsegmRange'
+    ),
 }
 
 SliderSingleStepAdd = acdc_gui.SliderSingleStepAdd
@@ -726,7 +730,24 @@ class spotMAX_Win(acdc_gui.guiWin):
         zyx_radii_pxl = [val/2 for val in spots_zyx_radii_pxl]
         kwargs = {'spots_zyx_radii_pxl': zyx_radii_pxl}
         self.startComputeAnalysisStepWorker(*args, **kwargs)
-                
+    
+    @exception_handler
+    def _computeExtend3DsegmRange(self, formWidget):
+        self.funcDescription = 'Extend 3D segmentation in z'
+        module_func = 'transformations.extend_3D_segm_in_z'
+        anchor = 'extend3DsegmRange'
+        
+        args = [module_func, anchor]
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        preProcessParams = ParamsGroupBox.params['Pre-processing']
+        extend3DsegmRangeWidget = preProcessParams['extend3DsegmRange']['widget']
+        extend3DsegmRange = extend3DsegmRangeWidget.value()
+        
+        posData = self.data[self.pos_i]
+        lab = posData.segm_data[posData.frame_i]
+        
+        kwargs = {'segm_data': lab, 'low_high_range': extend3DsegmRange}
+        self.startComputeAnalysisStepWorker(*args, **kwargs)
     
     @exception_handler
     def _computeRefChGaussSigma(self, formWidget):
@@ -869,9 +890,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         deltaTolerance = np.array(spots_zyx_radii)
         delta_tolerance = np.ceil(deltaTolerance).astype(int)
         
+        preProcessParams = ParamsGroupBox.params['Pre-processing']
+        extend3DsegmRangeWidget = preProcessParams['extend3DsegmRange']['widget']
+        extend3DsegmRange = extend3DsegmRangeWidget.value()
+        
         worker = qtworkers.CropImageBasedOnSegmDataWorker(
             image_data, segm_data, delta_tolerance, posData.SizeZ,
-            on_finished_callback, nnet_input_data=nnet_input_data
+            on_finished_callback, nnet_input_data=nnet_input_data, 
+            extend_segm_3D_range=extend3DsegmRange
         )
         worker = self.connectDefaultWorkerSlots(worker)
         worker.signals.finished.connect(self.cropImageWorkerFinished)
@@ -1900,6 +1926,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         metadataParams = ParamsGroupBox.params['METADATA']
         SizeZ = metadataParams['SizeZ']['widget'].value()
+        
         if SizeZ == 1:
             spot_footprint = spot_footprint.max(axis=0)
             
@@ -1907,7 +1934,19 @@ class spotMAX_Win(acdc_gui.guiWin):
         imshow(
             spot_footprint, 
             window_title='Spot footprint',
-            axis_titles=['Spot footprint']
+            axis_titles=['Spot footprint'], 
+            infer_rgb=False
+        )
+    
+    def _displayExtend3DsegmRange(self, extended_lab, image):
+        posData = self.data[self.pos_i]
+        lab = posData.segm_data[posData.frame_i]            
+    
+        from cellacdc.plot import imshow
+        imshow(
+            lab, extended_lab,
+            window_title='Extended 3D segm',
+            axis_titles=['Input masks', 'Extended masks']
         )
     
     def _displaySegmRefChannelResult(self, result, image):

@@ -175,7 +175,8 @@ class TuneKernelWorker(Runnable):
 class CropImageBasedOnSegmDataWorker(QRunnable):
     def __init__(
             self, image_data, segm_data, delta_tolerance, SizeZ, 
-            on_finished_callback, nnet_input_data=None
+            on_finished_callback, nnet_input_data=None, 
+            extend_segm_3D_range=None
         ):
         QRunnable.__init__(self)
         self.signals = signals()
@@ -186,6 +187,7 @@ class CropImageBasedOnSegmDataWorker(QRunnable):
         self.delta_tolerance = delta_tolerance
         self.SizeZ = SizeZ
         self.on_finished_callback = on_finished_callback
+        self.extend_segm_3D_range = extend_segm_3D_range
     
     def _add_missing_axis(self):
         # Add axis for Z if missing (2D image data or 2D segm data)
@@ -210,6 +212,12 @@ class CropImageBasedOnSegmDataWorker(QRunnable):
                 for frame_i, lab in enumerate(segm_data):
                     tiled_segm_data[frame_i, :] = lab
                 segm_data = tiled_segm_data
+        
+        if self.extend_segm_3D_range is not None:
+            segm_data = transformations.extend_3D_segm_in_z(
+                segm_data, self.extend_segm_3D_range
+            )
+        
         return segm_data, image_data, nnet_input_data
     
     @worker_exception_handler

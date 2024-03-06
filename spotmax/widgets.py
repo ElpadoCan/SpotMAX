@@ -2548,23 +2548,88 @@ class SetBoundsFromFeaturesGroupBox(QGroupBox):
     def text(self):
         return self.value()
 
-class LowHighRangeWidget(QWidget):
-    def __init__(self, parent=None) -> None:
+class NumericWidgetWithLabel(QWidget):
+    def __init__(
+            self, parent=None, is_float=False, text='', text_loc='top'
+        ) -> None:
         super().__init__(parent)
+        
+        if text_loc == 'top' or text_loc == 'bottom':
+            layout = QVBoxLayout()
+        else:
+            layout = QHBoxLayout()
+        
+        if is_float:
+            widgetFunc = FloatLineEdit
+        else:
+            widgetFunc = acdc_widgets.SpinBox
+        
+        self.widget = widgetFunc()
+        self.label = QLabel(text, self.widget)
+        
+        if text_loc == 'top' or text_loc == 'left':
+            layout.addWidget(self.label)
+            layout.addWidget(self.widget)
+        else:
+            layout.addWidget(self.widget)
+            layout.addWidget(self.label)
+        
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
     
-    def setValue(self, *low_high):
+    def setText(self, text):
+        self.label.setText(text)
+    
+    def setValue(self, value):
+        self.widget.setValue(value)
+    
+    def value(self):
+        return self.widget.value()
+
+class LowHighRangeWidget(QWidget):
+    def __init__(self, parent=None, is_float=False) -> None:
+        super().__init__(parent)
+        
+        layout = QHBoxLayout()         
+        
+        self.lowValueWidget = NumericWidgetWithLabel(is_float=is_float)
+        self.lowValueWidget.setText('Low value')
+        
+        self.highValueWidget = NumericWidgetWithLabel(is_float=is_float)
+        self.highValueWidget.setText('High value')
+        
+        layout.addWidget(self.lowValueWidget)
+        layout.addWidget(self.highValueWidget)
+        
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
+        self.setFont(font)
+    
+    def setValue(self, low_high):
         if low_high is None or not low_high:
             low_high = 0, 0
+        
+        if isinstance(low_high, str):
+            low_high = config.get_stack_3d_segm_range(low_high)
         
         low, high = low_high
     
     def value(self):
-        ...
-        
+        low = self.lowValueWidget.value()
+        high = self.highValueWidget.value()
+        return low, high        
+    
+    def text(self):
+        return str(self.value())
 
-class Stack3DsegmRangeWidget(LowHighRangeWidget):
+class Extend3DsegmRangeWidget(LowHighRangeWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent=parent)
+        
+        self.lowValueWidget.setText('Below bottom z-slice')
+        self.highValueWidget.setText('Above top z-slice')
+        
+        self.layout().setContentsMargins(0, 5, 0, 0)
 
 class sigmaXBoundsWidget(SetBoundsFromFeaturesGroupBox):
     def __init__(self, parent=None) -> None:

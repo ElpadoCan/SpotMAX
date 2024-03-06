@@ -446,7 +446,33 @@ def deaggregate_img(aggr_img, aggregated_lab, lab):
 def index_aggregated_segm_into_input_lab(
         lab, aggregated_segm, aggregated_lab, x_slice_idxs,
         keep_objects_touching_lab_intact=False
-    ):            
+    ):     
+    """Reshape aggregated segmentation into original shape (`lab`)
+
+    Parameters
+    ----------
+    lab : (Z, Y, X) numpy.ndarray of ints
+        Input segmentation masks of the parent objects (e.g., single cells)
+    aggregated_segm : (Z, Y, X) numpy.ndarray of ints
+        Agrregated segmentation masks of the segmented sub-cellular objects
+    aggregated_lab : _type_
+        Aggregated segmentations masks of the parent objects
+    x_slice_idxs : _type_
+        Indices along x-axis where to separate single parent objects from the 
+        `aggregated_lab`. 
+    keep_objects_touching_lab_intact : bool, optional
+        If True, the objects that are touching the parent object will be kept 
+        intact even if they extend outside of the object. If False, the 
+        part of the touching object that extends outside is removed. 
+        Default is False
+
+    Returns
+    -------
+    (Z, Y, X) numpy.ndarray of ints
+        Output de-aggregated segmentation masks of the sub-cellular objects 
+        with the ID of the object they belong to and same shape as input 
+        `lab`.
+    """           
     subobj_labels = np.zeros_like(lab)
     rp = skimage.measure.regionprops(lab)
     obj_idxs = {obj.label:obj for obj in rp}
@@ -808,5 +834,67 @@ def add_closest_ID_col(df_spots_coords, lab, zyx_coords_cols):
     df_spots_coords.loc[[0], 'closest_ID'] = closest_IDs
     return df_spots_coords
     
-        
+def extend_3D_segm_in_z(
+        segm_data: 'np.ndarray[int]', 
+        low_high_range: tuple[float, float], 
+        errors='raise', 
+        logger_func=print,
+    ):
+    if segm_data.ndim < 3 and errors == 'raise':
+        raise TypeError(
+            'Input segmentation data is less than 3D. '
+            'Only 3D data can be extended in z.'
+        )
     
+    if segm_data.ndim < 3:
+        return segm_data
+    
+    extended_segm_data = np.copy(segm_data)
+    low_num_z, high_num_z = low_high_range
+    
+    added_time_axis = False
+    if extended_segm_data.ndim == 3:
+        added_time_axis = True   
+        extended_segm_data = extended_segm_data[np.newaxis]
+        segm_data = segm_data[np.newaxis]
+    
+    T, Z, Y, X = extended_segm_data.shape
+    
+    if Z == 1 and errors == 'raise':
+        raise TypeError(
+            'Input segmentation has 1 z-slice. It cannot be extended further.'
+        )
+    
+    if Z == 1:
+        return segm_data
+    
+    for frame_i, lab in enumerate(segm_data):
+        rp = skimage.measure.regionprops(lab)
+        for obj in rp:
+            min_z, _, _, max_z, _, _ = obj.bbox
+            lower_z_mask = obj.image[0]
+            higher_z_mask = obj.image[-1]
+            lower_z_start = min_z - low_num_z  
+            if lower_z_start < 0:
+                lower_z_start = 0
+                
+            higher_z_end = max_z + high_num_z
+            if higher_z_end > Z:
+                higher_z_end = Z
+            higher_z_start = max_z
+            
+            slice_2D = obj.slice[1:]            
+            for low_z in range(lower_z_start, min_z):
+                extended_segm_data[frame_i][low_z][slice_2D][lower_z_mask] = (
+                    obj.label
+                )
+            
+            for high_z in range(higher_z_start, higher_z_end):
+                extended_segm_data[frame_i][high_z][slice_2D][higher_z_mask] = (
+                    obj.label
+                )
+    
+    if added_time_axis:
+        extended_segm_data = extended_segm_data[0]
+    
+    return extended_segm_data

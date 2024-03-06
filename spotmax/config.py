@@ -129,10 +129,7 @@ def get_stack_3d_segm_range(text):
     if not text:
         return (0, 0)
     
-    text = text.replace(' ', '')
-    text = text.replace('(', '')
-    text = text.replace(')', '')
-    low, high = text.split(',')
+    low, high = re.findall(r'(\d+), ?(\d+)', text)[0]
     return int(low), int(high)
 
 def get_sigma_xy_bounds(text):
@@ -640,7 +637,7 @@ def _metadata_params():
             'addAutoButton': False,
             'formWidgetFunc': 'acdc_widgets.IntLineEdit',
             'actions': (
-                ('valueChanged', 'updateIsZstack'),
+                ('valueChanged', 'SizeZchanged'),
             ),
             'dtype': int,
             'valueSetter': 'setValue'
@@ -804,18 +801,18 @@ def _pre_processing_params():
             'actions': None,
             'dtype': get_bool
         },
-        # 'stack3DsegmRange': {
-        #     'desc': 'Stack 3D segm. masks range',
-        #     'initialVal': '(0, 0)',
-        #     'stretchWidget': True,
-        #     'addInfoButton': True,
-        #     'addComputeButton': False,
-        #     'addApplyButton': False,
-        #     'formWidgetFunc': 'widgets.Stack3DsegmRangeWidget',
-        #     'actions': None,
-        #     'valueSetter': 'setValue',
-        #     'dtype': get_stack_3d_segm_range
-        # },
+        'extend3DsegmRange': {
+            'desc': 'Extend 3D input segm. objects in Z',
+            'initialVal': '(0, 0)',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': True,
+            'addApplyButton': False,
+            'formWidgetFunc': 'widgets.Extend3DsegmRangeWidget',
+            'actions': None,
+            'valueSetter': 'setValue',
+            'dtype': get_stack_3d_segm_range
+        },
     }
     return pre_processing_params
 
@@ -925,14 +922,15 @@ def _ref_ch_params():
         },
         'saveRefChFeatures': {
             'desc': 'Save reference channel features',
-            'initialVal': True,
+            'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool, 
+            'ignoreIfMissing': True
         },
         'saveRefChMask': {
             'desc': 'Save reference channel segmentation masks',
@@ -947,7 +945,7 @@ def _ref_ch_params():
         },
         'saveRefChPreprocImage': {
             'desc': 'Save pre-processed reference channel image',
-            'initialVal': False,
+            'initialVal': True,
             'stretchWidget': False,
             'addInfoButton': True,
             'addComputeButton': False,

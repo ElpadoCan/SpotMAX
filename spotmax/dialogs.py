@@ -1507,12 +1507,18 @@ class ParamsGroupBox(QGroupBox):
         except Exception as e:
             traceback.print_exc()
 
-    def updateIsZstack(self, SizeZ):
+    def SizeZchanged(self, SizeZ):
         isZstack = SizeZ > 1
         metadata = self.params['METADATA']
         spotMinSizeLabels = metadata['spotMinSizeLabels']['widget']
         spotMinSizeLabels.setIsZstack(isZstack)
         self.updateMinSpotSize()
+        
+        preProcessParams = self.params['Pre-processing']
+        extend3DsegmRangeFormWidget = (
+            preProcessParams['extend3DsegmRange']['formWidget']
+        )
+        extend3DsegmRangeFormWidget.setDisabled(not isZstack)
     
     def zyxVoxelSize(self):
         metadata = self.params['METADATA']

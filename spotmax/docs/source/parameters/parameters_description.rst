@@ -408,6 +408,29 @@ Pre-processing
   :type: boolean
   :default: ``True``
 
+.. confval:: Extend 3D input segm. objects in Z
+   
+  Number of repetitions below and above the bottom and top z-slice of the input 
+  segmentation objects (objects present in the :confval:`Cells segmentation end name or path`). 
+
+  For example, if you provde the value ``(4, 6)``, spotMAX will extend the 
+  objects in Z by repeating the bottom z-slice 4 times below and the top z-slice 
+  6 times above. 
+
+  In the GUI, you can set the bottom and top values in the numeric controls 
+  called 'Below bottom z-slice', and 'Above top z-slice', respectively. 
+
+  .. tip:: 
+
+    This parameter can be useful if you need to detect spots whose center might 
+    be above or below the segmented object. For example, you could segment 
+    only the center z-slice of the object and let spotmax search for spots in 
+    a certain range above and below this center z-slice. 
+
+    If you can afford this, segmenting only the center z-slice might be faster 
+    than segmenting the entire object (e.g., single-cells).
+   
+
 Reference channel
 -----------------
 

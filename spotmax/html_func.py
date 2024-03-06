@@ -6,11 +6,32 @@ from cellacdc._palettes import (
 )
 from cellacdc.colors import rgb_uint_to_html_hex
 
+import cellacdc.html_utils as acdc_html
+
 RST_NOTE_DIR_RGBA = _get_highligth_header_background_rgba()
 RST_NOTE_DIR_HEX_COLOR = rgb_uint_to_html_hex(RST_NOTE_DIR_RGBA[:3])
 
 RST_NOTE_TXT_RGBA = _get_highligth_text_background_rgba()
 RST_NOTE_TXT_HEX_COLOR = rgb_uint_to_html_hex(RST_NOTE_TXT_RGBA[:3])
+
+ADMONITION_TYPES = (
+    'topic', 
+    'admonition', 
+    'attention', 
+    'caution', 
+    'danger', 
+    'error', 
+    'hint', 
+    'important', 
+    'note', 
+    'seealso', 
+    'tip', 
+    'todo', 
+    'warning', 
+    'versionadded', 
+    'versionchanged', 
+    'deprecated'
+)
 
 def _tag(tag_info='p style="font-size:10px"'):
     def wrapper(func):
@@ -147,24 +168,17 @@ def get_indented_paragraph(rst_text):
     indented_paragraph = '\n'.join(indented_lines)
     return indented_paragraph, indentation
 
-def rst_notes_to_html_table(rst_text):
-    rst_note = rst_text
-    rst_with_html_notes = rst_text
+def rst_admonitions_to_html_table(rst_text, admonition_type):
+    rst_with_html_admons = rst_text
     
-    note_row = tag(
-        '<td><b>! Note</b></td>', 
-        tag_info=f'tr bgcolor="{RST_NOTE_DIR_HEX_COLOR}"'
-    )
+    admonition_type = admonition_type.lower()
     
     while True:        
-        rst_note_with_dir, indented_paragraph = rst_extract_directive_block(
-            rst_note, '.. note::'
+        rst_admon_with_dir, indented_paragraph = rst_extract_directive_block(
+            rst_text, f'.. {admonition_type}::'
         )
-        if not rst_note_with_dir:
+        if not rst_admon_with_dir:
             break
-
-        # Replace note directive with note directive html span
-        html_note = rst_note_with_dir.replace('.. note::', note_row)
         
         # Remove multiple spacing with single one
         html_paragraph = re.sub(r' +', ' ', indented_paragraph)
@@ -177,34 +191,23 @@ def rst_notes_to_html_table(rst_text):
         html_paragraph = html_paragraph.replace('\n', '<br>')
         html_paragraph = html_paragraph.replace('<br> ', '<br>')
         
-        # Replace indented paragraph with table row
-        html_note = html_note.replace(
-            indented_paragraph, 
-            tag(
-                f'<td>{html_paragraph}</td>', 
-                tag_info=f'tr bgcolor="{RST_NOTE_TXT_HEX_COLOR}"'
-            )
-        )
-        
-        # Tag with table
-        html_note = (
-            '<table cellspacing=0 cellpadding=5>'
-            f'{html_note}'
-            '</table><br>'
+        html_admon = acdc_html.to_admonition(
+            html_paragraph, admonition_type=admonition_type
         )
         
         # Replace rst note with html note
-        rst_with_html_notes = rst_with_html_notes.replace(
-            rst_note_with_dir, html_note
+        rst_with_html_admons = rst_with_html_admons.replace(
+            rst_admon_with_dir, html_admon
         )
         
-        # Remove current note block
+        # Remove current admon block
         end_current_block_idx = (
-            rst_note.find(rst_note_with_dir) + len(rst_note_with_dir)
+            rst_with_html_admons.find(rst_admon_with_dir) 
+            + len(rst_admon_with_dir)
         )
-        rst_note = rst_note[end_current_block_idx:]
+        rst_text = rst_text[end_current_block_idx:]
         
-    return rst_with_html_notes
+    return rst_with_html_admons
 
 def rst_extract_directive_block(rst_text, directive):
     dir_text = rst_text
@@ -301,7 +304,9 @@ def rst_to_qt_html(rst_sub_text, rst_global_text=''):
     html_text = re.sub(
         rf'\.\. confval:: ({valid_chars}+)\n', r'<b>\1:</b>\n', html_text
     )
-    html_text = rst_notes_to_html_table(html_text)
+    for admonition_type in ADMONITION_TYPES:
+        html_text = rst_admonitions_to_html_table(html_text, admonition_type)
+    
     html_text = rst_math_to_latex_directive(html_text)
     html_text = html_text.replace('\n', '<br>')
     html_text = html_text.replace(' <br>', '<br>')
