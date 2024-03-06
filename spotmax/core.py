@@ -31,6 +31,7 @@ import cellacdc.measure
 from cellacdc import base_cca_dict, base_cca_tree_dict
 from cellacdc.load import read_json
 
+from . import read_version
 from . import GUI_INSTALLED, error_up_str, error_down_str
 from . import (
     exception_handler_cli, handle_log_exception_cli
@@ -5102,6 +5103,11 @@ class Kernel(_ParamsParser):
             report_filepath='',
             parser_args=None
         ):
+        version = read_version()
+        
+        self.logger.info(f'Running spotMAX version {version}')
+        print('='*100)
+        
         self._force_default = force_default_values
         self._force_close_on_critical = force_close_on_critical
         if NUMBA_INSTALLED and num_numba_threads > 0:
