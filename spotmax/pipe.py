@@ -1740,7 +1740,7 @@ def spots_calc_features_and_filter(
             if num_spots_prev == 0:
                 num_spots_filtered = 0
                 break
-
+        
             bkgr_from_in_reg_ch = get_backgr_from_inside_ref_ch_mask
             df_obj_spots_gop = _compute_obj_spots_features(
                 local_spots_img, 

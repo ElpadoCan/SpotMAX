@@ -4339,6 +4339,7 @@ class Kernel(_ParamsParser):
         data['segm'] = transformations.extend_3D_segm_in_z(
             data['segm'], low_high_range
         )
+        data = self._add_regionprops(data)
         return data
     
     @handle_log_exception_cli

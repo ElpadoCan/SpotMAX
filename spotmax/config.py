@@ -945,7 +945,7 @@ def _ref_ch_params():
         },
         'saveRefChPreprocImage': {
             'desc': 'Save pre-processed reference channel image',
-            'initialVal': True,
+            'initialVal': False,
             'stretchWidget': False,
             'addInfoButton': True,
             'addComputeButton': False,
