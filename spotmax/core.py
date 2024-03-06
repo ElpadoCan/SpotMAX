@@ -5105,8 +5105,11 @@ class Kernel(_ParamsParser):
             parser_args=None
         ):
         version = read_version()
+        acdc_version = acdc_myutils.read_version()
         
-        self.logger.info(f'Running spotMAX version {version}')
+        print('='*100)
+        self.logger.info(
+            f'Running spotMAX v{version} with Cell-ACDC v{acdc_version}')
         print('='*100)
         
         self._force_default = force_default_values
