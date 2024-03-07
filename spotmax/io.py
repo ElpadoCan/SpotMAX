@@ -2099,7 +2099,8 @@ def save_df_spots(
 def save_df_ref_ch_features(
         df_ref_ch, run_number, images_path, text_to_append=''
     ):
-    spotmax_out_path = os.path.join(images_path, 'spotMAX_output')
+    pos_path = os.path.dirname(images_path)
+    spotmax_out_path = os.path.join(pos_path, 'spotMAX_output')
     if not os.path.exists(spotmax_out_path):
         os.mkdir(spotmax_out_path)
     
