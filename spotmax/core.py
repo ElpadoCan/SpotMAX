@@ -535,9 +535,9 @@ class _ParamsParser(_DataLoader):
         ):
         report_default_filepath = self.get_default_report_filepath(params_path)
         report_default_filename = os.path.basename(report_default_filepath)
-
+        
         if not os.path.exists(report_filepath) or force_default:
-            return report_default_filepath
+            return report_filepath
         
         new_report_filepath, txt = cellacdc.path.newfilepath(report_filepath)
         new_report_filename = os.path.basename(new_report_filepath)
