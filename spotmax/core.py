@@ -1,3 +1,5 @@
+from cgitb import text
+from genericpath import isfile
 from importlib import import_module
 import os
 import sys
@@ -30,6 +32,7 @@ import cellacdc.myutils as acdc_myutils
 import cellacdc.measure
 from cellacdc import base_cca_dict, base_cca_tree_dict
 from cellacdc.load import read_json
+from cellacdc import regex as acdc_regex
 
 from . import read_version
 from . import GUI_INSTALLED, error_up_str, error_down_str
@@ -86,11 +89,13 @@ class _DataLoader:
             spots_ch_segm_endname: str,
             ref_ch_segm_endname: str,
             lineage_table_endname: str,
+            df_spots_coords_in_endname: str,
             transformed_spots_ch_nnet=None,
         ):
         data = self._load_data_from_images_path(
             images_path, spots_ch_endname, ref_ch_endname, segm_endname, 
-            spots_ch_segm_endname, ref_ch_segm_endname, lineage_table_endname
+            spots_ch_segm_endname, ref_ch_segm_endname, lineage_table_endname,
+            df_spots_coords_in_endname
         )
         if transformed_spots_ch_nnet is not None:
             data['transformed_spots_ch'] = transformed_spots_ch_nnet
@@ -141,7 +146,8 @@ class _DataLoader:
             segm_endname: str, 
             spots_ch_segm_endname: str, 
             ref_ch_segm_endname: str,
-            lineage_table_endname: str
+            lineage_table_endname: str, 
+            df_spots_coords_in_endname: str
         ):
         channels = {
             f'{spots_ch_endname};;1': 'spots_ch', 
@@ -174,6 +180,9 @@ class _DataLoader:
             data[f'{key}.filepath'] = ch_path
 
         data = self._init_reshape_segm_data(data)
+        data = self._load_df_spots_coords_in(
+            data, df_spots_coords_in_endname, images_path
+        )
 
         if not lineage_table_endname:
             return data
@@ -223,6 +232,26 @@ class _DataLoader:
                 data['is_segm_3D'] = False
         return data
     
+    def _load_df_spots_coords_in(
+            self, data, df_spots_coords_in_endname, images_path
+        ):
+        if not df_spots_coords_in_endname:
+            return data
+        
+        if os.path.exists(df_spots_coords_in_endname):
+            data['df_spots_coords_in'] = io.load_table_to_df(
+                df_spots_coords_in_endname
+            )
+            return data
+        
+        for file in utils.listdir(images_path):
+            if file.endswith(df_spots_coords_in_endname):
+                data['df_spots_coords_in'] = io.load_table_to_df(
+                    os.path.join(images_path, file)
+                )
+                
+        return data
+    
     def _reshape_data(self, data, metadata: dict):
         SizeZ = metadata['SizeZ']
         for key in CHANNELS_KEYS:
@@ -250,6 +279,12 @@ class _DataLoader:
             data = self._check_lineage_table(data)
             table = table.set_index(['frame_i', 'Cell_ID'])
             data['lineage_table'] = table
+        
+        if 'df_spots_coords_in' in data:
+            df = data['df_spots_coords_in']
+            if 'frame_i' not in df.columns:
+                df['frame_i'] = 0
+            data['df_spots_coords_in'] = df.set_index('frame_i')
         
         SizeT = metadata['SizeT']
         if SizeT > 1:
@@ -310,6 +345,11 @@ class _DataLoader:
                 continue
             data[key] = data[key][segm_slice].copy()
 
+        if 'df_spots_coords_in' in data:
+            df = data['df_spots_coords_in']
+            df[ZYX_GLOBAL_COLS] -= crop_to_global_coords
+            data['df_spots_coords_in'] = df            
+        
         return data
     
     def _add_custom_annotations_columns(
@@ -1076,9 +1116,15 @@ class _ParamsParser(_DataLoader):
         lineage_table_endname = section_params['lineageTableEndName'].get(
             'loadedVal'
         )
+        df_spots_coords_in_endname = section_params['inputDfSpotsEndname'].get(
+            'loadedVal'
+        )
         text_to_append = section_params['textToAppend'].get('loadedVal', '')
         if text_to_append is None:
             text_to_append = ''
+        text_to_append = acdc_regex.to_alphanumeric(
+            text_to_append, replacing_char='-'
+        )
         df_spots_file_ext = section_params['dfSpotsFileExtension'].get(
             'loadedVal', '.h5'
         )
@@ -1094,6 +1140,7 @@ class _ParamsParser(_DataLoader):
                     exp_info['spotChSegmEndName'] = spots_ch_segm_endname
                     exp_info['refChSegmEndName'] = ref_ch_segm_endname
                     exp_info['lineageTableEndName'] = lineage_table_endname
+                    exp_info['inputDfSpotsEndname'] = df_spots_coords_in_endname
                     exp_info['textToAppend'] = text_to_append
                     exp_info['df_spots_file_ext'] = df_spots_file_ext
                     self.exp_paths_list[i][exp_path] = exp_info
@@ -3628,6 +3675,7 @@ class Kernel(_ParamsParser):
             spot_footprint=None, 
             dfs_lists=None, 
             save_spots_mask=True,
+            df_spots_coords_input=None,
             custom_combined_measurements=None,
             verbose=True,
         ):        
@@ -3674,7 +3722,8 @@ class Kernel(_ParamsParser):
             verbose=verbose, 
             save_spots_mask=save_spots_mask,
             raw_spots_img=raw_spots_img,
-            frame_i=frame_i
+            frame_i=frame_i, 
+            df_spots_coords_input=df_spots_coords_input
         )
         
         df_spots_det, df_spots_gop = self._spots_filter(
@@ -3705,6 +3754,77 @@ class Kernel(_ParamsParser):
             )
             return df_spots_det, df_spots_gop, *dfs_segm_obj
 
+    def _add_aggr_and_local_coords_from_global(
+            self, df_spots_coords_input, lab, aggregated_lab,
+            spots_zyx_radii_pxl, add_spots_mask=False
+        ):
+        spots_masks = None
+        
+        zz, yy, xx = (
+            df_spots_coords_input[ZYX_GLOBAL_COLS].to_numpy().transpose()
+        )
+        df_spots_coords_input['Cell_ID'] = lab[zz, yy, xx]
+        df_spots_coords_input = df_spots_coords_input.set_index('Cell_ID')
+        
+        df_spots_coords_input[ZYX_LOCAL_COLS] = -1
+        rp = skimage.measure.regionprops(lab)
+        num_spots_objs_txts = []
+        pbar = tqdm(
+            total=len(rp), ncols=100, position=3, leave=False
+        )
+        for obj in rp:
+            if obj.label not in df_spots_coords_input.index:
+                continue
+            
+            min_z, min_y, min_x = obj.bbox[:3]
+            zz_local = df_spots_coords_input.loc[[obj.label], 'z'] - min_z
+            df_spots_coords_input.loc[[obj.label], 'z_local'] = zz_local
+
+            yy_local = df_spots_coords_input.loc[[obj.label], 'y'] - min_y
+            df_spots_coords_input.loc[[obj.label], 'y_local'] = yy_local
+
+            xx_local = df_spots_coords_input.loc[[obj.label], 'x'] - min_x
+            df_spots_coords_input.loc[[obj.label], 'x_local'] = xx_local
+            
+            s = f'  * Object ID {obj.label} = {len(zz_local)}'
+            num_spots_objs_txts.append(s)
+            pbar.update()
+        pbar.close()
+        
+        df_spots_coords_input[ZYX_AGGR_COLS] = -1
+        aggr_lab_rp = skimage.measure.regionprops(aggregated_lab)
+        pbar = tqdm(
+            total=len(aggr_lab_rp), ncols=100, position=3, leave=False
+        )
+        for obj in aggr_lab_rp:
+            if obj.label not in df_spots_coords_input.index:
+                continue
+            
+            min_z, min_y, min_x = obj.bbox[:3]
+            zz_aggr = df_spots_coords_input.loc[[obj.label], 'z_local'] + min_z
+            df_spots_coords_input.loc[[obj.label], 'z_aggr'] = zz_aggr
+            
+            yy_aggr = df_spots_coords_input.loc[[obj.label], 'y_local'] + min_y
+            df_spots_coords_input.loc[[obj.label], 'y_aggr'] = yy_aggr
+
+            xx_aggr = df_spots_coords_input.loc[[obj.label], 'x_local'] + min_x
+            df_spots_coords_input.loc[[obj.label], 'x_aggr'] = xx_aggr
+            
+            pbar.update()
+        pbar.close()
+        
+        if add_spots_mask:
+            spots_coords = df_spots_coords_input[ZYX_AGGR_COLS].to_numpy()
+            spots_masks = transformations.from_spots_coords_to_spots_masks(
+                spots_coords, spots_zyx_radii_pxl, debug=False
+            )
+        
+        df_spots_coords_input = transformations.add_closest_ID_col(
+            df_spots_coords_input, aggregated_lab, ZYX_AGGR_COLS
+        )
+        
+        return df_spots_coords_input, num_spots_objs_txts
+    
     def _add_local_coords_from_aggr(
             self, aggr_spots_coords, aggregated_lab, spots_masks=None
         ):
@@ -3769,17 +3889,17 @@ class Kernel(_ParamsParser):
             lineage_table=None, 
             verbose=True,
             raw_spots_img=None,
-            frame_i=0
+            frame_i=0,
+            df_spots_coords_input=None,
         ):
-        if verbose:
+        if verbose and df_spots_coords_input is not None:
             print('')
             self.logger.info('Detecting spots...')
-
-        spots_objs = None
         
         # Detect peaks on aggregated image
         aggregated = transformations.aggregate_objs(
-            sharp_spots_img, lab, lineage_table=lineage_table, 
+            sharp_spots_img, lab, 
+            lineage_table=lineage_table, 
             zyx_tolerance=self.metadata['deltaTolerance'],
             additional_imgs_to_aggr=[spots_ch_segm_mask, transf_spots_nnet_img],
             debug=self.debug, 
@@ -3791,7 +3911,7 @@ class Kernel(_ParamsParser):
         
         if aggr_spots_ch_segm_mask is not None:
             labels = aggr_spots_ch_segm_mask.astype(int)
-        else:
+        elif df_spots_coords_input is None:
             labels = pipe.spots_semantic_segmentation(
                 aggr_spots_img, 
                 lab=aggregated_lab, 
@@ -3814,18 +3934,30 @@ class Kernel(_ParamsParser):
                 raw_image=raw_spots_img
             )
         
-        aggr_spots_coords, spots_masks = pipe.spot_detection(
-            aggr_spots_img, 
-            spots_segmantic_segm=labels,
-            detection_method=detection_method,
-            spot_footprint=footprint,
-            return_spots_mask=save_spots_mask,
-            spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
-        )
-
-        df_spots_coords, num_spots_objs_txts = self._add_local_coords_from_aggr(
-            aggr_spots_coords, aggregated_lab, spots_masks=spots_masks
-        )
+        spots_masks = None
+        if df_spots_coords_input is None:
+            aggr_spots_coords, spots_masks = pipe.spot_detection(
+                aggr_spots_img, 
+                spots_segmantic_segm=labels,
+                detection_method=detection_method,
+                spot_footprint=footprint,
+                return_spots_mask=save_spots_mask,
+                spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
+            )
+            df_spots_coords, num_spots_objs_txts = (
+                self._add_local_coords_from_aggr(
+                    aggr_spots_coords, aggregated_lab, spots_masks=spots_masks
+                )
+            )
+        else:
+            df_spots_coords, num_spots_objs_txts = (
+                self._add_aggr_and_local_coords_from_global(
+                    df_spots_coords_input, lab, aggregated_lab,
+                    self.metadata['zyxResolutionLimitPxl'], 
+                    add_spots_mask=save_spots_mask
+                )
+            )
+        
         # if self.debug:
         #     from . import _debug
         #     ID = 36
@@ -4351,7 +4483,8 @@ class Kernel(_ParamsParser):
             spots_ch_segm_endname: str='', 
             ref_ch_segm_endname: str='', 
             lineage_table_endname: str='', 
-            text_to_append: str='',
+            df_spots_coords_in_endname: str='',
+            text_to_append: str='',            
             transformed_spots_ch_nnet: dict=None,
             run_number=1
         ):
@@ -4360,6 +4493,7 @@ class Kernel(_ParamsParser):
         data = self.get_data_from_images_path(
             images_path, spots_ch_endname, ref_ch_endname, segm_endname, 
             spots_ch_segm_endname, ref_ch_segm_endname, lineage_table_endname,
+            df_spots_coords_in_endname, 
             transformed_spots_ch_nnet=transformed_spots_ch_nnet
         )
         extend_3D_segm_range = (
@@ -4378,7 +4512,8 @@ class Kernel(_ParamsParser):
         df_agg = data.get('df_agg')
         ref_ch_segm_data = data.get('ref_ch_segm')
         acdc_df = data.get('lineage_table')
-        
+        df_spots_coords_in = data.get('df_spots_coords_in')
+
         zyx_resolution_limit_pxl = self.metadata['zyxResolutionLimitPxl']
 
         verbose = not self._params['Configuration']['reduceVerbosity']['loadedVal']
@@ -4584,20 +4719,24 @@ class Kernel(_ParamsParser):
             
             lab = segm_data[frame_i]
             rp = segm_rp[frame_i]
+            
+            ref_ch_img = None
+            filtered_ref_ch_img = None
             if ref_ch_data is not None:
                 ref_ch_img = ref_ch_data[frame_i]
                 filtered_ref_ch_img = self._preprocess(ref_ch_img)
-            else:
-                ref_ch_img = None
-                filtered_ref_ch_img = None
+            
+            ref_ch_mask_or_labels = None
             if ref_ch_segm_data is not None:
                 ref_ch_mask_or_labels = ref_ch_segm_data[frame_i]
-            else:
-                ref_ch_mask_or_labels = None
+            
+            lineage_table = None
             if acdc_df is not None:
                 lineage_table = acdc_df.loc[frame_i]
-            else:
-                lineage_table = None
+            
+            df_spots_coords_input = None
+            if df_spots_coords_in is not None:
+                df_spots_coords_input = df_spots_coords_in.loc[frame_i].copy()
             
             self.spots_detection(
                 preproc_spots_img, zyx_resolution_limit_pxl, 
@@ -4622,6 +4761,7 @@ class Kernel(_ParamsParser):
                 detection_method=detection_method,
                 do_aggregate=do_aggregate,
                 lineage_table=lineage_table,
+                df_spots_coords_input=df_spots_coords_input,
                 save_spots_mask=save_spots_mask,
                 custom_combined_measurements=custom_combined_measurements,
                 verbose=verbose
@@ -4829,6 +4969,7 @@ class Kernel(_ParamsParser):
             spots_ch_segm_endname = exp_info['spotChSegmEndName']
             ref_ch_segm_endname = exp_info['refChSegmEndName']
             lineage_table_endname = exp_info['lineageTableEndName']
+            df_spots_coords_in_endname = exp_info['inputDfSpotsEndname']
             text_to_append = exp_info['textToAppend']
             df_spots_file_ext = exp_info['df_spots_file_ext']
             desc = 'Experiments completed'
@@ -4856,7 +4997,8 @@ class Kernel(_ParamsParser):
                     spots_ch_segm_endname=spots_ch_segm_endname,
                     ref_ch_segm_endname=ref_ch_segm_endname, 
                     lineage_table_endname=lineage_table_endname,
-                    text_to_append=text_to_append,
+                    df_spots_coords_in_endname=df_spots_coords_in_endname,
+                    text_to_append=text_to_append,                   
                     transformed_spots_ch_nnet=transformed_data_nnet[pos],
                     run_number=run_number
                 )      
@@ -4874,7 +5016,8 @@ class Kernel(_ParamsParser):
                     uncropped_shape=data.get('spots_ch.shape'),
                     run_number=run_number, 
                     text_to_append=text_to_append, 
-                    df_spots_file_ext=df_spots_file_ext
+                    df_spots_file_ext=df_spots_file_ext, 
+                    df_spots_coords_in_endname=df_spots_coords_in_endname
                 )
                 pbar_pos.update()
                 t1 = time.perf_counter()
@@ -5021,6 +5164,52 @@ class Kernel(_ParamsParser):
         with open(analysis_inputs_filepath, 'w', encoding="utf-8") as file:
             configPars.write(file)
     
+    def _remove_existing_run_numbers_files(self, run_number, spotmax_out_path):
+        # Remove existing run numbers (they might have a different text appended)
+        for file in utils.listdir(spotmax_out_path):
+            file_path = os.path.join(spotmax_out_path, file)
+            if not os.path.isfile(file_path):
+                continue
+            if not file.startswith(f'{run_number}_'):
+                continue
+            requires_deletion = (
+                file.find('analysis_parameters') != -1 
+                or file.find('spot') != -1
+                or file.find('ref_channel_features') != -1
+            )
+            if requires_deletion:
+                try:
+                    os.remove(file_path)
+                except Exception as e:
+                    self.logger.info(
+                        f'[WARNING]: File "{file_path}" could not be deleted.'
+                    )
+    
+    def _get_dfs_to_save(self, dfs, df_spots_coords_in_endname, text_to_append):
+        # Check if df_spots was a input --> add to dfs
+        input_endname = df_spots_coords_in_endname
+        if input_endname is None:
+            return dfs, text_to_append, DFs_FILENAMES
+        
+        if os.path.isfile(input_endname):
+            input_endname = os.path.basename(input_endname)
+        
+        key = 'spots_spotfit'
+        df_to_save = dfs.get(key)
+        if df_to_save is None:
+            key = 'spots_gop'
+            df_to_save = dfs.get(key)
+        
+        key_agg = 'agg_spotfit'
+        df_aggr_to_save = dfs.get(key_agg)
+        if df_to_save is None:
+            key_agg = 'agg_gop'
+            df_aggr_to_save = dfs.get(key_agg)
+            
+        dfs = {key: df_to_save, key_agg: df_aggr_to_save}
+        dfs_filenames = {key: input_endname}
+        return dfs, '', dfs_filenames
+    
     def save_dfs_and_spots_masks(
             self, 
             folder_path, dfs, 
@@ -5030,7 +5219,8 @@ class Kernel(_ParamsParser):
             uncropped_shape=None,
             run_number=1, 
             text_to_append='', 
-            df_spots_file_ext='.h5'
+            df_spots_file_ext='.h5', 
+            df_spots_coords_in_endname=None
         ):
         if not df_spots_file_ext.startswith('.'):
             df_spots_file_ext = f'.{df_spots_file_ext}'
@@ -5042,31 +5232,30 @@ class Kernel(_ParamsParser):
         if text_to_append and not text_to_append.startswith('_'):
             text_to_append = f'_{text_to_append}'
         
-        # Remove existing run numbers (they might have a different text appended)
-        for file in utils.listdir(spotmax_out_path):
-            file_path = os.path.join(spotmax_out_path, file)
-            if not os.path.isfile(file_path):
-                continue
-            if not file.startswith(f'{run_number}_'):
-                continue
-            if file.find('analysis_parameters') != -1 or file.find('spot') != -1:
-                try:
-                    os.remove(file_path)
-                except Exception as e:
-                    self.logger.info(
-                        f'[WARNING]: File "{file_path}" could not be deleted.'
-                    )
-
+        if df_spots_coords_in_endname is not None:
+            self._remove_existing_run_numbers_files(
+                run_number, spotmax_out_path
+            )
+        
+        # Check if df_spots was a input --> add to dfs
+        dfs, text_to_append, dfs_filenames = self._get_dfs_to_save(
+            dfs, df_spots_coords_in_endname, text_to_append
+        )
+        
         self._copy_ini_params_to_spotmax_out(
             spotmax_out_path, run_number, text_to_append
         )
         
-        for key, filename in DFs_FILENAMES.items():
+        import pdb; pdb.set_trace()
+        
+        for key, filename in dfs_filenames.items():
             df_spots_filename = filename.replace('*rn*', str(run_number))
             df_spots_filename = df_spots_filename.replace(
                 '*desc*', text_to_append
             )
             df_spots = dfs.get(key, None)
+            
+            import pdb; pdb.set_trace()
 
             if df_spots is not None:
                 if 'spot_mask' in df_spots.columns:

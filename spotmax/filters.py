@@ -176,7 +176,7 @@ def local_semantic_segmentation(
         nnet_params=None, 
         nnet_input_data=None,
         do_max_proj=True, 
-        clear_outside_objs=False, 
+        keep_objects_touching_lab_intact=False, 
         ridge_filter_sigmas=0,
         return_only_output_mask=False, 
         do_try_all_thresholds=True,
@@ -249,22 +249,24 @@ def local_semantic_segmentation(
                 predict_mask_merged = threshold_masked_by_obj(
                     input_img, obj_mask_lab, thresh_func, 
                     do_max_proj=do_max_proj, 
-                    use_mask=clear_outside_objs
+                    use_mask=not keep_objects_touching_lab_intact
                 )
-                # predict_mask_merged[~(obj_mask_lab>0)] = False
             
-            if clear_outside_objs:
+            if not keep_objects_touching_lab_intact:
                 predict_mask_merged[~(obj_mask_lab>0)] = False
             
             # Iterate eventually merged (mother-bud) objects
             for obj_local in skimage.measure.regionprops(obj_mask_lab):  
-                predict_mask_obj = np.logical_and(
-                    predict_mask_merged[obj_local.slice], 
-                    obj_local.image
-                )
+                if keep_objects_touching_lab_intact:
+                    predict_mask_obj = predict_mask_merged[obj_local.slice]
+                else:
+                    predict_mask_obj = np.logical_and(
+                        predict_mask_merged[obj_local.slice], 
+                        obj_local.image
+                    )
                 id = obj_local.label
                 labels[merged_obj_slice][obj_local.slice][predict_mask_obj] = id
-        
+
         result[method] = labels.astype(np.int32)
         if do_try_all_thresholds:
             pbar.update()
@@ -494,6 +496,9 @@ def filter_df_from_features_thresholds(
         return df_features
     
     query = ' & '.join(queries)
+    
+    if 'do_not_drop' in df_features.columns:
+        query = f'({query}) | (do_not_drop > 0)'
 
     return df_features.query(query)
 
@@ -505,6 +510,9 @@ def drop_spots_not_in_ref_ch(df, ref_ch_mask, local_peaks_coords):
     yy = local_peaks_coords[:,1]
     xx = local_peaks_coords[:,2]
     in_ref_ch_spots_mask = ref_ch_mask[zz, yy, xx] > 0
+    if 'do_not_drop' in df.columns:
+        in_ref_ch_spots_mask = (in_ref_ch_spots_mask) | (df['do_not_drop'] > 0)
+    
     return df[in_ref_ch_spots_mask]
 
 def filter_valid_points_min_distance(points, min_distance, intensities=None):

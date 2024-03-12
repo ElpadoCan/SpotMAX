@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 import cellacdc.myutils
+from spotmax.nnet import preprocess
 
 from . import pipe
 from . import metrics
@@ -194,26 +195,46 @@ class TuneKernel:
                 (zyx_coords_true, zyx_coords_false), axis=0
             )
             
-            kwargs_keys = [
-                'lab', 'do_remove_hot_pixels', 'gauss_sigma', 'use_gpu', 
-                'use_gpu', 'zyx_voxel_size', 'optimise_for_high_spot_density'
+            # Preprocess image
+            preprocess_keys = [
+                'lab', 'do_remove_hot_pixels', 'gauss_sigma', 'use_gpu'
             ]
-            features_kwargs = {key:input_kwargs[key] for key in kwargs_keys}
-            spots_zyx_radii = input_kwargs['spots_zyx_radii_pxl']
+            preprocess_kwargs = {
+                key:input_kwargs[key] for key in preprocess_keys
+            }
+            preprocess_kwargs['logger_func'] = logger_func
+            preproc_image = pipe.preprocess_image(
+                image, **preprocess_kwargs
+            )
             
+            # Sharpen image
+            sharp_image = None
             if input_kwargs['do_sharpen']:
+                spots_zyx_radii = input_kwargs['spots_zyx_radii_pxl']
                 sharp_image = filters.DoG_spots(
                     image, spots_zyx_radii, use_gpu=input_kwargs['use_gpu']
                 )
-            else:
-                sharp_image = None
-            features_kwargs['sharp_image'] = sharp_image
             
-            df_features_frame = pipe.compute_spots_features(
-                image, 
-                zyx_coords, 
-                spots_zyx_radii,
-                **features_kwargs
+            features_keys = [
+                'spots_zyx_radii_pxl', 
+                'zyx_voxel_size', 
+                'optimise_for_high_spot_density'
+            ]
+            features_kwargs = {key:input_kwargs[key] for key in features_keys}
+            features_kwargs['sharp_spots_image'] = sharp_image
+            
+            IDs = input_kwargs['lab'][tuple(zyx_coords).transpose()]
+            df_spots_coords = pd.DataFrame(
+                data=zyx_coords, columns=ZYX_GLOBAL_COLS, index=IDs
+            )
+            df_spots_coords.index.name = 'Cell_ID'
+            features_kwargs['df_spots_coords'] = df_spots_coords
+            
+            features_kwargs['logger_func'] = logger_func
+            features_kwargs['raw_image'] = image
+            
+            df_features_frame = pipe.spots_calc_features_and_filter(
+                image, **features_kwargs
             )
             
             true_idx = [tuple(row) for row in zyx_coords_true]

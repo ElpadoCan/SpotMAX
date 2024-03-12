@@ -11,6 +11,8 @@
 .. _INI configuration file templates: https://github.com/ElpadoCan/spotMAX/tree/main/examples/ini_config_files_template
 .. _pandas.eval: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.eval.html
 
+.. _pandas.read_hdf: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_hdf.html
+
 .. |edit-button| image:: ../../../resources/icons/cog.svg
     :width: 20
 
@@ -132,6 +134,46 @@ File paths and channels
   an external software.
 
   File formats supported: ``.tif``, ``.tiff``, ``.h5``, ``.npz``, or ``.npy``.
+
+  :type: string
+  :default: ``''``
+
+.. confval:: Spots coordinates table end name or path
+
+  Last part of the file name or full path of the file containing the columns 
+  ``{'x', 'y', 'z'}`` with the coordinates of the spots to quantify. 
+
+  When working with time-lapse data, make sure to also include the ``'frame_i'`` 
+  column with the index of each timepoint (starting from 0 for first frame). 
+
+  If the table has the ``.h5`` extension, it must have the frame index as 
+  the group identifier (each frame will be loaded with 
+  `pandas.read_hdf`_ ``(filepath, key='frame_0')``). 
+
+  The output table with the quantified features will be saved in the 
+  spotMAX_output folder (see the section :ref:`output-files`) with the same 
+  filename (or end name) of this parameter.
+
+  This table can also be the same from a previous analysis where you simply 
+  added new rows with the coordinates of the new spots whose features you want 
+  to quantify. You can initialize missing values to ``NaN`` or ``-1``.
+
+  If you need to quantify the features of the spots no matter if the spots are 
+  considered valid or not, add a column called ``'do_not_drop'`` with the value 
+  ``1`` at each row of the spot that must not be removed by spotMAX filters.
+  
+  Use this parameter if you already have a table with spots coordinates 
+  generated outside of spotMAX.
+
+  .. tip:: 
+
+    In the spotMAX GUI, you can edit the results of a previous analysis, 
+    including adding new spots. To compute the features of these manually added 
+    spots, spotMAX will save the new table in each Position folder and it will 
+    be used in this parameter. See the section :ref:`inspect-results-tab`, for 
+    more details on how to manually edit the results.
+
+  File formats supported: ``.csv``, or ``.h5`` (with single key).
 
   :type: string
   :default: ``''``

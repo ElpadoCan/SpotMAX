@@ -12,6 +12,10 @@ Output files will be saved in each Position folder in a sub-folder called
     <run_number>_1_valid_spots_<appended_text>_aggregated.csv
     <run_number>_2_spotfit_<appended_text>.<ext>
     <run_number>_2_spotfit_<appended_text>_aggregated.csv
+    <run_number>_3_ref_channel_features_<text_to_append>.csv
+    <run_number>_3_ref_channel_features_<text_to_append>.csv
+    <run_number>_4_<source_table>_<input_text>_<appended_text>.<ext>
+    <run_number>_4_<source_table>_<input_text>_<appended_text>_aggregated.csv 
     <run_number>_analysis_parameters_<appended_text>.ini
 
 where ``<run_number>`` is the number selected as the :confval:`Run number` 
@@ -20,8 +24,17 @@ parameter, ``<appended_text>`` is the text inserted at the
 ``<ext>`` is either ``.csv`` or ``.h5`` as selected at the 
 :confval:`File extension of the output tables` parameter. 
 
+.. seealso:: 
+
+    For the file ``<run_number>_3_ref_channel_features_<text_to_append>.csv`` 
+    see more details in the description of the :confval:`Save reference channel features` 
+    parameter.
+
+    For the files ``<run_number>_4_<source_table>_<input_text>_<appended_text>`` 
+    see more details in the :ref:`inspect-results-tab` section.
+
 The file with ``analysis_parameters`` in the name is the INI configuration file 
-with all the paramters of that specific analysis run. 
+with all the parameters of that specific analysis run. 
 
 The files ending with ``_aggregated`` contain features related to the single 
 segmented objects (e.g., the single cells) as described in the section 

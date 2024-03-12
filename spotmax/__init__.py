@@ -141,7 +141,10 @@ BASE_COLUMNS.extend(CELL_SIZE_COLUMNS)
 DFs_FILENAMES = {
     'spots_detection': '*rn*_0_detected_spots*desc*',
     'spots_gop': '*rn*_1_valid_spots*desc*',
-    'spots_spotfit': '*rn*_2_spotfit*desc*'
+    'spots_spotfit': '*rn*_2_spotfit*desc*', 
+    'spots_detection_edited': '*rn*_4_0_detected_spots*desc*',
+    'spots_gop_edited': '*rn*_4_1_valid_spots*desc*',
+    'spots_spotfit_edited': '*rn*_4_2_spotfit*desc*', 
 }
 DF_REF_CH_FILENAME = '*rn*_3_ref_channel_features*desc*.csv'
 

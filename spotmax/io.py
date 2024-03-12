@@ -7,6 +7,7 @@ import datetime
 import time
 import copy
 from functools import partial
+from typing import List
 import tifffile
 import json
 import traceback
@@ -55,6 +56,7 @@ from . import settings_path
 from . import last_used_ini_text_filepath
 from . import transformations
 from . import DFs_FILENAMES
+from . import spotmax_appdata_path
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -62,6 +64,10 @@ acdc_df_bool_cols = [
     'is_history_known',
     'corrected_assignment'
 ]
+
+df_spots_filename_parts_pattern = (
+    r'(\d+)_(\d)_(detected_spots|valid_spots|spotfit)(.*)\.(\w+)'
+)
 
 def read_json(json_path, logger_func=print, desc='custom annotations'):
     json_data = {}
@@ -597,6 +603,13 @@ def load_spots_table(spotmax_out_path, filename, filepath=None):
         df = _load_spots_table_h5(filepath)
     return df
 
+def load_table_to_df(filepath):
+    if filepath.endswith('.csv'):
+        df = pd.read_csv(filepath)
+    elif filepath.endswith('.h5'):
+        df = _load_spots_table_h5(filepath)
+    return df
+
 class channelName:
     def __init__(self, which_channel=None, QtParent=None, load=True):
         self.parent = QtParent
@@ -888,7 +901,8 @@ class expFolderScanner:
         self.paths[1][exp_path] = {
             'numPosSpotCounted': 0,
             'numPosSpotSized': 0,
-            'posFoldernames': posFoldernames,
+            'posFoldernames': posFoldernames, 
+            'dateModified': np.nan
         }
         for p, pos in enumerate(posFoldernames):
             posPath = os.path.join(exp_path, pos)
@@ -898,32 +912,43 @@ class expFolderScanner:
             if not isSpotmaxOutPresent:
                 self.paths[1][exp_path][pos] = {
                     'isPosSpotCounted': False,
-                    'isPosSpotSized': False
+                    'isPosSpotSized': False, 
+                    'timeAnalysed': np.nan
                 }
             else:
                 spotmaxFiles = natsorted(utils.listdir(spotmaxOutPath))
                 if not spotmaxFiles:
                     continue
                 run_nums = self.runNumbers(spotmaxOutPath)
-
                 for run in run_nums:
-                    if run not in self.paths or exp_path not in self.paths[run]:
-                        analysisInputs_df = self.loadAnalysisInputs(
+                    analysisParamsFilepath = (
+                        get_analysis_params_filepath_from_run(
                             spotmaxOutPath, run
                         )
+                    )
+                    runInfo = self.paths.get(run, {})
+                    expInfo = runInfo.get(exp_path, {})
+                    analysisInputs = expInfo.get('analysisInputs', False)
+                    initRun = (
+                        not runInfo or not expInfo or not analysisInputs
+                    )
+                    if initRun:
+                        analysisInputs = read_ini(analysisParamsFilepath)
                         self.paths[run][exp_path] = {
                             'numPosSpotCounted': 0,
                             'numPosSpotSized': 0,
                             'posFoldernames': posFoldernames,
-                            'analysisInputs': analysisInputs_df
+                            'analysisInputs': analysisInputs
                         }
 
+                    timeAnalysed = os.path.getmtime(analysisParamsFilepath)
                     isSpotCounted, isSpotSized = self.analyseRunNumber(
                         spotmaxOutPath, run
                     )
                     self.paths[run][exp_path][pos] = {
                         'isPosSpotCounted': isSpotCounted,
-                        'isPosSpotSized': isSpotSized
+                        'isPosSpotSized': isSpotSized, 
+                        'timeAnalysed': timeAnalysed
                     }
                     if isSpotCounted:
                         self.paths[run][exp_path]['numPosSpotCounted'] += 1
@@ -947,7 +972,8 @@ class expFolderScanner:
             run, exp_path, pos = keys
             self.paths[run][exp_path][pos] = {
                 'isPosSpotCounted': False,
-                'isPosSpotSized': False
+                'isPosSpotSized': False, 
+                'timeAnalysed': np.nan
             }
     
     def getExpPathsWithPosFoldernames(self):
@@ -989,10 +1015,11 @@ class expFolderScanner:
                 numPosSpotCounted = expInfo['numPosSpotCounted'] --> int
                 numPosSpotSized = expInfo['numPosSpotSized'] --> int
                 posFoldernames = expInfo['posFoldernames'] --> list of strings
-                analysisInputs_df = expInfo['analysisInputs'] --> pd.DataFrame
+                analysisInputs_df = expInfo['analysisInputs'] --> config.ConfigParser
                 pos1_info = expInfo['Position_1'] --> dict
                     isPos1_spotCounted = pos1_info['isPosSpotCounted'] --> bool
                     isPos1_spotSized = pos1_info['isPosSpotSized'] --> bool
+                    timeAnalysed = pos1_info['timeAnalysed'] --> seconds as returned by `os.path.getmtime`
         """
         self.paths = defaultdict(lambda: defaultdict(dict))
 
@@ -1022,11 +1049,12 @@ class expFolderScanner:
                 if not df.equals(df1):
                     df1.to_csv(csvPath)
                     df = df1
-                return df
+                return df, csvPath
             if match_ini is not None:
+                iniPath = os.path.join(spotmaxOutPath, file)
                 configPars = config.ConfigParser()
                 configPars.read(os.path.join(spotmaxOutPath, file))
-                return configPars
+                return configPars, iniPath
 
     def runNumbers(self, spotmaxOutPath):
         run_nums = set()
@@ -2086,15 +2114,59 @@ def get_user_input(
             _raise_EOFerror(logger=logger)
     return answer_txt
 
+def add_spots_coordinates_endname_to_configparser(
+        configparser, spots_coordinates_endname: str
+    ):
+    section = 'File paths and channels'
+    option = 'Spots coordinates table end name or path'
+    configparser[section][option] = spots_coordinates_endname
+    return configparser
+
+def add_text_to_append_to_configparser(
+        configparser, text_to_append: str
+    ):
+    section = 'File paths and channels'
+    option = 'Text to append at the end of the output files'
+    configparser[section][option] = text_to_append
+    return configparser
+
+def add_folders_to_analyse_to_configparser(
+        configparser, folders_to_analyse: List[os.PathLike]
+    ):
+    section = 'File paths and channels'
+    option = 'Experiment folder path(s) to analyse'
+    configparser[section][option] = '\n'.join(folders_to_analyse)
+    return configparser
+
+def add_ref_ch_segm_endname_to_configparser(
+        configparser, ref_ch_segm_endname: str
+    ):
+    section = 'File paths and channels'
+    option = 'Ref. channel segmentation end name or path'
+    configparser[section][option] = ref_ch_segm_endname
+    
+    section = 'Reference channel'
+    option = 'Save reference channel segmentation masks'
+    configparser[section][option] = 'False'
+    return configparser
+
+def add_use_default_values_to_configparser(configparser):
+    section = 'Configuration'
+    option = 'Use default values for missing parameters'
+    configparser[section][option] = 'True'
+    return configparser
+
 def save_df_spots(
         df: pd.DataFrame, folder_path: os.PathLike, filename_no_ext: str, 
         extension: str='.h5'
     ):
     filename = f'{filename_no_ext}{extension}'
+    filepath = os.path.join(folder_path, filename)
     if extension == '.csv':
-        df.to_csv(os.path.join(folder_path, filename))
+        df.to_csv(filepath)
     else:
         save_df_spots_to_hdf(df, folder_path, filename)
+    return filepath
 
 def save_df_ref_ch_features(
         df_ref_ch, run_number, images_path, text_to_append=''
@@ -2146,16 +2218,12 @@ def _save_concat_dfs_to_hdf(dfs, keys, dst_folderpath, filename):
     return df
 
 def _save_concat_dfs_to_csv(dfs, keys, dst_folderpath, filename, names=None):
-    if names is None:
-        names = ['Position_n']
     filepath = os.path.join(dst_folderpath, filename)
     df = pd.concat(dfs, keys=keys, names=names)
     df.to_csv(filepath)
     return df
 
 def _save_concat_dfs_to_excel(dfs, keys, dst_folderpath, filename, names=None):
-    if names is None:
-        names = ['Position_n']
     filepath = os.path.join(dst_folderpath, filename)
     df = pd.concat(dfs, keys=keys, names=names)
     df.to_excel(filepath)
@@ -2181,8 +2249,13 @@ def save_df_agg_to_csv(df: pd.DataFrame, folder_path: os.PathLike, filename: str
         return
 
 def save_ref_ch_mask(
-        ref_ch_segm_data, images_path, ref_ch_endname, basename, 
-        run_number, text_to_append='', pad_width=None
+        ref_ch_segm_data, 
+        images_path, 
+        ref_ch_endname, 
+        basename, 
+        run_number, 
+        text_to_append='', 
+        pad_width=None
     ):
     if not basename.endswith('_'):
         basename = f'{basename}_'
@@ -2426,3 +2499,64 @@ def nnet_params_from_ini_params(
                     value = argWidget.default
             params[key][argWidget.name] = value
     return params
+
+def load_df_agg_from_df_spots_filename(
+        spotmax_output_folderpath, df_spots_filename
+    ):
+    filename_no_ext, _ = os.path.splitext(df_spots_filename)
+    aggr_filename = f'{filename_no_ext}_aggregated.csv'
+    aggr_filepath = os.path.join(spotmax_output_folderpath, aggr_filename)
+    df_aggr = pd.read_csv(aggr_filepath, index_col=['frame_i', 'Cell_ID'])
+    return df_aggr
+
+def df_spots_filename_parts(df_spots_filename):
+    parts = re.findall(df_spots_filename_parts_pattern, df_spots_filename)[0]
+    return parts
+
+def get_analysis_params_filepath_from_df_spots_filename(
+        spotmax_output_folderpath, df_spots_filename
+    ):
+    parts = df_spots_filename_parts(df_spots_filename)
+    run_num, df_id, df_text, desc, ext = parts
+    analysis_params_filename = f'{run_num}_analysis_parameters{desc}.ini'
+    filepath = os.path.join(spotmax_output_folderpath, analysis_params_filename)
+    return filepath
+
+def load_analysis_params_from_df_spots_filename(
+        spotmax_output_folderpath, df_spots_filename
+    ):
+    filepath = get_analysis_params_filepath_from_df_spots_filename(
+        spotmax_output_folderpath, df_spots_filename
+    )
+    cp = config.ConfigParser()
+    cp.read(filepath, encoding="utf-8")
+    return cp
+
+def get_temp_ini_filepath():
+    temp_dirpath = tempfile.mkdtemp()
+    ini_filename = get_new_ini_filename()
+    ini_filepath = os.path.join(temp_dirpath, ini_filename)
+    return ini_filepath, temp_dirpath
+
+def get_new_ini_filename(text_to_add=''):
+    now = datetime.datetime.now().strftime(r'%Y-%m-%d_%H-%M-%S')
+    if text_to_add:
+        if not text_to_add.startswith('_'):
+            text_to_add = f'_{text_to_add}'
+            
+    ini_filename = f'{now}_spotmax_analysis_parameters{text_to_add}.ini'
+    return ini_filename
+
+def get_ini_filepath_appdata(text_to_add=''):
+    ini_filename = get_new_ini_filename(text_to_add=text_to_add)
+    return os.path.join(spotmax_appdata_path, ini_filename)
+
+def get_analysis_params_filepath_from_run(spotmax_out_path, run_num):
+    for file in utils.listdir(spotmax_out_path):
+        if file.startswith(f'{run_num}_analysis_parameters'):
+            return os.path.join(spotmax_out_path, file)
+
+def read_ini(ini_filepath):
+    configPars = config.ConfigParser()
+    configPars.read(ini_filepath)
+    return configPars

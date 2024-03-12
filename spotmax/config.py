@@ -409,6 +409,20 @@ def _filepaths_params():
             'actions': None,
             'dtype': str
         },
+        'inputDfSpotsEndname': {
+            'desc': 'Spots coordinates table end name or path',
+            'initialVal': """""",
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': True,
+            'browseExtesions': ('.csv',),
+            'addEditButton': False,
+            'formWidgetFunc': 'widgets._CenteredLineEdit',
+            'actions': None,
+            'dtype': str
+        },
         'lineageTableEndName': {
             'desc': 'Table with lineage info end name or path',
             'initialVal': """""",
@@ -445,7 +459,7 @@ def _filepaths_params():
             'addApplyButton': False,
             'addBrowseButton': True,
             'addEditButton': False,
-            'formWidgetFunc': 'widgets._CenteredLineEdit',
+            'formWidgetFunc': 'widgets.CenteredAlphaNumericLineEdit',
             'actions': None,
             'dtype': get_valid_text
         },
@@ -507,7 +521,7 @@ def _configuration_params():
             'addApplyButton': False,
             'addBrowseButton': True,
             'addEditButton': False,
-            'formWidgetFunc': 'widgets._CenteredLineEdit',
+            'formWidgetFunc': 'widgets.CenteredAlphaNumericLineEdit',
             'actions': None,
             'dtype': str, 
             'parser_arg': 'report_filename'
@@ -1152,7 +1166,7 @@ def _spotfit_params():
         },
         'sigmaXinitGuess': {
             'desc': 'Initial guess for sigma in x-direction',
-            'initialVal': 'spotsize_initial_radius_yx_pixel', 
+            'initialVal': 'x_resolution_pxl/2.35', 
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,
@@ -1164,7 +1178,7 @@ def _spotfit_params():
         },
         'sigmaYinitGuess': {
             'desc': 'Initial guess for sigma in y-direction',
-            'initialVal': 'spotsize_initial_radius_yx_pixel', 
+            'initialVal': 'y_resolution_pxl/2.35', 
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,
@@ -1176,7 +1190,7 @@ def _spotfit_params():
         },
         'sigmaZinitGuess': {
             'desc': 'Initial guess for sigma in z-direction',
-            'initialVal': 'spotsize_initial_radius_z_pixel', 
+            'initialVal': 'z_resolution_pxl/2.35', 
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,

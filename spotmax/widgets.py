@@ -1,3 +1,5 @@
+import os
+
 import sys
 import time
 import re
@@ -6,9 +8,12 @@ from natsort import natsorted
 import webbrowser
 from pprint import pprint
 from functools import partial
-from qtpy import QtCore, QtGui
-from qtpy.QtWidgets import QWidget
-from qtpy import QtCore
+
+import numpy as np
+import pandas as pd
+
+import skimage.draw
+import skimage.measure
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
@@ -141,7 +146,7 @@ class applyPushButton(QPushButton):
         super().__init__(*args)
         self.setIcon(QIcon(':magnGlass.svg'))
 
-class computePushButton(QPushButton):
+class computePushButton(acdc_widgets.PushButton):
     def __init__(self, *args):
         super().__init__(*args)
         self.setIcon(QIcon(':compute.svg'))
@@ -1920,6 +1925,8 @@ class SpotsItems:
     def __init__(self, parent):
         self.buttons = []
         self.parent = parent
+        self.currentPointSize = None
+        self.loadedDfs = {}
 
     def addLayer(self, df_spots_files: dict):
         all_df_spots_files = set()
@@ -1985,9 +1992,10 @@ class SpotsItems:
             symbol=symbol
         )
     
-    def getHoveredPoints(self, frame_i, z, y, x):
+    def getHoveredPoints(self, frame_i, z, y, x, return_button=False):
         hoveredPoints = []
         item = None
+        toolbutton = None
         for toolbutton in self.buttons:
             if not toolbutton.isChecked():
                 continue
@@ -2005,7 +2013,11 @@ class SpotsItems:
                 continue
             hoveredPoints.extend(points)
             break
-        return hoveredPoints, item
+        
+        if return_button:
+            return hoveredPoints, item, toolbutton
+        else:
+            return hoveredPoints, item
     
     def getHoveredPointData(self, frame_i, z, y, x):
         for toolbutton in self.buttons:
@@ -2027,12 +2039,12 @@ class SpotsItems:
             pos = point.pos()
             x, y = int(pos.x()-0.5), int(pos.y()-0.5)
             try:
-                df = df.loc[[(frame_i, z)]].reset_index().set_index(['x', 'y'])
+                df_xy = df.loc[[(frame_i, z)]].reset_index().set_index(['x', 'y'])
             except Exception as err:
                 # This happens when hovering points in projections where they 
                 # are all visibile and the z is unknown
-                df = df.loc[[frame_i]].reset_index().set_index(['x', 'y'])
-            point_df = df.loc[[(x, y)]].reset_index()
+                df_xy = df.loc[[frame_i]].reset_index().set_index(['x', 'y'])
+            point_df = df_xy.loc[[(x, y)]].reset_index()
             point_features = point_df.set_index(['frame_i', 'z', 'y', 'x']).iloc[0]
             return point_features
     
@@ -2049,6 +2061,13 @@ class SpotsItems:
     def getAlpha(self, state):
         return round(state['opacity']*255)
     
+    def setCurrentPointSize(self):
+        self.currentPointSize = self.getPointSize(force=True)
+    
+    def setCurrentPointMask(self, img_data):
+        Y, X = img_data.shape[-2:]
+        self._pointMask = np.zeros((Y, X), dtype=np.uint8)
+    
     def createSpotItem(self, state, toolbutton):
         alpha = self.getAlpha(state)
         pen = self.getPen(state)
@@ -2056,23 +2075,29 @@ class SpotsItems:
         hoverBrush = self.getBrush(state)
         symbol = state['pg_symbol']
         size = state['size']
-        scatterItem = pg.ScatterPlotItem(
+        scatterItem = acdc_widgets.ScatterPlotItem(
             [], [], symbol=symbol, pxMode=False, size=size,
             brush=brush, pen=pen, hoverable=True, hoverBrush=hoverBrush, 
             tip=None
         )
+        scatterItem._size = size
         scatterItem.frame_i = -1
         scatterItem.z = -1
         toolbutton.item = scatterItem
     
-    def setPosition(self, spotmax_out_path):
-        self.spotmax_out_path = spotmax_out_path
+    def setPosition(self, posData):
+        self.spotmax_out_path = posData.spotmax_out_path
+        self.posData = posData
         self.posChanged = True
     
     def _loadSpotsTable(self, toolbutton):
         spotmax_out_path = self.spotmax_out_path
         filename = toolbutton.filename
-        df = io.load_spots_table(spotmax_out_path, filename)
+        df = self.loadedDfs.get(self.posData.pos_foldername)
+        if df is None:
+            df = io.load_spots_table(spotmax_out_path, filename)
+            self.loadedDfs[self.posData.pos_foldername] = df
+        
         if df is None:
             toolbutton.df = None
         else:
@@ -2085,6 +2110,39 @@ class SpotsItems:
         else:
             self._loadSpotsTable(toolbutton)
     
+    def getAnalysisParamsIniFilepath(self, toolbutton=None):
+        if toolbutton is None:
+            toolbutton = self.getActiveButton()
+            
+        df_spots_filename = toolbutton.filename
+        ini_filepath = io.get_analysis_params_filepath_from_df_spots_filename(
+            self.spotmax_out_path, df_spots_filename
+        )
+        return ini_filepath
+    
+    def loadAnalysisParams(self, toolbutton=None):
+        if toolbutton is None:
+            toolbutton = self.getActiveButton()
+            
+        ini_filepath = self.getAnalysisParamsIniFilepath(toolbutton=toolbutton)
+        params = config.analysisInputsParams(params_path=ini_filepath)
+        return params        
+    
+    def getLoadedSegmAndAnalysisSegm(self):
+        toolbutton = self.getActiveButton()
+        df_spots_filename = toolbutton.filename
+        cp_params = io.load_analysis_params_from_df_spots_filename(
+            self.spotmax_out_path, df_spots_filename
+        )
+        analysisSegmEndname = (
+            cp_params['File paths and channels']
+            ['Cells segmentation end name or path']
+        )
+        analysisSegmEndname = analysisSegmEndname.split('.npy')[0]
+        analysisSegmEndname = analysisSegmEndname.split('.npz')[0]
+        loadedSegmEndname = self.posData.getSegmEndname()
+        return loadedSegmEndname, analysisSegmEndname
+        
     def _setDataButton(self, toolbutton, frame_i, z=None):
         scatterItem = toolbutton.item
         if toolbutton.df is None:
@@ -2121,6 +2179,152 @@ class SpotsItems:
                 self._setDataButton(toolbutton, frame_i, z=z)
         else:
             self._setDataButton(toolbutton, frame_i, z=z)
+    
+    def getActiveButton(self):
+        for toolbutton in self.buttons:
+            if toolbutton.isChecked():
+                return toolbutton
+    
+    def getRefChannelSegmEndname(self, ref_ch_name):
+        toolbutton = self.getActiveButton()
+        if toolbutton is None:
+            return ''
+        
+        if not ref_ch_name:
+            return ''
+        
+        parts = io.df_spots_filename_parts(toolbutton.filename)
+        run_num, df_id, df_text, desc, ext = parts
+        ref_ch_segm_endname = (
+            f'run_num{run_num}_{ref_ch_name}_ref_ch_segm_mask{desc}.npz'
+        )
+        pos_folderpath = os.path.dirname(self.spotmax_out_path)
+        images_path = os.path.join(pos_folderpath, 'Images')
+        for file in utils.listdir(images_path):
+            if file.endswith(ref_ch_segm_endname):
+                return ref_ch_segm_endname
+            
+        return ''
+    
+    def getActiveItemPointSize(self):
+        activeButton = self.getActiveButton()
+        if activeButton is None:
+            return
+        return activeButton.item._size
+    
+    def getPointSize(self, force=False):
+        if force or self.currentPointSize is None:
+            size = self.getActiveItemPointSize()
+        else:
+            size = self.currentPointSize
+        return size
+    
+    def removePoint(self, hoveredPoints, item, button, frame_i, z):
+        df = button.df
+        ordered_columns = df.columns.to_list()
+        try:
+            df_xy = df.loc[[(frame_i, z)]].reset_index().set_index(['x', 'y'])
+        except Exception as err:
+            # This happens when hovering points in projections where they 
+            # are all visibile and the z is unknown (z is None in proj)
+            df_xy = df.loc[[frame_i]].reset_index().set_index(['x', 'y'])
+        
+        idx_to_drop = []
+        for point in hoveredPoints:
+            item.removePoint(point._index)
+            pos = point.pos()
+            xdata, ydata = int(pos.x()-0.5), int(pos.y()-0.5)
+            zdata = df_xy.at[(xdata, ydata), 'z']
+            idx_to_drop.append((frame_i, zdata, ydata, xdata))
+        
+        df_tzyx = (
+            df.reset_index()
+            .set_index(['frame_i', 'z', 'y', 'x'])
+        )
+        
+        button.df = (
+            df_tzyx.drop(index=idx_to_drop)
+            .reset_index()
+            .set_index(['frame_i', 'z'])
+            [ordered_columns]
+        )
+        button.df['edited'] = 1
+        button.df['do_not_drop'] = 1
+        
+        self.loadedDfs[self.posData.pos_foldername] = button.df        
+    
+    def initEdits(self, img_data, segm_data):
+        self.setEditsEnabled(True)
+        self.setCurrentPointSize()
+        self.setCurrentPointMask(img_data)
+        self._segm_data = segm_data
+    
+    def addPoint(self, item, img, frame_i, z, y, x, button):
+        if z is None:
+            self.parent.logger.info(
+                '[WARNING]: Spots cannot be added on a z-projection'
+            )
+            return
+        
+        size = item._size
+        radius = round(size/2)
+        rr, cc = skimage.draw.disk((round(y), round(x)), radius)
+        self._pointMask[:] = 0
+        self._pointMask[rr, cc] = 1
+        pointObj = skimage.measure.regionprops(self._pointMask)[0]
+        ymin, xmin = pointObj.bbox[:2]
+        localImg = img[pointObj.slice].copy()
+        localMask = self._pointMask[pointObj.slice]>0
+        localImg[~(localMask)] = 0
+        y_max, x_max = np.unravel_index(localImg.argmax(), localImg.shape)
+        xdata, ydata = x_max+xmin, y_max+ymin
+        
+        lab = self._segm_data[frame_i]
+        if lab.ndim == 3:
+            lab = lab[z]
+        
+        ordered_columns = button.df.columns.to_list()
+        
+        ID = lab[ydata, xdata]
+        
+        spot_id = button.df['spot_id'].max() + 1
+        
+        df_tzid = (
+            button.df.reset_index()
+            .set_index(['frame_i', 'z', 'Cell_ID', 'spot_id'])
+        )
+        new_idx = (frame_i, z, ID, spot_id)
+        empty_vals = features.get_df_row_empty_vals(df_tzid, index=new_idx)
+        df_tzid = pd.concat([df_tzid, empty_vals])
+        df_tzid.loc[new_idx, ['x', 'y']] = xdata, ydata
+        button.df = (
+            df_tzid.reset_index()
+            .set_index(['frame_i', 'z'])
+            .sort_index()
+            [ordered_columns]
+        )
+        button.df['edited'] = 1
+        button.df['do_not_drop'] = 1
+        
+        self.loadedDfs[self.posData.pos_foldername] = button.df
+        
+        xpoint, ypoint = xdata+0.5, ydata+0.5
+        item.addPoints([xpoint], [ypoint])
+    
+    def setEditsEnabled(self, enabled):
+        self._editsEnabled = enabled
+    
+    def editPoint(self, frame_i, z, y, x, img):
+        if not self._editsEnabled:
+            return
+        
+        hoveredPoints, item, button = self.getHoveredPoints(
+            frame_i, z, y, x, return_button=True
+        )
+        if hoveredPoints:
+            self.removePoint(hoveredPoints, item, button, frame_i, z)  
+        else:
+            self.addPoint(item, img, frame_i, z, y, x, button)
 
 def ParamFormWidget(
         anchor, param, parent, use_tune_widget=False,
@@ -2586,6 +2790,12 @@ class NumericWidgetWithLabel(QWidget):
     def value(self):
         return self.widget.value()
 
+    def setMinimum(self, minimum):
+        self.widget.setMinimum(minimum)
+    
+    def setMinimum(self, maximum):
+        self.widget.setMinimum(maximum)
+
 class LowHighRangeWidget(QWidget):
     def __init__(self, parent=None, is_float=False) -> None:
         super().__init__(parent)
@@ -2613,6 +2823,8 @@ class LowHighRangeWidget(QWidget):
             low_high = config.get_stack_3d_segm_range(low_high)
         
         low, high = low_high
+        self.lowValueWidget.setValue(low)
+        self.highValueWidget.setValue(high)
     
     def value(self):
         low = self.lowValueWidget.value()
@@ -2628,6 +2840,9 @@ class Extend3DsegmRangeWidget(LowHighRangeWidget):
         
         self.lowValueWidget.setText('Below bottom z-slice')
         self.highValueWidget.setText('Above top z-slice')
+        
+        self.lowValueWidget.setMinimum(0)
+        self.highValueWidget.setMinimum(0)
         
         self.layout().setContentsMargins(0, 5, 0, 0)
 
@@ -2791,6 +3006,10 @@ class EditableLabel(QWidget):
     def text(self):
         return self.value()
 
+class CenteredAlphaNumericLineEdit(acdc_widgets.alphaNumericLineEdit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setAlignment(Qt.AlignCenter)
 
 def toClipboard(text):
     cb = QApplication.clipboard()

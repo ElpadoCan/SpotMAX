@@ -577,3 +577,19 @@ class PreprocessNnetDataAcrossTimeWorker(QRunnable):
         self.signals.finished.emit(
             (self, transformed_data, self._loop)
         )
+    
+class ComputeFeaturesWorker(QRunnable):
+    def __init__(self, **features_kwargs):
+        QRunnable.__init__(self)
+        self.signals = signals()
+        self.logger = workerLogger(self.signals.progress)
+        self.features_kwargs = features_kwargs
+    
+    @worker_exception_handler
+    def run(self):
+        self.logger.log('')
+        self.logger.log(f'Computing features...')
+        
+        
+        
+        self.signals.finished.emit(None)

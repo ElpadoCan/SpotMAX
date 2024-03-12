@@ -246,14 +246,23 @@ Install latest version
         On Windows, if you get the error ``ERROR: Cannot find the command 'git'`` 
         you need to install ``git`` first. Close the terminal and install it 
         from `here <https://git-scm.com/download/win>`_. After installation, 
-        you can restart from here, but **remember to activate the ``acdc`` 
-        environment first** with the command ``conda activate acdc``.
+        you can restart from here, but **remember to activate the** ``acdc`` 
+        **environment first** with the command ``conda activate acdc``.
 
 8.  **Install spotMAX** from the GitHub repository with the following command:
    
     .. code-block:: 
         
         pip install "git+https://github.com/ElpadoCan/spotMAX.git"
+    
+    .. tip:: 
+
+        If you **already have the stable version** and you want to upgrade to the 
+        latest version run the following command instead:
+
+        .. code-block::
+
+            pip install --upgrade "git+https://github.com/ElpadoCan/spotMAX.git"
         
     This tells pip to install spotMAX directly from the GitHub repo.
 
@@ -309,7 +318,8 @@ If you want to try out experimental features (and, if you have time, maybe repor
         On Windows, if you get the error ``ERROR: Cannot find the command 'git'`` 
         you need to install ``git`` first. Close the terminal and install it 
         from `here <https://git-scm.com/download/win>`_. After installation, 
-        you can restart from here.
+        you can restart from here, but **remember to activate the** ``acdc`` 
+        **environment first** with the command ``conda activate acdc``.
 
 4. **Navigate to the spotMAX folder** with the following command:
    

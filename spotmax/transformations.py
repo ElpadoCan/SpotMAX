@@ -11,7 +11,7 @@ import cellacdc.io
 import cellacdc.core
 
 from . import utils, rng
-from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS
+from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS, ZYX_GLOBAL_COLS
 from . import features
 from . import io
 from . import core
@@ -625,6 +625,16 @@ def to_local_zyx_coords(obj, global_zyx_coords):
     local_zyx_coords = local_zyx_coords[zyx_centers_mask]
     return local_zyx_coords
 
+def add_zyx_local_coords_if_not_valid(df_spots_coords, obj):
+    try:
+        valid_local_coords = (df_spots_coords[ZYX_LOCAL_COLS] >= 0).all(axis=None)
+        if not valid_local_coords:
+            raise TypeError('local coords not valid')
+    except Exception as err:
+        zyx_coords = df_spots_coords[ZYX_GLOBAL_COLS].to_numpy()
+        df_spots_coords[ZYX_LOCAL_COLS] = to_local_zyx_coords(obj, zyx_coords)
+    return df_spots_coords
+
 def init_df_features(
         df_spots_coords, obj, crop_obj_start, spots_zyx_radii, ID=None
     ):
@@ -666,6 +676,11 @@ def init_df_features(
         closest_IDs = (
             df_spots_coords.loc[[ID], 'closest_ID']).to_list()
         df_features['closest_ID'] = closest_IDs
+    
+    if 'do_not_drop' in df_spots_coords.columns:
+        do_not_drop_vals = (
+            df_spots_coords.loc[[ID], 'do_not_drop']).to_list()
+        df_features['do_not_drop'] = do_not_drop_vals
     
     df_features[ZYX_RESOL_COLS] = spots_zyx_radii
 

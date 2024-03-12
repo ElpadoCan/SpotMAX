@@ -7,6 +7,7 @@ import re
 import pprint
 from queue import Queue
 
+from click import wrap_text
 import numpy as np
 import pandas as pd
 
@@ -54,6 +55,8 @@ from . import core
 from . import transformations
 from . import icon_path
 from . import issues_url
+from . import features
+from . import prompts
 
 LINEAGE_COLUMNS = list(base_cca_dict.keys())
 
@@ -172,8 +175,19 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         cursorsInfo['setAutoTuneZplaneCursor'] = setAutoTuneZplaneCursor
         
+        setEditResultsCursor = (
+            self.isEditingResults
+            and not event.isExit()
+            and noModifier
+        )
+        cursorsInfo['setEditResultsCursor'] = setEditResultsCursor
         overrideCursor = self.app.overrideCursor()
-        if setAutoTuneCursor and overrideCursor is None:
+        
+        isCrossCursor = (
+            overrideCursor is None
+            and (setAutoTuneCursor or setEditResultsCursor)
+        )
+        if isCrossCursor:
             self.app.setOverrideCursor(Qt.CrossCursor)
         return cursorsInfo
     
@@ -185,16 +199,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         if event.isExit():
             self.LinePlotItem.clearData()
             return
-        
+
         x, y = event.pos()
         if cursorsInfo['setAutoTuneCursor']:
             self.setHoverCircleAutoTune(x, y)
+        elif cursorsInfo['setEditResultsCursor']:
+            self.setHoverCircleEditResults(x, y)
         else:
             self.setHoverToolSymbolData(
                 [], [], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             )
         
-        x, y = event.pos()
         if cursorsInfo['setAutoTuneZplaneCursor']:
             self.setAutoTuneZplaneCursorData(x, y)
         else:
@@ -247,6 +262,10 @@ class spotMAX_Win(acdc_gui.guiWin):
             and autoTuneTabWidget.isYXresolMultiplActive
         )
         
+        canEditResults = (
+            self.isEditingResults and left_click
+        )
+        
         x, y = event.pos().x(), event.pos().y()
         ID = self.getIDfromXYPos(x, y)
         if ID is None:
@@ -255,6 +274,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         if canAddPointAutoTune:
             z = self.currentZ()
             self.addAutoTunePoint(posData.frame_i, z, y, x)
+        
+        if canEditResults:
+            z = self.currentZ()
+            self.spotsItems.editPoint(
+                posData.frame_i, z, y, x, self.img1.image
+            )
     
     def gui_createPlotItems(self):
         super().gui_createPlotItems()
@@ -277,6 +302,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         guiTabControl.addAutoTuneTab()
         guiTabControl.addInspectResultsTab()
+        guiTabControl.addLeftClickButtons(self.checkableQButtonsGroup)
         guiTabControl.initState(False)
         guiTabControl.currentChanged.connect(self.tabControlPageChanged)
 
@@ -372,7 +398,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not df_spots_files:
             self.warnNoSpotsFilesFound(posData.spotmax_out_path)
             return
-        self.spotsItems.setPosition(posData.spotmax_out_path)
+        self.spotsItems.setPosition(posData)
         toolbutton = self.spotsItems.addLayer(df_spots_files)
         if toolbutton is None:
             self.logger.info(
@@ -388,6 +414,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         guiTabControl = self.computeDockWidget.widget()
         guiTabControl.setCurrentIndex(2)
+        
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        inspectResultsTab.setLoadedData(
+            self.spotsItems, posData.img_data, posData.segm_data
+        )      
     
     def currentZ(self, checkIfProj=True):
         posData = self.data[self.pos_i]
@@ -465,9 +496,11 @@ class spotMAX_Win(acdc_gui.guiWin):
             pass
         self.showParamsDockButton.setDisabled(False)
         self.computeDockWidget.widget().initState(False)
+        self.computeDockWidget.widget().inspectResultsTab.reinitState()
         
         self.transformedDataNnetExp = None
         self.transformedDataTime = None
+        self.isEditingResults = False
         
     def initGui(self):
         self.isAnalysisRunning = False
@@ -506,7 +539,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         return self.pathScanner.images_paths
 
     @exception_handler
-    def runAnalysis(self, ini_filepath, is_tempfile):
+    def runAnalysis(self, ini_filepath, is_tempfile, start=True):
         self.isAnalysisRunning = True
         self.stateBeforeStartingAnalysis = self.windowState()
         self.setWindowState(Qt.WindowMinimized)
@@ -524,9 +557,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         # worker.signals.initProgressBar.connect(self.workerInitProgressbar)
         # worker.signals.progressBar.connect(self.workerUpdateProgressbar)
         worker.signals.critical.connect(self.workerCritical)
-        self.threadPool.start(worker)
-        
-    def analysisWorkerFinished(self, args):
+        if start:
+            self.threadPool.start(worker)
+        return worker
+    
+    def promptAnalysisWorkerFinished(self, args):
         self.isAnalysisRunning = False
         self.setWindowState(self.stateBeforeStartingAnalysis)
         self.setDisabled(False)
@@ -577,8 +612,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         msg_args = (self, 'spotMAX analysis finished', txt)
         getattr(msg, msg_func)(*msg_args, **msg_kwargs)
+        return msg_func == 'information'
+    
+    def analysisWorkerFinished(self, args):
+        success = self.promptAnalysisWorkerFinished(args)
         
-        if msg_func == 'information':
+        if success:
             self.askVisualizeResults()
     
     def askVisualizeResults(self):        
@@ -626,7 +665,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     def gui_createToolBars(self):
         super().gui_createToolBars()
 
-        self.addToolBarBreak(Qt.LeftToolBarArea)
+        # self.addToolBarBreak(Qt.LeftToolBarArea)
         self.spotmaxToolbar = QToolBar("spotMAX toolbar", self)
         self.spotmaxToolbar.setContextMenuPolicy(Qt.PreventContextMenu)
         self.addToolBar(Qt.LeftToolBarArea, self.spotmaxToolbar)
@@ -656,12 +695,217 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.autoTuningAddItems()
         self.initTuneKernel()
         self.hideAcdcToolbars()
+        self.connectInspectResultsTab()
         
         self.setFocusGraphics()
         
         self.modeToolBar.setVisible(False)
         
         QTimer.singleShot(300, self.autoRange)
+    
+    def connectInspectResultsTab(self):
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        inspectResultsTab.sigEditResultsToggled.connect(
+            self.editResultsToggled
+        )
+        inspectResultsTab.sigSaveEditedResults.connect(
+            self.saveEditedResultsClicked
+        )
+        inspectResultsTab.sigComputeFeatures.connect(
+            self.computeFeaturesEditedResultsClicked
+        )
+    
+    def warnEditedTableFileExists(self, existing_filepath):
+        folderpath = os.path.dirname(existing_filepath)
+        txt = html_func.paragraph(f"""
+            The following <b>file already exists</b>:<br><br>
+            <code>{existing_filepath}</code><br><br>
+            What should I do?                        
+        """)
+        buttonsTexts = ('Cancel', 'Overwrite existing file')
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        _, overwriteButton = msg.warning(
+            self, 'File exists', txt, 
+            buttonsTexts=buttonsTexts, 
+            path_to_browse=folderpath
+        )
+        return msg.clickedButton == overwriteButton
+    
+    def saveEditedResultsClicked(
+            self, src_df_filename, text_to_add, prompt_info=True
+        ):
+        self.logger.info('Saving edited tables...')
+        
+        parts = io.df_spots_filename_parts(src_df_filename)
+        run_num, df_id, df_text, desc, ext = parts
+        if not text_to_add.startswith('_'):
+            text_to_add = f'_{text_to_add}'
+        
+        dst_filename = f'{run_num}_4_{df_id}_{df_text}{desc}{text_to_add}'
+        toolbutton = self.spotsItems.getActiveButton()
+        
+        saved_filepaths = []
+        for posData in self.data:
+            spotmax_output_folderpath = posData.spotmax_out_path
+            self.spotsItems.setPosition(posData)
+            self.spotsItems.loadSpotsTables()
+            
+            df = toolbutton.df
+            df = (
+                df.reset_index().set_index(['frame_i', 'Cell_ID', 'spot_id'])
+                .sort_index()
+            )
+            aggr_dst_filename = f'{dst_filename}_aggregated.csv'
+            aggr_dst_filepath = os.path.join(
+                spotmax_output_folderpath, aggr_dst_filename
+            )
+            
+            if os.path.exists(aggr_dst_filepath):
+                proceed = self.warnEditedTableFileExists(aggr_dst_filepath)
+                if not proceed:
+                    self.logger.info('Saving edited tables cancelled.')
+                    continue
+            
+            dst_filepath = io.save_df_spots(
+                df, spotmax_output_folderpath, dst_filename, 
+                extension=f'.{ext}'
+            )
+            saved_filepaths.append(dst_filepath)
+            
+            images_path_filename = f'{posData.basename}{dst_filename}'
+            images_dst_filepath = io.save_df_spots(
+                df, posData.images_path, images_path_filename, 
+                extension=f'.{ext}'
+            )
+            saved_filepaths.append(images_dst_filepath)
+            
+            posData = self.data[self.pos_i]
+            segm_data = posData.segm_data
+            df_agg = features.df_spots_to_aggregated(df)
+            df_agg = features.add_missing_cells_to_df_agg_from_segm(
+                df_agg, segm_data
+            )
+            src_df_agg = io.load_df_agg_from_df_spots_filename(
+                spotmax_output_folderpath, src_df_filename
+            )
+            df_agg = features.add_missing_cols_from_src_df_agg(
+                df_agg, src_df_agg
+            )
+            
+            # Add columns from acdc_df in case the segm file changed and for 
+            # example it has a new cell that was not in previous spotmax analysis
+            # e.g., spotmax analysis has IDs 1, 2 but segm file (hence acdc_output)
+            # has also ID 3 because it was added after analysis --> this cell 
+            # does not have the columns from acdc_df yet
+            df_agg = features.add_columns_from_acdc_output_file(
+                df_agg, posData.acdc_df
+            )
+            df_agg.to_csv(aggr_dst_filepath)
+            
+            saved_filepaths.append(aggr_dst_filepath)
+        
+        # Back to current pos
+        posData = self.data[self.pos_i]
+        self.spotsItems.setPosition(posData)
+        self.spotsItems.loadSpotsTables()
+        
+        saved_filepaths_format = '\n'.join(saved_filepaths)
+        self.logger.info(
+            f'Edited tables saved to:\n\n{saved_filepaths_format}\n'
+        )
+        
+        if prompt_info:
+            txt = html_func.paragraph("""
+                Edited tables saved!<br><br>
+                See below the list of new files created.
+            """)
+            msg = acdc_widgets.myMessageBox(wrapText=False)
+            msg.information(
+                self, 'Edited tables saved', txt, 
+                detailsText=saved_filepaths_format, 
+                path_to_browse=spotmax_output_folderpath, 
+                wrapDetails=False
+            )
+        return f'{dst_filename}.{ext}', f'{desc}{text_to_add}'
+    
+    def editResultsToggled(self, checked):
+        self.isEditingResults = checked
+        self.spotmaxToolbar.setDisabled(checked)
+    
+    def computeFeaturesEditedResultsClicked(
+            self, text_to_add, src_df_filename, ini_filepath
+        ):
+        self.funcDescription = 'Computing features of edited results'
+        
+        df_spots_endname, text_to_append = self.saveEditedResultsClicked(
+            src_df_filename, text_to_add, prompt_info=False
+        )
+        
+        pos_folders_to_reanalyse = []
+        for posData in self.data:
+            spotmax_output_folderpath = posData.spotmax_out_path
+            self.spotsItems.setPosition(posData)
+            self.spotsItems.loadSpotsTables()
+            toolbutton = self.spotsItems.getActiveButton()
+            if 'edited' not in toolbutton.df.columns:
+                continue
+            pos_folders_to_reanalyse.append(posData.pos_path.replace('\\', '/'))
+        
+        # Back to current pos
+        posData = self.data[self.pos_i]
+        self.spotsItems.setPosition(posData)
+        self.spotsItems.loadSpotsTables()
+        
+        if not pos_folders_to_reanalyse:
+            prompts.warnNoneOfLoadedPosResultsEdited(qparent=self)
+            return
+        
+        cp = config.ConfigParser()
+        cp.read(ini_filepath)
+        cp = io.add_folders_to_analyse_to_configparser(
+            cp, pos_folders_to_reanalyse
+        )
+        cp = io.add_spots_coordinates_endname_to_configparser(
+            cp, df_spots_endname
+        )
+        cp = io.add_use_default_values_to_configparser(cp)
+        cp = io.add_text_to_append_to_configparser(
+            cp, text_to_append
+        )
+        
+        section = 'File paths and channels'
+        option = 'Reference channel end name or path'
+        ref_ch_name = cp[section][option]
+        refChSegmEndName = self.spotsItems.getRefChannelSegmEndname(ref_ch_name)
+        if refChSegmEndName:
+            useSavedRefChMask = prompts.askUseSavedRefChMask(
+                refChSegmEndName, qparent=self
+            )
+            if useSavedRefChMask:
+                cp = io.add_ref_ch_segm_endname_to_configparser(
+                    cp, refChSegmEndName
+                )
+        
+        temp_ini_filepath = io.get_ini_filepath_appdata(
+            text_to_add=df_spots_endname
+        )
+        with open(temp_ini_filepath, 'w', encoding="utf-8") as ini:
+            cp.write(ini)
+        
+        cancel, ini_filepath = prompts.informationSpotmaxAnalysisStart(
+            temp_ini_filepath
+        )
+        self.logger.info(
+            f'Analysis parameters files saved to:\n\n{ini_filepath}\n'
+        )
+        if cancel:
+            self.logger.info('Computing features of the edited results cancelled.')
+            return
+        
+        worker = self.runAnalysis(ini_filepath, False, start=False)
+        worker.signals.finished.disconnect()
+        worker.signals.finished.connect(self.computeFeaturesWorkerFinished)
+        self.threadPool.start(worker)
     
     def enableZstackWidgets(self, enabled):
         super().enableZstackWidgets(enabled)
@@ -962,6 +1206,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         spotMinSizeLabels = metadataParams['spotMinSizeLabels']['widget']
         spots_zyx_radii = spotMinSizeLabels.pixelValues()
         size = spots_zyx_radii[-1]
+        self.setHoverToolSymbolData(
+            [x], [y], (self.ax2_BrushCircle, self.ax1_BrushCircle),
+            size=size
+        )
+    
+    def setHoverCircleEditResults(self, x, y):
+        size = self.spotsItems.getPointSize()
         self.setHoverToolSymbolData(
             [x], [y], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             size=size
@@ -1983,6 +2234,29 @@ class spotMAX_Win(acdc_gui.guiWin):
         worker.signals.debug.connect(self.workerDebug)
         return worker
     
+    def startComputeFeaturesWorker(self, df_spots, **features_kwargs):
+        self.progressWin = acdc_apps.QDialogWorkerProgress(
+            title=self.funcDescription, parent=self,
+            pbarDesc=self.funcDescription
+        )
+        self.progressWin.mainPbar.setMaximum(0)
+        self.progressWin.show(self.app)
+        
+        worker = qtworkers.ComputeFeaturesWorker(
+            **features_kwargs
+        )
+        worker.signals.finished.connect(self.computeFeaturesWorkerFinished)
+        worker.signals.progress.connect(self.workerProgress)
+        worker.signals.initProgressBar.connect(self.workerInitProgressbar)
+        worker.signals.progressBar.connect(self.workerUpdateProgressbar)
+        worker.signals.critical.connect(self.workerCritical)
+        worker.signals.debug.connect(self.workerDebug)
+        self.threadPool.start(worker)
+    
+    def computeFeaturesWorkerFinished(self, args):
+        success = self.promptAnalysisWorkerFinished(args)
+        
+            
     def startComputeAnalysisStepWorker(self, module_func, anchor, **kwargs):
         if self.progressWin is None:
             self.progressWin = acdc_apps.QDialogWorkerProgress(
@@ -2494,7 +2768,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.updateFramePosLabel()
         proceed_cca, never_visited = self.get_data()
         posData = self.data[self.pos_i]
-        self.spotsItems.setPosition(posData.spotmax_out_path)
+        self.spotsItems.setPosition(posData)
         self.spotsItems.loadSpotsTables()
         self.updateAllImages()
         self.setStatusBarLabel()
@@ -2612,9 +2886,12 @@ class spotMAX_Win(acdc_gui.guiWin):
             emWavelen = 500.0
         if emWavelen == 0:
             emWavelen = 500
+        
+        folderPathsToAnalyse = [_posData.pos_path for _posData in self.data]
+        folderPathsToAnalyse = '\n'.join(folderPathsToAnalyse)
         loadedValues = {
             'File paths and channels': [
-                {'anchor': 'folderPathsToAnalyse', 'value': posData.pos_path},
+                {'anchor': 'folderPathsToAnalyse', 'value': folderPathsToAnalyse},
                 {'anchor': 'spotsEndName', 'value': self.user_ch_name},
                 {'anchor': 'segmEndName', 'value': segmEndName},
                 {'anchor': 'runNumber', 'value': runNum}
@@ -2696,7 +2973,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.initTextAnnot()
         self.postProcessing()
         posData = self.data[self.pos_i]
-        self.spotsItems.setPosition(posData.spotmax_out_path)
+        self.spotsItems.setPosition(posData)
         self.spotsItems.loadSpotsTables()
         self.updateAllImages(updateFilters=True)
         self.zoomToCells()

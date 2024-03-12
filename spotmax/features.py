@@ -14,6 +14,8 @@ from . import docs
 from . import printl
 from . import transformations
 from . import filters
+from . import utils
+from . import core
 
 def normalise_by_dist_transform_simple(
         spot_slice_z, dist_transf, backgr_vals_z_spot
@@ -338,6 +340,49 @@ def add_effect_sizes(
             print('-'*100)
         import pdb; pdb.set_trace()
 
+def add_missing_cells_to_df_agg_from_segm(df_agg, segm_data):
+    missing_rows = [df_agg]
+    for frame_i, lab in enumerate(segm_data):
+        rp = skimage.measure.regionprops(lab)
+        IDs = [obj.label for obj in rp]
+        df_frame = df_agg.loc[frame_i]
+        for ID in IDs:
+            if ID in df_frame.index:
+                continue
+            
+            new_idx = (frame_i, ID)
+            missing_row = get_df_row_empty_vals(
+                df_agg, integer_default=0, index=new_idx
+            )
+            missing_rows.append(missing_row)
+    
+    if len(missing_rows)>1:
+        df_agg = pd.concat(missing_row)
+    
+    return df_agg.sort_index()
+
+def add_missing_cols_from_src_df_agg(df_agg, src_df_agg):
+    common_index = df_agg.index.intersection(src_df_agg.index)
+    for col in src_df_agg.columns:
+        if col in df_agg.columns:
+            continue
+        
+        df_agg.loc[common_index, col] = src_df_agg.loc[common_index, col]
+    
+    return df_agg
+
+def add_columns_from_acdc_output_file(df_agg, acdc_df):
+    if acdc_df is None:
+        return df_agg
+    
+    common_cols = df_agg.columns.intersection(acdc_df.columns)
+    common_index = df_agg.index.intersection(acdc_df.index)
+    
+    df_agg.loc[common_index, common_cols] = (
+        acdc_df.loc[common_index, common_cols]
+    )
+    return acdc_df
+
 def get_normalised_spot_ref_ch_intensities(
         normalised_spots_img_obj, normalised_ref_ch_img_obj,
         spheroid_mask, slice_global_to_local
@@ -454,3 +499,74 @@ def _init_df_ref_ch(ref_ch_rp):
     df = pd.DataFrame(data=data, columns=col_names, index=index)
     df.index.name = 'sub_obj_id'
     return df
+
+def df_spots_to_aggregated(df_spots):
+    aggregate_spots_feature_func = get_aggregating_spots_feature_func()
+    
+    name_to_func_mapper = {
+        name:(col, func) for name, (col, func, _) 
+        in aggregate_spots_feature_func.items() 
+        if col in df_spots.columns
+    }
+    
+    df_agg = (
+        df_spots
+        .reset_index()
+        .groupby(['frame_i', 'Cell_ID'])
+        .agg(**name_to_func_mapper)
+    )
+    return df_agg
+
+def get_df_row_empty_vals(
+        df, 
+        as_df=True, 
+        index=None, 
+        integer_default=-1, 
+        float_default=np.nan, 
+        object_default=''
+    ):
+    empty_vals = []
+    dtypes = []
+    for col in df.columns:
+        if pd.api.types.is_integer_dtype(df[col]):
+            val = integer_default
+        elif pd.api.types.is_float_dtype(df[col]):
+            val = float_default
+        else:
+            val = object_default
+        if as_df:
+            val = pd.Series(data=[val], name=col, dtype=df[col].dtype)
+        empty_vals.append(val)
+    
+    if as_df:
+        index_names = df.index.names
+        empty_vals = pd.concat(empty_vals, axis=1)
+        if index is not None:
+            for name, val in zip(index_names, index):
+                empty_vals[name] = val
+            empty_vals = empty_vals.set_index(index_names)
+        
+    return empty_vals
+
+def compute_spots_zyx_radii_from_params(params, return_voxel_size=False):
+    metadata_params = params['METADATA']
+    emission_wavelen = metadata_params['emWavelen']['loadedVal']
+    num_aperture = metadata_params['numAperture']['loadedVal']
+    physical_size_x = metadata_params['numAperture']['pixelWidth']
+    physical_size_y = metadata_params['numAperture']['pixelHeight']
+    physical_size_z = metadata_params['numAperture']['voxelDepth']
+    z_resolution_limit_um = metadata_params['numAperture']['zResolutionLimit']
+    yx_resolution_multiplier = (
+        metadata_params['numAperture']['yxResolLimitMultiplier']
+    )
+    
+    spots_zyx_radii_pixel, spots_zyx_radii_um = core.calcMinSpotSize(
+        emission_wavelen, num_aperture, physical_size_x, 
+        physical_size_y, physical_size_z, z_resolution_limit_um, 
+        yx_resolution_multiplier
+    )
+    if return_voxel_size:
+        zyx_voxel_size = (physical_size_z, physical_size_y, physical_size_x)
+        return spots_zyx_radii_pixel, spots_zyx_radii_um, zyx_voxel_size
+    else:
+        return spots_zyx_radii_pixel, spots_zyx_radii_um

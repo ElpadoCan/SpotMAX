@@ -12,6 +12,7 @@ from functools import partial
 import numpy as np
 import pandas as pd
 from natsort import natsorted
+import skimage.draw
 
 from collections import defaultdict
 
@@ -36,6 +37,7 @@ from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc import myutils as acdc_myutils
 from cellacdc import html_utils as acdc_html
+from cellacdc import _palettes as acdc_palettes
 
 from . import html_func, io, widgets, utils, config
 from . import core, features
@@ -44,6 +46,11 @@ from . import tune, docs
 from . import gui_settings_csv_path as settings_csv_path
 from . import last_selection_meas_filepath
 from . import palettes
+from . import prompts
+
+LINEEDIT_INVALID_ENTRY_STYLESHEET = (
+    acdc_palettes.lineedit_invalid_entry_stylesheet()
+)
 
 class QBaseDialog(QDialog):
     def __init__(self, parent=None):
@@ -341,6 +348,14 @@ class guiTabControl(QTabWidget):
 
         self.addTab(containerWidget, 'Analysis parameters')
     
+    def addLeftClickButtons(self, buttonsGroup):
+        buttonsGroup.addButton(
+            self.inspectResultsTab.editResultsGroupbox.editResultsToggle
+        )
+        buttonsGroup.addButton(
+            self.autoTuneTabWidget.addAutoTunePointsButton
+        )
+    
     def confirmMeasurementsSet(self):
         self.setMeasurementsButton.setText('Measurements are set. View or edit...')
         QTimer.singleShot(100, self.setMeasurementsButton.confirmAction)
@@ -366,10 +381,7 @@ class guiTabControl(QTabWidget):
             is_tempinifile = False
         else:
             # Save temp ini file
-            temp_dirpath = tempfile.mkdtemp()
-            now = datetime.datetime.now().strftime(r'%Y-%m-%d_%H-%M-%S')
-            ini_filename = f'{now}_spotmax_analysis_parameters.ini'
-            ini_filepath = os.path.join(temp_dirpath, ini_filename)
+            ini_filepath, temp_dirpath = io.get_temp_ini_filepath()
             self.parametersQGBox.saveToIniFile(ini_filepath)
             is_tempinifile = True
             if self.lastSavedIniFilePath:
@@ -381,24 +393,10 @@ class guiTabControl(QTabWidget):
                     ini_filepath = self.lastSavedIniFilePath
                     is_tempinifile = False 
         
-        ini_filepath = ini_filepath.replace('\\', os.sep)
-        ini_filepath = ini_filepath.replace('/', os.sep)
-        txt = html_func.paragraph(f"""
-            spotMAX analysis will now <b>run in the terminal</b>. All progress 
-            will be displayed there.<br><br>
-            Make sure to <b>keep an eye on the terminal</b> since it might require 
-            your attention.<br><br>
-            
-            NOTE: If you prefer to run this analysis manually in any terminal of 
-            your choice run the following command:<br>
-        """)
-        msg = acdc_widgets.myMessageBox()
-        msg.information(
-            self, 'Analysis will run in the terminal', txt,
-            buttonsTexts=('Cancel', 'Ok, run now!'),
-            commands=(f'spotmax -p "{ini_filepath}"',)
+        cancel, ini_filepath = prompts.informationSpotmaxAnalysisStart(
+            ini_filepath, qparent=self
         )
-        if msg.cancel:
+        if cancel:
             try:
                 shutil.rmtree(temp_dirpath)
             except Exception as e:
@@ -470,7 +468,6 @@ class guiTabControl(QTabWidget):
                     groupbox.setChecked(True)
                 except Exception as e:
                     pass
-                # printl(section, anchor, val)
                 valueSetter = params[section][anchor].get('valueSetter')
                 formWidget.setValue(val, valueSetter=valueSetter)
                 if formWidget.useEditableLabel:
@@ -666,15 +663,19 @@ class guiTabControl(QTabWidget):
         msg.information(self, 'Saving done!', txt, commands=(filePath,))
         
     def addInspectResultsTab(self):
-        self.inspectResultsTab = InspectResultsTabWidget()
-        self.addTab(self.inspectResultsTab, 'Inspect results')
+        self.inspectResultsTab = InspectEditResultsTabWidget()
+        self.addTab(self.inspectResultsTab, 'Inspect and/or edit results')
     
     def addAutoTuneTab(self):
         self.autoTuneTabWidget = AutoTuneTabWidget()
         # self.autoTuneTabWidget.setDisabled(True)
         self.addTab(self.autoTuneTabWidget, 'Tune parameters')
 
-class InspectResultsTabWidget(QWidget):
+class InspectEditResultsTabWidget(QWidget):
+    sigEditResultsToggled = Signal(bool)
+    sigSaveEditedResults = Signal(str, str)
+    sigComputeFeatures = Signal(str, str, str) 
+    
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
 
@@ -688,18 +689,69 @@ class InspectResultsTabWidget(QWidget):
         buttonsLayout.addWidget(self.loadAnalysisButton)
         buttonsLayout.addStretch(1)
         
+        helpButton = acdc_widgets.helpPushButton('Help...')
+        buttonsLayout.addWidget(helpButton)
+        
         scrollArea = QScrollArea(self)
         scrollArea.setWidgetResizable(True)
+        
+        scrollAreaWidget = QWidget()
+        scrollAreaLayout = QVBoxLayout()
+        scrollAreaWidget.setLayout(scrollAreaLayout)
+        
+        self.editResultsGroupbox = EditResultsGropbox(
+            parent=self
+        )
         
         self.viewFeaturesGroupbox = AutoTuneViewSpotFeatures(
             parent=self, infoText=''
         )
-        scrollArea.setWidget(self.viewFeaturesGroupbox)
+        scrollAreaLayout.addWidget(self.editResultsGroupbox)
+        scrollAreaLayout.addWidget(self.viewFeaturesGroupbox)
+        scrollArea.setWidget(scrollAreaWidget)
         
         mainLayout.addLayout(buttonsLayout)
         mainLayout.addWidget(scrollArea)
         
         self.setLayout(mainLayout)
+        
+        self.editResultsGroupbox.sigEditResultsToggled.connect(
+            self.emitSigEditResultsToggled
+        )
+        self.editResultsGroupbox.sigSaveEditedResults.connect(
+            self.emitSigSaveEditedResults
+        )
+        self.editResultsGroupbox.sigComputeFeatures.connect(
+            self.emitSigComputeFeatures
+        )
+        helpButton.clicked.connect(self.helpClicked)
+    
+    def helpClicked(self):
+        acdc_myutils.browse_url(docs.readthedocs_url)
+    
+    def setLoadedData(self, *args):
+        self.editResultsGroupbox.setLoadedData(*args)
+    
+    def disconnectSignals(self):
+        try:
+            self.sigEditResultsToggled.disconnect()
+            self.sigSaveEditedResults.disconnect()
+            self.sigComputeFeatures.disconnect()
+        except Exception as err:
+            pass
+    
+    def reinitState(self):
+        self.editResultsGroupbox.initState()
+        self.disconnectSignals()
+    
+    def emitSigEditResultsToggled(self, checked):
+        self.sigEditResultsToggled.emit(checked)
+        
+    def emitSigSaveEditedResults(self, *args):
+        self.sigSaveEditedResults.emit(*args)
+
+    def emitSigComputeFeatures(self, *args):
+        self.sigComputeFeatures.emit(*args)
     
     def setInspectFeatures(self, point_features):
         if point_features is None:
@@ -1106,9 +1158,10 @@ class AutoTuneTabWidget(QWidget):
         self.isZresolLimitActive = False
 
         buttonsLayout = QHBoxLayout()
-        helpButton = acdc_widgets.helpPushButton('Help...')
-        buttonsLayout.addWidget(helpButton)
-        buttonsLayout.addStretch(1)
+        
+        # Start adding points autotune button
+        self.addAutoTunePointsButton = widgets.AddAutoTunePointsButton()
+        buttonsLayout.addWidget(self.addAutoTunePointsButton)
         
         autoTuningButton = widgets.AutoTuningButton()
         self.loadingCircle = acdc_widgets.LoadingCircleAnimation(size=16)
@@ -1117,10 +1170,10 @@ class AutoTuneTabWidget(QWidget):
         buttonsLayout.addWidget(autoTuningButton)
         self.autoTuningButton = autoTuningButton
         
-        # Start adding points autotune button
-        self.addAutoTunePointsButton = widgets.AddAutoTunePointsButton()
-        buttonsLayout.addWidget(self.addAutoTunePointsButton)
-
+        helpButton = acdc_widgets.helpPushButton('Help...')
+        buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(helpButton)
+        
         autoTuneScrollArea = QScrollArea(self)
         autoTuneScrollArea.setWidgetResizable(True)
 
@@ -2367,6 +2420,15 @@ class selectPathsSpotmax(QBaseDialog):
         self.paths = paths
         runs = sorted(list(self.paths.keys()))
         self.runs = runs
+        mostRecentDateModifiedRun = 0
+        mostRecentRun = runs[-1]
+        for run, runInfo in self.paths.items():
+            for exp_path, expInfo in runInfo.items():
+                for pos in expInfo['posFoldernames']:
+                    dateModified = expInfo[pos]['timeAnalysed']
+                    if dateModified > mostRecentDateModifiedRun:
+                        mostRecentRun = run
+                        mostRecentDateModifiedRun = dateModified
 
         self.setWindowTitle('Select experiments to load/analyse')
 
@@ -2388,7 +2450,7 @@ class selectPathsSpotmax(QBaseDialog):
         runNumberLabel.setText(htmlText)
         runNumberCombobox = QComboBox()
         runNumberCombobox.addItems([f'  {r}  ' for r in runs])
-        runNumberCombobox.setCurrentIndex(len(runs)-1)
+        runNumberCombobox.setCurrentIndex(runs.index(mostRecentRun))
         self.runNumberCombobox = runNumberCombobox
         showAnalysisTableButton = widgets.showPushButton(
             'Show analysis inputs for selected run and selected experiment'
@@ -2524,9 +2586,10 @@ class selectPathsSpotmax(QBaseDialog):
             exp_path = self.homePath / relPath / posFoldername
             spotmaxOutPath = exp_path / 'spotMAX_output'
             if os.path.exists(spotmaxOutPath):
-                analysisInputs = io.expFolderScanner().loadAnalysisInputs(
+                iniFilepath = io.get_analysis_params_filepath_from_run(
                     spotmaxOutPath, run
                 )
+                analysisInputs = io.read_ini(iniFilepath)
             else:
                 analysisInputs = None
 
@@ -3145,7 +3208,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
 
         super().__init__(parent)
 
-        self.setWindowTitle('Load spots table to visualize')
+        self.setWindowTitle('Load spots table to visualize or edit')
 
         layout = acdc_widgets.FormLayout()
 
@@ -3153,7 +3216,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         h5fileCombobox = QComboBox()
         h5fileCombobox.addItems(df_spots_files)
         if state is not None:
-            h5fileCombobox.setCurrentText(state['h5_filename'])
+            h5fileCombobox.setCurrentText(state['selected_file'])
             h5fileCombobox.setDisabled(True)
         self.h5fileCombobox = h5fileCombobox
         body_txt = ("""
@@ -3722,3 +3785,220 @@ class SetMeasurementsDialog(QBaseDialog):
         QTimer.singleShot(200, self.resizeGroupBoxes)
         super().show(block=block)
         
+class EditResultsGropbox(QGroupBox):
+    sigEditResultsToggled = Signal(bool)
+    sigSaveEditedResults = Signal(str, str)
+    sigComputeFeatures = Signal(str, str, str)    
+    
+    def __init__(self, parent=None, infoText=None):
+        super().__init__(parent)
+        
+        self.setTitle('Edit results')
+        
+        mainLayout = QVBoxLayout()
+        
+        gridLayout = QGridLayout()
+        gridLayout.setColumnStretch(0, 1)
+        gridLayout.setColumnStretch(1, 2)
+        
+        # editResultsFormWidget = widgets.formWidget(
+        #     acdc_widgets.Toggle(), 
+        #     labelTextLeft='Activate edits',
+        #     stretchWidget=False
+        # )
+        
+        '----------------------------------------------------------------------'
+        row = 0
+        self.editResultsToggle = acdc_widgets.Toggle()
+        self.editResultsToggle.label = QLabel('Activate edits')
+        gridLayout.addWidget(
+            self.editResultsToggle.label, row, 0, alignment=Qt.AlignRight
+        )
+        gridLayout.addWidget(
+            self.editResultsToggle, row, 1, alignment=Qt.AlignCenter
+        )
+        '======================================================================'
+        
+        '----------------------------------------------------------------------'
+        row += 1
+        self.inputTextLineEdit = widgets.CenteredAlphaNumericLineEdit()
+        self.inputTextLineEdit.label = QLabel('Text to add to new filenames')
+        gridLayout.addWidget(
+            self.inputTextLineEdit.label, row, 0, alignment=Qt.AlignRight
+        )
+        gridLayout.addWidget(
+            self.inputTextLineEdit, row, 1
+        )
+        '======================================================================'
+
+        buttonsLayout = QHBoxLayout()
+        computeButton = widgets.computePushButton(
+            'Compute features of new spots...'
+        )
+        saveButton = acdc_widgets.savePushButton(
+            'Save edited results'
+        )
+        buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(computeButton)
+        buttonsLayout.addWidget(saveButton)
+        
+        
+        mainLayout.addLayout(gridLayout)
+        mainLayout.addSpacing(10)
+        mainLayout.addLayout(buttonsLayout)
+        
+        self.setLayout(mainLayout)
+        
+        self.editResultsToggle.toggled.connect(self.emitSigEditResultsToggled)
+        computeButton.clicked.connect(self.emitSigComputeFeatures)
+        saveButton.clicked.connect(self.emitSigSaveEditedResults)
+        
+        self.initState()
+    
+    def initState(self):
+        if not hasattr(self, 'spotsItems'):
+            self.spotsItems = None
+            return
+        
+        if self.spotsItems is None:
+            return
+        
+        self.spotsItems.setEditsEnabled(False)
+        self.spotsItems = None
+        
+    def setLoadedData(self, spotsItems, img_data, segm_data):
+        self.spotsItems = spotsItems
+        spotsItems.initEdits(img_data, segm_data)
+    
+    def warnResultsNotLoaded(self, action='save the'):
+        txt = html_func.paragraph(f"""
+            In order to {action} results, you first need to load some :D<br><br>
+            To do so, click on the <code>Load results from previous analysis...</code> 
+            button on the top-left of the tab. 
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(self, 'Results not loaded', txt)
+
+    
+    def warnLoadedSegmDoesNotCorrespondToAnalysisParams(
+            self, loadedSegmEndname, analysisSegmEndname
+        ):
+        txt = html_func.paragraph(f"""
+            <b>Editing results is not possible<\b> because you loaded the segmentation 
+            file ending with <code>{loadedSegmEndname}</code>,<br>
+            while the segmentation file used for the analysis of the loaded 
+            spots table is <code>{analysisSegmEndname}</code>.<br><br>
+            
+            Load the segmentation file <code>{loadedSegmEndname}</code> to enable 
+            edits.<br><br>
+            Thank you for your patience!
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(self, 'Segmentation files mismatch', txt)
+    
+    def emitSigEditResultsToggled(self, checked):
+        if checked and self.spotsItems is None:
+            self.warnResultsNotLoaded(action='edit the')
+            self.editResultsToggle.setChecked(False)
+            return
+
+        if checked:
+            loadedSegmEndname, analysisSegmEndname = (
+                self.spotsItems.getLoadedSegmAndAnalysisSegm()
+            )
+            if loadedSegmEndname != analysisSegmEndname:
+                self.warnLoadedSegmDoesNotCorrespondToAnalysisParams(
+                    loadedSegmEndname, analysisSegmEndname
+                )
+                self.editResultsToggle.setChecked(False)    
+                return
+        
+        self.sigEditResultsToggled.emit(checked)
+    
+    def warnInputTextEmpty(self):
+        self.inputTextLineEdit.setStyleSheet(LINEEDIT_INVALID_ENTRY_STYLESHEET)
+        txt = html_func.paragraph("""
+            <code>Text to add to new filenames</code> cannot be empty.<br><br>
+            Please provide some text to add to the filenames, thanks.  
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(self, 'Text to add cannot be empty', txt)
+        self.inputTextLineEdit.setStyleSheet('')
+    
+    def warnNothingToSave(self, action='save it'):
+        txt = html_func.paragraph(f"""
+            The loaded spots table was <b>not edited</b>.<br><br>  
+            Are you sure you want to {action}?
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        noButton, yesButton = msg.warning(
+            self, 'Loaded spots table was not edited', txt, 
+            buttonsTexts=(
+                f'No, do not {action}', f'Yes, {action} anyway'
+            )
+        )
+        return msg.clickedButton == yesButton
+
+    def warnFeaturesNotComputed(self):
+        txt = html_func.paragraph("""
+            The <b>features</b> of the newly added spots were 
+            <b>not computed</b>.<br><br>  
+            If you need these features, please click on the 
+            <code>Compute features of new spots...</code><br> button 
+            before saving the edited spots table.<br><br>
+            Do you want to save the table without features?
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        noButton, yesButton = msg.warning(
+            self, 'Loaded spots table was not edited', txt, 
+            buttonsTexts=(
+                'No, do not save it', 'Yes, save it without features'
+            )
+        )
+        return msg.clickedButton == yesButton
+    
+    def emitSigSaveEditedResults(self):        
+        if self.spotsItems is None:
+            self.warnResultsNotLoaded()
+            return
+        
+        button = self.spotsItems.getActiveButton()
+        if 'edited' not in button.df.columns:
+            saveAnyway = self.warnNothingToSave()
+            if not saveAnyway:
+                return
+        
+        if (button.df['x_local'] == -1).any():
+            saveAnyway = self.warnFeaturesNotComputed()
+            if not saveAnyway:
+                return
+        
+        if not self.inputTextLineEdit.text():
+            self.warnInputTextEmpty()
+            return 
+        
+        text_to_add = self.inputTextLineEdit.text()
+        src_df_filename = button.filename
+        self.sigSaveEditedResults.emit(src_df_filename, text_to_add)
+
+    def emitSigComputeFeatures(self):
+        if self.spotsItems is None:
+            self.warnResultsNotLoaded(action='compute features of the edited')
+            return
+        
+        button = self.spotsItems.getActiveButton()
+        if 'edited' not in button.df.columns:
+            saveAnyway = self.warnNothingToSave(action='re-compute features')
+            if not saveAnyway:
+                return
+        
+        if not self.inputTextLineEdit.text():
+            self.warnInputTextEmpty()
+            return 
+        
+        text_to_add = self.inputTextLineEdit.text()
+        src_df_filename = button.filename
+        ini_filepath = self.spotsItems.getAnalysisParamsIniFilepath(button)
+        self.sigComputeFeatures.emit(text_to_add, src_df_filename, ini_filepath)
+        
+    

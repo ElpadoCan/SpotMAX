@@ -289,7 +289,7 @@ def spots_semantic_segmentation(
             threshold_func=thresholding_method, 
             lineage_table=lineage_table, 
             return_image=True,
-            clear_outside_objs=not keep_objects_touching_lab_intact,
+            keep_objects_touching_lab_intact=keep_objects_touching_lab_intact,
             nnet_model=nnet_model, 
             nnet_params=nnet_params,
             nnet_input_data=nnet_input_data,
@@ -474,7 +474,7 @@ def reference_channel_semantic_segm(
             lineage_table=lineage_table, 
             return_image=True,
             do_max_proj=False, 
-            clear_outside_objs=True,
+            keep_objects_touching_lab_intact=False,
             ridge_filter_sigmas=ridge_filter_sigmas,
             return_only_output_mask=return_only_segm,
             do_try_all_thresholds=do_try_all_thresholds,
@@ -1679,6 +1679,10 @@ def spots_calc_features_and_filter(
     filtered_spots_info = defaultdict(dict)
     obj_idx = len(keys)
     for obj in rp:
+        df_spots_coords = transformations.add_zyx_local_coords_if_not_valid(
+            df_spots_coords, obj
+        )
+        
         expanded_obj = transformations.get_expanded_obj_slice_image(
             obj, delta_tol, lab
         )
@@ -2074,6 +2078,7 @@ def spotfit(
         expanded_obj = transformations.get_expanded_obj(obj, delta_tol, lab)
         df_spots_obj = df_spots_spotfit.loc[obj.label].copy()
         start_num_spots = len(df_spots_obj)
+        num_spots = start_num_spots
         filtered_spots_info[obj.label]['start_num_spots'] = start_num_spots
         i = 0
         while True:
@@ -2113,15 +2118,26 @@ def spotfit(
             if not drop_peaks_too_close: 
                 break
             
-            fit_coords = kernel.df_spotFIT_ID[ZYX_FIT_COLS].to_numpy()
+            df_spotfit = kernel.df_spotFIT_ID
+            
+            fit_coords = df_spotfit[ZYX_FIT_COLS].to_numpy()
             fit_coords_int = np.round(fit_coords).astype(int)
             intensities = spots_img[tuple(fit_coords_int.transpose())]
             
             valid_fit_coords = filters.filter_valid_points_min_distance(
-                fit_coords, spots_zyx_radii_pxl, 
-                intensities=intensities, 
+                fit_coords, spots_zyx_radii_pxl, intensities=intensities, 
             )
             
+            if 'do_not_drop' in df_spotfit.columns:
+                undroppable_coords = (
+                    df_spotfit[df_spotfit['do_not_drop'] > 0]
+                    [ZYX_FIT_COLS].to_numpy()
+                )
+                valid_fit_coords = np.unique(
+                    np.row_stack((valid_fit_coords, undroppable_coords)), 
+                    axis=0
+                )
+
             num_spots = len(valid_fit_coords)
             if num_spots == prev_num_spots:
                 # All spots are valid --> break loop
