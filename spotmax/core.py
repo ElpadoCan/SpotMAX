@@ -5144,8 +5144,18 @@ class Kernel(_ParamsParser):
         return filtered_dfs
 
     def _copy_ini_params_to_spotmax_out(
-            self, spotmax_out_path, run_number, text_to_append
+            self, spotmax_out_path, run_number, text_to_append, 
+            df_spots_coords_in_endname
         ):
+        input_endname = df_spots_coords_in_endname
+        if input_endname is not None:
+            if os.path.isfile(input_endname):
+                input_endname = os.path.basename(input_endname)
+            parts = io.df_spots_filename_parts(input_endname)
+            run_num, df_id, df_text, desc, ext = parts
+            if desc:
+                text_to_append = desc
+            
         analysis_inputs_filepath = os.path.join(
             spotmax_out_path, 
             f'{run_number}_analysis_parameters{text_to_append}.ini'
@@ -5163,6 +5173,8 @@ class Kernel(_ParamsParser):
         
         with open(analysis_inputs_filepath, 'w', encoding="utf-8") as file:
             configPars.write(file)
+        
+        return analysis_inputs_filepath
     
     def _remove_existing_run_numbers_files(self, run_number, spotmax_out_path):
         # Remove existing run numbers (they might have a different text appended)
@@ -5205,7 +5217,9 @@ class Kernel(_ParamsParser):
         if df_to_save is None:
             key_agg = 'agg_gop'
             df_aggr_to_save = dfs.get(key_agg)
-            
+        
+        input_endname, _ = os.path.splitext(input_endname)
+        
         dfs = {key: df_to_save, key_agg: df_aggr_to_save}
         dfs_filenames = {key: input_endname}
         return dfs, '', dfs_filenames
@@ -5232,7 +5246,7 @@ class Kernel(_ParamsParser):
         if text_to_append and not text_to_append.startswith('_'):
             text_to_append = f'_{text_to_append}'
         
-        if df_spots_coords_in_endname is not None:
+        if df_spots_coords_in_endname is None:
             self._remove_existing_run_numbers_files(
                 run_number, spotmax_out_path
             )
@@ -5242,11 +5256,10 @@ class Kernel(_ParamsParser):
             dfs, df_spots_coords_in_endname, text_to_append
         )
         
-        self._copy_ini_params_to_spotmax_out(
-            spotmax_out_path, run_number, text_to_append
+        analysis_params_out_filepath = self._copy_ini_params_to_spotmax_out(
+            spotmax_out_path, run_number, text_to_append, 
+            df_spots_coords_in_endname
         )
-        
-        import pdb; pdb.set_trace()
         
         for key, filename in dfs_filenames.items():
             df_spots_filename = filename.replace('*rn*', str(run_number))
@@ -5254,8 +5267,6 @@ class Kernel(_ParamsParser):
                 '*desc*', text_to_append
             )
             df_spots = dfs.get(key, None)
-            
-            import pdb; pdb.set_trace()
 
             if df_spots is not None:
                 if 'spot_mask' in df_spots.columns:

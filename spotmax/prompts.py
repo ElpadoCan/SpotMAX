@@ -26,6 +26,16 @@ def informationSpotmaxAnalysisStart(ini_filepath, qparent=None):
     )
     return msg.cancel, ini_filepath
 
+def informationComputeFeaturesFinished(edited_df_filename, qparent=None):
+    txt = html_func.paragraph(f"""
+        Computing features of edited results finished!<br><br>
+        The new tables have been saved in each edited Position folder<br>
+        in the <code>Position_n\spotMAX_output folder</code> with filename 
+        <code>edited_df_filename</code>.
+    """)
+    msg = acdc_widgets.myMessageBox(wrapText=False)
+    msg.information(qparent, 'Computing features finished', txt)
+
 def warnNoneOfLoadedPosResultsEdited(qparent=None):
     txt = html_func.paragraph("""
         None of the loaded Positions have edited results.<br><br>

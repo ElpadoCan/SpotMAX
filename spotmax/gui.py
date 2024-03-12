@@ -840,7 +840,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         df_spots_endname, text_to_append = self.saveEditedResultsClicked(
             src_df_filename, text_to_add, prompt_info=False
         )
-        
+        self.spotsItems.edited_df_out_filename = df_spots_endname
         pos_folders_to_reanalyse = []
         for posData in self.data:
             spotmax_output_folderpath = posData.spotmax_out_path
@@ -2234,28 +2234,23 @@ class spotMAX_Win(acdc_gui.guiWin):
         worker.signals.debug.connect(self.workerDebug)
         return worker
     
-    def startComputeFeaturesWorker(self, df_spots, **features_kwargs):
-        self.progressWin = acdc_apps.QDialogWorkerProgress(
-            title=self.funcDescription, parent=self,
-            pbarDesc=self.funcDescription
-        )
-        self.progressWin.mainPbar.setMaximum(0)
-        self.progressWin.show(self.app)
-        
-        worker = qtworkers.ComputeFeaturesWorker(
-            **features_kwargs
-        )
-        worker.signals.finished.connect(self.computeFeaturesWorkerFinished)
-        worker.signals.progress.connect(self.workerProgress)
-        worker.signals.initProgressBar.connect(self.workerInitProgressbar)
-        worker.signals.progressBar.connect(self.workerUpdateProgressbar)
-        worker.signals.critical.connect(self.workerCritical)
-        worker.signals.debug.connect(self.workerDebug)
-        self.threadPool.start(worker)
-    
     def computeFeaturesWorkerFinished(self, args):
         success = self.promptAnalysisWorkerFinished(args)
-        
+        if not success:
+            return
+        self.logger.info('Loading computed features (edited results)...')
+        for posData in self.data:
+            df_spots = io.load_spots_table(
+                posData.spotmax_out_path, self.spotsItems.edited_df_out_filename
+            )
+            self.spotsItems.setActiveButtonDf(df_spots)
+        self.logger.info(
+            'Done (features loaded from file '
+            f'`{self.spotsItems.edited_df_out_filename}`)'
+        )
+        prompts.informationComputeFeaturesFinished(
+            self.spotsItems.edited_df_out_filename, qparent=self
+        )            
             
     def startComputeAnalysisStepWorker(self, module_func, anchor, **kwargs):
         if self.progressWin is None:

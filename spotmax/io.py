@@ -594,6 +594,9 @@ def _load_spots_table_h5(filepath):
     return df
 
 def load_spots_table(spotmax_out_path, filename, filepath=None):
+    if filepath is not None:
+        return load_table_to_df(filepath, index_col=['frame_i', 'Cell_ID'])
+    
     filepath = os.path.join(spotmax_out_path, filename)
     if not os.path.exists(filepath):
         return
@@ -603,9 +606,9 @@ def load_spots_table(spotmax_out_path, filename, filepath=None):
         df = _load_spots_table_h5(filepath)
     return df
 
-def load_table_to_df(filepath):
+def load_table_to_df(filepath, index_col=None):
     if filepath.endswith('.csv'):
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(filepath, index_col=index_col)
     elif filepath.endswith('.h5'):
         df = _load_spots_table_h5(filepath)
     return df
@@ -2510,7 +2513,10 @@ def load_df_agg_from_df_spots_filename(
     return df_aggr
 
 def df_spots_filename_parts(df_spots_filename):
-    parts = re.findall(df_spots_filename_parts_pattern, df_spots_filename)[0]
+    found = re.findall(df_spots_filename_parts_pattern, df_spots_filename)
+    if not found:
+        return ('', '', '', '', '')
+    parts = found[0]
     return parts
 
 def get_analysis_params_filepath_from_df_spots_filename(

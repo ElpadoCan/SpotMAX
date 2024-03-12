@@ -2103,6 +2103,11 @@ class SpotsItems:
         else:
             toolbutton.df = df.reset_index().set_index(['frame_i', 'z'])
     
+    def setActiveButtonDf(self, df):
+        toolbutton = self.getActiveButton()
+        toolbutton.df = df.reset_index().set_index(['frame_i', 'z'])
+        self.loadedDfs[self.posData.pos_foldername] = toolbutton.df  
+    
     def loadSpotsTables(self, toolbutton=None):
         if toolbutton is None:
             for toolbutton in self.buttons:
