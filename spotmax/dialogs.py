@@ -11,6 +11,7 @@ from functools import partial
 
 import numpy as np
 import pandas as pd
+from math import floor
 from natsort import natsorted
 import skimage.draw
 
@@ -950,7 +951,7 @@ class AutoTuneSpotProperties(QGroupBox):
         self.trueColorButton.sigColorChanging.connect(self.setTrueColor)
         self.falseColorButton.sigColorChanging.connect(self.setFalseColor)
         
-        self.trueItem = acdc_widgets.ScatterPlotItem(
+        self.trueItem = widgets.TuneScatterPlotItem(
             symbol='o', size=3, pxMode=False,
             brush=pg.mkBrush((255,0,0,50)),
             pen=pg.mkPen((255,0,0), width=2),
@@ -958,7 +959,7 @@ class AutoTuneSpotProperties(QGroupBox):
             hoverBrush=pg.mkBrush((255,0,0)), tip=None
         )
         
-        self.falseItem = acdc_widgets.ScatterPlotItem(
+        self.falseItem = widgets.TuneScatterPlotItem(
             symbol='o', size=3, pxMode=False,
             brush=pg.mkBrush((0,255,255,50)),
             pen=pg.mkPen((0,255,255), width=2),
@@ -1255,7 +1256,7 @@ class AutoTuneTabWidget(QWidget):
         if self.df_features is None:
             return
         point = points[0]
-        frame_i, z = point.data()
+        frame_i, z = point.data()[:2]
         pos = point.pos()
         x, y = round(pos.x()), round(pos.y())
         point_features = self.df_features.loc[(frame_i, z, y, x)]
@@ -1313,7 +1314,8 @@ class AutoTuneTabWidget(QWidget):
             if len(points) == 0:
                 continue
             for point in points:
-                if point.data() != (frame_i, z):
+                point_data = point.data()
+                if (point_data[0], point_data[1]) != (frame_i, z):
                     continue 
                 hoveredPoints.append(point)
         return hoveredPoints
@@ -1326,14 +1328,32 @@ class AutoTuneTabWidget(QWidget):
             item = self.autoTuneGroupbox.falseItem
             item.setVisible(True)
         hoveredMask = item._maskAt(QPointF(x, y))
-        points = item.points()[hoveredMask][::-1]
-        if len(points) > 0:
-            for point in points:
-                if point.data() != (frame_i, z):
-                    continue 
-                item.removePoint(point._index)
+        points = item.points()
+        hoveredPoints = item.points()[hoveredMask][::-1]
+        if len(hoveredPoints) > 0:
+            for hoveredPoint in hoveredPoints:
+                xref, yref = hoveredPoint._data['x'], hoveredPoint._data['y']
+                zref = hoveredPoint.data()[2]
+                # Remove same point in neigh z-slices
+                for point in points:
+                    if point.data()[0] != frame_i:
+                        continue
+                    
+                    if point.data()[2] != zref:
+                        continue
+                    
+                    item.removePoint(point._index)
         else:
-            item.addPoints([x], [y], data=[(frame_i, z)])
+            item.addPoints([x], [y], data=[(frame_i, z, z)])
+            for neigh_z in range(z-self.z_radius, z+self.z_radius+1):
+                if neigh_z == z:
+                    continue
+                item.addPoints(
+                    [x], [y], data=[(frame_i, neigh_z, z)], 
+                    brush=[pg.mkBrush((0, 0, 0, 0))], 
+                    pen=[pg.mkPen((0, 0, 0, 0))]
+                )
+            # self.setVisibleAutoTunePoints(frame_i, z)
         
         self.resetFeatures()
     
@@ -1349,8 +1369,10 @@ class AutoTuneTabWidget(QWidget):
         for item in items:
             brushes = []
             pens = []
+            visibilities = []
             for point in item.data['item']:
-                visible = point.data() == (frame_i, z)
+                point_data = point.data()
+                visible = (point_data[0], point_data[1]) == (frame_i, z)
                 if not visible:
                     brush = pg.mkBrush((0, 0, 0, 0))
                     pen = pg.mkPen((0, 0, 0, 0))
@@ -1359,14 +1381,20 @@ class AutoTuneTabWidget(QWidget):
                     pen = item.itemPen()
                 brushes.append(brush)
                 pens.append(pen)
+                visibilities.append(visible)
             if not brushes:
                 continue
             item.setBrush(brushes)
             item.setPen(pens)
+            item.setPointsVisible(visibilities)
             
-    def setAutoTunePointSize(self, size):
-        self.autoTuneGroupbox.trueItem.setSize(size)
-        self.autoTuneGroupbox.falseItem.setSize(size)
+    def setAutoTunePointSize(self, yx_diameter, z_diameter):
+        self.autoTuneGroupbox.trueItem.setSize(yx_diameter)
+        self.autoTuneGroupbox.falseItem.setSize(yx_diameter)
+        z_diameter = round(z_diameter)
+        if z_diameter % 2:
+            z_diameter -= 1
+        self.z_radius = int(z_diameter/2)
     
     def showHelp(self):
         msg = acdc_widgets.myMessageBox()

@@ -3024,3 +3024,16 @@ def toClipboard(text):
 class RefChannelFeaturesThresholdsButton(_GopFeaturesAndThresholdsButton):
     def __init__(self, parent=None):
         super().__init__(parent, category='ref. channel objects')
+
+class TuneScatterPlotItem(acdc_widgets.ScatterPlotItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def coordsToNumpy(self, includeData=True, **kwargs):
+        data = super().coordsToNumpy(includeData=True, **kwargs)
+        if data.size == 0:
+            return data
+        
+        # Keep only center spots
+        mask = data[:, 1] == data[:, 2]
+        return data[mask][:, [0, 1, 3, 4]]

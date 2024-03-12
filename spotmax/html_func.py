@@ -91,6 +91,9 @@ def untag(text, tag):
 
     return in_tag_texts, out_tag_texts
 
+def to_admonition(*args, **kwargs):
+    return acdc_html.to_admonition(*args, **kwargs)
+
 def tag(text, tag_info='p style="font-size:10pt"'):
     tag = tag_info.split(' ')[0]
     text = f'<{tag_info}>{text}</{tag}>'

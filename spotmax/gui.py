@@ -1326,10 +1326,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         # entered radius because we want to show the user the smaller volume
         # where a single spot can be detected. Basically this is the 
         # spot footprint passed to peak_local_max
-        size = spots_zyx_radii[-1]
+        yx_diameter = spots_zyx_radii[-1]
+        z_diameter = spots_zyx_radii[0]
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        autoTuneTabWidget.setAutoTunePointSize(size)
+        autoTuneTabWidget.setAutoTunePointSize(yx_diameter, z_diameter)
     
     @exception_handler
     def _computeSharpenSpots(self, formWidget):
@@ -2594,6 +2595,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         kernel = posData.tuneKernel
         kernel.set_kwargs(all_kwargs)
+        kernel.set_images_path(posData.images_path)
         
         args = [kernel]
         kwargs = {
@@ -2602,22 +2604,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             'segm_data_cropped': None,
             'crop_to_global_coords': None
         }
-        
-        if kernel.ref_ch_endname() and kernel.ref_ch_data() is None:
-            ref_ch_data = self.loadImageDataFromChannelName(
-                kernel.ref_ch_endname()
-            )
-            
-            on_finished_callback = (
-                self.storeCroppedRefChDataAndStartTuneKernel, args, kwargs
-            )
-            
-            self.startCropImageBasedOnSegmDataWorkder(
-                ref_ch_data, posData.segm_data, 
-                on_finished_callback=on_finished_callback
-            )
-        
-        elif kernel.image_data() is None:
+        if kernel.image_data() is None:
             on_finished_callback = (
                 self.storeCroppedDataAndStartTuneKernel, args, kwargs
             )
@@ -2629,6 +2616,11 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.startTuneKernelWorker(kernel)
         
     def startTuneKernelWorker(self, kernel):
+        ini_filepath, temp_dirpath = io.get_temp_ini_filepath()
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        ParamsGroupBox.saveToIniFile(ini_filepath)
+        kernel.set_ini_filepath(ini_filepath)
+        
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
         
@@ -2659,10 +2651,16 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget.autoTuningButton.setChecked(False)
         autoTuneTabWidget.setTuneResult(result)
         
+        tip_text = ("""
+            Hover onto data points with mouse cursor to view any of the 
+            features. Features can be selected and viewed at the bottom of 
+            the <code>Tune parameters<code> tab.
+        """)
         msg = acdc_widgets.myMessageBox(wrapText=False)
-        txt = html_func.paragraph("""
+        txt = html_func.paragraph(f"""
             Auto-tuning process finished. Results will be displayed on the 
             `Tune parameters` tab.<br>
+            {html_func.to_admonition(tip_text, admonition_type='tip')}
         """)
         msg.information(self, 'Auto-tuning finished', txt)
         

@@ -1,3 +1,8 @@
+import os
+import shutil
+
+import sys
+import subprocess
 import traceback
 
 from tqdm import tqdm
@@ -13,6 +18,8 @@ from . import metrics
 from . import printl
 from . import filters
 from . import features
+from . import io
+from . import utils
 from . import ZYX_GLOBAL_COLS
 
 class TuneKernel:
@@ -28,12 +35,8 @@ class TuneKernel:
     def set_tzyx_true_spots_coords(self, tzyx_coords):
         self._tzyx_true_spots_coords = tzyx_coords
         self._true_spots_coords_df = pd.DataFrame(
-            columns=['frame_i', 'z_global', 'y_global', 'x_global'], 
+            columns=['frame_i', 'z', 'y', 'x'], 
             data=tzyx_coords
-        )
-        self._true_spots_coords_df[['z', 'y', 'x']] = (
-            self._true_spots_coords_df[['z_global', 'y_global', 'x_global']]
-            - self.crop_to_global_coords()
         )
     
     def true_spots_coords_df(self):
@@ -44,12 +47,8 @@ class TuneKernel:
             tzyx_coords = None
         self._tzyx_false_spots_coords = tzyx_coords
         self._false_spots_coords_df = pd.DataFrame(
-            columns=['frame_i', 'z_global', 'y_global', 'x_global'], 
+            columns=['frame_i', 'z', 'y', 'x'], 
             data=tzyx_coords
-        )
-        self._false_spots_coords_df[['z', 'y', 'x']] = (
-            self._false_spots_coords_df[['z_global', 'y_global', 'x_global']]
-            - self.crop_to_global_coords()
         )
     
     def to_global_coords(self, df):
@@ -79,6 +78,18 @@ class TuneKernel:
         self._segm_data = None
         self._ref_ch_data = None
     
+    def set_ini_filepath(self, ini_filepath):
+        self._ini_filepath = ini_filepath
+    
+    def set_images_path(self, images_path):
+        self._images_path = images_path
+    
+    def images_path(self):
+        return self._images_path
+    
+    def ini_filepath(self):
+        return self._ini_filepath
+    
     def ref_ch_data(self):
         return self._ref_ch_data
 
@@ -99,7 +110,7 @@ class TuneKernel:
     def input_kwargs(self):
         return self._kwargs
     
-    def _iter_frames(self):
+    def _iter_frames(self, to_crop=False):
         false_coords_df = self.false_spots_coords_df().set_index('frame_i')        
         true_coords_df = self.true_spots_coords_df()
         for frame_i, true_df in true_coords_df.groupby('frame_i'):
@@ -109,13 +120,35 @@ class TuneKernel:
                 'use_gpu'
             ]
             input_kwargs = {key:self._kwargs[key] for key in keys}
-            zz_true = true_df['z'].to_list()
-            yy_true = true_df['y'].to_list()
-            xx_true = true_df['x'].to_list()
+            if to_crop:
+                zz_true = (
+                    true_df['z'] - self.crop_to_global_coords()[0]).to_list()
+                yy_true = (
+                    true_df['y'] - self.crop_to_global_coords()[1]).to_list()
+                xx_true = (
+                    true_df['x'] - self.crop_to_global_coords()[2]).to_list()
+            else:
+                zz_true = (true_df['z']).to_list()
+                yy_true = (true_df['y']).to_list()
+                xx_true = (true_df['x']).to_list()
             try:
-                zz_false = false_coords_df.loc[[frame_i], 'z'].to_list()
-                yy_false = false_coords_df.loc[[frame_i], 'y'].to_list()
-                xx_false = false_coords_df.loc[[frame_i], 'x'].to_list()
+                if to_crop:
+                    zz_false = (
+                        false_coords_df.loc[[frame_i], 'z']
+                        - self.crop_to_global_coords()[0]
+                    ).to_list()
+                    yy_false = (
+                        false_coords_df.loc[[frame_i], 'y']
+                        - self.crop_to_global_coords()[1]
+                    ).to_list()
+                    xx_false = (
+                        false_coords_df.loc[[frame_i], 'x']
+                        - self.crop_to_global_coords()[2]
+                    ).to_list()
+                else:
+                    zz_false = (false_coords_df.loc[[frame_i], 'z']).to_list()
+                    yy_false = (false_coords_df.loc[[frame_i], 'y']).to_list()
+                    xx_false = (false_coords_df.loc[[frame_i], 'x']).to_list()
             except Exception as e:
                 zz_false, yy_false, xx_false = [], [], []
             yield (
@@ -131,7 +164,7 @@ class TuneKernel:
         positive_areas = []
         methods = []
         frames = []
-        for frame_i, inputs in enumerate(self._iter_frames()):
+        for frame_i, inputs in enumerate(self._iter_frames(to_crop=True)):
             (segm_kwargs, zz_true, yy_true, xx_true, 
             zz_false, yy_false, xx_false) = inputs
             
@@ -140,7 +173,6 @@ class TuneKernel:
                 image, keep_input_shape=True, **segm_kwargs
             )
             frames.append(frame_i)
-            
             pbar_method = tqdm(total=len(result), ncols=100)
             for method, thresholded in result.items():
                 if method == 'input_image':
@@ -174,6 +206,72 @@ class TuneKernel:
         best_method = df_score.iloc[0]['threshold_method']
         return best_method
     
+    def _cleanup_analysis_files(self):
+        run_number = io.get_run_number_from_ini_filepath(self.ini_filepath())
+        pos_folderpath = os.path.dirname(self.images_path())
+        spotmax_out_path = os.path.join(pos_folderpath, 'spotMAX_output')
+        io.remove_run_number_spotmax_out_files(run_number, spotmax_out_path)
+        try:
+            shutil.rmtree(os.path.dirname(self.ini_filepath()))
+        except Exception as err:
+            pass
+    
+    def _setup_configparser(self, csv_path, logger_func=print):
+        cp = io.read_ini(self.ini_filepath())
+        cp = io.add_spots_coordinates_endname_to_configparser(cp, csv_path)
+        cp = io.add_use_default_values_to_configparser(cp)
+        cp = io.disable_saving_masks_configparser(cp)
+        
+        run_nums = io.get_existing_run_nums(
+            self.images_path(), logger_func=logger_func
+        )
+        max_run_num = max(run_nums, default=0)
+        new_run_num = max_run_num + 1
+        cp = io.add_run_number_to_configparser(cp, new_run_num)
+        
+        io.write_to_ini(cp, self.ini_filepath())
+    
+    def _load_analysis_df_spots(self, csv_path):
+        pos_folderpath = os.path.dirname(self.images_path())
+        spotmax_out_path = os.path.join(pos_folderpath, 'spotMAX_output')
+        filename = os.path.basename(csv_path)
+        filename, _ = os.path.splitext(filename)
+        for file in utils.listdir(spotmax_out_path):
+            if file.startswith(filename):
+                return io.load_spots_table(spotmax_out_path, file)
+    
+    def _run_analysis(self, df_spots_coords, logger_func=print):
+        from . import _process
+        
+        df_spots_coords['do_not_drop'] = 1
+        csv_path = io.get_temp_csv_filepath()
+        df_spots_coords.to_csv(csv_path)
+        
+        self._setup_configparser(csv_path, logger_func=logger_func)
+        
+        command = f'spotmax, -p, {self.ini_filepath()}'
+        # command = r'python, spotmax\test.py'
+        command_format = command.replace(',', '')
+        logger_func(f'spotMAX analysis started with command `{command_format}`')
+        args = [sys.executable, _process.__file__, '-c', command]
+        subprocess.run(args)
+    
+        df_spots_analysis = self._load_analysis_df_spots(csv_path)
+        return df_spots_analysis
+    
+    def _init_df_features(self, df_spots_coords_input, df_spots_det):
+        df_spots_det_zyx = (
+            df_spots_det.reset_index().set_index(['z', 'y', 'x'])
+        )
+        df_spots_coords_input_zyx = (
+            df_spots_coords_input.reset_index().set_index(['z', 'y', 'x'])
+        )
+        df_spots_det_zyx['category'] = df_spots_coords_input_zyx['category']
+        df_features = (
+            df_spots_det_zyx.reset_index().set_index(['frame_i', 'Cell_ID'])
+        )
+        return df_features
+    
     def find_features_range(self, **kwargs):
         emitDebug = kwargs.get('emitDebug')
         logger_func = kwargs.get('logger_func', print)
@@ -184,95 +282,40 @@ class TuneKernel:
             (input_kwargs, zz_true, yy_true, xx_true, 
             zz_false, yy_false, xx_false) = inputs 
             
-            image = self._image_data[frame_i] 
-            zyx_coords_true = np.column_stack(
-                (zz_true, yy_true, xx_true)
-            ).astype(int)
-            zyx_coords_false = np.column_stack(
-                (zz_false, yy_false, xx_false)
-            ).astype(int)
-            zyx_coords = np.concatenate(
-                (zyx_coords_true, zyx_coords_false), axis=0
-            )
-            
-            # Preprocess image
-            preprocess_keys = [
-                'lab', 'do_remove_hot_pixels', 'gauss_sigma', 'use_gpu'
-            ]
-            preprocess_kwargs = {
-                key:input_kwargs[key] for key in preprocess_keys
-            }
-            preprocess_kwargs['logger_func'] = logger_func
-            preproc_image = pipe.preprocess_image(
-                image, **preprocess_kwargs
-            )
-            
-            # Sharpen image
-            sharp_image = None
-            if input_kwargs['do_sharpen']:
-                spots_zyx_radii = input_kwargs['spots_zyx_radii_pxl']
-                sharp_image = filters.DoG_spots(
-                    image, spots_zyx_radii, use_gpu=input_kwargs['use_gpu']
-                )
-            
-            features_keys = [
-                'spots_zyx_radii_pxl', 
-                'zyx_voxel_size', 
-                'optimise_for_high_spot_density'
-            ]
-            features_kwargs = {key:input_kwargs[key] for key in features_keys}
-            features_kwargs['sharp_spots_image'] = sharp_image
-            
-            IDs = input_kwargs['lab'][tuple(zyx_coords).transpose()]
-            df_spots_coords = pd.DataFrame(
-                data=zyx_coords, columns=ZYX_GLOBAL_COLS, index=IDs
-            )
-            df_spots_coords.index.name = 'Cell_ID'
-            features_kwargs['df_spots_coords'] = df_spots_coords
-            
-            features_kwargs['logger_func'] = logger_func
-            features_kwargs['raw_image'] = image
-            
-            df_features_frame = pipe.spots_calc_features_and_filter(
-                image, **features_kwargs
-            )
-            
-            true_idx = [tuple(row) for row in zyx_coords_true]
-            false_idx = [tuple(row) for row in zyx_coords_false]
-            
-            df_features_frame = (
-                df_features_frame
-                .reset_index()
-                .set_index(ZYX_GLOBAL_COLS)
-            )
-            
-            df_features_frame_true = df_features_frame.loc[true_idx]
-            df_features_frame_false = df_features_frame.loc[false_idx]
-            
-            df_features_frame_true = (
-                df_features_frame_true
-                .reset_index()
-                .set_index(['Cell_ID', 'spot_id'])
-            )
-            df_features_frame_false = (
-                df_features_frame_false
-                .reset_index()
-                .set_index(['Cell_ID', 'spot_id'])
-            )
-            
+            df_true = pd.DataFrame({
+                'z': zz_true, 
+                'y': yy_true, 
+                'x': xx_true
+            })
+            df_false = pd.DataFrame({
+                'z': zz_false, 
+                'y': yy_false, 
+                'x': xx_false
+            })
+            dfs.append(df_true)
             frames.append((frame_i, 'true_spot'))
-            dfs.append(df_features_frame_true)
             
-            frames.append((frame_i, 'false_spot'))
-            dfs.append(df_features_frame_false)
+            dfs.append(df_false)
+            frames.append((frame_i, 'false_spot'))        
+        
+        df_spots_coords_input = pd.concat(
+            dfs, keys=frames, names=['frame_i', 'category']
+        )
+        try:
+            df_spots_analysis = self._run_analysis(
+                df_spots_coords_input, logger_func=logger_func
+            )   
+        except Exception as err:
+            raise err
+        finally:
+            self._cleanup_analysis_files()
+        
+        df_features = self._init_df_features(
+            df_spots_coords_input, df_spots_analysis
+        )
         
         features_range = self.input_kwargs()['tune_features_range']
-        df_features = (
-            pd.concat(dfs, keys=frames, names=['frame_i', 'category'])
-            .reset_index()
-            .set_index(['frame_i', 'Cell_ID'])
-        )
-        df_features = self.to_global_coords(df_features)
+        # df_features = self.to_global_coords(df_features)
         
         if not features_range:
             return df_features, features_range

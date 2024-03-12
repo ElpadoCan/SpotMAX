@@ -239,16 +239,24 @@ class _DataLoader:
             return data
         
         if os.path.exists(df_spots_coords_in_endname):
-            data['df_spots_coords_in'] = io.load_table_to_df(
+            df_spots_in = io.load_table_to_df(
                 df_spots_coords_in_endname
             )
+            df_spots_in['z'] = df_spots_in['z'].astype(int)
+            df_spots_in['y'] = df_spots_in['y'].astype(int)
+            df_spots_in['x'] = df_spots_in['x'].astype(int)
+            data['df_spots_coords_in'] = df_spots_in
             return data
         
         for file in utils.listdir(images_path):
             if file.endswith(df_spots_coords_in_endname):
-                data['df_spots_coords_in'] = io.load_table_to_df(
+                df_spots_in = io.load_table_to_df(
                     os.path.join(images_path, file)
                 )
+                df_spots_in['z'] = df_spots_in['z'].astype(int)
+                df_spots_in['y'] = df_spots_in['y'].astype(int)
+                df_spots_in['x'] = df_spots_in['x'].astype(int)
+                data['df_spots_coords_in'] = df_spots_in
                 
         return data
     
@@ -4325,7 +4333,10 @@ class Kernel(_ParamsParser):
         if not preprocess_across_experiment:
             return {pos:None for pos in pos_foldernames}
         
-        self.logger.info(f'Pre-processing "{spots_ch_endname}" channel data across experiment...')
+        self.logger.info(
+            f'Pre-processing "{spots_ch_endname}" channel data across '
+            'experiment...'
+        )
         transformed_data = transformations.load_preprocess_nnet_data_across_exp(
             exp_path, pos_foldernames, spots_ch_endname, self.nnet_model, 
             callback_channel_not_found=self._critical_channel_not_found
@@ -4423,7 +4434,7 @@ class Kernel(_ParamsParser):
         for frame_i in range(stopFrameNum):
             self._current_frame_i = frame_i
             if acdc_df is not None:
-                lineage_table = acdc_df.loc[frame_i]
+                lineage_table = acdc_df.loc[[frame_i]]
             else:
                 lineage_table = None
             lab_rp = segm_rp[frame_i]
@@ -4473,6 +4484,17 @@ class Kernel(_ParamsParser):
         )
         data = self._add_regionprops(data)
         return data
+    
+    def _get_df_spots_coords_input(self, df_spots_coords_in, frame_i):
+        df_spots_coords_input = None
+        try:
+            df_spots_coords_input = df_spots_coords_in.loc[[frame_i]].copy()
+        except KeyError as err:
+            self.logger.info(
+                'Input spots coordinates table is missing frame n. '
+                f'{frame_i+1} --> skipping it.'
+            )
+        return df_spots_coords_input
     
     @handle_log_exception_cli
     def _run_from_images_path(
@@ -4732,12 +4754,16 @@ class Kernel(_ParamsParser):
             
             lineage_table = None
             if acdc_df is not None:
-                lineage_table = acdc_df.loc[frame_i]
+                lineage_table = acdc_df.loc[[frame_i]]
             
             df_spots_coords_input = None
             if df_spots_coords_in is not None:
-                df_spots_coords_input = df_spots_coords_in.loc[frame_i].copy()
-            
+                df_spots_coords_input = self._get_df_spots_coords_input(
+                    df_spots_coords_in, frame_i
+                )
+                if df_spots_coords_input is None:
+                    continue
+                                
             self.spots_detection(
                 preproc_spots_img, zyx_resolution_limit_pxl, 
                 sharp_spots_img=sharp_spots_img,

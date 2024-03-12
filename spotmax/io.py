@@ -593,6 +593,25 @@ def _load_spots_table_h5(filepath):
         df = pd.concat(dfs, keys=keys, names=['frame_i'])
     return df
 
+def disable_saving_masks_configparser(configparser):
+    section = 'Reference channel'
+    anchor = 'saveRefChFeatures'
+    configparser[section][anchor] = 'False'
+    
+    anchor = 'saveRefChMask'
+    configparser[section][anchor] = 'False'
+    
+    anchor = 'saveRefChPreprocImage'
+    configparser[section][anchor] = 'False'
+    
+    section = 'Spots channel'
+    anchor = 'saveSpotsMask'
+    configparser[section][anchor] = 'False'
+    
+    anchor = 'saveSpotsPreprocImage'
+    configparser[section][anchor] = 'False'
+    return configparser
+
 def load_spots_table(spotmax_out_path, filename, filepath=None):
     if filepath is not None:
         return load_table_to_df(filepath, index_col=['frame_i', 'Cell_ID'])
@@ -2125,6 +2144,12 @@ def add_spots_coordinates_endname_to_configparser(
     configparser[section][option] = spots_coordinates_endname
     return configparser
 
+def add_run_number_to_configparser(configparser, run_number: int):
+    section = 'File paths and channels'
+    option = 'Run number'
+    configparser[section][option] = str(run_number)
+    return configparser
+
 def add_text_to_append_to_configparser(
         configparser, text_to_append: str
     ):
@@ -2158,6 +2183,41 @@ def add_use_default_values_to_configparser(configparser):
     option = 'Use default values for missing parameters'
     configparser[section][option] = 'True'
     return configparser
+
+def get_existing_run_nums(folderpath, logger_func=print):
+    pathScanner = expFolderScanner(
+        folderpath, logger_func=logger_func
+    )
+    pathScanner.getExpPaths(folderpath)
+    pathScanner.infoExpPaths(pathScanner.expPaths)
+    analysed_run_nums = set()
+    for run_num, runInfo in pathScanner.paths.items():
+        for exp_path, expInfo in runInfo.items():
+            if 'analysisInputs' in expInfo:
+                analysed_run_nums.append(run_num)
+    return analysed_run_nums
+
+def get_run_number_from_ini_filepath(ini_filepath):
+    cp = read_ini(ini_filepath)
+    section = 'File paths and channels'
+    option = 'Run number'
+    run_number = int(cp[section][option])
+    return run_number
+
+def get_text_to_append_from_ini_filepath(ini_filepath):
+    cp = read_ini(ini_filepath)
+    section = 'File paths and channels'
+    option = 'Text to append at the end of the output files'
+    text_to_append = cp[section][option]
+    return text_to_append
+
+def remove_run_number_spotmax_out_files(run_number, spotmax_out_path):
+    for file in utils.listdir(spotmax_out_path):
+        if file.startswith(f'{run_number}_'):
+            try:
+                os.remove(os.path.join(spotmax_out_path, file))
+            except Exception as err:
+                continue
 
 def save_df_spots(
         df: pd.DataFrame, folder_path: os.PathLike, filename_no_ext: str, 
@@ -2544,6 +2604,12 @@ def get_temp_ini_filepath():
     ini_filepath = os.path.join(temp_dirpath, ini_filename)
     return ini_filepath, temp_dirpath
 
+def get_temp_csv_filepath():
+    temp_dirpath = tempfile.mkdtemp()
+    now = datetime.datetime.now().strftime(r'%Y-%m-%d_%H-%M-%S')
+    csv_filename = f'{now}_spotmax_csv_tempfile.csv'
+    return os.path.join(temp_dirpath, csv_filename)
+
 def get_new_ini_filename(text_to_add=''):
     now = datetime.datetime.now().strftime(r'%Y-%m-%d_%H-%M-%S')
     if text_to_add:
@@ -2566,3 +2632,7 @@ def read_ini(ini_filepath):
     configPars = config.ConfigParser()
     configPars.read(ini_filepath)
     return configPars
+
+def write_to_ini(configparser, ini_filepath):
+    with open(ini_filepath, 'w', encoding="utf-8") as file:
+        configparser.write(file)
