@@ -89,13 +89,14 @@ class Model:
             `segment` method is pre-processed. Default is True
         gaussian_filter_sigma : float or 3 elements (z, y, x) sequence, optional
             Sigma value(s) of the gaussian filter. This can be a single 
-            number of one per axis. Default is 0.0
+            number or one value per dimension of the input image. 
+            Default is 0.0
         remove_hot_pixels : bool, optional
             If True, uses morphological opening on the grayscale image that 
-            should remove single bright pixels (hot pixels). Default is False
+            will remove single bright pixels (hot pixels). Default is False
         config_yaml_filepath : os.PathLike, optional
             Path to the YAML configuration file of the model. 
-            Default is /spotmax/nnet/config.yaml
+            Pre-trained default is /spotmax/nnet/config.yaml
         PhysicalSizeX : float, optional
             Pixel width in µm/pixel. This value is used to rescale the image 
             to the size of the training images. The pixel size of the training 

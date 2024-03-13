@@ -473,10 +473,16 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
     params = add_neural_network_params(params, configPars)
     return params
 
-def save_preocessed_img(
+def save_preprocessed_img_data(
         img_data, raw_img_filepath, basename, ch_endname, run_number, 
-        text_to_append='', cast_to_dtype=None, pad_width=None
+        text_to_append='', cast_to_dtype=None, pad_width=None, 
+        verbose=True, logger_func=print
     ):
+    if verbose:
+        logger_func(
+            f'Saving pre-processed image data from channel "{ch_endname}"...'
+        )
+    
     if not basename.endswith('_'):
         basename = f'{basename}_'
         
@@ -489,7 +495,7 @@ def save_preocessed_img(
     in_filename = os.path.basename(raw_img_filepath)
     _, ext = os.path.splitext(in_filename)
     
-    out_filename = f'{basename}_run_num{run_number}_{ch_endname}_preprocessed'
+    out_filename = f'{basename}run_num{run_number}_{ch_endname}_preprocessed'
     if text_to_append:
         if not text_to_append.startswith('_'):
             text_to_append = f'_{text_to_append}'
@@ -500,6 +506,12 @@ def save_preocessed_img(
     out_filepath = os.path.join(in_folderpath, out_filename)
     
     save_image_data(out_filepath, np.squeeze(img_data))
+    
+    if verbose:
+        logger_func(
+            f'Pre-processed image data from channel "{ch_endname}" saved to '
+            f'"{out_filepath}"...'
+        )
 
 def add_neural_network_params(params, configPars):
     sections = [
@@ -2328,8 +2340,13 @@ def save_ref_ch_mask(
         basename, 
         run_number, 
         text_to_append='', 
-        pad_width=None
+        pad_width=None, 
+        verbose=True, 
+        logger_func=print
     ):
+    if verbose:
+        logger_func(f'Saving reference channel masks...')
+        
     if not basename.endswith('_'):
         basename = f'{basename}_'
     ref_ch_segm_filename = (
@@ -2349,11 +2366,19 @@ def save_ref_ch_mask(
     ref_ch_segm_data = np.squeeze(ref_ch_segm_data)    
 
     np.savez_compressed(ref_ch_segm_filepath, ref_ch_segm_data)
+    
+    if verbose:
+        logger_func(
+            f'Reference channel masks saved to "{ref_ch_segm_filepath}"'
+        )
 
 def save_spots_masks(
         df_spots, images_path, basename, filename, spots_ch_endname, run_number, 
-        text_to_append='', mask_shape=None
+        text_to_append='', mask_shape=None, verbose=True, logger_func=print
     ):
+    if verbose:
+        logger_func(f'Saving spots masks...')
+        
     if not basename.endswith('_'):
         basename = f'{basename}_'
     
@@ -2381,6 +2406,8 @@ def save_spots_masks(
     
     np.savez_compressed(spots_ch_segm_filepath, spots_mask_data)
     df_spots = df_spots.drop(columns='spot_mask')
+    if verbose:
+        logger_func(f'Spots masks saved to "{spots_ch_segm_filepath}"')
     return df_spots
     
 

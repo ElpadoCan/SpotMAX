@@ -1,0 +1,24 @@
+name: Suggest an improvement
+description: Suggest an idea on how to improve existing features.
+title: "<Title of the enhancement>"
+labels: [":balloon: Enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thank you for your suggestion! You can also discuss the enhancement on our 
+        [discussion forum](https://github.com/SchmollerLab/Cell_ACDC/discussions)
+
+  - type: textarea
+    validations:
+      required: true
+    attributes:
+      label: "Description:"
+      description: >
+        Describe your suggestion with all necessary detail.
+        What is the current feature you would like to see improved?
+        Does the feature have a problem?
+        Great! Please let us know.
+      placeholder: |
+        Your suggestion...

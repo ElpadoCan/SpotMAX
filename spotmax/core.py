@@ -2,6 +2,7 @@ from cgitb import text
 from genericpath import isfile
 from importlib import import_module
 import os
+from re import VERBOSE
 import sys
 import shutil
 import traceback
@@ -3733,7 +3734,6 @@ class Kernel(_ParamsParser):
             frame_i=frame_i, 
             df_spots_coords_input=df_spots_coords_input
         )
-        
         df_spots_det, df_spots_gop = self._spots_filter(
             df_spots_coords, 
             spots_img, 
@@ -3826,6 +3826,7 @@ class Kernel(_ParamsParser):
             spots_masks = transformations.from_spots_coords_to_spots_masks(
                 spots_coords, spots_zyx_radii_pxl, debug=False
             )
+            df_spots_coords_input['spot_mask'] = spots_masks
         
         df_spots_coords_input = transformations.add_closest_ID_col(
             df_spots_coords_input, aggregated_lab, ZYX_AGGR_COLS
@@ -3845,7 +3846,6 @@ class Kernel(_ParamsParser):
             zz = [0]*len(xx)
         else:
             zz, yy, xx = aggr_spots_coords.T
-        zeros = [0]*len(zz)
         df_spots_coords = pd.DataFrame({
             'Cell_ID': aggregated_lab[zz, yy, xx]
         })
@@ -4606,12 +4606,14 @@ class Kernel(_ParamsParser):
                     basename,
                     run_number,
                     text_to_append=text_to_append, 
-                    pad_width=data['pad_width']
+                    pad_width=data['pad_width'],
+                    verbose=verbose,
+                    logger_func=self.logger.info
                 )
             if save_preproc_ref_ch_img:
                 basename = data.get('basename', '')
                 raw_ref_ch_data_filepath = data['ref_ch.filepath']
-                io.save_preocessed_img(
+                io.save_preprocessed_img_data(
                     preproc_ref_ch_data, 
                     raw_ref_ch_data_filepath, 
                     basename,
@@ -4619,7 +4621,9 @@ class Kernel(_ParamsParser):
                     run_number,
                     text_to_append=text_to_append,
                     cast_to_dtype=data['ref_ch.dtype'], 
-                    pad_width=data['pad_width']
+                    pad_width=data['pad_width'],
+                    verbose=verbose,
+                    logger_func=self.logger.info
                 )
             if save_ref_ch_features:
                 io.save_df_ref_ch_features(
@@ -4798,7 +4802,7 @@ class Kernel(_ParamsParser):
         if save_preproc_spots_img:
             basename = data.get('basename', '')
             raw_spots_data_filepath = data['spots_ch.filepath']
-            io.save_preocessed_img(
+            io.save_preprocessed_img_data(
                 preproc_spots_data, 
                 raw_spots_data_filepath, 
                 basename,
@@ -4806,7 +4810,9 @@ class Kernel(_ParamsParser):
                 run_number,
                 text_to_append=text_to_append,
                 cast_to_dtype=data['spots_ch.dtype'], 
-                pad_width=data['pad_width']
+                pad_width=data['pad_width'],
+                verbose=verbose,
+                logger_func=self.logger.info
             )
 
         aggregate_spots_feature_func = (
@@ -5043,7 +5049,8 @@ class Kernel(_ParamsParser):
                     run_number=run_number, 
                     text_to_append=text_to_append, 
                     df_spots_file_ext=df_spots_file_ext, 
-                    df_spots_coords_in_endname=df_spots_coords_in_endname
+                    df_spots_coords_in_endname=df_spots_coords_in_endname,
+                    verbose=VERBOSE
                 )
                 pbar_pos.update()
                 t1 = time.perf_counter()
@@ -5166,6 +5173,8 @@ class Kernel(_ParamsParser):
                 pattern = rf'^{regex}'
                 filtered_df = df.filter(regex=pattern)
                 columns_to_filter.extend(filtered_df.columns)
+            if 'spot_mask' in df.columns:
+                columns_to_filter.append('spot_mask')
             filtered_dfs[key] = df.filter(columns_to_filter)
         return filtered_dfs
 
@@ -5174,7 +5183,7 @@ class Kernel(_ParamsParser):
             df_spots_coords_in_endname
         ):
         input_endname = df_spots_coords_in_endname
-        if input_endname is not None:
+        if not input_endname:
             if os.path.isfile(input_endname):
                 input_endname = os.path.basename(input_endname)
             parts = io.df_spots_filename_parts(input_endname)
@@ -5226,7 +5235,7 @@ class Kernel(_ParamsParser):
     def _get_dfs_to_save(self, dfs, df_spots_coords_in_endname, text_to_append):
         # Check if df_spots was a input --> add to dfs
         input_endname = df_spots_coords_in_endname
-        if input_endname is None:
+        if not input_endname:
             return dfs, text_to_append, DFs_FILENAMES
         
         if os.path.isfile(input_endname):
@@ -5260,7 +5269,8 @@ class Kernel(_ParamsParser):
             run_number=1, 
             text_to_append='', 
             df_spots_file_ext='.h5', 
-            df_spots_coords_in_endname=None
+            df_spots_coords_in_endname=None,
+            verbose=True
         ):
         if not df_spots_file_ext.startswith('.'):
             df_spots_file_ext = f'.{df_spots_file_ext}'
@@ -5272,7 +5282,7 @@ class Kernel(_ParamsParser):
         if text_to_append and not text_to_append.startswith('_'):
             text_to_append = f'_{text_to_append}'
         
-        if df_spots_coords_in_endname is None:
+        if not df_spots_coords_in_endname:
             self._remove_existing_run_numbers_files(
                 run_number, spotmax_out_path
             )
@@ -5304,7 +5314,9 @@ class Kernel(_ParamsParser):
                         spots_ch_endname, 
                         run_number, 
                         text_to_append=text_to_append,
-                        mask_shape=uncropped_shape
+                        mask_shape=uncropped_shape,
+                        verbose=verbose,
+                        logger_func=self.logger.info
                     )
                     
                 io.save_df_spots(

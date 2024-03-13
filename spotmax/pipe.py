@@ -1962,7 +1962,8 @@ def spotfit(
         pbar = tqdm(
             total=len(rp), ncols=100, desc=desc, position=3, leave=False
         )
-    df_spots_spotfit = df_spots.drop(columns=['spot_mask'], errors='ignore')
+    # df_spots_spotfit = df_spots.drop(columns=['spot_mask'], errors='ignore')
+    df_spots_spotfit = df_spots.copy()
     non_spotfit_cols = df_spots_spotfit.columns.to_list()
     filtered_spots_info = defaultdict(dict)
     for obj in rp:
