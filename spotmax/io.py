@@ -2211,13 +2211,23 @@ def get_text_to_append_from_ini_filepath(ini_filepath):
     text_to_append = cp[section][option]
     return text_to_append
 
-def remove_run_number_spotmax_out_files(run_number, spotmax_out_path):
+def remove_run_number_spotmax_out_files(
+        run_number, spotmax_out_path, additional_files=None
+    ):
+    if additional_files is None:
+        additional_files = []
     for file in utils.listdir(spotmax_out_path):
         if file.startswith(f'{run_number}_'):
             try:
                 os.remove(os.path.join(spotmax_out_path, file))
             except Exception as err:
-                continue
+                pass
+        for additional_file in additional_files:
+            if file.startswith(additional_file):
+                try:
+                    os.remove(os.path.join(spotmax_out_path, file))
+                except Exception as err:
+                    pass 
 
 def save_df_spots(
         df: pd.DataFrame, folder_path: os.PathLike, filename_no_ext: str, 

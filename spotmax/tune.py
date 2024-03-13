@@ -207,10 +207,19 @@ class TuneKernel:
         return best_method
     
     def _cleanup_analysis_files(self):
+        csv_temp_folder = os.path.dirname(self.csv_path)
+        csv_filename = os.path.basename(self.csv_path)
+        csv_filename, _ = os.path.splitext(csv_filename)
+        try:
+            shutil.rmtree(csv_temp_folder)
+        except Exception as err:
+            pass
         run_number = io.get_run_number_from_ini_filepath(self.ini_filepath())
         pos_folderpath = os.path.dirname(self.images_path())
         spotmax_out_path = os.path.join(pos_folderpath, 'spotMAX_output')
-        io.remove_run_number_spotmax_out_files(run_number, spotmax_out_path)
+        io.remove_run_number_spotmax_out_files(
+            run_number, spotmax_out_path, addtional_files=(csv_filename,)
+        )
         try:
             shutil.rmtree(os.path.dirname(self.ini_filepath()))
         except Exception as err:
@@ -245,6 +254,7 @@ class TuneKernel:
         
         df_spots_coords['do_not_drop'] = 1
         csv_path = io.get_temp_csv_filepath()
+        self.csv_path = csv_path
         df_spots_coords.to_csv(csv_path)
         
         self._setup_configparser(csv_path, logger_func=logger_func)
