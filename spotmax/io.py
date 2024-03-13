@@ -480,7 +480,7 @@ def save_preprocessed_img_data(
     ):
     if verbose:
         logger_func(
-            f'Saving pre-processed image data from channel "{ch_endname}"...'
+            f'Saving pre-processed image data from channel "{ch_endname}"'
         )
     
     if not basename.endswith('_'):

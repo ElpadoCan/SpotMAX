@@ -4598,6 +4598,7 @@ class Kernel(_ParamsParser):
             data['df_agg'] = df_agg
             data['ref_ch_segm'] = ref_ch_segm_data
             if save_ref_ch_segm:
+                print('')
                 basename = data.get('basename', '')
                 io.save_ref_ch_mask(
                     ref_ch_segm_data, 
@@ -4611,6 +4612,7 @@ class Kernel(_ParamsParser):
                     logger_func=self.logger.info
                 )
             if save_preproc_ref_ch_img:
+                print('')
                 basename = data.get('basename', '')
                 raw_ref_ch_data_filepath = data['ref_ch.filepath']
                 io.save_preprocessed_img_data(
@@ -4800,6 +4802,7 @@ class Kernel(_ParamsParser):
         pbar.close()
         
         if save_preproc_spots_img:
+            print('')
             basename = data.get('basename', '')
             raw_spots_data_filepath = data['spots_ch.filepath']
             io.save_preprocessed_img_data(
@@ -5305,6 +5308,7 @@ class Kernel(_ParamsParser):
             df_spots = dfs.get(key, None)
 
             if df_spots is not None:
+                print('')
                 if 'spot_mask' in df_spots.columns:
                     df_spots = io.save_spots_masks(
                         df_spots, 
