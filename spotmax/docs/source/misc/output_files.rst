@@ -1,3 +1,5 @@
+.. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
+
 .. _output-files:
 
 Output files
@@ -50,3 +52,28 @@ Finally, the file with ``2_spotfit`` will be created only if
 :confval:`Compute spots size (fit gaussian peak(s))` paramter is True. This 
 file contains additional features determined at the spotFIT step, as described 
 in the section :ref:`spotfit-features`. 
+
+Concatenate multiple experiments results into single file
+---------------------------------------------------------
+
+If you are using the same data structure required by `Cell-ACDC`_ you can 
+concatenate multiple Positions and multiple experiments results into a 
+single table. 
+
+To do so, run Cell-ACDC and in the small launcher window go to the menu 
+on the top menu bar ``Utilies --> Concatenate --> Concatenate spotMAX output tables...``. 
+
+Select as many experiment and Position folders as you need and, optionally, 
+select if you need to copy cell cycle annotations from the Cell-ACDC output 
+file. 
+
+The multiple Positions final table will be saved in each experiment folder 
+selected in a folder called ``spotMAX_multipos_output``. The table will have 
+an additional column called ``Position_n`` that indicates from which Position 
+the data on each comes from. 
+
+If you select more than one experiment folders, Cell-ACDC will also create a 
+table with the all the results from each Position and each experiment selected. 
+The table will be saved in a folder of your choice (you will be asked to 
+select it) and it will have two additional columns called ``experiment_folderpath`` 
+and ``experiment_foldername`` to identify where the data come from.
