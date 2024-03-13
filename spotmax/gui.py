@@ -7,7 +7,6 @@ import re
 import pprint
 from queue import Queue
 
-from click import wrap_text
 import numpy as np
 import pandas as pd
 
@@ -20,7 +19,6 @@ from qtpy.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
 # Interpret image data as row-major instead of col-major
 import pyqtgraph as pg
 
-from spotmax.filters import remove_hot_pixels
 pg.setConfigOption('imageAxisOrder', 'row-major')
 try:
     import numba
