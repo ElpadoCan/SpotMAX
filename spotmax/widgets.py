@@ -819,38 +819,6 @@ class SpotPredictionMethodWidget(QWidget):
         elif self.value() == 'BioImage.IO model':
             self._promptConfigBioImageIOModel()
     
-    def nnet_params_to_ini_sections(self):
-        if self.nnetParams is None:
-            return
-
-        if self.value() != 'spotMAX AI':
-            return 
-        
-        init_model_params = {
-            key:str(value) for key, value in self.nnetParams['init'].items()
-        }
-        segment_model_params = {
-            key:str(value) for key, value in self.nnetParams['segment'].items()
-        }
-        return init_model_params, segment_model_params
-
-    def bioimageio_model_params_to_ini_sections(self):
-        if self.bioImageIOParams is None:
-            return
-
-        if self.value() != 'BioImage.IO model':
-            return 
-        
-        init_model_params = {
-            key:str(value) 
-            for key, value in self.bioImageIOParams['init'].items()
-        }
-        segment_model_params = {
-            key:str(value) 
-            for key, value in self.bioImageIOParams['segment'].items()
-        }
-        return init_model_params, segment_model_params
-    
     def nnet_params_from_ini_sections(self, ini_params):
         from spotmax.nnet.model import get_model_params_from_ini_params
         nnetParams = get_model_params_from_ini_params(

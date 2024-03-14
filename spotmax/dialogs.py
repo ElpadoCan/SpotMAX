@@ -319,7 +319,12 @@ class guiTabControl(QTabWidget):
             start_dir=acdc_myutils.getMostRecentPath(), 
             title='Select analysis parameters file'
         )
+        self.showInFileMangerButton = acdc_widgets.showInFileManagerButton(
+            'Browse loaded file'
+        )
+        self.showInFileMangerButton.setDisabled(True)
         buttonsLayout.addWidget(self.loadPreviousParamsButton)
+        buttonsLayout.addWidget(self.showInFileMangerButton)
         buttonsLayout.addWidget(self.saveParamsButton)
         buttonsLayout.addStretch(1)
 
@@ -342,6 +347,9 @@ class guiTabControl(QTabWidget):
 
         self.loadPreviousParamsButton.sigPathSelected.connect(
             self.loadPreviousParams
+        )
+        self.showInFileMangerButton.clicked.connect(
+            self.browseLoadedParamsFile
         )
         self.saveParamsButton.clicked.connect(self.saveParamsFile)
         self.runSpotMaxButton.clicked.connect(self.runAnalysis)
@@ -523,6 +531,8 @@ class guiTabControl(QTabWidget):
         proceed = self.validateIniFile(filePath)
         if not proceed:
             return
+        self._lastLoadedParamsFilepath = filePath
+        self.showInFileMangerButton.setDisabled(False)
         self.removeAddedFields()
         params = config.analysisInputsParams(filePath, cast_dtypes=False)
         self.setValuesFromParams(params)
@@ -534,6 +544,9 @@ class guiTabControl(QTabWidget):
             return
         self.confirmMeasurementsSet()
         QTimer.singleShot(100, self.loadPreviousParamsButton.confirmAction)
+    
+    def browseLoadedParamsFile(self):
+        acdc_myutils.showInExplorer(self._lastLoadedParamsFilepath)
     
     def showParamsLoadedMessageBox(self):
         msg = acdc_widgets.myMessageBox(wrapText=False)

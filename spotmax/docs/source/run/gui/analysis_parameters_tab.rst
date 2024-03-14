@@ -22,7 +22,7 @@ The parameters can be saved to a INI configuration file by clicking the button
 ``Save parameters to file...`` (top-left). This file will be used to run the analysis. 
 
 If you already have a INI parameters file, you can load its content by clicking 
-on ``Load from previous analysis`` (top-left). 
+on ``Load parameters from previous analysis...`` (top-left). 
 
 On the top-right of the tab you will find the button ``Run analysis...``.
 
