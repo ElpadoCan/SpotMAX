@@ -1139,30 +1139,19 @@ class _ParamsParser(_DataLoader):
         )
         if df_spots_file_ext is None:
             df_spots_file_ext = '.h5'
-        if self.exp_paths_list:
-            for i in range(len(self.exp_paths_list)):
-                for exp_path in list(self.exp_paths_list[i].keys()):
-                    exp_info = self.exp_paths_list[i][exp_path]
-                    exp_info['spotsEndName'] = spots_ch_endname
-                    exp_info['refChEndName'] = ref_ch_endname
-                    exp_info['segmEndName'] = segm_endname
-                    exp_info['spotChSegmEndName'] = spots_ch_segm_endname
-                    exp_info['refChSegmEndName'] = ref_ch_segm_endname
-                    exp_info['lineageTableEndName'] = lineage_table_endname
-                    exp_info['inputDfSpotsEndname'] = df_spots_coords_in_endname
-                    exp_info['textToAppend'] = text_to_append
-                    exp_info['df_spots_file_ext'] = df_spots_file_ext
-                    self.exp_paths_list[i][exp_path] = exp_info
-        else:
-            self.single_path_info = {
-                'spots_ch_filepath': spots_ch_endname,
-                'ref_ch_filepath': ref_ch_endname,
-                'segm_filepath': segm_endname,
-                'ref_ch_segm_filepath': ref_ch_segm_endname,
-                'lineage_table_filepath': lineage_table_endname,
-                'text_to_append': text_to_append,
-                'df_spots_file_ext': df_spots_file_ext
-            }
+        for i in range(len(self.exp_paths_list)):
+            for exp_path in list(self.exp_paths_list[i].keys()):
+                exp_info = self.exp_paths_list[i][exp_path]
+                exp_info['spotsEndName'] = spots_ch_endname
+                exp_info['refChEndName'] = ref_ch_endname
+                exp_info['segmEndName'] = segm_endname
+                exp_info['spotChSegmEndName'] = spots_ch_segm_endname
+                exp_info['refChSegmEndName'] = ref_ch_segm_endname
+                exp_info['lineageTableEndName'] = lineage_table_endname
+                exp_info['inputDfSpotsEndname'] = df_spots_coords_in_endname
+                exp_info['textToAppend'] = text_to_append
+                exp_info['df_spots_file_ext'] = df_spots_file_ext
+                self.exp_paths_list[i][exp_path] = exp_info
         
     def _add_resolution_limit_metadata(self, metadata):
         emission_wavelen = metadata['emWavelen']
@@ -4238,6 +4227,7 @@ class Kernel(_ParamsParser):
             return
         
         datetime_stopped = datetime.now()
+        exec_time = datetime_stopped - self._report["datetime_started"]
         title = 'spotMAX analysis report'
         _line_title = '*'*len(title)
         title = f'{_line_title}\n{title}\n{_line_title}'
@@ -4245,6 +4235,7 @@ class Kernel(_ParamsParser):
             f'{title}\n\n'
             f'Analysis started on: {self._report["datetime_started"]}\n'
             f'Analysis ended on: {datetime_stopped}\n'
+            f'Total execution time: {exec_time}\n'
             f'Log file: "{self.log_path}"\n\n'
             f'Parameters file: "{self._report["params_path"]}"\n\n'
         )
@@ -4309,6 +4300,7 @@ class Kernel(_ParamsParser):
             print('-'*100)
             self.quit(error)
         else:
+            self.were_errors_detected = True
             self.logger.exception(traceback_str)
             if not hasattr(self, '_report'):
                 return
@@ -4769,7 +4761,7 @@ class Kernel(_ParamsParser):
                 )
                 if df_spots_coords_input is None:
                     continue
-                                
+            
             self.spots_detection(
                 preproc_spots_img, zyx_resolution_limit_pxl, 
                 sharp_spots_img=sharp_spots_img,
@@ -5024,7 +5016,7 @@ class Kernel(_ParamsParser):
                 images_path = os.path.join(pos_path, 'Images')
                 self._current_pos_path = pos_path
                 t0 = time.perf_counter()
-                dfs, data = self._run_from_images_path(
+                result = self._run_from_images_path(
                     images_path, 
                     spots_ch_endname=spots_ch_endname, 
                     ref_ch_endname=ref_ch_endname, 
@@ -5037,9 +5029,10 @@ class Kernel(_ParamsParser):
                     transformed_spots_ch_nnet=transformed_data_nnet[pos],
                     run_number=run_number
                 )      
-                if dfs is None:
+                if result is None:
                     # Error raised, logged while dfs is None
                     continue
+                dfs, data = result
                 self.add_post_analysis_features(dfs)
                 dfs = self.filter_requested_features(dfs)
                 dfs = self.filter_requested_features(dfs, on_aggr=True)
@@ -5379,13 +5372,12 @@ class Kernel(_ParamsParser):
         if is_report_enabled and report_filepath:
             self.init_report(self.ini_params_file_path, report_filepath)
 
-        if self.exp_paths_list:
-            self.is_batch_mode = True
-            for exp_paths in self.exp_paths_list:
-                self._run_exp_paths(exp_paths)
-            self.save_report()
-        else:
-            self._run_single_path(self.single_path_info)
+        self.were_errors_detected = False
+        
+        self.is_batch_mode = True
+        for exp_paths in self.exp_paths_list:
+            self._run_exp_paths(exp_paths)
+        self.save_report()
         self.quit()
             
     def quit(self, error=None):
@@ -5408,6 +5400,28 @@ class Kernel(_ParamsParser):
                 'Please **send the log file** when reporting a bug, thanks!'
             )
             self.logger.info(err_msg)
+        elif self.were_errors_detected:
+            txt = (
+                '[WARNING]: SpotMAX command-line interface closed, but errors '
+                'have been detected and logged during the analysis.\n\n'
+                'More details in the following files:\n\n'
+                f'  * Log file: "{self.log_path}"'
+            )
+            if hasattr(self, '_report'):
+                report_filepath = self._report['report_filepath']
+                txt = (
+                    f'{txt}\n'
+                    f'  * Report file: "{report_filepath}"'
+                )
+            txt = (
+                f'{txt}\n\n'
+                'If you need help, you can report this error by opening '
+                'an issue on our '
+                'GitHub page at the following link:\n\n'
+                f'{issues_url}\n\n'
+                'Please **send the log file** when reporting an issue, thanks!'
+            )
+            self.logger.info(txt)
         else:
             self.logger.info(
                 'spotMAX command-line interface closed. '
