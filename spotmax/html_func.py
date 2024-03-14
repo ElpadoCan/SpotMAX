@@ -293,6 +293,17 @@ def rst_urls_to_hrefs_mapper(rst_text):
         label_to_hrefs_mapper[f'`{label}`_'] = href(label, url)
     return label_to_hrefs_mapper
 
+def rst_code_blocks_to_pre_html(rst_text):
+    rst_with_html_pre = rst_text
+    
+    while True:        
+        rst_code_block, indented_paragraph = rst_extract_directive_block(
+            rst_text, f'.. code-block::'
+        )
+        import pdb; pdb.set_trace()
+        if not rst_code_block:
+            break
+
 def rst_to_qt_html(rst_sub_text, rst_global_text=''):
     valid_chars = r'[,A-Za-z0-9μ\-\.=_ \<\>\(\)\\\&;]'
     html_text = rst_sub_text.strip('\n')
