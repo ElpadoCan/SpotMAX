@@ -294,15 +294,42 @@ def rst_urls_to_hrefs_mapper(rst_text):
     return label_to_hrefs_mapper
 
 def rst_code_blocks_to_pre_html(rst_text):
+    # Remove the language directive of the code blocks
+    rst_text = re.sub(r'\.\. code-block::.*', '.. code-block::', rst_text)
     rst_with_html_pre = rst_text
     
     while True:        
         rst_code_block, indented_paragraph = rst_extract_directive_block(
             rst_text, f'.. code-block::'
         )
-        import pdb; pdb.set_trace()
         if not rst_code_block:
             break
+        
+        # Remove multiple spacing with single one
+        html_paragraph = re.sub(r' +', ' ', indented_paragraph)
+        
+        # Remove trailing spaces and new lines chars
+        html_paragraph = html_paragraph.strip('\n')
+        html_paragraph = html_paragraph.strip()
+        
+        # Replace new line chars with <br>
+        html_paragraph = html_paragraph.replace('\n', '<br>')
+        html_paragraph = html_paragraph.replace('<br> ', '<br>')
+        
+        pre_code_html = f'<pre><code>{html_paragraph}</code></pre>'
+        
+        # Replace rst note with html note
+        rst_with_html_pre = rst_with_html_pre.replace(
+            rst_code_block, pre_code_html
+        )
+        
+        # Remove current admon block
+        end_current_block_idx = (
+            rst_with_html_pre.find(rst_code_block) 
+            + len(rst_code_block)
+        )
+        rst_text = rst_text[end_current_block_idx:]
+    return rst_with_html_pre
 
 def rst_to_qt_html(rst_sub_text, rst_global_text=''):
     valid_chars = r'[,A-Za-z0-9μ\-\.=_ \<\>\(\)\\\&;]'
@@ -321,6 +348,7 @@ def rst_to_qt_html(rst_sub_text, rst_global_text=''):
     for admonition_type in ADMONITION_TYPES:
         html_text = rst_admonitions_to_html_table(html_text, admonition_type)
     
+    html_text = rst_code_blocks_to_pre_html(html_text)
     html_text = rst_math_to_latex_directive(html_text)
     html_text = html_text.replace('\n', '<br>')
     html_text = html_text.replace(' <br>', '<br>')

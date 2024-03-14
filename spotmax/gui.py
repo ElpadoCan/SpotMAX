@@ -433,6 +433,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         with open(html_filepath) as html_file:
             htmlText = html_file.read()
         self.ax1.infoTextItem.setHtml(htmlText)
+        self.ax1.infoTextItem.setPos(0,0)
     
     def _disableAcdcActions(self, *actions):
         for action in actions:

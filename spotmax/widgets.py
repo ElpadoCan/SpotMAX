@@ -542,6 +542,7 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
         
         tooltip = self.selectedFeaturesWindow.configIniParam()
         self.setToolTip(tooltip)
+        # self.setStyleSheet("background-color : yellow")
     
     def text(self):
         tooltip = self.toolTip()
