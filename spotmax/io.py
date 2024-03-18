@@ -2196,6 +2196,12 @@ def add_use_default_values_to_configparser(configparser):
     configparser[section][option] = 'True'
     return configparser
 
+def set_out_files_extension(configparser, ext):
+    section = 'File paths and channels'
+    option = 'File extension of the output tables'
+    configparser[section][option] = ext
+    return configparser
+
 def get_existing_run_nums(folderpath, logger_func=print):
     pathScanner = expFolderScanner(
         folderpath, logger_func=logger_func
@@ -2206,7 +2212,7 @@ def get_existing_run_nums(folderpath, logger_func=print):
     for run_num, runInfo in pathScanner.paths.items():
         for exp_path, expInfo in runInfo.items():
             if 'analysisInputs' in expInfo:
-                analysed_run_nums.append(run_num)
+                analysed_run_nums.add(run_num)
     return analysed_run_nums
 
 def get_run_number_from_ini_filepath(ini_filepath):

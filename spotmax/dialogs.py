@@ -866,6 +866,9 @@ class AutoTuneGroupbox(QGroupBox):
     def setInspectFeatures(self, point_features):
         self.viewFeaturesGroupbox.setFeatures(point_features)
     
+    def clearInspectFeatures(self):
+        self.viewFeaturesGroupbox.clearFeatures()
+    
     def emitYXresolMultiplSigChanged(self, value):
         self.sigYXresolMultiplChanged.emit(value)
     
@@ -1075,7 +1078,7 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         self.infoLabel.setText(self._infoText)
     
     def setFeatures(self, point_features: pd.Series):
-        frame_i, z, y, x = point_features.name
+        pos_foldername, frame_i, z, y, x = point_features.name
         self.xLineEntry.setText(str(x))
         self.yLineEntry.setText(str(y))
         self.zLineEntry.setText(str(z))
@@ -1086,6 +1089,13 @@ class AutoTuneViewSpotFeatures(QGroupBox):
             value = point_features.loc[feature_colname]
             selectButton.entry.setText(str(value))
         self.infoLabel.setText('<i>&nbsp;</i>')
+    
+    def clearFeatures(self):
+        self.xLineEntry.setText('')
+        self.yLineEntry.setText('')
+        self.zLineEntry.setText('')
+        for selectButton in self.featureButtons:
+            selectButton.entry.setText('')
     
     def addFeatureEntry(self):
         selectButton = widgets.FeatureSelectorButton(
@@ -1180,8 +1190,8 @@ class AutoTuneTabWidget(QWidget):
         autoTuningButton = widgets.AutoTuningButton()
         self.loadingCircle = acdc_widgets.LoadingCircleAnimation(size=16)
         self.loadingCircle.setVisible(False)
-        buttonsLayout.addWidget(self.loadingCircle)
         buttonsLayout.addWidget(autoTuningButton)
+        buttonsLayout.addWidget(self.loadingCircle)
         self.autoTuningButton = autoTuningButton
         
         helpButton = acdc_widgets.helpPushButton('Help...')
@@ -1269,10 +1279,10 @@ class AutoTuneTabWidget(QWidget):
         if self.df_features is None:
             return
         point = points[0]
-        frame_i, z = point.data()[:2]
+        ptz_idx = point.data()[:3]
         pos = point.pos()
         x, y = round(pos.x()), round(pos.y())
-        point_features = self.df_features.loc[(frame_i, z, y, x)]
+        point_features = self.df_features.loc[(*ptz_idx, y, x)]
         self.autoTuneGroupbox.setInspectFeatures(point_features)
     
     def emitForegrBackrToggledSignal(self, checked):
@@ -1313,8 +1323,19 @@ class AutoTuneTabWidget(QWidget):
         )
         self.df_features = (
             tuneResult.df_features.reset_index()
-            .set_index(['frame_i', 'z', 'y', 'x'])
+            .set_index(['Position_n', 'frame_i', 'z', 'y', 'x'])
         )
+    
+    def updatePos(self, posData, z):
+        self.setPosData(posData)
+        self.setVisibleAutoTunePoints(self.posFoldername(), 0, z)
+        self.autoTuneGroupbox.clearInspectFeatures()
+    
+    def setPosData(self, posData):
+        self._posData = posData
+    
+    def posFoldername(self):
+        return self._posData.pos_foldername
     
     def getHoveredPoints(self, frame_i, z, y, x):
         items = [
@@ -1328,8 +1349,12 @@ class AutoTuneTabWidget(QWidget):
                 continue
             for point in points:
                 point_data = point.data()
-                if (point_data[0], point_data[1]) != (frame_i, z):
-                    continue 
+                if point_data[0] != self.posFoldername():
+                    continue
+                if point_data[1] != frame_i:
+                    continue
+                if point_data[2] != z:
+                    continue
                 hoveredPoints.append(point)
         return hoveredPoints
     
@@ -1349,24 +1374,29 @@ class AutoTuneTabWidget(QWidget):
                 zref = hoveredPoint.data()[2]
                 # Remove same point in neigh z-slices
                 for point in points:
-                    if point.data()[0] != frame_i:
+                    point_data = point.data()
+                    if point_data[0] != self.posFoldername():
+                        continue
+
+                    if point_data[1] != frame_i:
                         continue
                     
-                    if point.data()[2] != zref:
+                    if point_data[3] != zref:
                         continue
                     
                     item.removePoint(point._index)
         else:
-            item.addPoints([x], [y], data=[(frame_i, z, z)])
+            point_data = (self.posFoldername(), frame_i, z, z)
+            item.addPoints([x], [y], data=[point_data])
             for neigh_z in range(z-self.z_radius, z+self.z_radius+1):
                 if neigh_z == z:
                     continue
+                neigh_point_data = (self.posFoldername(), frame_i, neigh_z, z)
                 item.addPoints(
-                    [x], [y], data=[(frame_i, neigh_z, z)], 
+                    [x], [y], data=[neigh_point_data], 
                     brush=[pg.mkBrush((0, 0, 0, 0))], 
                     pen=[pg.mkPen((0, 0, 0, 0))]
                 )
-            # self.setVisibleAutoTunePoints(frame_i, z)
         
         self.resetFeatures()
     
@@ -1374,18 +1404,18 @@ class AutoTuneTabWidget(QWidget):
         self.df_features = None
         self.autoTuneGroupbox.viewFeaturesGroupbox.resetFeatures()
     
-    def setVisibleAutoTunePoints(self, frame_i, z):
+    def setVisibleAutoTunePoints(self, *args):
         items = [
             self.autoTuneGroupbox.trueItem, self.autoTuneGroupbox.falseItem
         ]
-        
+
         for item in items:
             brushes = []
             pens = []
             visibilities = []
             for point in item.data['item']:
                 point_data = point.data()
-                visible = (point_data[0], point_data[1]) == (frame_i, z)
+                visible = (point_data[0], point_data[1], point_data[2]) == args
                 if not visible:
                     brush = pg.mkBrush((0, 0, 0, 0))
                     pen = pg.mkPen((0, 0, 0, 0))

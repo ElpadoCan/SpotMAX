@@ -501,6 +501,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.transformedDataTime = None
         self.isEditingResults = False
         
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.addAutoTunePointsButton.setChecked(False)
+        
+        self.checkReinitTuneKernel()
+        
     def initGui(self):
         self.isAnalysisRunning = False
         
@@ -1081,31 +1086,32 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget.autoTuningButton.setChecked(False)
     
     # @exception_handler
-    def storeCroppedDataAndStartTuneKernel(self, *args, **kwargs):
+    def storeCroppedDataToTuneKernel(self, *args, **kwargs):
         kernel = args[0]
         image_data_cropped = kwargs['image_data_cropped']
         segm_data_cropped = kwargs['segm_data_cropped']
         crop_to_global_coords = kwargs['crop_to_global_coords']
         
-        kernel.set_crop_to_global_coords(crop_to_global_coords)
+        pos_foldername = self.data[self.pos_i].pos_foldername
         
-        kernel.set_image_data(image_data_cropped)
-        kernel.set_segm_data(segm_data_cropped)      
+        kernel.set_crop_to_global_coords(pos_foldername, crop_to_global_coords)
+        kernel.set_image_data(pos_foldername, image_data_cropped)
+        kernel.set_segm_data(pos_foldername, segm_data_cropped)  
         
-        self.startTuneKernelWorker(kernel)
-        
-    def storeCroppedRefChDataAndStartTuneKernel(self, *args, **kwargs):
-        kernel = args[0]
-        ref_ch_data_cropped = kwargs['image_data_cropped']
-        segm_data_cropped = kwargs['segm_data_cropped']
-        
-        kernel.set_ref_ch_data(ref_ch_data_cropped)
-        kernel.set_segm_data(segm_data_cropped)
-        
-        if kernel.image_data() is None:
+        if self.pos_i == len(self.data)-1:
+            # Back to current pos
+            self.pos_i = self.current_pos_i
+            # self.get_data()
+            self.startTuneKernelWorker(kernel)
+        else:
+            self.pos_i += 1
             posData = self.data[self.pos_i]
+            pos_foldername = posData.pos_foldername
+            kernel.set_images_path(
+                pos_foldername, posData.images_path, posData.basename
+            )
             on_finished_callback = (
-                self.storeCroppedDataAndStartTuneKernel, args, kwargs
+                self.storeCroppedDataToTuneKernel, args, kwargs
             )
             self.startCropImageBasedOnSegmDataWorkder(
                 posData.img_data, posData.segm_data, 
@@ -1117,13 +1123,14 @@ class spotMAX_Win(acdc_gui.guiWin):
             self, image_data, segm_data, on_finished_callback,
             nnet_input_data=None
         ):
-        self.progressWin = acdc_apps.QDialogWorkerProgress(
-            title='Cropping based on segm data', parent=self,
-            pbarDesc='Cropping based on segm data'
-        )
-        self.progressWin.mainPbar.setMaximum(0)
-        self.progressWin.show(self.app)
-            
+        if self.progressWin is None:
+            self.progressWin = acdc_apps.QDialogWorkerProgress(
+                title='Cropping based on segm data', parent=self,
+                pbarDesc='Cropping based on segm data'
+            )
+            self.progressWin.mainPbar.setMaximum(0)
+            self.progressWin.show(self.app)
+        
         posData = self.data[self.pos_i]
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
@@ -1280,11 +1287,14 @@ class spotMAX_Win(acdc_gui.guiWin):
             widget.activateCheckbox.click()
     
     def checkReinitTuneKernel(self):
+        if not hasattr(self, 'data'):
+            return 
+        
         posData = self.data[self.pos_i]
         if not hasattr(posData, 'tuneKernel'):
             return
         
-        if posData.tuneKernel.image_data() is None:
+        if not posData.tuneKernel.image_data():
             return
         
         posData.tuneKernel.init_input_data()
@@ -2582,9 +2592,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
         
         trueItem = autoTuneGroupbox.trueItem
-        coords = trueItem.coordsToNumpy(includeData=True)
+        df_coords = trueItem.coordsToDf(includeData=True)
         
-        if len(coords) == 0:
+        if len(df_coords) == 0:
             self.warnTrueSpotsAutoTuneNotAdded()
             return
         
@@ -2594,7 +2604,6 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         kernel = posData.tuneKernel
         kernel.set_kwargs(all_kwargs)
-        kernel.set_images_path(posData.images_path)
         
         args = [kernel]
         kwargs = {
@@ -2603,9 +2612,15 @@ class spotMAX_Win(acdc_gui.guiWin):
             'segm_data_cropped': None,
             'crop_to_global_coords': None
         }
-        if kernel.image_data() is None:
+        self.current_pos_i = self.pos_i
+        if not kernel.image_data():
+            self.pos_i = 0
+            posData = self.data[self.pos_i]
+            kernel.set_images_path(
+                posData.pos_foldername, posData.images_path, posData.basename
+            )
             on_finished_callback = (
-                self.storeCroppedDataAndStartTuneKernel, args, kwargs
+                self.storeCroppedDataToTuneKernel, args, kwargs
             )
             self.startCropImageBasedOnSegmDataWorkder(
                 posData.img_data, posData.segm_data, 
@@ -2615,6 +2630,14 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.startTuneKernelWorker(kernel)
         
     def startTuneKernelWorker(self, kernel):
+        if self.progressWin is None:
+            self.progressWin = acdc_apps.QDialogWorkerProgress(
+                title='Tuning parameters', parent=self,
+                pbarDesc='Tuning parameters'
+            )
+            self.progressWin.mainPbar.setMaximum(0)
+            self.progressWin.show(self.app)
+            
         ini_filepath, temp_dirpath = io.get_temp_ini_filepath()
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         ParamsGroupBox.saveToIniFile(ini_filepath)
@@ -2624,12 +2647,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
         
         trueItem = autoTuneGroupbox.trueItem
-        coords = trueItem.coordsToNumpy(includeData=True)
-        kernel.set_tzyx_true_spots_coords(coords)
+        df_coords = trueItem.coordsToDf(includeData=True)
+        kernel.set_tzyx_true_spots_df_coords(df_coords)
         
         falseItem = autoTuneGroupbox.falseItem
-        coords = falseItem.coordsToNumpy(includeData=True)
-        kernel.set_tzyx_false_spots_coords(coords)
+        df_coords = falseItem.coordsToDf(includeData=True)
+        kernel.set_tzyx_false_spots_df_coords(df_coords)
         
         worker = qtworkers.TuneKernelWorker(kernel)
         self.connectDefaultWorkerSlots(worker)
@@ -2775,6 +2798,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     def addAutoTunePointsToggled(self, checked):
         self.isAddAutoTunePoints = checked
         self.zProjComboBox.setDisabled(checked)
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.setPosData(self.data[self.pos_i])
         if checked:
             self.setAutoTunePointSize()
     
@@ -2940,7 +2965,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         frame_i = posData.frame_i
         z = self.currentZ()
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        autoTuneTabWidget.setVisibleAutoTunePoints(frame_i, z)
+        args = (posData.pos_foldername, frame_i, z)
+        autoTuneTabWidget.setVisibleAutoTunePoints(*args)
     
     def updateZproj(self, how):
         super().updateZproj(how)
@@ -2965,6 +2991,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.initTextAnnot()
         self.postProcessing()
         posData = self.data[self.pos_i]
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneTabWidget.updatePos(posData, self.currentZ())
         self.spotsItems.setPosition(posData)
         self.spotsItems.loadSpotsTables()
         self.updateAllImages(updateFilters=True)

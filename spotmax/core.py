@@ -1073,13 +1073,14 @@ class _ParamsParser(_DataLoader):
                     {exp_path: {'pos_foldernames': [pos_foldername]}}
                 )
             elif io.is_images_path(exp_path):
-                pos_path = os.path.dirname(exp_path)
+                images_path = exp_path
+                pos_path = os.path.dirname(images_path)
                 pos_foldername = os.path.basename(pos_path)
                 if pos_foldername.startswith('Position_'):
-                    exp_path = os.path.dirname(os.path.dirname(pos_path))
+                    exp_path = os.path.dirname(os.path.dirname(images_path))
                 else:
                     # Images folder without a Position_n folder as parent folder
-                    exp_path = os.path.dirname(pos_path)
+                    exp_path = os.path.dirname(images_path)
                 exp_paths = (
                     {exp_path: {'pos_foldernames': [pos_foldername]}}
                 )
@@ -5568,7 +5569,6 @@ def ceil(val, precision=0):
 
 def floor(val, precision=0):
     return np.true_divide(np.floor(val * 10**precision), 10**precision)
-
 
 def nearest_nonzero(arr, point):
     value = arr[tuple(point)]

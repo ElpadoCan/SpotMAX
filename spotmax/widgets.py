@@ -820,6 +820,38 @@ class SpotPredictionMethodWidget(QWidget):
         elif self.value() == 'BioImage.IO model':
             self._promptConfigBioImageIOModel()
     
+    def nnet_params_to_ini_sections(self):
+        if self.nnetParams is None:
+            return
+
+        if self.value() != 'spotMAX AI':
+            return 
+        
+        init_model_params = {
+            key:str(value) for key, value in self.nnetParams['init'].items()
+        }
+        segment_model_params = {
+            key:str(value) for key, value in self.nnetParams['segment'].items()
+        }
+        return init_model_params, segment_model_params
+    
+    def bioimageio_model_params_to_ini_sections(self):
+        if self.bioImageIOParams is None:
+            return
+
+        if self.value() != 'BioImage.IO model':
+            return 
+        
+        init_model_params = {
+            key:str(value) 
+            for key, value in self.bioImageIOParams['init'].items()
+        }
+        segment_model_params = {
+            key:str(value) 
+            for key, value in self.bioImageIOParams['segment'].items()
+        }
+        return init_model_params, segment_model_params
+    
     def nnet_params_from_ini_sections(self, ini_params):
         from spotmax.nnet.model import get_model_params_from_ini_params
         nnetParams = get_model_params_from_ini_params(
@@ -835,6 +867,7 @@ class SpotPredictionMethodWidget(QWidget):
         self.bioImageIOParams = get_model_params_from_ini_params(
             ini_params, use_default_for_missing=True
         )
+        return self.bioImageIOParams['init'], self.bioImageIOParams['segment']
 
 class SpotMinSizeLabels(QWidget):
     def __init__(self):
@@ -2998,11 +3031,24 @@ class TuneScatterPlotItem(acdc_widgets.ScatterPlotItem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
     
-    def coordsToNumpy(self, includeData=True, **kwargs):
-        data = super().coordsToNumpy(includeData=True, **kwargs)
-        if data.size == 0:
-            return data
+    def coordsToDf(self, includeData=True, **kwargs):
+        if len(self.points()) == 0:
+            return []
         
-        # Keep only center spots
-        mask = data[:, 1] == data[:, 2]
-        return data[mask][:, [0, 1, 3, 4]]
+        columns = ['Position_n', 'frame_i', 'neigh_z', 'z', 'y', 'x']
+        df = {col:[] for col in columns}
+        for p, point in enumerate(self.points()):
+            pos = point.pos()
+            x, y = pos.x(), pos.y()
+            df['x'].append(round(x))
+            df['y'].append(round(y))
+            pos_foldername, frame_i, neigh_z, z = point.data()
+            df['Position_n'].append(pos_foldername)
+            df['frame_i'].append(frame_i)
+            df['neigh_z'].append(neigh_z)
+            df['z'].append(z)
+
+        df = pd.DataFrame(df)
+        df = df[df['neigh_z'] == df['z']].drop(columns='neigh_z')
+        
+        return df

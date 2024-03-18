@@ -1076,7 +1076,7 @@ def _spots_ch_params():
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
             'dtype': get_bool
-        }
+        },
     }
     return spots_ch_params
 
