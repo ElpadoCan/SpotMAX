@@ -86,6 +86,7 @@ def spots_semantic_segmentation(
         do_remove_hot_pixels=False,
         lineage_table=None,
         do_aggregate=True,
+        min_spot_mask_size=5,
         keep_objects_touching_lab_intact=True,
         use_gpu=False,
         logger_func=print,
@@ -143,6 +144,9 @@ def spots_semantic_segmentation(
         https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
     do_aggregate : bool, optional
         If True, perform segmentation on all the cells at once. Default is True
+    min_spot_mask_size : int, optional
+        Minimum size (in pixels) of the spots masks. Masks with 
+        `size < min_spot_mask_size` will be removed. Default is 5.
     keep_objects_touching_lab_intact : bool, optional
         If True, objects that are partially touching any of the segmentation 
         masks present in `lab` will be entirely kept. If False, the part of 
@@ -281,7 +285,8 @@ def spots_semantic_segmentation(
             x_slice_idxs=x_slice_idxs,
             bioimageio_model=bioimageio_model,
             bioimageio_params=bioimageio_params,
-            bioimageio_input_image=raw_image
+            bioimageio_input_image=raw_image,
+            min_mask_size=min_spot_mask_size
         )
     else:
         result = filters.local_semantic_segmentation(
@@ -298,7 +303,8 @@ def spots_semantic_segmentation(
             do_max_proj=True,
             bioimageio_model=bioimageio_model,
             bioimageio_params=bioimageio_params,
-            bioimageio_input_image=raw_image
+            bioimageio_input_image=raw_image,
+            min_mask_size=min_spot_mask_size
         )
     
     return result
@@ -1250,6 +1256,7 @@ def spot_detection(
             min_distance=min_distance,
             footprint=spot_footprint, 
             labels=labels,
+            debug=True
         )
         if return_spots_mask:
             spots_masks = transformations.from_spots_coords_to_spots_masks(

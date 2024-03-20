@@ -182,7 +182,8 @@ def local_semantic_segmentation(
         do_try_all_thresholds=True,
         bioimageio_model=None,
         bioimageio_params=None,
-        bioimageio_input_image=None
+        bioimageio_input_image=None,
+        min_mask_size=1
     ):
     # Get prediction mask by thresholding objects separately
     threshold_funcs = _get_threshold_funcs(
@@ -267,6 +268,8 @@ def local_semantic_segmentation(
                 id = obj_local.label
                 labels[merged_obj_slice][obj_local.slice][predict_mask_obj] = id
 
+        labels = filter_labels_by_size(labels, min_mask_size)
+        
         result[method] = labels.astype(np.int32)
         if do_try_all_thresholds:
             pbar.update()
@@ -302,7 +305,8 @@ def global_semantic_segmentation(
         x_slice_idxs=None,
         bioimageio_model=None,
         bioimageio_params=None,
-        bioimageio_input_image=None
+        bioimageio_input_image=None,
+        min_mask_size=1
     ):    
     if image.ndim not in (2, 3):
         ndim = image.ndim
@@ -342,6 +346,7 @@ def global_semantic_segmentation(
             aggr_img, thresh_func, logger_func=logger_func,
             do_max_proj=True
         )
+        thresholded = filter_labels_by_size(thresholded, min_mask_size)
         result[method] = thresholded
     
     # Neural network
@@ -354,12 +359,14 @@ def global_semantic_segmentation(
         nnet_labels = nnet_model.segment(
             nnet_input_img, **nnet_params['segment']
         )
+        nnet_labels = filter_labels_by_size(nnet_labels, min_mask_size)
         result['neural_network'] = nnet_labels
     
     if bioimageio_model is not None:
         bioimageio_labels = bioimageio_model.segment(
             aggr_transf_spots_bioimageio_img, **bioimageio_params['segment']
         )
+        bioimageio_labels = filter_labels_by_size(nnet_labels, min_mask_size)
         result['bioimageio_model'] = bioimageio_labels
     
     if keep_input_shape:
@@ -514,6 +521,20 @@ def drop_spots_not_in_ref_ch(df, ref_ch_mask, local_peaks_coords):
         in_ref_ch_spots_mask = (in_ref_ch_spots_mask) | (df['do_not_drop'] > 0)
     
     return df[in_ref_ch_spots_mask]
+
+def filter_labels_by_size(labels, min_size):
+    if min_size <= 1:
+        return labels
+    
+    lab = skimage.measure.label(labels.astype(np.uint32))
+    rp = skimage.measure.regionprops(lab)
+    filtered_labels = labels.copy()
+    for obj in rp:
+        if obj.area >= min_size:
+            continue
+        
+        filtered_labels[obj.slice][obj.image] = 0
+    return filtered_labels
 
 def filter_valid_points_min_distance(points, min_distance, intensities=None):
     num_points = len(points)

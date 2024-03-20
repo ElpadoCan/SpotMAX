@@ -983,6 +983,19 @@ def _spots_ch_params():
             'formWidgetFunc': 'widgets.SpotPredictionMethodWidget',
             'actions': None
         },
+        'minSizeSpotMask': {
+            'desc': 'Minimum size of spot segmentation mask',
+            'initialVal': 5,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': False,
+            'formWidgetFunc': 'widgets.SpinBox',
+            'actions': None,
+            'dtype': int,
+        },
         'spotThresholdFunc': {
             'desc': 'Spot detection threshold function',
             'initialVal': 'threshold_li',

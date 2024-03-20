@@ -402,7 +402,9 @@ def add_additional_spotfit_features(df_spotfit):
     df_spotfit['Q_factor_z'] = df_spotfit['A_fit']/df_spotfit['sigma_z_fit']
     return df_spotfit
 
-def find_local_peaks(image, min_distance=1, footprint=None, labels=None):
+def find_local_peaks(
+        image, min_distance=1, footprint=None, labels=None, debug=False
+    ):
     """Find local peaks in intensity image
 
     Parameters
@@ -464,7 +466,7 @@ def find_local_peaks(image, min_distance=1, footprint=None, labels=None):
     valid_peaks_coords = transformations.reshape_spots_coords_to_3D(
         valid_peaks_coords
     )
-    return peaks_coords
+    return valid_peaks_coords
 
 def add_custom_combined_measurements(df, logger_func=print, **features_exprs):
     """_summary_

@@ -3672,6 +3672,7 @@ class Kernel(_ParamsParser):
             do_aggregate=False,
             lineage_table=None, 
             min_size_spheroid_mask=None,
+            min_spot_mask_size=5,
             spot_footprint=None, 
             dfs_lists=None, 
             save_spots_mask=True,
@@ -3727,7 +3728,8 @@ class Kernel(_ParamsParser):
             save_spots_mask=save_spots_mask,
             raw_spots_img=raw_spots_img,
             frame_i=frame_i, 
-            df_spots_coords_input=df_spots_coords_input
+            df_spots_coords_input=df_spots_coords_input,
+            min_spot_mask_size=min_spot_mask_size
         )
         df_spots_det, df_spots_gop = self._spots_filter(
             df_spots_coords, 
@@ -3894,6 +3896,7 @@ class Kernel(_ParamsParser):
             raw_spots_img=None,
             frame_i=0,
             df_spots_coords_input=None,
+            min_spot_mask_size=5
         ):
         if verbose and df_spots_coords_input is None:
             print('')
@@ -3914,6 +3917,7 @@ class Kernel(_ParamsParser):
         
         if aggr_spots_ch_segm_mask is not None:
             labels = aggr_spots_ch_segm_mask.astype(int)
+            labels = filters.filter_labels_by_size(labels, min_spot_mask_size)
         elif df_spots_coords_input is None:
             if verbose:
                 print('')
@@ -3938,7 +3942,8 @@ class Kernel(_ParamsParser):
                 return_only_segm=True,
                 pre_aggregated=True,
                 x_slice_idxs=x_slice_idxs,
-                raw_image=raw_spots_img
+                raw_image=raw_spots_img,
+                min_spot_mask_size=min_spot_mask_size
             )
         
         spots_masks = None
@@ -4684,6 +4689,9 @@ class Kernel(_ParamsParser):
         prediction_method = (
             self._params[SECTION]['spotPredictionMethod']['loadedVal']
         )
+        min_spot_mask_size = (
+            self._params[SECTION]['minSizeSpotMask']['loadedVal']
+        )
         threshold_method = (
             self._params[SECTION]['spotThresholdFunc']['loadedVal']
         )
@@ -4784,6 +4792,7 @@ class Kernel(_ParamsParser):
                 transf_spots_nnet_img=transf_spots_nnet_img,
                 dfs_lists=dfs_lists,
                 min_size_spheroid_mask=min_size_spheroid_mask,
+                min_spot_mask_size=min_spot_mask_size,
                 dist_transform_spheroid=edt_spheroid,
                 spot_footprint=spot_footprint,
                 get_backgr_from_inside_ref_ch_mask=get_backgr_from_inside_ref_ch_mask,
