@@ -222,6 +222,13 @@ File paths and channels
   Useful when trying out different parameters and you want to compare the 
   results of the different runs. 
 
+  .. warning:: 
+
+    The run number is the only discriminator to determine if files should be 
+    overwritten or not. If you run the analysis with an already existing run 
+    number, the older files will be overwritten regardless of the value of 
+    :confval:`Text to append at the end of the output files`.
+
   :type: integer
   :default: ``1``
 
@@ -230,6 +237,12 @@ File paths and channels
   A text to append at the end of the spotMAX output files. In conjuction with 
   :confval:`Run number`, this parameter can be used to identify the output 
   files from a specific analysis run. 
+
+  .. warning:: 
+
+    Running the analysis with a different appended text but the same 
+    :confval:`Run number` of an older analysis will result in overwriting the 
+    files of the older analysis, regardless of the different text to append.
 
   :type: string
   :default: ``''``

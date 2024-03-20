@@ -162,8 +162,9 @@ class _DataLoader:
             channel = channel_id.split(';;')[0]
             if not channel:
                 continue
-            ch_path = cellacdc.io.get_filepath_from_channel_name(
-                images_path, os.path.basename(channel)
+            ch_path = io.get_filepath_from_channel_name(
+                images_path, os.path.basename(channel), 
+                raise_on_duplicates=False
             )
             if not os.path.exists(ch_path):
                 self._critical_channel_not_found(channel, images_path)
@@ -3678,6 +3679,10 @@ class Kernel(_ParamsParser):
             custom_combined_measurements=None,
             verbose=True,
         ):        
+        if verbose:
+            print('')
+            self.logger.info(f'Preparing for detection...')
+            
         if sharp_spots_img is None:
             sharp_spots_img = spots_img
 
@@ -3890,7 +3895,7 @@ class Kernel(_ParamsParser):
             frame_i=0,
             df_spots_coords_input=None,
         ):
-        if verbose and df_spots_coords_input is not None:
+        if verbose and df_spots_coords_input is None:
             print('')
             self.logger.info('Detecting spots...')
         
@@ -3910,6 +3915,10 @@ class Kernel(_ParamsParser):
         if aggr_spots_ch_segm_mask is not None:
             labels = aggr_spots_ch_segm_mask.astype(int)
         elif df_spots_coords_input is None:
+            if verbose:
+                print('')
+                self.logger.info('Segmenting spots...')
+                
             labels = pipe.spots_semantic_segmentation(
                 aggr_spots_img, 
                 lab=aggregated_lab, 

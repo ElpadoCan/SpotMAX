@@ -1,5 +1,6 @@
 from distutils.fancy_getopt import wrap_text
 import os
+from posixpath import basename
 import sys
 import re
 import difflib
@@ -68,6 +69,9 @@ acdc_df_bool_cols = [
 df_spots_filename_parts_pattern = (
     r'(\d+)_(\d)_(detected_spots|valid_spots|spotfit)(.*)\.(\w+)'
 )
+
+class MultipleFilesFound(Exception):
+    pass
 
 def read_json(json_path, logger_func=print, desc='custom annotations'):
     json_data = {}
@@ -967,7 +971,10 @@ class expFolderScanner:
                         not runInfo or not expInfo or not analysisInputs
                     )
                     if initRun:
-                        analysisInputs = read_ini(analysisParamsFilepath)
+                        try:
+                            analysisInputs = read_ini(analysisParamsFilepath)
+                        except Exception as err:
+                            continue
                         self.paths[run][exp_path] = {
                             'numPosSpotCounted': 0,
                             'numPosSpotSized': 0,
@@ -1096,7 +1103,7 @@ class expFolderScanner:
         if not spotmaxFiles:
             return run_nums
         run_nums = [
-            re.findall('(\d+)_(\d)_', f) for f in spotmaxFiles
+            re.findall('(\d+)_(\d)_detected', f) for f in spotmaxFiles
         ]
         run_nums = [int(m[0][0]) for m in run_nums if m]
         run_nums = set(run_nums)
@@ -2679,3 +2686,43 @@ def read_ini(ini_filepath):
 def write_to_ini(configparser, ini_filepath):
     with open(ini_filepath, 'w', encoding="utf-8") as file:
         configparser.write(file)
+
+def get_filepath_from_channel_name(
+        images_path, channel_name, raise_on_duplicates=True
+    ):
+    valid_channels = (
+        channel_name, 
+        f'{channel_name}_aligned.npz', 
+        f'{channel_name}_aligned.h5', 
+        f'{channel_name}.npz', 
+        f'{channel_name}.npy', 
+        f'{channel_name}.tif', 
+    )
+    found_files = []
+    for file in utils.listdir(images_path):
+        for valid_channel in valid_channels:
+            if file.endswith(valid_channel):
+                found_files.append(file)
+    
+    if not found_files:
+        return ''
+    
+    if len(found_files) > 1:
+        closest_files = []
+        basename = os.path.commonprefix(found_files)
+        closest_pattern = f'{basename}{channel_name}'
+        for file in found_files:
+            file_noext, _ = os.path.splitext(file)
+            if file_noext == closest_pattern:
+                closest_files.append(file)
+            
+            if file == closest_pattern:
+                closest_files.append(file)            
+        found_files = closest_files
+        
+    if len(found_files) > 1 and raise_on_duplicates:
+        raise MultipleFilesFound(
+            f'Multiple files ending with the requested pattern found: {found_files}'
+        )
+    
+    return os.path.join(images_path, found_files[0])

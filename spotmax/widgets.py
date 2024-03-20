@@ -1944,7 +1944,7 @@ class SpotsItems:
             return
 
         toolbutton = self.addToolbarButton(win.state)
-        toolbutton.df_spots_files = df_spots_files
+        toolbutton.df_spots_files = all_df_spots_files
         self.buttons.append(toolbutton)
         self.createSpotItem(win.state, toolbutton)
         self.loadSpotsTables(toolbutton)
@@ -1967,8 +1967,9 @@ class SpotsItems:
     
     def editAppearance(self, button):
         win = dialogs.SpotsItemPropertiesDialog(
-            button.df_spots_files, state=button.state, 
+            button.df_spots_files, 
             spotmax_out_path=self.spotmax_out_path,
+            state=button.state, 
             parent=self.parent
         )
         win.exec_()
@@ -2047,7 +2048,9 @@ class SpotsItems:
                 # are all visibile and the z is unknown
                 df_xy = df.loc[[frame_i]].reset_index().set_index(['x', 'y'])
             point_df = df_xy.loc[[(x, y)]].reset_index()
-            point_features = point_df.set_index(['frame_i', 'z', 'y', 'x']).iloc[0]
+            point_df['Position_n'] = self.posFoldername()
+            point_features = point_df.set_index(
+                ['Position_n', 'frame_i', 'z', 'y', 'x']).iloc[0]
             return point_features
     
     def getBrush(self, state, alpha=255):
@@ -2091,6 +2094,9 @@ class SpotsItems:
         self.spotmax_out_path = posData.spotmax_out_path
         self.posData = posData
         self.posChanged = True
+    
+    def posFoldername(self):
+        return self.posData.pos_foldername
     
     def _loadSpotsTable(self, toolbutton):
         spotmax_out_path = self.spotmax_out_path

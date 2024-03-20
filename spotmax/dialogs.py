@@ -320,7 +320,7 @@ class guiTabControl(QTabWidget):
             title='Select analysis parameters file'
         )
         self.showInFileMangerButton = acdc_widgets.showInFileManagerButton(
-            'Browse loaded file'
+            'Browse loaded/saved file'
         )
         self.showInFileMangerButton.setDisabled(True)
         buttonsLayout.addWidget(self.loadPreviousParamsButton)
@@ -662,6 +662,8 @@ class guiTabControl(QTabWidget):
                 if msg.clickedButton == yesButton:
                     break
         
+        self._lastLoadedParamsFilepath = filePath
+        self.showInFileMangerButton.setDisabled(False)
         self.loadedFilename, ext = os.path.splitext(os.path.basename(filePath))
         self.parametersQGBox.saveToIniFile(filePath)
         self.lastSavedIniFilePath = filePath
@@ -3271,7 +3273,9 @@ def getSelectedExpPaths(utilityName, parent=None):
 class SpotsItemPropertiesDialog(QBaseDialog):
     sigDeleteSelecAnnot = Signal(object)
 
-    def __init__(self, df_spots_files, spotmax_out_path, parent=None, state=None):
+    def __init__(
+            self, df_spots_files, spotmax_out_path=None, parent=None, state=None
+        ):
         self.cancel = True
         self.loop = None
         self.clickedButton = None
@@ -3428,13 +3432,14 @@ class SpotsItemPropertiesDialog(QBaseDialog):
 
         self.setLayout(mainLayout)
         
-        self.setSizeFromTable(self.h5fileCombobox.currentText())
+        if state is None:
+            self.setSizeFromTable(self.h5fileCombobox.currentText())
     
     def setSizeFromTable(self, filename):
         from .core import ZYX_RESOL_COLS
         df = io.load_spots_table(self.spotmax_out_path, filename)
         try:
-            size = round(df[ZYX_RESOL_COLS[1]].iloc[0]*2)
+            size = round(df[ZYX_RESOL_COLS[1]].iloc[0])
         except KeyError as err:
             return
         self.sizeSpinBox.setValue(size)
