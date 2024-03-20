@@ -3897,11 +3897,7 @@ class Kernel(_ParamsParser):
             frame_i=0,
             df_spots_coords_input=None,
             min_spot_mask_size=5
-        ):
-        if verbose and df_spots_coords_input is None:
-            print('')
-            self.logger.info('Detecting spots...')
-        
+        ):        
         # Detect peaks on aggregated image
         aggregated = transformations.aggregate_objs(
             sharp_spots_img, lab, 

@@ -127,6 +127,15 @@ def threshold(
     
     return image > thresh_val
 
+def clear_objs_outside_mask(mask_to_clear, clearing_mask):
+    lab_to_clear = skimage.measure.label(mask_to_clear)
+    rp = skimage.measure.regionprops(lab_to_clear)
+    for sub_obj in rp:
+        if np.any(clearing_mask[sub_obj.slice][sub_obj.image]):
+            continue
+        mask_to_clear[sub_obj.slice][sub_obj.image] = 0
+    return mask_to_clear
+
 def threshold_masked_by_obj(
         image, mask, threshold_func, do_max_proj=False, 
         return_thresh_val=False, use_mask=True,
@@ -170,6 +179,7 @@ def _get_threshold_funcs(threshold_func=None, try_all=True):
 def local_semantic_segmentation(
         image, lab, 
         threshold_func=None, 
+        zyx_tolerance=None, 
         lineage_table=None, 
         return_image=False,
         nnet_model=None, 
@@ -199,9 +209,9 @@ def local_semantic_segmentation(
         threshold_funcs['bioimageio_model'] = None
     
     slicer = transformations.SliceImageFromSegmObject(
-        lab, lineage_table=lineage_table
+        lab, lineage_table=lineage_table, zyx_tolerance=zyx_tolerance
     )
-    aggr_rp = skimage.measure.regionprops(lab)
+    rp = skimage.measure.regionprops(lab)
     result = {}
     if return_image:
         result['input_image'] = np.zeros_like(image)
@@ -210,7 +220,7 @@ def local_semantic_segmentation(
         pbar = tqdm(total=len(threshold_funcs), ncols=100)
     for method, thresh_func in threshold_funcs.items():
         labels = np.zeros_like(lab)
-        for obj in aggr_rp:
+        for obj in rp:
             if lineage_table is not None:
                 if lineage_table.at[obj.label, 'relationship'] == 'bud':
                     # Skip buds since they are aggregated with mother
@@ -255,20 +265,26 @@ def local_semantic_segmentation(
             
             if not keep_objects_touching_lab_intact:
                 predict_mask_merged[~(obj_mask_lab>0)] = False
+            else:
+                predict_mask_merged = clear_objs_outside_mask(
+                    predict_mask_merged, obj_mask_lab
+                )
             
-            # Iterate eventually merged (mother-bud) objects
-            for obj_local in skimage.measure.regionprops(obj_mask_lab):  
-                if keep_objects_touching_lab_intact:
-                    predict_mask_obj = predict_mask_merged[obj_local.slice]
-                else:
-                    predict_mask_obj = np.logical_and(
-                        predict_mask_merged[obj_local.slice], 
-                        obj_local.image
-                    )
-                id = obj_local.label
-                labels[merged_obj_slice][obj_local.slice][predict_mask_obj] = id
-
-        labels = filter_labels_by_size(labels, min_mask_size)
+            # Assign ID to sub-objets in predict_mask_merged depending on 
+            # the most common ID the lie on
+            local_labels = labels[merged_obj_slice]
+            predict_lab_merged = skimage.measure.label(predict_mask_merged)
+            predict_rp = skimage.measure.regionprops(predict_lab_merged)
+            for sub_obj in predict_rp:
+                if sub_obj.area < min_mask_size:
+                    continue
+                IDs = obj_mask_lab[sub_obj.slice][sub_obj.image]
+                IDs, counts = np.unique(IDs, return_counts=True)
+                most_common_idx = np.argmax(counts)
+                ID = IDs[most_common_idx]
+                local_labels[sub_obj.slice][sub_obj.image] = ID
+        
+        # labels = filter_labels_by_size(labels, min_mask_size)
         
         result[method] = labels.astype(np.int32)
         if do_try_all_thresholds:

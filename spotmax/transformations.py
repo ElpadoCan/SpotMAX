@@ -312,9 +312,10 @@ def aggregate_objs(
         return aggregated_img, aggregated_lab, additional_aggr_imgs
 
 class SliceImageFromSegmObject:
-    def __init__(self, lab, lineage_table=None):
+    def __init__(self, lab, lineage_table=None, zyx_tolerance=None):
         self._lab = lab
         self._lineage_df = lineage_table
+        self._zyx_tolerance = zyx_tolerance
     
     def _get_obj_mask(self, obj):
         lab_obj_image = self._lab == obj.label
@@ -339,40 +340,45 @@ class SliceImageFromSegmObject:
         lab_mask_lab[lab_mask] = self._lab[lab_mask]
         return lab_mask_lab
     
+    def _get_obj_slice(self, image, obj):
+        if self._zyx_tolerance is None:
+            return obj.slice
+        
+        dz, dy, dx = self._zyx_tolerance
+        Z, Y, X = image.shape
+        z_start = obj.slice[0].start - dz
+        z_start = z_start if z_start > 0 else 0
+        z_stop = obj.slice[0].stop + dz
+        z_stop = z_stop if z_stop <= Z else Z
+        
+        y_start = obj.slice[1].start - dy
+        y_start = y_start if y_start > 0 else 0
+        y_stop = obj.slice[1].stop + dy
+        y_stop = y_stop if y_stop <= Y else Y
+        
+        x_start = obj.slice[2].start - dx
+        x_start = x_start if x_start > 0 else 0
+        x_stop = obj.slice[2].stop + dx
+        x_stop = x_stop if x_stop <= X else X
+        
+        obj_slice = (
+            slice(z_start, z_stop),
+            slice(y_start, y_stop),
+            slice(x_start, x_stop),
+        )
+
+        return obj_slice
+        
     def slice(self, image, obj):
         lab_mask, bud_ID = self._get_obj_mask(obj)
         lab_mask_lab = self._get_obj_lab(lab_mask)
         lab_mask_rp = skimage.measure.regionprops(lab_mask.astype(np.uint8))
         lab_mask_obj = lab_mask_rp[0]
-        img_local = image[lab_mask_obj.slice].copy()
-        backgr_vals = img_local[~lab_mask_obj.image]
-        # if backgr_vals.size == 0:
-        #     return img_local, lab_mask_lab, lab_mask_obj.image, bud_ID
-        
-        # backgr_mean = backgr_vals.mean()
-        # backgr_mean = backgr_mean if backgr_mean>=0 else 0
-        # backgr_std = backgr_vals.std()/2
-        # gamma_shape = np.square(backgr_mean/backgr_std)
-        # gamma_scale = np.square(backgr_std)/backgr_mean
-        # img_backgr = rng.gamma(
-        #     gamma_shape, gamma_scale, size=lab_mask_obj.image.shape
-        # )
-        # img_backgr = rng.normal(
-        #     backgr_mean, backgr_std, size=lab_mask_obj.image.shape
-        # )
-        # np.clip(img_backgr, 0, 1, out=img_backgr)
-
-        # img_backgr[lab_mask_obj.image] = img_local[lab_mask_obj.image]
-    
-        # # Replace values outside of the obj mask that are higher than the 
-        # # max with mean of the object to avoid external objects with 
-        # # bright features to skew thresholding the object
-        # foregr_vals = img_local[lab_mask_obj.image]
-        # foregr_mean = foregr_vals.mean()
-        # foregr_max = foregr_vals.max()
-        # img_local[img_local > foregr_max] = foregr_mean
-        
-        return img_local, lab_mask_lab, lab_mask_obj.slice, bud_ID
+        expanded_lab_mask_slice = self._get_obj_slice(image, lab_mask_obj)
+        expanded_obj_image = lab_mask[expanded_lab_mask_slice]
+        img_local = image[expanded_lab_mask_slice].copy()
+        backgr_vals = img_local[~expanded_obj_image]        
+        return img_local, lab_mask_lab, expanded_lab_mask_slice, bud_ID
 
 def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):
     if segm_data.ndim != 4:

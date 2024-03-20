@@ -263,10 +263,10 @@ def spots_semantic_segmentation(
         # Use raw image as input to neural network if nnet_input_data is None
         nnet_input_data = raw_image
     
+    zyx_tolerance = transformations.get_expand_obj_delta_tolerance(
+        spots_zyx_radii_pxl
+    )
     if do_aggregate:
-        zyx_tolerance = transformations.get_expand_obj_delta_tolerance(
-            spots_zyx_radii_pxl
-        )
         result = filters.global_semantic_segmentation(
             image, lab, 
             lineage_table=lineage_table, 
@@ -292,6 +292,7 @@ def spots_semantic_segmentation(
         result = filters.local_semantic_segmentation(
             image, lab, 
             threshold_func=thresholding_method, 
+            zyx_tolerance=zyx_tolerance, 
             lineage_table=lineage_table, 
             return_image=True,
             keep_objects_touching_lab_intact=keep_objects_touching_lab_intact,
