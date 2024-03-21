@@ -2282,15 +2282,8 @@ class SpotsItems:
         size = item._size
         radius = round(size/2)
         rr, cc = skimage.draw.disk((round(y), round(x)), radius)
-        self._pointMask[:] = 0
-        self._pointMask[rr, cc] = 1
-        pointObj = skimage.measure.regionprops(self._pointMask)[0]
-        ymin, xmin = pointObj.bbox[:2]
-        localImg = img[pointObj.slice].copy()
-        localMask = self._pointMask[pointObj.slice]>0
-        localImg[~(localMask)] = 0
-        y_max, x_max = np.unravel_index(localImg.argmax(), localImg.shape)
-        xdata, ydata = x_max+xmin, y_max+ymin
+        idx_max = (img[rr, cc]).argmax()
+        xdata, ydata = cc[idx_max], rr[idx_max]
         
         lab = self._segm_data[frame_i]
         if lab.ndim == 3:
