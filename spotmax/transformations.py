@@ -377,7 +377,7 @@ class SliceImageFromSegmObject:
         expanded_lab_mask_slice = self._get_obj_slice(image, lab_mask_obj)
         expanded_obj_image = lab_mask[expanded_lab_mask_slice]
         img_local = image[expanded_lab_mask_slice].copy()
-        backgr_vals = img_local[~expanded_obj_image]        
+        # backgr_vals = img_local[~expanded_obj_image]        
         return img_local, lab_mask_lab, expanded_lab_mask_slice, bud_ID
 
 def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):

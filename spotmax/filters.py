@@ -260,7 +260,7 @@ def local_semantic_segmentation(
                 predict_mask_merged = threshold_masked_by_obj(
                     input_img, obj_mask_lab, thresh_func, 
                     do_max_proj=do_max_proj, 
-                    use_mask=not keep_objects_touching_lab_intact
+                    # use_mask=not keep_objects_touching_lab_intact
                 )
             
             if not keep_objects_touching_lab_intact:
@@ -271,7 +271,7 @@ def local_semantic_segmentation(
                 )
             
             # Assign ID to sub-objets in predict_mask_merged depending on 
-            # the most common ID the lie on
+            # the most common ID they lie on
             local_labels = labels[merged_obj_slice]
             predict_lab_merged = skimage.measure.label(predict_mask_merged)
             predict_rp = skimage.measure.regionprops(predict_lab_merged)
