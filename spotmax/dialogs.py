@@ -32,6 +32,7 @@ from qtpy.QtWidgets import (
     QFileDialog, QDockWidget, QTabWidget, QScrollArea, QScrollBar
 )
 
+import matplotlib
 import pyqtgraph as pg
 
 from cellacdc import apps as acdc_apps
@@ -51,6 +52,16 @@ from . import prompts
 
 LINEEDIT_INVALID_ENTRY_STYLESHEET = (
     acdc_palettes.lineedit_invalid_entry_stylesheet()
+)
+
+GIST_RAINBOW_CMAP = matplotlib.colormaps['gist_rainbow']
+SIX_RGBs_RAINBOW = (
+    [round(c*255) for c in GIST_RAINBOW_CMAP(0.0)][:3], 
+    [round(c*255) for c in GIST_RAINBOW_CMAP(0.6)][:3], 
+    [round(c*255) for c in GIST_RAINBOW_CMAP(0.2)][:3], 
+    [round(c*255) for c in GIST_RAINBOW_CMAP(0.8)][:3], 
+    [round(c*255) for c in GIST_RAINBOW_CMAP(0.4)][:3], 
+    [round(c*255) for c in GIST_RAINBOW_CMAP(1.0)][:3],     
 )
 
 class QBaseDialog(QDialog):
@@ -3274,7 +3285,8 @@ class SpotsItemPropertiesDialog(QBaseDialog):
     sigDeleteSelecAnnot = Signal(object)
 
     def __init__(
-            self, df_spots_files, spotmax_out_path=None, parent=None, state=None
+            self, df_spots_files, spotmax_out_path=None, parent=None, 
+            state=None, color_idx=0
         ):
         self.cancel = True
         self.loop = None
@@ -3365,8 +3377,11 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         )
         if state is not None:
             self.colorButton.setColor(state['symbolColor'])
+        else:
+            color_idx = color_idx%6
+            rgb = SIX_RGBs_RAINBOW[color_idx]
+            self.colorButton.setColor(rgb)
         layout.addFormWidget(self.colorWidget, row=row)
-
         row += 1
         self.sizeSpinBox = acdc_widgets.SpinBox()
         self.sizeSpinBox.setMinimum(1)

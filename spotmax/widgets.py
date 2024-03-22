@@ -1937,7 +1937,8 @@ class SpotsItems:
         win = dialogs.SpotsItemPropertiesDialog(
             natsorted(all_df_spots_files), 
             spotmax_out_path=self.spotmax_out_path,
-            parent=self.parent
+            parent=self.parent, 
+            color_idx=len(self.loadedDfs)
         )
         win.exec_()
         if win.cancel:
@@ -2101,10 +2102,11 @@ class SpotsItems:
     def _loadSpotsTable(self, toolbutton):
         spotmax_out_path = self.spotmax_out_path
         filename = toolbutton.filename
-        df = self.loadedDfs.get(self.posData.pos_foldername)
+        key = (self.posData.pos_foldername, filename)
+        df = self.loadedDfs.get(key)
         if df is None:
             df = io.load_spots_table(spotmax_out_path, filename)
-            self.loadedDfs[self.posData.pos_foldername] = df
+            self.loadedDfs[key] = df
         
         if df is None:
             toolbutton.df = None
@@ -2114,7 +2116,9 @@ class SpotsItems:
     def setActiveButtonDf(self, df):
         toolbutton = self.getActiveButton()
         toolbutton.df = df.reset_index().set_index(['frame_i', 'z'])
-        self.loadedDfs[self.posData.pos_foldername] = toolbutton.df  
+        filename = toolbutton.filename
+        key = (self.posData.pos_foldername, filename)
+        self.loadedDfs[key] = toolbutton.df  
     
     def loadSpotsTables(self, toolbutton=None):
         if toolbutton is None:
@@ -2264,7 +2268,8 @@ class SpotsItems:
         button.df['edited'] = 1
         button.df['do_not_drop'] = 1
         
-        self.loadedDfs[self.posData.pos_foldername] = button.df        
+        key = (self.posData.pos_foldername, button.filename)
+        self.loadedDfs[key] = button.df        
     
     def initEdits(self, img_data, segm_data):
         self.setEditsEnabled(True)
@@ -2312,7 +2317,8 @@ class SpotsItems:
         button.df['edited'] = 1
         button.df['do_not_drop'] = 1
         
-        self.loadedDfs[self.posData.pos_foldername] = button.df
+        key = (self.posData.pos_foldername, button.filename)
+        self.loadedDfs[key] = button.df
         
         xpoint, ypoint = xdata+0.5, ydata+0.5
         item.addPoints([xpoint], [ypoint])

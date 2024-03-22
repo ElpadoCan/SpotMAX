@@ -101,7 +101,10 @@ def glass_effect_size(positive_sample, negative_sample, n_bootstraps=0):
     return eff_size, negative_mean, negative_std
 
 def cohen_effect_size(positive_sample, negative_sample, n_bootstraps=0):
-    pooled_std = np.std(np.concatenate((positive_sample, negative_sample)))
+    positive_std = np.std(positive_sample)
+    negative_std = np.std(negative_sample)
+    
+    pooled_std = np.sqrt((np.square(positive_std)+np.square(negative_std))/2)
 
     positive_mean = np.mean(positive_sample)
     negative_mean = np.mean(negative_sample)
