@@ -215,7 +215,7 @@ class CropImageBasedOnSegmDataWorker(QRunnable):
         
         if self.extend_segm_3D_range is not None:
             segm_data = transformations.extend_3D_segm_in_z(
-                segm_data, self.extend_segm_3D_range
+                segm_data, self.extend_segm_3D_range, errors='ignore'
             )
         
         return segm_data, image_data, nnet_input_data

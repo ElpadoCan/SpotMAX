@@ -78,7 +78,10 @@ def gaussian(image, sigma, use_gpu=False, logger_func=print):
     return filtered
 
 def ridge(image, sigmas):
-    filtered = skimage.filters.sato(image, sigmas=sigmas, black_ridges=False)
+    input_shape = image.shape
+    filtered = skimage.filters.sato(
+        np.squeeze(image), sigmas=sigmas, black_ridges=False
+    ).reshape(input_shape)
     return filtered
 
 def DoG_spots(image, spots_zyx_radii_pxl, use_gpu=False, logger_func=print):

@@ -604,7 +604,7 @@ def reshape_spots_coords_to_3D(spots_coords):
         return spots_coords
     
     if ncols == 2:
-        reshaped_spots_coords = np.ones(
+        reshaped_spots_coords = np.zeros(
             (nrows, 3), dtype=spots_coords.dtype
         )
         reshaped_spots_coords[:, 1:] = spots_coords

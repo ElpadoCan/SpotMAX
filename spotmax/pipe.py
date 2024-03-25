@@ -939,7 +939,7 @@ def _compute_obj_spots_features(
         backgr_mask = np.logical_and(obj_mask, ~spheroids_mask)
         normalised_spots_img_obj = spots_img_obj
         normalised_ref_ch_img_obj = ref_ch_img_obj
-
+    
     # Calculate background metrics
     backgr_vals = sharp_spots_img_obj[backgr_mask]
     for name, func in distribution_metrics_func.items():
@@ -1249,7 +1249,7 @@ def spot_detection(
         labels = np.squeeze(spots_segmantic_segm)
         min_distance = spots_zyx_radii_pxl
         if not is_zstack and len(min_distance) == 3:
-            # Make sure that min_distance is 2 valus for 2D images
+            # Make sure that min_distance is 2 values for 2D images
             min_distance = spots_zyx_radii_pxl[-2:]
         
         spots_coords = features.find_local_peaks(
@@ -1649,7 +1649,7 @@ def spots_calc_features_and_filter(
             bkgr_from_in_reg_ch = get_backgr_from_inside_ref_ch_mask
             df_obj_spots_gop = _compute_obj_spots_features(
                 local_spots_img, 
-                df_obj_spots_gop, 
+                df_obj_spots_gop.copy(), 
                 obj_image, 
                 local_sharp_spots_img, 
                 raw_spots_img_obj=raw_spots_img_obj,
