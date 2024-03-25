@@ -864,9 +864,13 @@ class SpotPredictionMethodWidget(QWidget):
     
     def bioimageio_params_from_ini_sections(self, ini_params):
         from spotmax.BioImageIO.model import get_model_params_from_ini_params
-        self.bioImageIOParams = get_model_params_from_ini_params(
+        bioImageIOParams = get_model_params_from_ini_params(
             ini_params, use_default_for_missing=True
         )
+        if bioImageIOParams is None:
+            return
+        
+        self.bioImageIOParams = bioImageIOParams
         return self.bioImageIOParams['init'], self.bioImageIOParams['segment']
 
 class SpotMinSizeLabels(QWidget):
