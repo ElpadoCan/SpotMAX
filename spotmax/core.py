@@ -984,6 +984,7 @@ class _ParamsParser(_DataLoader):
             f'{exp_path}'
         )
         if self._force_default:
+            print('')
             self.logger.info('*'*100)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
@@ -1057,6 +1058,7 @@ class _ParamsParser(_DataLoader):
 
     @exception_handler_cli
     def set_abs_exp_paths(self):
+        self.logger.info('Scanning experiment folders...')
         SECTION = 'File paths and channels'
         ANCHOR = 'folderPathsToAnalyse'
         loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
@@ -1064,6 +1066,7 @@ class _ParamsParser(_DataLoader):
         self.exp_paths_list = []
         run_num_log = []
         run_num_exp_path_processed = {}
+        pbar_exp = tqdm(total=len(loaded_exp_paths), ncols=100)
         for exp_path in loaded_exp_paths:
             acdc_myutils.addToRecentPaths(exp_path, logger=self.logger.info)
             if io.is_pos_path(exp_path):
@@ -1092,7 +1095,7 @@ class _ParamsParser(_DataLoader):
             
             # Scan and determine run numbers
             pathScanner = io.expFolderScanner(
-                exp_path, logger_func=self.logger.info
+                exp_path, logger_func=None
             )
             pathScanner.getExpPaths(exp_path)
             pathScanner.infoExpPaths(pathScanner.expPaths)
@@ -1109,6 +1112,8 @@ class _ParamsParser(_DataLoader):
             self._store_run_number(run_number, pathScanner.paths, exp_paths)
             run_num_log.append(f'  * Run number = {run_number} ("{exp_path}")')
             self.exp_paths_list.append(exp_paths)
+            pbar_exp.update()
+        pbar_exp.close()
         self.set_channel_names()
         self.logger.info('\n'.join(run_num_log))
     
@@ -1762,21 +1767,23 @@ class _ParamsParser(_DataLoader):
         return True
     
     def cast_loaded_values_filepaths(self):
-        for section_name in list(self._params.keys()):
-            if section_name != 'File paths and channels':
+        SECTION = 'File paths and channels'
+        anchor_names = list(self._params[SECTION].keys())
+        for anchor_name in anchor_names:
+            to_dtype = self._params[SECTION][anchor_name].get('dtype')
+            if to_dtype is None:
                 continue
-            anchor_names = list(self._params[section_name].keys())
-            for anchor_name in anchor_names:
-                to_dtype = self._params[section_name][anchor_name].get('dtype')
-                if to_dtype is None:
-                    continue
-                option = self._params[section_name][anchor_name]
+            
+            if anchor_name == 'folderPathsToAnalyse':
+                value = config.parse_exp_paths(self.ini_params_file_path)
+            else:
+                option = self._params[SECTION][anchor_name]
                 value = option['loadedVal']
                 if value is None:
                     value = option['initialVal']
                 else:
                     value = to_dtype(value)
-                self._params[section_name][anchor_name]['loadedVal'] = value
+            self._params[SECTION][anchor_name]['loadedVal'] = value
     
     def cast_loaded_values_dtypes(self):
         for section_name in list(self._params.keys()):
@@ -4233,8 +4240,27 @@ class Kernel(_ParamsParser):
         report_filepath = os.path.join(folder_path, report_filename)
         return report_filepath
     
+    def _log_final_info(self):
+        datetime_stopped = datetime.now()
+        exec_time = datetime_stopped - self._datetime_started
+        
+        analysis_info = (
+            f'  * Analysis started on: {self._datetime_started}\n'
+            f'  * Analysis ended on: {datetime_stopped}\n'
+            f'  * Total execution time: {exec_time} H:mm:ss\n'
+            f'  * Parameters file: {self.ini_params_file_path}\n'
+            f'  * Log file: "{self.log_path}"\n\n'
+        )
+        
+        self.logger.info('#'*100)
+        self.logger.info(
+            f'Analysis information:\n\n{analysis_info}'
+        )
+        self.logger.info('#'*100)
+    
     def save_report(self):
         if not hasattr(self, '_report'):
+            self._log_final_info()
             return
         
         datetime_stopped = datetime.now()
@@ -4246,7 +4272,7 @@ class Kernel(_ParamsParser):
             f'{title}\n\n'
             f'Analysis started on: {self._report["datetime_started"]}\n'
             f'Analysis ended on: {datetime_stopped}\n'
-            f'Total execution time: {exec_time}\n'
+            f'Total execution time: {exec_time} H:mm:ss\n'
             f'Log file: "{self.log_path}"\n\n'
             f'Parameters file: "{self._report["params_path"]}"\n\n'
         )
@@ -4870,13 +4896,17 @@ class Kernel(_ParamsParser):
                 leave=False
             )
             for frame_i in range(stopFrameNum):
+                try:
+                    df_spots_frame = df_spots_gop.loc[frame_i]
+                except KeyError as err:
+                    continue
+                
                 raw_spots_img = spots_data[frame_i]
                 if ref_ch_segm_data is not None:
                     ref_ch_mask_or_labels = ref_ch_segm_data[frame_i]
                 else:
                     ref_ch_mask_or_labels = None
-                
-                df_spots_frame = df_spots_gop.loc[frame_i]
+                    
                 bounds_kwargs = self.get_bounds_kwargs()
                 init_guess_kwargs = self.get_init_guess_kwargs()
                 spotfit_result = pipe.spotfit(
@@ -4907,23 +4937,26 @@ class Kernel(_ParamsParser):
             pbar.close()
             
             keys = dfs_lists['spotfit_keys']
-            df_spots_fit = pd.concat(
-                dfs_lists['dfs_spots_spotfit'], keys=keys, names=names
-            )
-            df_spots_fit_iter0 = pd.concat(
-                dfs_lists['dfs_spots_spotfit_iter0'], keys=keys, names=names
-            )
-            self._add_spotfit_features_to_df_spots_gop(
-                df_spots_fit_iter0, df_spots_gop
-            )
-            df_spots_fit = pipe.filter_spots_from_features_thresholds(
-                df_spots_fit, gop_filtering_thresholds,
-                is_spotfit=True, 
-                frame_i=frame_i,
-                debug=False,
-                logger_func=self.logger.info, 
-                verbose=verbose
-            )
+            if not keys:
+                df_spots_fit = None
+            else:
+                df_spots_fit = pd.concat(
+                    dfs_lists['dfs_spots_spotfit'], keys=keys, names=names
+                )
+                df_spots_fit_iter0 = pd.concat(
+                    dfs_lists['dfs_spots_spotfit_iter0'], keys=keys, names=names
+                )
+                self._add_spotfit_features_to_df_spots_gop(
+                    df_spots_fit_iter0, df_spots_gop
+                )
+                df_spots_fit = pipe.filter_spots_from_features_thresholds(
+                    df_spots_fit, gop_filtering_thresholds,
+                    is_spotfit=True, 
+                    frame_i=frame_i,
+                    debug=False,
+                    logger_func=self.logger.info, 
+                    verbose=verbose
+                )
             # df_spots_fit = self._filter_spots_by_size(
             #     df_spots_fit, spotfit_minsize, spotfit_maxsize
             # )
@@ -5217,6 +5250,8 @@ class Kernel(_ParamsParser):
         option = self._params[SECTION][ANCHOR]['desc']
         configPars[SECTION][option] = str(run_number)
         
+        configPars = config.exp_paths_to_str(self._params, configPars)
+        
         with open(analysis_inputs_filepath, 'w', encoding="utf-8") as file:
             configPars.write(file)
         
@@ -5389,6 +5424,7 @@ class Kernel(_ParamsParser):
 
         self.were_errors_detected = False
         
+        self._datetime_started = datetime.now()
         self.is_batch_mode = True
         for exp_paths in self.exp_paths_list:
             self._run_exp_paths(exp_paths)

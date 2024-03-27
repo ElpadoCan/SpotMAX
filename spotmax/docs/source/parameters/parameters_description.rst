@@ -10,7 +10,7 @@
 .. _BioImage Model Zoo: https://bioimage.io/#/
 .. _INI configuration file templates: https://github.com/ElpadoCan/spotMAX/tree/main/examples/ini_config_files_template
 .. _pandas.eval: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.eval.html
-
+.. _open: https://docs.python.org/3/library/functions.html#open
 .. _pandas.read_hdf: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_hdf.html
 
 .. |edit-button| image:: ../../../resources/icons/cog.svg
@@ -42,16 +42,44 @@ File paths and channels
 .. confval:: Experiment folder path(s) to analyse
 
   One or more folder paths to analyse. To set up this from the GUI click on 
-  the |edit-button| Edit button beside the parameter. An experiment  folder can be a 
-  folder containing the fluorescence channel separated into single TIFF files 
-  or a folder containing multiple Position folders. We recommend structuring 
-  the data into the same structure required by `Cell-ACDC`_. Here you can find 
-  detailed instructions on how to do that `Create data structure`_.
+  the |edit-button| Edit button beside the parameter. An experiment  folder 
+  can be a folder containing the fluorescence channel separated into single 
+  TIFF files or a folder containing multiple Position folders. 
+  We recommend structuring the data into the same structure required by 
+  `Cell-ACDC`_. Here you can find detailed instructions on how to do that 
+  `Create data structure`_.
 
-  You can also create the data structure with Fiji/ImageJ macros or manually. 
-  See the sections ``Create data structure using Fiji Macros`` and 
-  ``Manually create data structure from microscopy file(s)`` of the 
-  `Cell-ACDC user manual`_.
+  When writing multiple folder paths in the INI configuration file make sure 
+  to write each folder path on a new line with some indentation, for example:
+
+  .. code-block:: ini
+
+    [File paths and channels]
+    Experiment folder path(s) to analyse = 
+        data/fist_folder
+        data/second_folder
+
+  If you provide relative paths, these must be **relative to the folder path in 
+  the terminal where you will run the analysis**. 
+
+  Alternatively, you can write the folder paths to analyse to any file that can 
+  be opened with the Python function `open`_ (e.g., text file) and then provide 
+  the path to this file in the INI configuration file as follows:
+  
+  .. code-block:: ini
+
+    [File paths and channels]
+    Experiment folder path(s) to analyse = file_with_paths_to_analyse.txt
+
+  If you provide a relative path, the text file must be located in the same 
+  folder as the INI file.
+
+  .. note:: 
+
+    You can also create the data structure with Fiji/ImageJ macros or manually. 
+    See the sections ``Create data structure using Fiji Macros`` and 
+    ``Manually create data structure from microscopy file(s)`` of the 
+    `Cell-ACDC user manual`_.
 
   :type: string
   :required: True

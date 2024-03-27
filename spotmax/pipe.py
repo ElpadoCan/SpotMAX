@@ -2139,6 +2139,9 @@ def filter_spots_from_features_thresholds(
     pandas.DataFrame
         The filtered DataFrame
     """
+    if df_features.empty:
+        return df_features
+    
     df_filtered = filters.filter_df_from_features_thresholds(
         df_features, 
         features_thresholds,

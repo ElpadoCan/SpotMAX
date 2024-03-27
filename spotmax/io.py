@@ -876,7 +876,7 @@ class expFolderScanner:
         self.is_first_call = True
         self.expPaths = []
         self.homePath = homePath
-        if homePath:
+        if homePath and logger_func is not None:
             logger_func(
                 f'Experiment folder scanner initialized with path "{homePath}"'
             )
@@ -1069,9 +1069,9 @@ class expFolderScanner:
             signals.progress.emit(
                 'Scanning experiment folder(s)...', 'INFO'
             )
-        else:
-            print('Scanning experiment folders...')
-        for exp_path in tqdm(expPaths, unit=' folder', ncols=100):
+        elif self.logger_func is not None:
+            self.logger_func('Scanning experiment folders...')
+        for exp_path in tqdm(expPaths, unit=' folder', ncols=100, leave=False):
             self._setInfoExpPath(exp_path)
             if signals is not None:
                 signals.progressBar.emit(1)

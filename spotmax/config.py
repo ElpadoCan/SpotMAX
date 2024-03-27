@@ -223,7 +223,52 @@ def parse_threshold_func(threshold_func):
     else:
         return threshold_func.__name__
 
-def get_exp_paths(exp_paths):
+def exp_paths_to_str(params, configparser):
+    SECTION = 'File paths and channels'
+    ANCHOR = 'folderPathsToAnalyse'
+    option = params[SECTION][ANCHOR]['desc']
+    exp_paths = params[SECTION][ANCHOR]['loadedVal']
+    exp_paths_str = '\n'.join(exp_paths)
+    configparser[SECTION][option] = exp_paths_str
+    return configparser
+
+def parse_exp_paths(ini_filepath):
+    """Check if experiment folder to analyse is a text file
+
+    Parameters
+    ----------
+    ini_filepath : os.PathLike
+        Path to the ini configuration file
+    """    
+    ini_folderpath = os.path.dirname(ini_filepath)
+    cp = io.read_ini(ini_filepath)
+    SECTION = 'File paths and channels'
+    input_exp_paths = cp[SECTION]['Experiment folder path(s) to analyse']
+    exp_path = input_exp_paths.replace('\n', '')
+    
+    paths_to_analyse = None
+    try:
+        filepath = os.path.join(ini_folderpath, exp_path)
+        with open(filepath, 'r') as file:
+            paths_to_analyse = file.read()
+    except Exception as err:
+        pass
+    
+    try:
+        filepath = exp_path
+        with open(filepath, 'r') as file:
+            paths_to_analyse = file.read()
+    except Exception as err:
+        pass
+    
+    if paths_to_analyse is None:
+        paths_to_analyse = input_exp_paths
+    
+    paths_to_analyse = get_exp_paths(paths_to_analyse)
+    
+    return paths_to_analyse
+
+def get_exp_paths(exp_paths):    
     # Remove white spaces at the start
     exp_paths = exp_paths.lstrip()
 
@@ -251,6 +296,7 @@ def get_exp_paths(exp_paths):
     exp_paths = [path.rstrip('/') for path in exp_paths if path]
 
     exp_paths = [io.get_abspath(path) for path in exp_paths]
+    
     return exp_paths
 
 def get_log_folderpath(folder_path):
