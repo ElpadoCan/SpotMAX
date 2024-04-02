@@ -2291,8 +2291,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         try:
             from . import _debug
             worker = to_debug[-1]
-            _debug._gui_autotune_compute_features(to_debug)
-            # _debug._gui_autotune_f1_score(to_debug)
+            # _debug._gui_autotune_compute_features(to_debug)
+            _debug._gui_autotune_f1_score(to_debug)
         except Exception as error:
             raise error
         finally:

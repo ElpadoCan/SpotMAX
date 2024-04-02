@@ -8,7 +8,7 @@ from . import printl
 
 def _gui_autotune_f1_score(to_debug):
     (method, thresholded, input_image, zz_true, yy_true, 
-    xx_true, zz_false, yy_false, xx_false, tp, fn, tn, fp, 
+    xx_true, zz_false, yy_false, xx_false,
     positive_area, f1_score, worker) = to_debug
     
     printl(
@@ -19,10 +19,6 @@ def _gui_autotune_f1_score(to_debug):
         f'{zz_false = }\n'
         f'{yy_false = }\n'
         f'{xx_false = }\n'
-        f'{tp = }\n'
-        f'{fn = }\n'
-        f'{tn = }\n'
-        f'{fp = }\n'
         f'{positive_area = }\n'
         f'{f1_score = }\n'
     )

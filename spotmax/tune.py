@@ -59,6 +59,9 @@ class TuneKernel:
     def set_segm_data(self, pos_foldername, segm_data):
         self._segm_data[pos_foldername] = segm_data
     
+    def segm_data(self):
+        return self._segm_data
+    
     def init_input_data(self):
         self._image_data = {}
         self._segm_data = {}
@@ -150,6 +153,7 @@ class TuneKernel:
             pos_folder, frame_i = idx
             
             image = self.image_data()[pos_folder][frame_i]
+            segm_kwargs['lab'] = self.segm_data()[pos_folder][frame_i]
             result = pipe.spots_semantic_segmentation(
                 image, keep_input_shape=True, **segm_kwargs
             )
@@ -173,7 +177,7 @@ class TuneKernel:
                 # input_image = result['input_image']
                 # to_debug = (
                 #     method, thresholded, input_image, zz_true, yy_true, 
-                #     xx_true, zz_false, yy_false, xx_false, tp, fn, tn, fp, 
+                #     xx_true, zz_false, yy_false, xx_false, 
                 #     positive_area, f1_score
                 # )
                 # emitDebug(to_debug)

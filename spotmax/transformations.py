@@ -805,6 +805,8 @@ def from_spots_coords_arr_to_df(spots_coords, lab):
     }).set_index(['Cell_ID', 'spot_id']).sort_index()
     
     for obj in skimage.measure.regionprops(lab):
+        if obj.label not in df_coords.index:
+            continue
         zmin, ymin, xmin, _, _, _ = obj.bbox
         zz = df_coords.loc[[obj.label], 'z']
         df_coords.loc[[obj.label], 'z_local'] = zz - zmin
