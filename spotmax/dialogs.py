@@ -3621,7 +3621,10 @@ class SetMeasurementsDialog(QBaseDialog):
         
         self.setWindowTitle('Set spotMAX measurements to save')
         
+        self.tabScrollbar = QScrollArea()
         self.tabWidget = QTabWidget()
+        self.tabScrollbar.setWidget(self.tabWidget)
+        self.tabScrollbar.setWidgetResizable(True)
         
         self.lastSelectionCp = None
         if os.path.exists(last_selection_meas_filepath):
@@ -3694,7 +3697,7 @@ class SetMeasurementsDialog(QBaseDialog):
         
         mainLayout.addLayout(searchLayout)
         mainLayout.addSpacing(20)
-        mainLayout.addWidget(self.tabWidget)
+        mainLayout.addWidget(self.tabScrollbar)
         mainLayout.addSpacing(20)
         mainLayout.addLayout(buttonsLayout)
         
@@ -3705,7 +3708,7 @@ class SetMeasurementsDialog(QBaseDialog):
         colNamesToggle.toggled.connect(self.showColNamesToggled)
     
     def buildTab(self, isSpotFitRequested, featGroups, tabKey):
-        maxNumElementsPerVBox = 15
+        maxNumElementsPerVBox = 16
         rowNumElements = 0
         row = 0
         groupBoxesHLayout = QHBoxLayout()
@@ -3713,11 +3716,6 @@ class SetMeasurementsDialog(QBaseDialog):
         for groupName, metrics in featGroups.items():
             rowSpan = len(metrics) + 1
             rowNumElements += rowSpan
-            if rowNumElements >= maxNumElementsPerVBox:
-                groupBoxesHLayout.addLayout(groupBoxesVLayout) 
-                groupBoxesVLayout = QVBoxLayout()
-                rowNumElements = 0
-                row = 0
             
             if tabKey == 'single_spot':
                 infoUrl = docs.single_spot_feature_group_name_to_url(groupName)
@@ -3748,9 +3746,20 @@ class SetMeasurementsDialog(QBaseDialog):
                     'Spotfit metrics cannot be saved because you did not '
                     'activate the parameter "Compute spots size".'
                 )
+            
+            if rowNumElements >= maxNumElementsPerVBox:
+                groupBoxesHLayout.addLayout(groupBoxesVLayout) 
+                groupBoxesVLayout = QVBoxLayout()
+                rowNumElements = 0
+                row = 0
         
         # Add last layout
         groupBoxesHLayout.addLayout(groupBoxesVLayout)
+        
+        if tabKey == 'aggr':
+            groupBoxesHLayout.setStretch(0, 1)
+            groupBoxesHLayout.setStretch(1, 1)
+            groupBoxesHLayout.addStretch(2)
         
         widget = QWidget()
         widget.setLayout(groupBoxesHLayout)
