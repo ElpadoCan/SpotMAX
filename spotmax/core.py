@@ -4054,6 +4054,7 @@ class Kernel(_ParamsParser):
             show_progress=True,
             verbose=verbose,
             logger_func=self.logger.info,
+            logger_warning_report=self.log_warning_report,
         )
         keys.extend(features_filter_result[0])
         dfs_spots_det.extend(features_filter_result[1])

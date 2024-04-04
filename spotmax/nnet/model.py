@@ -116,6 +116,7 @@ class Model:
         self.NDModel = NDModel
         self.Models = Models
         
+        config_yaml_filepath = config_yaml_filepath.replace('\\', '/')
         if config_yaml_filepath == 'spotmax/nnet/config.yaml':
             config_yaml_filepath = config_yaml_path
         

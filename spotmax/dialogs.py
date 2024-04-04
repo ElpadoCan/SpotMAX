@@ -2560,7 +2560,7 @@ class selectPathsSpotmax(QBaseDialog):
         self.hideSpotCountCheckbox = hideSpotCountCheckbox
         self.hideSpotSizeCheckbox = hideSpotSizeCheckbox
 
-        pathSelector = acdc_widgets.TreeWidget()
+        pathSelector = acdc_widgets.TreeWidget(multiSelection=True)
         self.pathSelector = pathSelector
         pathSelector.setHeaderHidden(True)
         homePath = pathlib.Path(homePath)

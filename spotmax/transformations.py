@@ -737,9 +737,9 @@ def load_preprocess_nnet_data_across_exp(
         transformed_data_nnet[pos] = transf_data
     return transformed_data_nnet
 
-def _raise_norm_value_zero(self):
+def _raise_norm_value_zero(logger_func=print):
     print('')
-    self.logger.info(
+    logger_func(
         '[ERROR]: Skipping Position, see error below. '
         f'More details in the final report.{error_up_str}'
     )
@@ -747,17 +747,18 @@ def _raise_norm_value_zero(self):
         'normalising value for the reference channel is zero.'
     )
 
-def _warn_norm_value_zero(self):
+def _warn_norm_value_zero(logger_warning_report=print, logger_func=print):
     warning_txt = (
         'normalising value for the spots channel is zero.'
     )
     print('')
-    self.logger.info(f'[WARNING]: {warning_txt}{error_up_str}')
-    self.log_warning_report(warning_txt)
+    logger_func(f'[WARNING]: {warning_txt}{error_up_str}')
+    logger_warning_report(warning_txt)
 
 def normalise_img(
         img: np.ndarray, norm_mask: np.ndarray, 
-        method='median', raise_if_norm_zero=True
+        method='median', raise_if_norm_zero=True, 
+        logger_func=print, logger_warning_report=print
     ):
     values = img[norm_mask]
     if method == 'median':
@@ -767,10 +768,13 @@ def normalise_img(
 
     if norm_value == 0:
         if raise_if_norm_zero:
-            _raise_norm_value_zero()
+            _raise_norm_value_zero(logger_func=logger_func)
         else:
             _norm_value = 1E-15
-            _warn_norm_value_zero()
+            _warn_norm_value_zero(
+                logger_warning_report=logger_warning_report, 
+                logger_func=logger_func
+            )
     else:
         _norm_value = norm_value
     norm_img = img/_norm_value

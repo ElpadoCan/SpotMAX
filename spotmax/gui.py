@@ -2180,6 +2180,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             image, 
             spots_lab, 
             axis_titles=['Detect image', 'Spots masks'],
+            annotate_labels_idxs=[1],
             points_coords_df=df_coords
         )
     
@@ -2207,7 +2208,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         imshow(
             lab, extended_lab,
             window_title='Extended 3D segm',
-            axis_titles=['Input masks', 'Extended masks']
+            axis_titles=['Input masks', 'Extended masks'],
+            annotate_labels_idxs=[0, 1]
         )
     
     def _displaySegmRefChannelResult(self, result, image):

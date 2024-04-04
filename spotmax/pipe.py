@@ -821,6 +821,7 @@ def _compute_obj_spots_features(
         get_backgr_from_inside_ref_ch_mask=False,
         custom_combined_measurements=None,
         logger_func=print,
+        logger_warning_report=print,
         show_progress=True,
         debug=False
     ):
@@ -894,6 +895,9 @@ def _compute_obj_spots_features(
         https://pandas.pydata.org/docs/reference/api/pandas.eval.html
     logger_func : callable, optional
         Function used to print or log process information. Default is print
+    logger_warning_report : callable, optional
+        Additional function used by the spotMAX cli Kernel to log 
+        warnings in the report file. Default is print
     debug : bool, optional
         If True, displays intermediate results. Requires GUI libraries. 
         Default is False.
@@ -926,12 +930,16 @@ def _compute_obj_spots_features(
     if get_backgr_from_inside_ref_ch_mask:
         backgr_mask = np.logical_and(ref_ch_mask_obj, ~spheroids_mask)
         normalised_result = transformations.normalise_img(
-            ref_ch_img_obj, backgr_mask, raise_if_norm_zero=False
+            ref_ch_img_obj, backgr_mask, raise_if_norm_zero=False, 
+            logger_func=logger_func, 
+            logger_warning_report=logger_warning_report
         )
         normalised_ref_ch_img_obj, ref_ch_norm_value = normalised_result
         df_obj_spots.loc[:, 'ref_ch_normalising_value'] = ref_ch_norm_value
         normalised_result = transformations.normalise_img(
-            spots_img_obj, backgr_mask, raise_if_norm_zero=True
+            spots_img_obj, backgr_mask, raise_if_norm_zero=True, 
+            logger_func=logger_func, 
+            logger_warning_report=logger_warning_report
         )
         normalised_spots_img_obj, spots_norm_value = normalised_result
         df_obj_spots.loc[:, 'spots_normalising_value'] = spots_norm_value
@@ -1391,7 +1399,8 @@ def spots_calc_features_and_filter(
         custom_combined_measurements=None,
         show_progress=True,
         verbose=True,
-        logger_func=print
+        logger_func=print,
+        logger_warning_report=print
     ):
     """Calculate spots features and filter valid spots based on 
     `gop_filtering_thresholds`.
@@ -1490,6 +1499,9 @@ def spots_calc_features_and_filter(
         Default is True
     logger_func : callable, optional
         Function used to print or log process information. Default is print
+    logger_warning_report : callable, optional
+        Additional function used by the spotMAX cli Kernel to log 
+        warnings in the report file. Default is print
 
     Returns
     -------
@@ -1663,7 +1675,8 @@ def spots_calc_features_and_filter(
                 zyx_resolution_limit_pxl=spots_zyx_radii_pxl,
                 custom_combined_measurements=custom_combined_measurements,
                 debug=debug, 
-                logger_func=logger_func
+                logger_func=logger_func,
+                logger_warning_report=logger_warning_report,
             )
             if i == 0:
                 # Store metrics at first iteration
