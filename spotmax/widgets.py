@@ -1917,6 +1917,7 @@ class mathTeXLabel(QWidget):
 
 class SpotsItemToolButton(acdc_widgets.PointsLayerToolButton):
     sigToggled = Signal(object, bool)
+    sigRemove = Signal(object)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -1924,6 +1925,23 @@ class SpotsItemToolButton(acdc_widgets.PointsLayerToolButton):
     
     def emitToggled(self, checked):
         self.sigToggled.emit(self, checked)
+    
+    def showContextMenu(self, event):
+        contextMenu = QMenu(self)
+        contextMenu.addSeparator()
+
+        editAction = QAction('Edit points appearance...')
+        editAction.triggered.connect(self.editAppearance)
+        contextMenu.addAction(editAction)
+        
+        removeAction = QAction('Remove points')
+        removeAction.triggered.connect(self.emitRemove)
+        contextMenu.addAction(removeAction)
+
+        contextMenu.exec(event.globalPos())
+    
+    def emitRemove(self):
+        self.sigRemove.emit(self)
 
 class SpotsItems:
     sigButtonToggled = Signal(object, bool)
@@ -1938,6 +1956,7 @@ class SpotsItems:
         all_df_spots_files = set()
         for files in df_spots_files.values():
             all_df_spots_files.update(files)
+        printl(len(self.loadedDfs))
         win = dialogs.SpotsItemPropertiesDialog(
             natsorted(all_df_spots_files), 
             spotmax_out_path=self.spotmax_out_path,
@@ -1953,6 +1972,7 @@ class SpotsItems:
         self.buttons.append(toolbutton)
         self.createSpotItem(win.state, toolbutton)
         self.loadSpotsTables(toolbutton)
+        toolbutton.setToolTip(toolbutton.filename)
         toolbutton.setChecked(True)
         return toolbutton
 
@@ -1964,8 +1984,21 @@ class SpotsItems:
         toolbutton.setCheckable(True)
         toolbutton.sigToggled.connect(self.buttonToggled)
         toolbutton.sigEditAppearance.connect(self.editAppearance)
+        toolbutton.sigRemove.connect(self.removeButton)
         toolbutton.filename = state['selected_file']
         return toolbutton
+    
+    def removeButton(self, button):
+        button.item.setData([], [])
+        self.parent.ax1.removeItem(button.item)
+        filename = button.filename
+        key = (self.posFoldername(), filename)
+        try:
+            self.loadedDfs.pop(key)
+        except Exception as err:
+            pass
+        toolbar = self.parent.spotmaxToolbar.removeAction(button.action)
+        self.buttons.remove(button)
     
     def buttonToggled(self, button, checked):
         button.item.setVisible(checked)
@@ -2121,7 +2154,7 @@ class SpotsItems:
         toolbutton = self.getActiveButton()
         toolbutton.df = df.reset_index().set_index(['frame_i', 'z'])
         filename = toolbutton.filename
-        key = (self.posData.pos_foldername, filename)
+        key = (self.posFoldername(), filename)
         self.loadedDfs[key] = toolbutton.df  
     
     def loadSpotsTables(self, toolbutton=None):
