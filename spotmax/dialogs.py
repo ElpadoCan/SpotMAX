@@ -29,7 +29,8 @@ from qtpy.QtWidgets import (
     QTreeWidgetItemIterator, QAbstractItemView, QFrame, QFormLayout,
     QMainWindow, QWidget, QTableView, QTextEdit, QGridLayout,
     QSpacerItem, QSpinBox, QDoubleSpinBox, QButtonGroup, QGroupBox,
-    QFileDialog, QDockWidget, QTabWidget, QScrollArea, QScrollBar
+    QFileDialog, QDockWidget, QTabWidget, QScrollArea, QScrollBar, 
+    QRadioButton
 )
 
 import matplotlib
@@ -852,7 +853,7 @@ class AutoTuneGroupbox(QGroupBox):
             mainLayout.addWidget(groupBox)
         
         autoTuneSpotProperties = AutoTuneSpotProperties() 
-        self.trueFalseToggle = autoTuneSpotProperties.trueFalseToggle
+        self.trueRadioButton = autoTuneSpotProperties.trueRadioButton
         self.trueColorButton= autoTuneSpotProperties.trueColorButton
         self.falseColorButton = autoTuneSpotProperties.falseColorButton
         
@@ -952,14 +953,13 @@ class AutoTuneSpotProperties(QGroupBox):
         )
         trueFalseToggleLayout.addStretch(1) 
         
-        trueFalseToggleLayout.addWidget(
-            QLabel('Clicking on true spots'), alignment=Qt.AlignRight
-        )
-        self.trueFalseToggle = acdc_widgets.Toggle()
-        self.trueFalseToggle.setChecked(True)
-        trueFalseToggleLayout.addWidget(
-            self.trueFalseToggle, alignment=Qt.AlignCenter
-        )
+        trueRadioButton = QRadioButton('Add true spots')
+        falseRadioButton = QRadioButton('Add false spots')
+        trueRadioButton.setChecked(True)
+        self.trueRadioButton = trueRadioButton
+        
+        trueFalseToggleLayout.addWidget(trueRadioButton)
+        trueFalseToggleLayout.addWidget(falseRadioButton)
         layout.addLayout(trueFalseToggleLayout)
         
         clearPointsButtonsLayout = QHBoxLayout()
@@ -1227,7 +1227,7 @@ class AutoTuneTabWidget(QWidget):
         self.addAutoTunePointsButton.sigToggled.connect(
             self.emitAddAutoTunePointsToggle
         )
-        self.autoTuneGroupbox.trueFalseToggle.toggled.connect(
+        self.autoTuneGroupbox.trueRadioButton.toggled.connect(
             self.emitForegrBackrToggledSignal
         )
         self.autoTuneGroupbox.sigColorChanged.connect(
@@ -1372,7 +1372,7 @@ class AutoTuneTabWidget(QWidget):
         return hoveredPoints
     
     def addAutoTunePoint(self, frame_i, z, x, y):
-        if self.autoTuneGroupbox.trueFalseToggle.isChecked():
+        if self.autoTuneGroupbox.trueRadioButton.isChecked():
             item = self.autoTuneGroupbox.trueItem
             item.setVisible(True)
         else:

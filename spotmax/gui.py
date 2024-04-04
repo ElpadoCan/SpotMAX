@@ -2785,10 +2785,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.updateFramePosLabel()
         proceed_cca, never_visited = self.get_data()
         posData = self.data[self.pos_i]
-        self.spotsItems.setPosition(posData)
-        self.spotsItems.loadSpotsTables()
-        self.updateAllImages()
+        self.spotsItems.hideAllItems()
+        super().updateAllImages()
         self.setStatusBarLabel()
+    
+    def PosScrollBarReleased(self):
+        super().PosScrollBarReleased()
+        self.spotsItems.showItems()
         
     def connectLeftClickButtons(self):
         super().connectLeftClickButtons()

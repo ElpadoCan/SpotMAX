@@ -2341,6 +2341,14 @@ class SpotsItems:
             self.removePoint(hoveredPoints, item, button, frame_i, z)  
         else:
             self.addPoint(item, img, frame_i, z, y, x, button)
+    
+    def hideAllItems(self):
+        for toolbutton in self.buttons:
+            toolbutton.item.setVisible(False)
+    
+    def showItems(self):
+        for toolbutton in self.buttons:
+            toolbutton.item.setVisible(toolbutton.isChecked())
 
 def ParamFormWidget(
         anchor, param, parent, use_tune_widget=False,
