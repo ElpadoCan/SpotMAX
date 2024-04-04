@@ -1349,7 +1349,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         posData = self.data[self.pos_i]
         
-        keys = ['spots_zyx_radii_pxl', 'use_gpu']
+        keys = ['spots_zyx_radii_pxl', 'use_gpu', 'lab']
         all_kwargs = self.paramsToKwargs()
         if all_kwargs is None:
             self.logger.info('Process cancelled.')

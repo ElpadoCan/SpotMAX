@@ -3496,7 +3496,7 @@ class Kernel(_ParamsParser):
             use_gpu = False
         return use_gpu 
     
-    def sharpen_spots(self, raw_spots_img, metadata):
+    def sharpen_spots(self, raw_spots_img, metadata, lab=None):
         """Difference of Gaussians (DoG) detector. The same as TrackMate DoG 
         detector. Source: https://imagej.net/plugins/trackmate/detectors/difference-of-gaussian
 
@@ -3506,6 +3506,10 @@ class Kernel(_ParamsParser):
             Raw spots' signal 3D z-stack image.
         metadata : dict
             Dictionary with 'zyxResolutionLimitPxl' key.
+        lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
+            Optional input segmentation image with the masks of the objects, i.e. 
+            single cells. If not None, minimum and maximum intensities for the 
+            scaler will be determined inside the segmented objects.
 
         Returns
         -------
@@ -3522,7 +3526,7 @@ class Kernel(_ParamsParser):
         
         filtered = filters.DoG_spots(
             raw_spots_img, resolution_limit_radii, use_gpu=use_gpu, 
-            logger_func=self.logger.info
+            logger_func=self.logger.info, lab=lab
         )
         return filtered
     
@@ -4757,6 +4761,9 @@ class Kernel(_ParamsParser):
         for frame_i in range(stopFrameNum):
             self._current_frame_i = frame_i
             raw_spots_img = spots_data[frame_i]
+            lab = segm_data[frame_i]
+            rp = segm_rp[frame_i]
+            
             if spots_ch_segm_data is not None:
                 spots_ch_segm_mask = spots_ch_segm_data[frame_i] > 0
             else:
@@ -4770,16 +4777,13 @@ class Kernel(_ParamsParser):
                 preproc_spots_data[frame_i] = preproc_spots_img
             if do_sharpen_spots:
                 sharp_spots_img = self.sharpen_spots(
-                    raw_spots_img, self.metadata
+                    raw_spots_img, self.metadata, lab=lab
                 )
             else:
                 sharp_spots_img = None
             
             if save_preproc_spots_img and sharp_spots_img is not None:
                 preproc_spots_data[frame_i] = sharp_spots_img
-            
-            lab = segm_data[frame_i]
-            rp = segm_rp[frame_i]
             
             ref_ch_img = None
             filtered_ref_ch_img = None

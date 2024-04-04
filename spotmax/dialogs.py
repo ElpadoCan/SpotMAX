@@ -3455,7 +3455,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         df = io.load_spots_table(self.spotmax_out_path, filename)
         try:
             size = round(df[ZYX_RESOL_COLS[1]].iloc[0])
-        except KeyError as err:
+        except Exception as err:
             return
         self.sizeSpinBox.setValue(size)
 

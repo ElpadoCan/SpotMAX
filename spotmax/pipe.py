@@ -42,7 +42,7 @@ def preprocess_image(
     if do_sharpen and spots_zyx_radii_pxl is not None:
         image = filters.DoG_spots(
             image, spots_zyx_radii_pxl, use_gpu=use_gpu, 
-            logger_func=logger_func
+            logger_func=logger_func, lab=lab
         )
     elif gauss_sigma != 0:
         image = filters.gaussian(

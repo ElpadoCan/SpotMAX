@@ -2106,12 +2106,12 @@ class SpotsItems:
     def _loadSpotsTable(self, toolbutton):
         spotmax_out_path = self.spotmax_out_path
         filename = toolbutton.filename
-        key = (self.posData.pos_foldername, filename)
+        key = (self.posFoldername(), filename)
         df = self.loadedDfs.get(key)
         if df is None:
             df = io.load_spots_table(spotmax_out_path, filename)
             self.loadedDfs[key] = df
-        
+
         if df is None:
             toolbutton.df = None
         else:

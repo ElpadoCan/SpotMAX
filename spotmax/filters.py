@@ -84,7 +84,9 @@ def ridge(image, sigmas):
     ).reshape(input_shape)
     return filtered
 
-def DoG_spots(image, spots_zyx_radii_pxl, use_gpu=False, logger_func=print):
+def DoG_spots(
+        image, spots_zyx_radii_pxl, use_gpu=False, logger_func=print, lab=None
+    ):
     spots_zyx_radii_pxl = np.array(spots_zyx_radii_pxl)
     if image.ndim == 2 and len(spots_zyx_radii_pxl) == 3:
         spots_zyx_radii_pxl = spots_zyx_radii_pxl[1:]
@@ -107,9 +109,17 @@ def DoG_spots(image, spots_zyx_radii_pxl, use_gpu=False, logger_func=print):
     
     sharpened = blurred1 - blurred2
     
-    out_range = (image.min(), image.max())
+    if lab is None:
+        out_range = (image.min(), image.max())
+        in_range = 'image'
+    else:
+        lab_mask = lab > 0
+        img_masked = image[lab_mask]
+        out_range = (img_masked.min(), img_masked.max())
+        sharp_img_masked = sharpened[lab_mask]
+        in_range = (sharp_img_masked.min(), sharp_img_masked.max())
     sharp_rescaled = skimage.exposure.rescale_intensity(
-        sharpened, out_range=out_range
+        sharpened, in_range=in_range, out_range=out_range
     )
     
     return sharp_rescaled
