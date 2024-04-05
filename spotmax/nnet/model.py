@@ -220,7 +220,7 @@ class Model:
             ], dtype=image.dtype)
         return scaled
     
-    def resize_to_orig_shape(self, thresh, orig_shape):
+    def resize_to_orig_shape(self, thresh, orig_shape):        
         if thresh.shape[-2:] == orig_shape:
             return thresh
         
