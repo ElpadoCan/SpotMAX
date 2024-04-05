@@ -220,7 +220,8 @@ class Model:
             ], dtype=image.dtype)
         return scaled
     
-    def resize_to_orig_shape(self, thresh, orig_shape):        
+    def resize_to_orig_shape(self, thresh, orig_shape):
+        printl(thresh.shape, orig_shape)   
         if thresh.shape[-2:] == orig_shape:
             return thresh
         
@@ -247,7 +248,11 @@ class Model:
     
     def remove_padding(self, pad_width, image):
         y1, x1 = pad_width[1][1], pad_width[2][1]
-        cropped = image[:, :-y1, :-x1]
+        cropped = image
+        if y1 > 0:
+            cropped = cropped[:, :-y1]
+        if x1 > 0:
+            cropped = cropped[:, :, :-x1]
         return cropped
     
     def segment(
