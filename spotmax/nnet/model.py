@@ -279,7 +279,7 @@ class Model:
         """        
         orig_yx_shape = image.shape[-2:]
         if not self._batch_preprocess:
-            image = self.preprocess(image)
+            image = self.preprocess(image[np.newaxis])[0]
         
         self._check_input_dtype_is_float(image)
         

@@ -752,6 +752,13 @@ class SpotPredictionMethodWidget(QWidget):
         from .nnet import model
         return model
     
+    def log(self, txt):
+        try:
+            paramsGroupBox = self.parent().parent()
+            paramsGroupBox.logging_func(txt)
+        except Exception as e:
+            printl(txt)
+    
     def _promptConfigNeuralNet(self):
         model = self._importModel()
         init_params, segment_params = acdc_myutils.getModelArgSpec(model)
@@ -777,11 +784,18 @@ class SpotPredictionMethodWidget(QWidget):
         if win.cancel:
             return
         
+        
+        self.log(
+            'Initializing neural network model '
+            '(GUI will be unresponsive, no panic)...'
+        )
+        
         self.nnetModel = model.Model(**win.init_kwargs)
         self.nnetParams = {
             'init': win.init_kwargs, 'segment': win.model_kwargs
         }
         self.configButton.confirmAction()
+        self.log('Model initialized' )
     
     def _promptConfigBioImageIOModel(self):
         from spotmax.BioImageIO import model
@@ -808,11 +822,16 @@ class SpotPredictionMethodWidget(QWidget):
         if win.cancel:
             return
         
+        self.log(
+            'Initializing BioImage.IO model '
+            '(GUI will be unresponsive, no panic)...'
+        )
         self.bioImageIOModel = model.Model(**win.init_kwargs)
         self.bioImageIOParams = {
             'init': win.init_kwargs, 'segment': win.model_kwargs
         }
         self.configButton.confirmAction()
+        self.log('Model initialized' )
     
     def promptConfigModel(self):
         if self.value() == 'spotMAX AI':
