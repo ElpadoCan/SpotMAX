@@ -5,13 +5,12 @@ config_yaml_path = os.path.join(nnet_path, 'config.yaml')
 
 data_path = os.path.join(nnet_path, 'data')
 
-from cellacdc.myutils import check_install_package
+from cellacdc.myutils import check_install_package, check_install_torch
 
 from spotmax import is_cli, printl, io
 
 def install_and_download():
-    check_install_package(
-        'torch', 
+    check_install_torch()(
         is_cli=is_cli,
         caller_name='spotMAX'
     )

@@ -21,6 +21,20 @@ except Exception as e:
 __author__ = 'Francesco Padovani'
 
 try:
+    import cellacdc
+except Exception as err:
+    import subprocess
+    try:
+        subprocess.check_call([
+            sys.executable, '-m', 'pip', 'install', 
+            'git+https://github.com/SchmollerLab/Cell_ACDC.git'
+        ])
+    except Exception as err:
+        subprocess.check_call([
+            sys.executable, '-m', 'pip', 'install', 'cellacdc'
+        ])
+
+try:
     from cellacdc import gui as acdc_gui
     from qtpy.QtGui import QFont
     font = QFont()
