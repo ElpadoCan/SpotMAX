@@ -24,6 +24,8 @@ spotmax/docs/source/tutorials/data
 examples/notebooks/bioimageio_models
 **/checkpoints
 _tests
+.setup.cfg
+setup.cfg
 
 spotmax/logs/*
 !spotmax/logs/dummy.txt

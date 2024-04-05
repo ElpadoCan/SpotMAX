@@ -10,10 +10,7 @@ from cellacdc.myutils import check_install_package, check_install_torch
 from spotmax import is_cli, printl, io
 
 def install_and_download():
-    check_install_torch()(
-        is_cli=is_cli,
-        caller_name='spotMAX'
-    )
+    check_install_torch(is_cli=is_cli, caller_name='spotMAX')
 
     check_install_package(
         'pytorch3dunet', 
