@@ -79,7 +79,8 @@ class Unet2DModel(BaseModel):
 
         self.model_config = config['model']
         self.trainer_config = config['trainer']
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device_str = config['device']
+        self.device = torch.device(device_str)
         self.model_dir = os.path.expanduser(
             self.model_config['model_dir']
         )

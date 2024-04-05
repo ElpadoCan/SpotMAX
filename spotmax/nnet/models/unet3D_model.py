@@ -27,13 +27,7 @@ class Unet3DModel(BaseModel):
         self.config = config
 
         # Get a device to train on
-        device_str = self.config.get('device', None)
-        if device_str is not None:
-            if device_str.startswith('cuda') and not torch.cuda.is_available():
-                device_str = 'cpu'
-        else:
-            device_str = "cuda:0" if torch.cuda.is_available() else 'cpu'
-        
+        device_str = self.config.get('device', 'cpu')        
         device = torch.device(device_str)
 
         # Set the device in the config
