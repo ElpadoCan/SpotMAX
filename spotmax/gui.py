@@ -398,6 +398,13 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         self.spotsItems.setPosition(posData)
         toolbutton = self.spotsItems.addLayer(df_spots_files)
+        for _posData in self.data:
+            self.spotsItems.setPosition(_posData)
+            self.spotsItems.loadSpotsTables()
+            
+        self.spotsItems.setPosition(posData)
+        self.spotsItems.loadSpotsTables()
+            
         if toolbutton is None:
             self.logger.info(
                 'Add spots layer process cancelled.'

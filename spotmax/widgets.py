@@ -1975,12 +1975,11 @@ class SpotsItems:
         all_df_spots_files = set()
         for files in df_spots_files.values():
             all_df_spots_files.update(files)
-        printl(len(self.loadedDfs))
         win = dialogs.SpotsItemPropertiesDialog(
             natsorted(all_df_spots_files), 
             spotmax_out_path=self.spotmax_out_path,
             parent=self.parent, 
-            color_idx=len(self.loadedDfs)
+            color_idx=len(self.buttons)
         )
         win.exec_()
         if win.cancel:
@@ -2244,7 +2243,6 @@ class SpotsItems:
         scatterItem.setData(xx, yy)
         scatterItem.z = z
         scatterItem.frame_i = frame_i
-        self.posChanged = False
 
     def setData(self, frame_i, toolbutton=None, z=None):
         if toolbutton is None:
@@ -2252,6 +2250,7 @@ class SpotsItems:
                 self._setDataButton(toolbutton, frame_i, z=z)
         else:
             self._setDataButton(toolbutton, frame_i, z=z)
+        self.posChanged = False
     
     def getActiveButton(self):
         for toolbutton in self.buttons:
