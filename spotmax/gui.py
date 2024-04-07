@@ -1746,6 +1746,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs['nnet_model'] = self.getNeuralNetworkModel()
         kwargs['nnet_params'] = self.getNeuralNetParams()
         kwargs['nnet_input_data'] = self.getNeuralNetInputData()
+        kwargs['return_nnet_prediction'] = True
         
         threshold_func = self.getSpotsThresholdMethod()
         kwargs['thresholding_method'] = threshold_func
@@ -2089,13 +2090,18 @@ class spotMAX_Win(acdc_gui.guiWin):
         if 'neural_network' in result:
             selected_threshold_method = self.getSpotsThresholdMethod()
             titles = [
-                'Input image', f'{selected_threshold_method}', 'spotMAX AI'
+                'Input image', 
+                'spotMAX AI prediction map',
+                f'{selected_threshold_method}', 
+                'spotMAX AI'
             ]
             prediction_images = [
                 result['input_image'], 
+                result['neural_network_prediciton'],
                 result['custom'], 
                 result['neural_network'],
             ]
+            max_ncols = 2
         elif 'bioimageio_model' in result:
             selected_threshold_method = self.getSpotsThresholdMethod()
             titles = [
@@ -2107,16 +2113,19 @@ class spotMAX_Win(acdc_gui.guiWin):
                 result['custom'], 
                 result['bioimageio_model'],
             ] 
+            max_ncols = 3
         else:
             titles = list(result.keys())
             titles[0] = 'Input image'
             prediction_images = list(result.values())
+            max_ncols = 4
         
         window_title = 'Spots channel - Spots segmentation method'
         
         imshow(
             *prediction_images, axis_titles=titles, parent=self, 
-            window_title=window_title, color_scheme=self._colorScheme
+            window_title=window_title, color_scheme=self._colorScheme, 
+            max_ncols=max_ncols
         )
     
     @exception_handler

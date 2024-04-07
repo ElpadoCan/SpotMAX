@@ -95,6 +95,7 @@ def spots_semantic_segmentation(
         nnet_model=None,
         nnet_params=None,
         nnet_input_data=None,
+        return_nnet_prediction=False,
         bioimageio_model=None,
         bioimageio_params=None,
         do_preprocess=True,
@@ -176,6 +177,9 @@ def spots_semantic_segmentation(
     nnet_input_data : numpy.ndarray or sequence of arrays, optional
         If not None, run the neural network on this data and not on the 
         pre-processed input image. Default is None
+    return_nnet_prediction : bool, optional
+        If True, include the key 'neural_network_prediciton' in the returned 
+        dictionary. Default is False
     bioimageio_model : Cell-ACDC implementation of any BioImage.IO model, optional
         If not None, the output will include the key 'bioimageio_model' with the 
         result of the segmentation using the BioImage.IO model. 
@@ -205,22 +209,26 @@ def spots_semantic_segmentation(
     Returns
     -------
     result : dict or numpy.ndarray
-        If return_only_segm is True, the output will bre the the numpy.ndarray 
+        If `return_only_segm` is True, the output will bre the the numpy.ndarray 
         with the segmentation result. 
         
-        If thresholding_method is None and do_try_all_thresholds is True, 
+        If `thresholding_method` is None and do_try_all_thresholds is True, 
         the output will be a dictionary with keys {'threshol_li', 
         'threshold_isodata', 'threshold_otsu', 'threshold_minimum', 
         'threshold_triangle', 'threshold_mean', 'threshold_yen'} and values 
         the result of each thresholding method. 
         
-        If thresholding_method is not None, the output will be a dictionary 
+        If `thresholding_method` is not None, the output will be a dictionary 
         with one key {'custom'} and the result of applying the requested 
         thresholding_method. 
         
-        If nnet_model is not None, the output dictionary will include the 
-        'neural_network' key with value the result of running the nnet_model
+        If `nnet_model` is not None, the output dictionary will include the 
+        'neural_network' key with value the result of running the `nnet_model`
         requested. 
+        
+        If `return_nnet_prediction` is True and `nnet_model` is not None, the 
+        output dictionary will include the 'neural_network_prediciton' key 
+        with value the prediction map output of `nnet_model`. 
         
         If bioimageio_model is not None, the output dictionary will include the 
         'bioimageio_model' key with value the result of running the bioimageio_model
@@ -279,6 +287,7 @@ def spots_semantic_segmentation(
             nnet_model=nnet_model,
             nnet_params=nnet_params,
             nnet_input_data=nnet_input_data,
+            return_nnet_prediction=return_nnet_prediction,
             do_try_all_thresholds=do_try_all_thresholds,
             return_only_output_mask=return_only_segm,
             pre_aggregated=pre_aggregated,
@@ -299,6 +308,7 @@ def spots_semantic_segmentation(
             nnet_model=nnet_model, 
             nnet_params=nnet_params,
             nnet_input_data=nnet_input_data,
+            return_nnet_prediction=return_nnet_prediction,
             do_try_all_thresholds=do_try_all_thresholds,
             return_only_output_mask=return_only_segm,
             do_max_proj=True,

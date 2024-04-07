@@ -258,6 +258,7 @@ class Model:
             self, image,
             threshold_value=0.9,
             label_components=False,
+            return_pred: NotParam=False,
             verbose: NotParam=True
         ):
         """Run inference and return the segmentation result
@@ -313,8 +314,14 @@ class Model:
             lab = skimage.measure.label(thresh)
         else:
             lab = thresh
-            
-        return lab
+        
+        printl(return_pred)
+        
+        if return_pred:
+            prediction = self.resize_to_orig_shape(prediction, orig_yx_shape)
+            return lab, prediction
+        else:
+            return lab
 
 def get_model_params_from_ini_params(
         ini_params, use_default_for_missing=False, subsection='spots'

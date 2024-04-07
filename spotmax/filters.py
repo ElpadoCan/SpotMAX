@@ -198,6 +198,7 @@ def local_semantic_segmentation(
         nnet_model=None, 
         nnet_params=None, 
         nnet_input_data=None,
+        return_nnet_prediction=False,
         do_max_proj=True, 
         keep_objects_touching_lab_intact=False, 
         ridge_filter_sigmas=0,
@@ -228,7 +229,10 @@ def local_semantic_segmentation(
     result = {}
     if return_image:
         result['input_image'] = np.zeros_like(image)
-    
+        
+    if return_nnet_prediction:
+        result['neural_network_prediciton'] = np.zeros(lab.shape)
+        
     if do_try_all_thresholds:
         pbar = tqdm(total=len(threshold_funcs), ncols=100)
     for method, thresh_func in threshold_funcs.items():
@@ -258,12 +262,21 @@ def local_semantic_segmentation(
             if ridge_filter_sigmas:
                 input_img = ridge(input_img, ridge_filter_sigmas)
             
-            result['input_image'][merged_obj_slice] = input_img
+            if return_image:
+                result['input_image'][merged_obj_slice] = input_img
             
             if method == 'neural_network':
-                predict_mask_merged = nnet_model.segment(
+                nnet_params['segment']['return_pred'] = return_nnet_prediction
+                nnet_result = nnet_model.segment(
                     input_img, **nnet_params['segment']
                 )
+                if return_nnet_prediction:
+                    predict_mask_merged, nnet_pred_merged = nnet_result
+                    result['neural_network_prediciton'][merged_obj_slice] = (
+                        nnet_pred_merged
+                    )
+                else:
+                    predict_mask_merged = nnet_result
             elif method == 'bioimageio_model':
                 predict_mask_merged = bioimageio_model.segment(
                     input_img, **bioimageio_params['segment']
@@ -327,6 +340,7 @@ def global_semantic_segmentation(
         nnet_model=None, 
         nnet_params=None,
         nnet_input_data=None, 
+        return_nnet_prediction=False,
         ridge_filter_sigmas=0,
         return_only_output_mask=False, 
         do_try_all_thresholds=True,
@@ -385,9 +399,14 @@ def global_semantic_segmentation(
         else:
             nnet_input_img = aggr_transf_spots_nnet_img
 
-        nnet_labels = nnet_model.segment(
+        nnet_params['segment']['return_pred'] = return_nnet_prediction
+        nnet_result = nnet_model.segment(
             nnet_input_img, **nnet_params['segment']
         )
+        if return_nnet_prediction:
+            nnet_labels, aggr_nnet_pred = nnet_result
+        else:
+            nnet_labels = nnet_result
         nnet_labels = filter_labels_by_size(nnet_labels, min_mask_size)
         result['neural_network'] = nnet_labels
     
@@ -414,9 +433,17 @@ def global_semantic_segmentation(
             )
             input_image_dict = {'input_image': deaggr_img}
             result = {**input_image_dict, **result}
-    elif return_image:
-        input_image_dict = {'input_image': aggr_img}
-        result = {**input_image_dict, **result}
+        if return_nnet_prediction:
+            deaggr_nnet_pred = transformations.deaggregate_img(
+                aggr_nnet_pred, aggregated_lab, lab
+            )
+            result['neural_network_prediciton'] = deaggr_nnet_pred
+    else:
+        if return_image:
+            input_image_dict = {'input_image': aggr_img}
+            result = {**input_image_dict, **result}
+        if return_nnet_prediction:
+            result['neural_network_prediciton'] = aggr_nnet_pred
     
     # result = {key:np.squeeze(img) for key, img in result.items()}
     
