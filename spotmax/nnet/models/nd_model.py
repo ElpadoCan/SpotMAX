@@ -4,6 +4,8 @@ from enum import Enum
 from .unet2d_model import Unet2DModel
 from .unet3D_model import Unet3DModel
 
+from .. import printl
+
 from pprint import pprint
 
 @dataclass
@@ -121,7 +123,9 @@ class NDModel(object):
             print(f"Configuration:")
             pprint(config, sort_dicts=False)
             print("########################################")
-
+        
+        config['device'] = self.config['device']
+        
         # Instanciate the model using the config
         model_instance = models[self.model](config)
 
