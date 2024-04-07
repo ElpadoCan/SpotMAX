@@ -3045,9 +3045,11 @@ class spotMAX_Win(acdc_gui.guiWin):
     def closeEvent(self, event):
         self.stopAutoTuning()
         if self.isAnalysisRunning:
+            self.setDisabled(False)
             proceed = self.warnClosingWhileAnalysisIsRunning()
             if not proceed:
                 event.ignore()
+                self.setDisabled(True)
                 return
         super().closeEvent(event)
         if not sys.stdout == self.logger.default_stdout:
