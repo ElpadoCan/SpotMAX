@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "spotmax"
 authors = [
-    { name = "Francesco Padovani", email = "francesco.padovani@helmholtz-muenchen.de" },
+    { name = "Francesco Padovani", email = "francesco.padovani@helmholtz-munich.de" },
 ]
 description = "Automatic 3D detection and quantification of fluorescent objects"
 keywords = [
@@ -46,9 +46,9 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://github.com/ElpadoCan/spotMAX_v2"
-"Author contact" = "https://www.helmholtz-munich.de/ife/about-us/people/staff-detail/ma/8873/Dr.-Padovani/index.html"
-"Schmoller lab" = "https://www.helmholtz-munich.de/ife/research/kurt-schmoller-cell-and-organelle-size-control/research/index.html"
+Homepage = "https://github.com/ElpadoCan/spotMAX"
+"Author contact" = "https://schmollerlab.com/francescopadovani"
+"Schmoller lab" = "https://schmollerlab.com/"
 
 [project.optional-dependencies]
 all = [
