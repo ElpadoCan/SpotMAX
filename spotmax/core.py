@@ -2758,7 +2758,7 @@ class SpotFIT(spheroid):
             ids=self.spot_ids
         )
         spots_3D_lab = np.zeros_like(prev_iter_expanded_lab)
-
+        
         # Start expanding the labels
         stop_grow_info = [] # list of (stop_id, stop_mask, stop_slice)
         stop_grow_ids = []
@@ -2841,7 +2841,7 @@ class SpotFIT(spheroid):
                 _spot_B_mins[o] = B_min if B_min >= 0 else 0
                 spot_values = self.spots_img_local[s_obj.slice][s_obj.image]
                 _spot_A_maxs[o] = spot_values.max()
-            
+                
             prev_iter_expanded_lab = expanded_labels
             # print(stop_grow_ids)
             # print(f'Current step = {(i+1)}')
@@ -3029,7 +3029,7 @@ class SpotFIT(spheroid):
                 pbar_desc=desc
             )
             
-            if self.debug:
+            if self.debug and self.ID == 24:
                 from . import _debug
                 _debug._spotfit_fit(
                     model.numba_func, spots_img, fit_coeffs, num_spots_s,
@@ -3194,9 +3194,9 @@ class SpotFIT(spheroid):
         IQR = Q3-Q1
         self.QC_limit = Q3 + (1.5*IQR)
 
-        if self.debug:
-            from ._debug import _spotfit_quality_control
-            _spotfit_quality_control(self.QC_limit, all_gof_metrics)
+        # if self.debug:
+        #     from ._debug import _spotfit_quality_control
+        #     _spotfit_quality_control(self.QC_limit, all_gof_metrics)
 
         # Given QC_limit determine which spots should be fitted again
         for obj_id, df_obj in df_spotFIT.groupby(level=0):

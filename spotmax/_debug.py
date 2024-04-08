@@ -205,8 +205,8 @@ def _spotfit_fit(
     y_gauss = y_gauss[y_gauss!=0]
 
     fig, ax = plt.subplots(1,3)
-    ax[0].get_shared_x_axes().join(ax[0], ax[1])
-    ax[0].get_shared_y_axes().join(ax[0], ax[1])
+    ax[0].sharex(ax[1])
+    ax[0].sharey(ax[1])
     ax[0].imshow(img.max(axis=0))
     _, yyc, xxc = np.array(spots_centers[fit_idx]).T
     ax[0].plot(xxc, yyc, 'r.')
