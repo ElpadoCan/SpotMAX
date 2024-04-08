@@ -1,5 +1,6 @@
 import os
 import re
+import traceback
 from pathlib import Path
 
 from urllib.parse import urlparse
@@ -218,7 +219,8 @@ def _parse_column_names(features_groups, rst_text):
 
             try:
                 column_name = re.findall(pattern, section)[0]
-            except Exception as e:
+            except Exception as err:
+                traceback.print_exc()
                 import pdb; pdb.set_trace()
                 
             key = f'{group}, {metric_name}'

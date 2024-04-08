@@ -638,7 +638,7 @@ def singleSpotCountMeasurementsName():
         'vox_ref': 'Reference ch. center pixel intensity',
         '|abs|_spot': 'Spot mean intensity',
         '|abs|_ref': 'Reference ch. mean intensity at spot',
-        '|norm|_spot': 'Spot normalised mean intesity',
+        '|norm|_spot': 'Spot normalised mean Intensity',
         '|norm|_ref': 'Ref. ch. normalised mean intensity at spot',
         '|spot|:|ref| t-value': 't-statistic of t-test',
         '|spot|:|ref| p-value (t)': 'p-value of t-test',

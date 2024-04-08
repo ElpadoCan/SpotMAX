@@ -295,9 +295,9 @@ actual segmentation of the spots.
   corresponding background pixels. 
   For more info, see the sections about the background metrics.
 
-* **Intesity at spot center**: column_name ``spot_center_raw_intensity``. 
+* **Intensity at spot center**: column name ``spot_center_raw_intensity``. 
   Pixel intensity of the spot center.
-* **Spot to background ratio**: column_name ``spot_center_raw_intens_to_backgr_median_ratio``.
+* **Spot to background ratio**: column name ``spot_center_raw_intens_to_backgr_median_ratio``.
   Ratio between ``spot_center_raw_intensity`` and ``background_median_raw_image``.
 * **Spot to z-slice background ratio**: column name ``spot_center_raw_intens_to_backgr_z_slice_median_ratio``.
   Ratio between ``spot_center_raw_intensity`` and ``background_median_z_slice_raw_image``.
@@ -338,9 +338,9 @@ actual segmentation of the spots.
   corresponding background pixels. 
   For more info, see the sections about the background metrics.
 
-* **Intesity at spot center**: column_name ``spot_center_preproc_intensity``. 
+* **Intensity at spot center**: column name ``spot_center_preproc_intensity``. 
   Pixel intensity of the spot center.
-* **Spot to background ratio**: column_name ``spot_center_preproc_intens_to_backgr_median_ratio``.
+* **Spot to background ratio**: column name ``spot_center_preproc_intens_to_backgr_median_ratio``.
   Ratio between ``spot_center_preproc_intensity`` and ``background_median_preproc_image``.
 * **Spot to z-slice background ratio**: column name ``spot_center_preproc_intens_to_backgr_z_slice_median_ratio``.
   Ratio between ``spot_center_preproc_intensity`` and ``background_median_z_slice_preproc_image``.
