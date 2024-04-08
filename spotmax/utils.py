@@ -82,8 +82,9 @@ def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):
     if custom_logs_folderpath is None:
         from . import logs_path
         custom_logs_folderpath = logs_path
-    logger = logging.getLogger(f'spotmax-logger-{name}')
-    logger.setLevel(logging.INFO)
+    
+    logger = acdc_utils.Logger(name='spotmax-logger', module=name)
+    sys.stdout = logger
 
     if not os.path.exists(custom_logs_folderpath):
         os.mkdir(custom_logs_folderpath)
@@ -97,8 +98,8 @@ def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):
     logger._file_handler = output_file_handler
     logger.addHandler(output_file_handler)
     
-    stdout_handler = logging.StreamHandler(sys.stdout)    
-    logger.addHandler(stdout_handler)
+    # stdout_handler = logging.StreamHandler(sys.stdout)    
+    # logger.addHandler(stdout_handler)
     
     store_current_log_file_path(log_path)
 

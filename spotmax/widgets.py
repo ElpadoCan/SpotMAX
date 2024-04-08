@@ -2651,6 +2651,7 @@ class RefChPredictionMethodWidget(SpotPredictionMethodWidget):
 class SpinBox(acdc_widgets.SpinBox):
     def __init__(self, parent=None, disableKeyPress=False):
         super().__init__(parent=parent, disableKeyPress=disableKeyPress)
+        self.installEventFilter(self)
     
     def setValue(self, value):
         if isinstance(value, str):
@@ -2660,6 +2661,11 @@ class SpinBox(acdc_widgets.SpinBox):
     def setText(self, text):
         value = int(text)
         super().setValue(value)
+    
+    def eventFilter(self, object, event) -> bool:
+        if event.type() == QEvent.Type.Wheel:
+            return True
+        return False
 
 class RunNumberSpinbox(SpinBox):
     def __init__(self, parent=None, disableKeyPress=False):

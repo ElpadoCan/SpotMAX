@@ -152,9 +152,6 @@ class spotMAX_Win(acdc_gui.guiWin):
     def gui_setCursor(self, modifiers, event):
         cursorsInfo = super().gui_setCursor(modifiers, event)
         noModifier = modifiers == Qt.NoModifier
-        shift = modifiers == Qt.ShiftModifier
-        ctrl = modifiers == Qt.ControlModifier
-        alt = modifiers == Qt.AltModifier
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         
         setAutoTuneCursor = (
@@ -434,13 +431,20 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         
         return self.zSliceScrollBar.sliderPosition()
-        
+    
+    def resizeRangeWelcomeText(self):
+        xRange, yRange = self.ax1.viewRange()
+        deltaX = xRange[1] - xRange[0]
+        deltaY = yRange[1] - yRange[0]
+        self.ax1.setXRange(-1, deltaX-1)
+        self.ax1.setYRange(-1, deltaY-1)
+    
     def _setWelcomeText(self):
         html_filepath = os.path.join(html_path, 'gui_welcome.html')
         with open(html_filepath) as html_file:
             htmlText = html_file.read()
         self.ax1.infoTextItem.setHtml(htmlText)
-        self.ax1.infoTextItem.setPos(0,0)
+        QTimer.singleShot(100, self.resizeRangeWelcomeText)
     
     def _disableAcdcActions(self, *actions):
         for action in actions:
@@ -3061,8 +3065,8 @@ class spotMAX_Win(acdc_gui.guiWin):
                 self.setDisabled(True)
                 return
         super().closeEvent(event)
-        if not sys.stdout == self.logger.default_stdout:
-            return
+        # if not sys.stdout == self.logger.default_stdout:
+        #     return
         if not self._executed:
             return
         print('**********************************************')

@@ -2,6 +2,66 @@ import sys
 import os
 import argparse
 
+import site
+sitepackages = site.getsitepackages()
+site_packages = [p for p in sitepackages if p.endswith('site-packages')][0]
+
+cellacdc_path = os.path.dirname(os.path.abspath(__file__))
+cellacdc_installation_path = os.path.dirname(cellacdc_path)
+if cellacdc_installation_path != site_packages:
+    # Running developer version. Delete cellacdc folder from site_packages 
+    # if present from a previous installation of cellacdc from PyPi
+    cellacdc_path_pypi = os.path.join(site_packages, 'cellacdc')
+    if os.path.exists(cellacdc_path_pypi):
+        import shutil
+        try:
+            shutil.rmtree(cellacdc_path_pypi)
+        except Exception as err:
+            print(err)
+            print(
+                '[ERROR]: Previous Cell-ACDC installation detected. '
+                f'Please, manually delete this folder and re-start the software '
+                f'"{cellacdc_path_pypi}". '
+                'Thank you for you patience!'
+            )
+            exit()
+        print('*'*60)
+        input(
+            '[WARNING]: SpotMAX had to clean-up and older installation. '
+            'Please, re-start the software. Thank you for your patience! '
+            '(Press any key to exit). '
+        )
+        exit()
+
+spotmax_path = os.path.dirname(os.path.abspath(__file__))
+spotmax_installation_path = os.path.dirname(spotmax_path)
+
+if spotmax_installation_path != site_packages:
+    # Running developer version. Delete spotmax folder from site_packages 
+    # if present from a previous installation of spotmax from PyPi
+    spotmax_path_pypi = os.path.join(site_packages, 'spotmax')
+    if os.path.exists(spotmax_path_pypi):
+        import shutil
+        try:
+            shutil.rmtree(spotmax_path_pypi)
+        except Exception as err:
+            print(err)
+            print(
+                '[ERROR]: Previous spotMAX installation detected. '
+                f'Please, manually delete this folder and re-start the software '
+                f'"{spotmax_path_pypi}". '
+                'Thank you for you patience!'
+            )
+            exit()
+        print('*'*60)
+        input(
+            '[WARNING]: SpotMAX had to clean-up and older installation. '
+            'Please, re-start the software. Thank you for your patience! '
+            '(Press any key to exit). '
+        )
+        exit()
+
+
 from spotmax._run import run_gui, run_cli
 from spotmax import help_text, GUI_INSTALLED
 

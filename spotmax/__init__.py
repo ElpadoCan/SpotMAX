@@ -7,6 +7,26 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from functools import wraps
 
+try:
+    import requests
+except Exception as err:
+    print('SpotMAX detected corrupted library, fixing it now...')
+    import subprocess
+    try:
+        subprocess.check_call(
+            [sys.executable, '-m', 'pip', 'uninstall', '-y', 'charset-normalizer']
+        )
+    except Exception as err:
+        pass
+    try:
+        subprocess.check_call([
+            sys.executable, '-m', 'pip', 'install', '--upgrade', 
+            'charset-normalizer'
+        ]
+        )
+    except Exception as err:
+        pass
+
 is_cli = True
 
 try:
@@ -24,6 +44,7 @@ try:
     import cellacdc
 except Exception as err:
     import subprocess
+    print('Installing Cell-ACDC...')
     try:
         subprocess.check_call([
             sys.executable, '-m', 'pip', 'install', 
@@ -33,6 +54,7 @@ except Exception as err:
         subprocess.check_call([
             sys.executable, '-m', 'pip', 'install', 'cellacdc'
         ])
+    print('Cell-ACDC installed')
 
 try:
     from cellacdc import gui as acdc_gui
@@ -44,7 +66,7 @@ try:
     GUI_INSTALLED = True
 except ModuleNotFoundError:
     GUI_INSTALLED = False
-    
+
 spotmax_path = os.path.dirname(os.path.abspath(__file__))
 qrc_resources_path = os.path.join(spotmax_path, 'qrc_resources_spotmax.py')
 resources_folderpath = os.path.join(spotmax_path, 'resources')
@@ -94,6 +116,7 @@ logo_path = os.path.join(resources_folderpath, 'spotMAX_logo.png')
 
 from cellacdc import printl as acdc_printl
 from cellacdc import base_cca_dict
+
 def printl(*objects, **kwargs):
     acdc_printl(*objects, idx=2, **kwargs)
 

@@ -315,8 +315,6 @@ class Model:
         else:
             lab = thresh
         
-        printl(return_pred)
-        
         if return_pred:
             prediction = self.resize_to_orig_shape(prediction, orig_yx_shape)
             return lab, prediction

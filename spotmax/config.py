@@ -1027,7 +1027,8 @@ def _spots_ch_params():
             'addComputeButton': True,
             'addApplyButton': False,
             'formWidgetFunc': 'widgets.SpotPredictionMethodWidget',
-            'actions': None
+            'actions': None, 
+            'autoTuneWidget': 'widgets.ReadOnlyLineEdit'
         },
         'minSizeSpotMask': {
             'desc': 'Minimum size of spot segmentation mask',
