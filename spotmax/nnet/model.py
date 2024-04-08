@@ -269,7 +269,8 @@ class Model:
             Input 2D or 3D image.
         threshold_value : float, optional
             Threshold value used to convert probability output to binary. 
-            Default is 0.9
+            Increase or decrease this value to detect less or more spots, 
+            respectively. Default is 0.9
         label_components : bool, optional
             If True, the binary mask will be labelled with `skimage.measure.label`. 
             This will separate the connected components into objects with an 

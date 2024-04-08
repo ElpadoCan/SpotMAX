@@ -2425,6 +2425,11 @@ def ParamFormWidget(
     key = (section, confvalText)
     infoHtmlText = section_option_to_desc_mapper.get(key, '')
     
+    if use_tune_widget:
+        addComputeButton = False
+    else:
+        addComputeButton = param.get('addComputeButton', False)
+    
     return formWidget(
         widgetFunc(),
         anchor=anchor,
@@ -2436,7 +2441,7 @@ def ParamFormWidget(
         stretchWidget=param.get('stretchWidget', True),
         addInfoButton=param.get('addInfoButton', True),
         addAddFieldButton=param.get('addAddFieldButton', False),
-        addComputeButton=param.get('addComputeButton', False),
+        addComputeButton=addComputeButton,
         addWarningButton=param.get('addWarningButton', False),
         addApplyButton=param.get('addApplyButton', False),
         addBrowseButton=param.get('addBrowseButton', False),
@@ -3086,6 +3091,49 @@ class EditableLabel(QWidget):
 
     def text(self):
         return self.value()
+
+class TuneSpotPredictionMethodWidget(QWidget):
+    def __init__(self, *args, parent=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        mainLayout = QVBoxLayout()
+        
+        self.spotPredictioMethodWidget = SpotPredictionMethodWidget(
+            parent=parent
+        )
+        self.spotPredictioMethodWidget.combobox.removeItem(2)        
+        self.spotPredictioMethodWidget.combobox.currentIndexChanged.connect(
+            self.onMethodIndexChanged
+        )
+        
+        threshValLayout = QFormLayout()
+        self.threshValLineEdit = QLineEdit()
+        self.threshValLineEdit.setReadOnly(True)
+        self.threshValLineEdit.setAlignment(Qt.AlignCenter)
+        label = QLabel(' | Threshold value')
+        label.setFont(config.font(pixelSizeDelta=-2))
+        self.threshValLineEdit.label = label
+        threshValLayout.addRow(label, self.threshValLineEdit)
+        label.setDisabled(True)
+        self.threshValLineEdit.setDisabled(True)
+        
+        mainLayout.addWidget(self.spotPredictioMethodWidget)
+        mainLayout.addLayout(threshValLayout)
+        
+        mainLayout.setContentsMargins(0, 5, 0, 5)
+        self.setLayout(mainLayout)
+    
+    def onMethodIndexChanged(self, idx):
+        self.threshValLineEdit.label.setDisabled(idx==0)
+        self.threshValLineEdit.setDisabled(idx==0)
+    
+    def setText(self, text):
+        try:
+            val = float(text)
+            self.threshValLineEdit.setText(val)
+        except Exception as err:
+            pass
+        
 
 class CenteredAlphaNumericLineEdit(acdc_widgets.alphaNumericLineEdit):
     def __init__(self, *args, **kwargs):

@@ -1081,7 +1081,7 @@ def _compute_obj_spots_features(
         )
 
         value = spots_img_obj[zyx_center]
-        df_obj_spots.at[spot_id, 'spot_preproc_intensity_at_center'] = value
+        df_obj_spots.at[spot_id, 'spot_center_preproc_intensity'] = value
         features.add_distribution_metrics(
             spot_intensities, df_obj_spots, spot_id, 
             col_name='spot_preproc_*name_in_spot_minimumsize_vol',
@@ -1095,7 +1095,7 @@ def _compute_obj_spots_features(
                 raw_spots_img_obj[slice_global_to_local][spheroid_mask]
             )
             value = raw_spots_img_obj[zyx_center]
-            df_obj_spots.at[spot_id, 'spot_raw_intensity_at_center'] = value
+            df_obj_spots.at[spot_id, 'spot_center_raw_intensity'] = value
 
             features.add_distribution_metrics(
                 raw_spot_intensities, df_obj_spots, spot_id, 
@@ -1634,8 +1634,6 @@ def spots_calc_features_and_filter(
         keys.append((frame_i, obj.label))
         num_spots_detected = len(df_obj_spots_det)
         last_spot_id += num_spots_detected
-        
-        dfs_spots_det.append(df_obj_spots_det)
 
         if ref_ch_mask_or_labels is not None:
             local_ref_ch_mask = ref_ch_mask_or_labels[obj_slice]>0
@@ -1652,6 +1650,7 @@ def spots_calc_features_and_filter(
         if raw_image is not None:
             raw_spots_img_obj = raw_image[obj_slice]
 
+        dfs_spots_det.append(df_obj_spots_det)
         df_obj_spots_gop = df_obj_spots_det.copy()
         if keep_only_spots_in_ref_ch:
             df_obj_spots_gop = filters.drop_spots_not_in_ref_ch(

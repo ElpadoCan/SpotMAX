@@ -51,6 +51,9 @@ class TuneKernel:
     def false_spots_coords_df(self):
         return self._false_spots_coords_df
 
+    def kwargs(self):
+        return self._kwargs
+
     def set_image_data(self, pos_foldername, image_data):
         self._image_data[pos_foldername] = (
             cellacdc.myutils.img_to_float(image_data)

@@ -293,9 +293,21 @@ def add_distribution_metrics(
     mean_corr_col = col_name.replace('*name', 'backgr_corrected_mean')
     df.at[idx, mean_corr_col] = mean_corr
     
+    spot_center_intens_col = f'spot_center_{bkgr_id}intensity' 
+    spot_center_intens = df.at[idx, spot_center_intens_col]
+    spot_bkgr_ratio_col = f'spot_center_{bkgr_id}intens_to_backgr_median_ratio' 
+    spot_bkgr_ratio_value = spot_center_intens/bkgr_value
+    df.at[idx, spot_bkgr_ratio_col] = spot_bkgr_ratio_value
+    
     mean_corr_z = mean_foregr_value - bkgr_value_z
     mean_corr_col_z = col_name.replace('*name', 'backgr_z_slice_corrected_mean')
     df.at[idx, mean_corr_col_z] = mean_corr_z
+    
+    spot_bkgr_z_ratio_col = (
+        f'spot_center_{bkgr_id}intens_to_backgr_z_slice_median_ratio'
+    ) 
+    spot_bkgr_z_ratio_value = spot_center_intens/bkgr_value_z
+    df.at[idx, spot_bkgr_z_ratio_col] = spot_bkgr_z_ratio_value
     
     sum_corr = mean_corr*volume
     sum_corr_col = col_name.replace('*name', 'backgr_corrected_sum')

@@ -2624,6 +2624,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         if all_kwargs is None:
             self.logger.info('Process cancelled.')
             return
+        
+        # kwargs = self.addNnetKwargsAndThresholdMethodIfNeeded(kwargs)
         kernel = posData.tuneKernel
         kernel.set_kwargs(all_kwargs)
         
