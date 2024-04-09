@@ -1,8 +1,11 @@
 .. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
-.. _envs_gh_url: https://github.com/ElpadoCan/spotMAX/tree/main/tests
+.. _Environments: https://github.com/ElpadoCan/spotMAX/tree/main/envs
 .. _pyenv: https://github.com/pyenv/pyenv
-.. _miniconda: https://docs.anaconda.com/free/miniconda/#quick-command-line-install
-.. _pytorch: https://pytorch.org/get-started/locally/
+.. _Install Miniconda: https://docs.anaconda.com/free/miniconda/#quick-command-line-install
+.. _Install PyTorch: https://pytorch.org/get-started/locally/
+.. _3D model: https://hmgubox2.helmholtz-muenchen.de/index.php/s/eoeFcgsAMDsgTgw
+.. _2D model: https://hmgubox2.helmholtz-muenchen.de/index.php/s/4dxeHSLDfAbC8dA
+
 
 .. _install-on-hpc:
 
@@ -19,7 +22,7 @@ dependencies.
 That means installing all the dependencies **first** and then install `Cell-ACDC`_ 
 and spotMAX **without dependencies**. 
 
-In `this <envs_gh_url>`_ folder, you will find the following files:
+In the `Environments`_ folder, you will find the following files:
 
 * ``conda_env_headless.yml`` to install dependencies with ``conda``.
 * ``requirements_headless.txt`` to install dependencies with ``pip``. Note that 
@@ -32,7 +35,8 @@ Follow these steps to install spotMAX headless:
    Copy the files above on a folder on the cluster or download them automatically 
    from the terminal with the following command::
 
-    curl -O 
+    curl -O https://github.com/ElpadoCan/spotMAX/blob/main/envs/conda_env_headless.yml
+    curl -O https://github.com/ElpadoCan/spotMAX/blob/main/envs/requirements_headless.txt
 
 2. **Install the package manager**
    
@@ -41,7 +45,7 @@ Follow these steps to install spotMAX headless:
         .. tab:: conda
 
             If ``conda`` is not already installed on the cluster, install 
-            Miniconda by following `this guide <miniconda>`_.
+            Miniconda by following this guide `Install Miniconda`_.
         
         .. tab:: pip
 
@@ -80,7 +84,7 @@ Follow these steps to install spotMAX headless:
 
 5. **Install PyTorch** (optional):
 
-    To install PyTorch follow `this guide <pytorch>`_.
+   To install PyTorch follow this guide `Install PyTorch`_.
    
    .. note:: 
 
@@ -88,7 +92,19 @@ Follow these steps to install spotMAX headless:
       segmentation. See the parameter :confval:`Spots segmentation method` for 
       more details.
 
+6. **Download spotMAX AI model weights** (optional):
+   
+   Download the model weights from here `3D model`_ and 
+   here `2D model`_ to these paths::
 
+        ~/spotmax_appdata/unet_checkpoints/unet2D/unet_best.pth
+        ~/spotmax_appdata/unet_checkpoints/unet3D/normal_30_250_250_20_100_100/best_checkpoint.pytorch
+
+   Alternatively, you can download them automatically with the following 
+   commands::
+
+        curl --create-dirs -o ~/spotmax_appdata/unet_checkpoints/unet2D/unet_best.pth https://hmgubox2.helmholtz-muenchen.de/index.php/s/4dxeHSLDfAbC8dA/download/unet_best.pth
+        curl --create-dirs -o ~/spotmax_appdata/unet_checkpoints/unet3D/normal_30_250_250_20_100_100/best_checkpoint.pytorch https://hmgubox2.helmholtz-muenchen.de/index.php/s/eoeFcgsAMDsgTgw/download/best_checkpoint.pytorch
 
 .. note:: 
 
