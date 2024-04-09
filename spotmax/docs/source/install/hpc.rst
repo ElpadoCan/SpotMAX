@@ -82,7 +82,13 @@ Follow these steps to install spotMAX headless:
     pip install --no-deps "git+https://github.com/SchmollerLab/Cell_ACDC.git"
     pip install "git+https://github.com/ElpadoCan/pytorch3dunet.git"
 
-5. **Install PyTorch** (optional):
+5. **Install spotMAX from pip**:
+   
+   Install spotMAX with the following command::
+
+    pip install "git+https://github.com/ElpadoCan/spotMAX.git"
+
+6. **Install PyTorch** (optional):
 
    To install PyTorch follow this guide `Install PyTorch`_.
    
@@ -92,7 +98,7 @@ Follow these steps to install spotMAX headless:
       segmentation. See the parameter :confval:`Spots segmentation method` for 
       more details.
 
-6. **Download spotMAX AI model weights** (optional):
+7. **Download spotMAX AI model weights** (optional):
    
    Download the model weights from here `3D model`_ and 
    here `2D model`_ to these paths::
