@@ -33,3 +33,4 @@ development. In that case see our :ref:`how-to-contribute`.
     latest
     source
     hpc
+    cuda
