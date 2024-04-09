@@ -1,0 +1,14 @@
+numpy
+pandas
+opencv-python-headless
+natsort
+h5py
+scikit-image>=0.18
+tqdm
+scikit-learn
+psutil
+boto3
+requests
+setuptools-scm
+pyyaml
+pytables

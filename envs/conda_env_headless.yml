@@ -1,0 +1,20 @@
+name: acdc
+channels:
+  - conda-forge
+  - fastai
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - pandas
+  - opencv-python-headless
+  - natsort
+  - h5py
+  - scikit-image
+  - tqdm
+  - scikit-learn
+  - psutil
+  - requests
+  - setuptools-scm
+  - yaml
+  - pytables
