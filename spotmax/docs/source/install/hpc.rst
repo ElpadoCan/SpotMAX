@@ -5,6 +5,7 @@
 .. _Install PyTorch: https://pytorch.org/get-started/locally/
 .. _3D model: https://hmgubox2.helmholtz-muenchen.de/index.php/s/eoeFcgsAMDsgTgw
 .. _2D model: https://hmgubox2.helmholtz-muenchen.de/index.php/s/4dxeHSLDfAbC8dA
+.. _Install CUDA drivers: https://developer.nvidia.com/cuda-downloads
 
 
 .. _install-on-hpc:
@@ -90,7 +91,9 @@ Follow these steps to install spotMAX headless:
 
 6. **Install PyTorch** (optional):
 
-   To install PyTorch follow this guide `Install PyTorch`_.
+   To install PyTorch follow this guide `Install PyTorch`_. If you have an 
+   NVIDIA GPU and a CUDA-capable system, make sure to install the correct 
+   CUDA drivers for your GPU by following this guide `Install CUDA drivers`_
    
    .. note:: 
 
