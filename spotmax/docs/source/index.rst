@@ -19,7 +19,7 @@ Multi-dimensional spot detection and quantification in microscopy data...
    :maxdepth: 2
    :hidden:
 
-   misc/install
+   install/index
    misc/get_started
    run/index
    parameters/index
