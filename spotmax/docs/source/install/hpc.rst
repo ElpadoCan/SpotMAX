@@ -35,7 +35,7 @@ Follow these steps to install spotMAX headless:
 1. **Copy environment file(s)**
    
    Copy the files above on a folder on the cluster or download them automatically 
-   from the terminal with the following command::
+   from the terminal with the following commands::
 
     curl -O https://github.com/ElpadoCan/spotMAX/blob/main/envs/conda_env_headless.yml
     curl -O https://github.com/ElpadoCan/spotMAX/blob/main/envs/requirements_headless.txt

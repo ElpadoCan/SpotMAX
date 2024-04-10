@@ -1,7 +1,7 @@
 .. _install-pytorch-with-nvidia-gpu:
 
-Install PyTorch with NVIDIA GPU on Ubuntu:
-------------------------------------------
+Install PyTorch with GPU support (Linux)
+----------------------------------------
 
 1. **Check NVIDIA drivers**: 
    
