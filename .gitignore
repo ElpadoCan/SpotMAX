@@ -26,6 +26,7 @@ examples/notebooks/bioimageio_models
 _tests
 .setup.cfg
 setup.cfg
+*.deb
 
 spotmax/logs/*
 !spotmax/logs/dummy.txt
