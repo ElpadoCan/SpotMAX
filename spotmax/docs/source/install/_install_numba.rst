@@ -10,10 +10,12 @@ installing ``numba`` with the following command:
 .. tabs::
 
     .. tab:: conda
-        conda install numba
+        
+        ``conda install numba``
     
     .. tab:: pip
-        pip install numba
+        
+        ``pip install numba``
 
 .. note::
 
