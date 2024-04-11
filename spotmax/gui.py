@@ -1,10 +1,9 @@
-import sys
+import warnings
 import os
 import shutil
 import datetime
 import traceback
 import re
-import pprint
 from queue import Queue
 
 import numpy as np
@@ -55,6 +54,8 @@ from . import icon_path
 from . import issues_url
 from . import features
 from . import prompts
+
+warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 LINEAGE_COLUMNS = list(base_cca_dict.keys())
 

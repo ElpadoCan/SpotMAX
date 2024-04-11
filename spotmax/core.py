@@ -1,13 +1,9 @@
-from cgitb import text
-from genericpath import isfile
 from importlib import import_module
 import os
-from re import VERBOSE
-import sys
+import warnings
 import shutil
 import traceback
 
-from typing import Union, Tuple
 from tqdm import tqdm
 import time
 from datetime import datetime, timedelta
@@ -70,6 +66,7 @@ import math
 SQRT_2 = math.sqrt(2)
 
 np.seterr(divide='warn', invalid='warn')
+warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 CHANNELS_KEYS = (
     'spots_ch', 'ref_ch', 'ref_ch_segm', 'spots_ch_segm', 'segm',
@@ -5099,7 +5096,7 @@ class Kernel(_ParamsParser):
                     text_to_append=text_to_append, 
                     df_spots_file_ext=df_spots_file_ext, 
                     df_spots_coords_in_endname=df_spots_coords_in_endname,
-                    verbose=VERBOSE
+                    verbose=verbose
                 )
                 pbar_pos.update()
                 t1 = time.perf_counter()
