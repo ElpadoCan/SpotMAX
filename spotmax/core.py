@@ -3929,7 +3929,7 @@ class Kernel(_ParamsParser):
             if verbose:
                 print('')
                 self.logger.info('Segmenting spots...')
-                
+            
             labels = pipe.spots_semantic_segmentation(
                 aggr_spots_img, 
                 lab=aggregated_lab, 
