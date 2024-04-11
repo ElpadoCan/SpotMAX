@@ -4539,7 +4539,8 @@ class Kernel(_ParamsParser):
             df_spots_coords_in_endname: str='',
             text_to_append: str='',            
             transformed_spots_ch_nnet: dict=None,
-            run_number=1
+            run_number=1, 
+            verbose=False
         ):
         self.set_metadata()
         self._current_step = 'Loading data from images path'
@@ -4568,8 +4569,6 @@ class Kernel(_ParamsParser):
         df_spots_coords_in = data.get('df_spots_coords_in')
 
         zyx_resolution_limit_pxl = self.metadata['zyxResolutionLimitPxl']
-
-        verbose = not self._params['Configuration']['reduceVerbosity']['loadedVal']
 
         stopFrameNum = self.metadata['stopFrameNum']
         if stopFrameNum > 1:
@@ -5018,7 +5017,7 @@ class Kernel(_ParamsParser):
         return bounds_kwargs
     
     @exception_handler_cli
-    def _run_exp_paths(self, exp_paths):
+    def _run_exp_paths(self, exp_paths, verbose=True):
         """Run spotMAX analysis from a dictionary of Cell-ACDC style experiment 
         paths
 
@@ -5077,7 +5076,8 @@ class Kernel(_ParamsParser):
                     df_spots_coords_in_endname=df_spots_coords_in_endname,
                     text_to_append=text_to_append,                   
                     transformed_spots_ch_nnet=transformed_data_nnet[pos],
-                    run_number=run_number
+                    run_number=run_number,
+                    verbose=verbose
                 )      
                 if result is None:
                     # Error raised, logged while dfs is None
@@ -5426,10 +5426,12 @@ class Kernel(_ParamsParser):
 
         self.were_errors_detected = False
         
+        configParams = self._params['Configuration']
+        verbose = not configParams['reduceVerbosity']['loadedVal']
         self._datetime_started = datetime.now()
         self.is_batch_mode = True
         for exp_paths in self.exp_paths_list:
-            self._run_exp_paths(exp_paths)
+            self._run_exp_paths(exp_paths, verbose=verbose)
         self.save_report()
         self.quit()
             
