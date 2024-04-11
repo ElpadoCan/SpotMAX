@@ -103,6 +103,8 @@ Install stable version
 
     At the end you might have to re-start Cell-ACDC. 
 
+.. include:: _install_numba.rst
+
 Updating to the latest stable version of spotMAX 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

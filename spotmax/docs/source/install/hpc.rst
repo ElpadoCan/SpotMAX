@@ -120,6 +120,8 @@ Follow these steps to install spotMAX headless:
         curl --create-dirs -o ~/spotmax_appdata/unet_checkpoints/unet2D/unet_best.pth https://hmgubox2.helmholtz-muenchen.de/index.php/s/4dxeHSLDfAbC8dA/download/unet_best.pth
         curl --create-dirs -o ~/spotmax_appdata/unet_checkpoints/unet3D/normal_30_250_250_20_100_100/best_checkpoint.pytorch https://hmgubox2.helmholtz-muenchen.de/index.php/s/eoeFcgsAMDsgTgw/download/best_checkpoint.pytorch
 
+.. include:: _install_numba.rst
+
 .. note:: 
 
   If any of the packages' installation fails, it is worth trying installing that 

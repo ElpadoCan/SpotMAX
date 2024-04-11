@@ -129,6 +129,8 @@ If you want to try out experimental features (and, if you have time, maybe repor
 
     At the end you might have to re-start Cell-ACDC. 
 
+.. include:: _install_numba.rst
+
 Updating spotMAX installed from source
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
