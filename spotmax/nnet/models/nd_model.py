@@ -112,9 +112,10 @@ class NDModel(object):
         else:
             config = self.config[self.model.value][self.operation.value]
 
-
+        config['verbose'] = self.config.get('verbose', True)
+        
         # Print operation and configuration of the model
-        if verbose:
+        if config['verbose']:
             print("########################################")
             print("######## Model Configuration ###########")
             print("########################################")

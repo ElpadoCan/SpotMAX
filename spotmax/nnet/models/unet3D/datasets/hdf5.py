@@ -9,6 +9,7 @@ from pytorch3dunet.augment import transforms
 from pytorch3dunet.datasets.utils import get_slice_builder, ConfigDataset, calculate_stats
 from pytorch3dunet.unet3d.utils import get_logger
 
+DEBUG = False
 logger = get_logger('HDF5Dataset')
 
 class NumpyDataset(ConfigDataset):
@@ -84,7 +85,8 @@ class NumpyDataset(ConfigDataset):
         self.weight_slices = slice_builder.weight_slices
 
         self.patch_count = len(self.raw_slices)
-        logger.info(f'Number of patches: {self.patch_count}')
+        if DEBUG:
+            logger.info(f'Number of patches: {self.patch_count}')
     
     @staticmethod
     def fetch_and_check(array):

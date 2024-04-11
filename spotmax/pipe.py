@@ -201,7 +201,10 @@ def spots_semantic_segmentation(
         If True and do_aggregate is True, run segmentation on the entire input 
         image without aggregating segmented objects. Default is False
     x_slice_idxs : list, optional
-        ...
+        List of indices along the x-axis of the input image (last axis) where 
+        each object in `lab` ends. This is useful if the input image is 
+        "aggregated" meaning that the objects in `lab` are concatenated 
+        along the x-axis. Default is None
     raw_image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
         If not None, neural network and BioImage.IO models will segment 
         the raw image. Default is None
@@ -209,8 +212,11 @@ def spots_semantic_segmentation(
     Returns
     -------
     result : dict or numpy.ndarray
-        If `return_only_segm` is True, the output will bre the the numpy.ndarray 
-        with the segmentation result. 
+        If `return_only_segm` is True, the first value of the output will be 
+        the numpy.ndarray with the segmentation result. Note that, in this case,
+        if `nnet_model` is not None and `nnet_params['save_prediction_map']` 
+        is `True` the second value of the output will be the prediction 
+        map from the output of running `nnet_model`. 
         
         If `thresholding_method` is None and do_try_all_thresholds is True, 
         the output will be a dictionary with keys {'threshol_li', 
@@ -411,7 +417,10 @@ def reference_channel_semantic_segm(
         If True and do_aggregate is True, run segmentation on the entire input 
         image without aggregating segmented objects. Default is False
     x_slice_idxs : list, optional
-        ...
+        List of indices along the x-axis of the input image (last axis) where 
+        each object in `lab` ends. This is useful if the input image is 
+        "aggregated" meaning that the objects in `lab` are concatenated 
+        along the x-axis. Default is None
     raw_image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray, optional
         If not None, neural network and BioImage.IO models will segment 
         the raw image. Default is None
@@ -424,17 +433,17 @@ def reference_channel_semantic_segm(
         If return_only_segm is True, the output will the the numpy.ndarray 
         with the segmentation result. 
         
-        If thresholding_method is None and do_try_all_thresholds is True, 
+        If thresholding_method is `None` and do_try_all_thresholds is True, 
         the output will be a dictionary with keys {'threshol_li', 
         'threshold_isodata', 'threshold_otsu', 'threshold_minimum', 
         'threshold_triangle', 'threshold_mean', 'threshold_yen'} and values 
         the result of each thresholding method. 
         
-        If thresholding_method is not None, the output will be a dictionary 
+        If thresholding_method is not `None`, the output will be a dictionary 
         with key {'custom'} and value the result of applying the requested 
         thresholding_method. 
         
-        If bioimageio_model is not None, the output dictionary will include the 
+        If bioimageio_model is not `None`, the output dictionary will include the 
         'bioimageio_model' key with value the result of running the bioimageio_model
         requested. 
         

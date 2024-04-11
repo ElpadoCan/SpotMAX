@@ -189,6 +189,25 @@ def _get_threshold_funcs(threshold_func=None, try_all=True):
         threshold_funcs = {}
     return threshold_funcs
 
+def _get_semantic_segm_output(
+        result, return_only_output_mask, nnet_model, return_nnet_prediction, 
+        bioimageio_model
+    ):
+    if not return_only_output_mask:
+        return result
+    
+    if nnet_model is not None:
+        segm_out = result['neural_network']
+    elif bioimageio_model is not None:
+        segm_out = result['bioimageio_model']
+    else:
+        segm_out = result['custom']
+    
+    if return_nnet_prediction:
+        nnet_pred_map = result['neural_network_prediciton']
+        return segm_out, nnet_pred_map
+    return segm_out
+
 def local_semantic_segmentation(
         image, lab, 
         threshold_func=None, 
@@ -229,10 +248,18 @@ def local_semantic_segmentation(
     result = {}
     if return_image:
         result['input_image'] = np.zeros_like(image)
-        
+    
+    
+    try:
+        save_pred_map = nnet_params['init'].get('save_prediction_map')
+    except Exception as err:
+        save_pred_map = False
+    
+    return_nnet_prediction = return_nnet_prediction or save_pred_map
+    
     if return_nnet_prediction:
         result['neural_network_prediciton'] = np.zeros(lab.shape)
-        
+    
     if do_try_all_thresholds:
         pbar = tqdm(total=len(threshold_funcs), ncols=100)
     for method, thresh_func in threshold_funcs.items():
@@ -318,15 +345,11 @@ def local_semantic_segmentation(
     if do_try_all_thresholds:
         pbar.close()
     
-    if return_only_output_mask:
-        if nnet_model is not None:
-            return result['neural_network']
-        elif bioimageio_model is not None:
-            return result['bioimageio_model']
-        else:
-            return result['custom']
-    else:
-        return result
+    out = _get_semantic_segm_output(
+        result, return_only_output_mask, nnet_model, return_nnet_prediction, 
+        bioimageio_model
+    )
+    return out
 
 def global_semantic_segmentation(
         image, lab, 
@@ -382,6 +405,13 @@ def global_semantic_segmentation(
     if ridge_filter_sigmas:
         aggr_img = ridge(aggr_img, ridge_filter_sigmas)
     
+    try:
+        save_pred_map = nnet_params['init'].get('save_prediction_map')
+    except Exception as err:
+        save_pred_map = False
+    
+    return_nnet_prediction = return_nnet_prediction or save_pred_map
+    
     # Thresholding
     result = {}
     for method, thresh_func in threshold_funcs.items():
@@ -425,7 +455,8 @@ def global_semantic_segmentation(
                 transformations.index_aggregated_segm_into_input_lab(
                     lab, aggr_segm, aggregated_lab, x_slice_idxs,
                     keep_objects_touching_lab_intact=keep_subobj_intact, 
-            ))
+                )
+            )
         result = reindexed_result
         if return_image:
             deaggr_img = transformations.deaggregate_img(
@@ -446,16 +477,11 @@ def global_semantic_segmentation(
             result['neural_network_prediciton'] = aggr_nnet_pred
     
     # result = {key:np.squeeze(img) for key, img in result.items()}
-    
-    if return_only_output_mask:
-        if nnet_model is not None:
-            return result['neural_network']
-        elif bioimageio_model is not None:
-            return result['bioimageio_model']
-        else:
-            return result['custom']
-    else:
-        return result
+    out = _get_semantic_segm_output(
+        result, return_only_output_mask, nnet_model, return_nnet_prediction, 
+        bioimageio_model
+    )
+    return out
 
 def filter_largest_obj(mask_or_labels):
     lab = skimage.measure.label(mask_or_labels)

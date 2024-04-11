@@ -73,6 +73,8 @@ class Model:
             PhysicalSizeX: float=0.073,
             resolution_multiplier_yx: float=1.0,
             use_gpu=False,
+            save_prediction_map=False,
+            verbose=True,
         ):
         """Initialization method of the model
 
@@ -106,7 +108,15 @@ class Model:
             image. Pass a value > 1.0 when you need to detect spots that 
             are greater than the diffraction limit. Default is 1.0
         use_gpu : bool, optional
-            If True, inference runs on GPU. Default is False
+            If True, inference runs on the GPU. Make sure that the correct 
+            version of the NVIDIA CUDA drivers and PyTorch with CUDA are 
+            installed. Default is False
+        save_prediction_map : bool, optional
+            If True, the model will return the prediction map and if the model 
+            is used as part of spotMAX analysis, the map will be saved in 
+            each 
+        verbose : bool, optional
+            If True, print information text to the terminal. Default is True
         """        
         modules = install_and_import_modules()
         transform, Data, Operation, NDModel, Models =  modules            
@@ -121,6 +131,7 @@ class Model:
             config_yaml_filepath = config_yaml_path
         
         self._config = self._load_config(config_yaml_filepath)
+        self._config['verbose'] = verbose
         self._scale_factor = self._get_scale_factor(
             PhysicalSizeX, resolution_multiplier_yx
         )
@@ -131,6 +142,7 @@ class Model:
         self._batch_preprocess = (
             preprocess_across_experiment or preprocess_across_timepoints
         )
+        self._save_prediction_map = save_prediction_map
         self.model_type = model_type
         self.model = self._init_model(model_type)
     
@@ -259,7 +271,7 @@ class Model:
             threshold_value=0.9,
             label_components=False,
             return_pred: NotParam=False,
-            verbose: NotParam=True
+            verbose: NotParam=False
         ):
         """Run inference and return the segmentation result
 
@@ -275,8 +287,6 @@ class Model:
             If True, the binary mask will be labelled with `skimage.measure.label`. 
             This will separate the connected components into objects with an 
             integer ID. Default is False
-        verbose : bool, optional
-            If True, print information text to the terminal. Default is True
 
         Returns
         -------
@@ -303,7 +313,7 @@ class Model:
         input_data = self.Data(
             images=rescaled, masks=None, val_images=None, val_masks=None
         )
-        prediction, _ = self.model(input_data, verbose=verbose)
+        prediction, _ = self.model(input_data)
         
         if pad_width is not None:
             prediction = self.remove_padding(pad_width, prediction)
@@ -316,7 +326,7 @@ class Model:
         else:
             lab = thresh
         
-        if return_pred:
+        if return_pred or self._save_prediction_map:
             prediction = self.resize_to_orig_shape(prediction, orig_yx_shape)
             return lab, prediction
         else:

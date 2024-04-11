@@ -33,7 +33,6 @@ class Unet3DModel(BaseModel):
         # Set the device in the config
         self.config['device'] = device
 
-
     def train(
         self,
         X_train,

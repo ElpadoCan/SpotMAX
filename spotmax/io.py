@@ -517,6 +517,39 @@ def save_preprocessed_img_data(
             f'"{out_filepath}"...'
         )
 
+def save_nnet_pred_map(
+        nnet_pred_map, raw_img_filepath, basename, ch_endname, run_number, 
+        text_to_append='', pad_width=None, verbose=True, logger_func=print
+    ):
+    if verbose:
+        logger_func(
+            f'Saving spotMAX AI prediction map from channel "{ch_endname}"...'
+        )
+    
+    if not basename.endswith('_'):
+        basename = f'{basename}_'
+    
+    if pad_width is not None:
+        nnet_pred_map = np.pad(nnet_pred_map, pad_width)
+    
+    out_filename = f'{basename}run_num{run_number}_{ch_endname}_AI_pred_map'
+    if text_to_append:
+        if not text_to_append.startswith('_'):
+            text_to_append = f'_{text_to_append}'
+        out_filename = f'{out_filename}{text_to_append}'
+    out_filename = f'{out_filename}.npz'    
+    in_folderpath = os.path.dirname(raw_img_filepath)
+    
+    out_filepath = os.path.join(in_folderpath, out_filename)
+    
+    np.savez_compressed(out_filepath, np.squeeze(nnet_pred_map))
+    
+    if verbose:
+        logger_func(
+            f'spotMAX AI prediction map from channel "{ch_endname}" saved to '
+            f'"{out_filepath}"...'
+        )
+
 def add_neural_network_params(params, configPars):
     sections = [
         'neural_network.init', 'neural_network.segment',

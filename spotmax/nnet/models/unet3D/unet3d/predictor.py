@@ -89,8 +89,10 @@ class NumpyPredictor(_AbstractPredictor):
 
         device = self.config['device']
         output_heads = self.config['model'].get('output_heads', 1)
+        verbose = self.config.get('verbose', True)
 
-        logger.info(f'Running prediction on {len(test_loader)} batches...')
+        if verbose:
+            logger.info(f'Running prediction on {len(test_loader)} batches...')
 
         # dimensionality of the the output predictions
         volume_shape = self.volume_shape(test_loader.dataset)
@@ -100,14 +102,18 @@ class NumpyPredictor(_AbstractPredictor):
             # single channel prediction map
             prediction_maps_shape = (1,) + volume_shape
 
-        logger.info(f'The shape of the output prediction maps (CDHW): {prediction_maps_shape}')
+        if verbose:
+            logger.info(f'The shape of the output prediction maps (CDHW): {prediction_maps_shape}')
 
         patch_halo = self.predictor_config.get('patch_halo', (4, 8, 8))
         self._validate_halo(patch_halo, self.config['loaders']['test']['slice_builder'])
-        logger.info(f'Using patch_halo: {patch_halo}')
+        if verbose:
+            logger.info(f'Using patch_halo: {patch_halo}')
 
         # allocate prediction and normalization arrays
-        logger.info('Allocating prediction and normalization arrays...')
+        if verbose:
+            logger.info('Allocating prediction and normalization arrays...')
+        
         prediction_maps, normalization_masks = self._allocate_prediction_maps(
             prediction_maps_shape, output_heads
         )
@@ -198,7 +204,7 @@ class NumpyPredictor(_AbstractPredictor):
             if dataset.mirror_padding is not None:
                 z_s, y_s, x_s = [_slice_from_pad(p) for p in dataset.mirror_padding]
 
-                logger.info(f'Dataset loaded with mirror padding: {dataset.mirror_padding}. Cropping before saving...')
+                # logger.info(f'Dataset loaded with mirror padding: {dataset.mirror_padding}. Cropping before saving...')
 
                 prediction_map = prediction_map[:, z_s, y_s, x_s]
 
@@ -352,7 +358,7 @@ class StandardPredictor(_AbstractPredictor):
             if dataset.mirror_padding is not None:
                 z_s, y_s, x_s = [_slice_from_pad(p) for p in dataset.mirror_padding]
 
-                logger.info(f'Dataset loaded with mirror padding: {dataset.mirror_padding}. Cropping before saving...')
+                # logger.info(f'Dataset loaded with mirror padding: {dataset.mirror_padding}. Cropping before saving...')
 
                 prediction_map = prediction_map[:, z_s, y_s, x_s]
 

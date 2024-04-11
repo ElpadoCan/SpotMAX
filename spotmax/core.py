@@ -3722,7 +3722,7 @@ class Kernel(_ParamsParser):
             # Use raw image for neural network if no data was explicity passed
             transf_spots_nnet_img = raw_spots_img
         
-        df_spots_coords = self._spots_detection(
+        df_spots_coords, aggr_nnet_pred_map = self._spots_detection(
             sharp_spots_img, 
             lab, 
             detection_method,
@@ -3765,7 +3765,8 @@ class Kernel(_ParamsParser):
             dfs_segm_obj = self._add_aggregated_spots_features(
                 df_spots_det, df_spots_gop, df_agg
             )
-            return df_spots_det, df_spots_gop, *dfs_segm_obj
+
+        return aggr_nnet_pred_map
 
     def _add_aggr_and_local_coords_from_global(
             self, df_spots_coords_input, lab, aggregated_lab,
@@ -3918,6 +3919,7 @@ class Kernel(_ParamsParser):
         aggr_spots_img, aggregated_lab, aggr_imgs, x_slice_idxs = aggregated
         aggr_spots_ch_segm_mask = aggr_imgs[0]
         aggr_transf_spots_nnet_img = aggr_imgs[1]
+        aggr_nnet_pred_map = None
         
         if aggr_spots_ch_segm_mask is not None:
             labels = aggr_spots_ch_segm_mask.astype(int)
@@ -3927,7 +3929,7 @@ class Kernel(_ParamsParser):
                 print('')
                 self.logger.info('Segmenting spots...')
             
-            labels = pipe.spots_semantic_segmentation(
+            result = pipe.spots_semantic_segmentation(
                 aggr_spots_img, 
                 lab=aggregated_lab, 
                 spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
@@ -3948,6 +3950,20 @@ class Kernel(_ParamsParser):
                 x_slice_idxs=x_slice_idxs,
                 raw_image=raw_spots_img,
                 min_spot_mask_size=min_spot_mask_size
+            )
+            try:
+                save_pred_map = self.nnet_params['init'].get('save_prediction_map')
+                if save_pred_map:
+                    labels, aggr_nnet_pred_map = result
+                else:
+                    labels = result
+            except Exception as err:
+                labels = result
+        
+        nnet_pred_map = None
+        if aggr_nnet_pred_map is not None:
+            nnet_pred_map = transformations.deaggregate_img(
+                aggr_nnet_pred_map, aggregated_lab, lab
             )
         
         spots_masks = None
@@ -3990,7 +4006,7 @@ class Kernel(_ParamsParser):
                 f'segmented object:\n{num_spots_objs_txt}'
             )
             print('-'*100)
-        return df_spots_coords
+        return df_spots_coords, nnet_pred_map
         
     def _spots_filter(
             self, 
@@ -4749,6 +4765,7 @@ class Kernel(_ParamsParser):
         if save_preproc_spots_img:
             preproc_spots_data = np.zeros_like(spots_data)[:stopFrameNum]
         
+        nnet_pred_map = None
         desc = 'Frames completed (spot detection)'
         pbar = tqdm(
             total=stopFrameNum, ncols=100, desc=desc, position=2, 
@@ -4803,7 +4820,7 @@ class Kernel(_ParamsParser):
                 if df_spots_coords_input is None:
                     continue
             
-            self.spots_detection(
+            nnet_pred_map_frame_i = self.spots_detection(
                 preproc_spots_img, zyx_resolution_limit_pxl, 
                 sharp_spots_img=sharp_spots_img,
                 ref_ch_img=filtered_ref_ch_img, 
@@ -4832,6 +4849,14 @@ class Kernel(_ParamsParser):
                 custom_combined_measurements=custom_combined_measurements,
                 verbose=verbose
             )
+            if nnet_pred_map_frame_i is None:
+                pbar.update()
+                continue
+            
+            if nnet_pred_map is None:
+                nnet_pred_map = np.zeros(spots_data.shape)
+            nnet_pred_map[frame_i] = nnet_pred_map_frame_i
+            
             pbar.update()
         pbar.close()
         
@@ -4851,7 +4876,23 @@ class Kernel(_ParamsParser):
                 verbose=verbose,
                 logger_func=self.logger.info
             )
-
+        
+        if nnet_pred_map is not None:
+            print('')
+            basename = data.get('basename', '')
+            raw_spots_data_filepath = data['spots_ch.filepath']
+            io.save_nnet_pred_map(
+                nnet_pred_map, 
+                raw_spots_data_filepath, 
+                basename,
+                spots_ch_endname,
+                run_number,
+                text_to_append=text_to_append, 
+                pad_width=data['pad_width'],
+                verbose=verbose,
+                logger_func=self.logger.info
+            )
+        
         aggregate_spots_feature_func = (
             features.get_aggregating_spots_feature_func()
         )
