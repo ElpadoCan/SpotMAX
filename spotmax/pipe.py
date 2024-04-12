@@ -807,7 +807,7 @@ def _add_spot_vs_ref_location(ref_ch_mask, zyx_center, df, idx):
 
 def _debug_compute_obj_spots_features(
         row, raw_spots_img_obj, zyx_center, sharp_spot_obj_z, 
-        backgr_mask_z_spot, spheroids_mask
+        backgr_mask_z_spot, spheroids_mask, local_spot_bkgr_mask_z, ID=1
     ):
     print('')
     zyx_local = tuple(
@@ -823,9 +823,9 @@ def _debug_compute_obj_spots_features(
     win = _compute_obj_spots_metrics(
         sharp_spot_obj_z, backgr_mask_z_spot, 
         spheroids_mask[zyx_center[0]], 
-        zyx_center[1:], block=False
+        zyx_center[1:], local_spot_bkgr_mask_z, ID=ID, block=True
     )
-
+    
 def _compute_obj_spots_features(
         spots_img_obj, 
         df_obj_spots, 
@@ -844,7 +844,8 @@ def _compute_obj_spots_features(
         logger_func=print,
         logger_warning_report=print,
         show_progress=True,
-        debug=False
+        debug=False,
+        _ID=1
     ):
     """_summary_
 
@@ -872,11 +873,12 @@ def _compute_obj_spots_features(
         The first dimension must be  the number of z-slices. 
         If None, the features from the raw signal will not be computed.
     min_size_spheroid_mask : (Z, Y, X) ndarray of bools or pandas.Series of arrays, optional
-        The boolean mask of the smallest spot expected. Default is None. 
+        The boolean mask of the smallest spot expected. 
         This is pre-computed using the resolution limit equations and the 
         pixel size. If None, this will be computed from 
         `zyx_resolution_limit_pxl`. You can also pass a pandas.Series with 
         the same index as `df_obj_spots` with one mask for each spot.
+        Default is None. 
     zyx_voxel_size : (z, y, x) sequence
         Voxel size in z-, y-, and x- directions in μm/pixel. Default is None
     dist_transform_spheroid : (Z, Y, X) ndarray, optional
@@ -931,25 +933,27 @@ def _compute_obj_spots_features(
         local_peaks_coords, obj_mask.shape, 
         min_size_spheroid_mask=min_size_spheroid_mask, 
         zyx_radii_pxl=zyx_resolution_limit_pxl,
+        return_spheroids_lab=True,
         debug=debug
     )
-    spheroids_mask, min_size_spheroid_mask = result
+    spheroids_mask, spheroids_lab, min_size_spheroid_mask = result
     
     vox_to_fl = 1
     if zyx_voxel_size is not None:
         vox_to_fl = np.prod(zyx_voxel_size)
     
-    # if debug:
-    #     from cellacdc.plot import imshow
-    #     imshow(
-    #         spheroids_mask, spots_img_obj, 
-    #         points_coords=local_peaks_coords
-    #     )
-    #     import pdb; pdb.set_trace()
+    # Get local background labels
+    expand_dist = zyx_voxel_size[1]*5
+    spheroids_local_bkgr_lab = transformations.expand_labels(
+        spheroids_lab, distance=expand_dist, zyx_vox_size=zyx_voxel_size
+    )
+    spheroids_local_bkgr_lab[spheroids_mask] = 0
+    spheroids_local_bkgr_lab[~obj_mask] = 0
 
     # Check if spots_img needs to be normalised
     if get_backgr_from_inside_ref_ch_mask:
         backgr_mask = np.logical_and(ref_ch_mask_obj, ~spheroids_mask)
+        spheroids_local_bkgr_lab[~ref_ch_mask_obj] = 0
         normalised_result = transformations.normalise_img(
             ref_ch_img_obj, backgr_mask, raise_if_norm_zero=False, 
             logger_func=logger_func, 
@@ -1000,7 +1004,7 @@ def _compute_obj_spots_features(
         )
     
     spot_ids_to_drop = []
-    for row in df_obj_spots.itertuples():
+    for spot_idx, row in enumerate(df_obj_spots.itertuples()):
         spot_id = row.Index
         if isinstance(min_size_spheroid_mask, pd.Series):
             spot_mask = min_size_spheroid_mask.loc[spot_id]
@@ -1029,11 +1033,17 @@ def _compute_obj_spots_features(
             spot_ids_to_drop.append(spot_id)
             continue
         
+        local_spot_bkgr_lab_z = spheroids_local_bkgr_lab[zyx_center[0]]
+        local_spot_bkgr_mask_z = local_spot_bkgr_lab_z==(spot_idx+1)
+        local_spot_bkgr_vals = sharp_spot_obj_z[local_spot_bkgr_mask_z]
+        
         if debug:
             _debug_compute_obj_spots_features(
                 row, raw_spots_img_obj, zyx_center, sharp_spot_obj_z, 
-                backgr_mask_z_spot, spheroids_mask
+                backgr_mask_z_spot, spheroids_mask, local_spot_bkgr_mask_z, 
+                ID=_ID
             )
+            import pdb; pdb.set_trace()
 
         # Add spot volume from mask
         spot_mask_vol = np.count_nonzero(spot_mask)
@@ -1064,7 +1074,7 @@ def _compute_obj_spots_features(
             
         # Crop masks
         spheroid_mask = spot_mask[slice_crop_local]
-        spot_slice = spots_img_obj[slice_global_to_local]
+        spot_slice_local = spots_img_obj[slice_global_to_local]
 
         # Get the sharp spot sliced
         sharp_spot_slice_z = sharp_spot_obj_z[slice_global_to_local[-2:]]
@@ -1085,11 +1095,14 @@ def _compute_obj_spots_features(
             ))
 
         # Get spot intensities
-        spot_intensities = spot_slice[spheroid_mask]
+        spot_intensities = spot_slice_local[spheroid_mask]
         spheroid_mask_proj = spheroid_mask.max(axis=0)
         sharp_spot_intensities_z_edt = (
             sharp_spot_slice_z_transf[spheroid_mask_proj]
         )
+        
+        # Get local background intensities
+        local_sharp_bkgr_vals = local_spot_bkgr_mask_z
 
         value = spots_img_obj[zyx_center]
         df_obj_spots.at[spot_id, 'spot_center_preproc_intensity'] = value
@@ -1125,6 +1138,12 @@ def _compute_obj_spots_features(
         features.add_effect_sizes(
             sharp_spot_intensities_z_edt, backgr_vals_z_spot, 
             df_obj_spots, spot_id, name='spot_vs_backgr',
+            debug=debug
+        )
+        
+        features.add_effect_sizes(
+            sharp_spot_intensities_z_edt, local_spot_bkgr_vals, 
+            df_obj_spots, spot_id, name='spot_vs_local_backgr',
             debug=debug
         )
         
@@ -1670,7 +1689,7 @@ def spots_calc_features_and_filter(
         
         start_num_spots = len(df_obj_spots_det)
         filtered_spots_info[obj.label]['start_num_spots'] = start_num_spots
-        debug = False
+        debug = False # obj.label == 41 or obj.label == 44
         i = 0
         while True:     
             num_spots_prev = len(df_obj_spots_gop)
@@ -1697,6 +1716,7 @@ def spots_calc_features_and_filter(
                 debug=debug, 
                 logger_func=logger_func,
                 logger_warning_report=logger_warning_report,
+                _ID=obj.label
             )
             if i == 0:
                 # Store metrics at first iteration

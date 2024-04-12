@@ -5,3 +5,6 @@
     and sharpening. If sharpening is deactivated, then spotMAX will use the 
     gaussian filtered data and, if gaussian filter is deactivate as well, 
     the intensity data is the raw data.
+
+    Additionally, if :confval:`Optimise detection for high spot density` is 
+    ``True``

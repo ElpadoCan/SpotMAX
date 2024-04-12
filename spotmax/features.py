@@ -100,16 +100,32 @@ def glass_effect_size(positive_sample, negative_sample, n_bootstraps=0):
 
     return eff_size, negative_mean, negative_std
 
-def cohen_effect_size(positive_sample, negative_sample, n_bootstraps=0):
-    positive_std = np.std(positive_sample)
-    negative_std = np.std(negative_sample)
+def pooled_std_two_samples(sample_1: np.ndarray, sample_2: np.ndarray):
+    # See https://en.wikipedia.org/wiki/Cohen%27s_d
+    n1 = len(sample_1)
+    n2 = len(sample_2)
+    s1 = np.std(sample_1)
+    s2 = np.std(sample_2)
+    v1 = s1**2
+    v2 = s2**2
     
-    pooled_std = np.sqrt((np.square(positive_std)+np.square(negative_std))/2)
+    pooled_var = ((n1-1)*v1 + (n2-1)*v2)/(n1+n2-2)
+    pooled_std = pooled_var**(0.5)
+
+    return pooled_std
+
+def cohen_effect_size(positive_sample, negative_sample, n_bootstraps=0):
+    pooled_std = pooled_std_two_samples(positive_sample, negative_sample)
+    
+    # positive_std = np.std(positive_sample)
+    # negative_std = np.std(negative_sample)
+    # pooled_std = np.sqrt((np.square(positive_std)+np.square(negative_std))/2)
 
     positive_mean = np.mean(positive_sample)
     negative_mean = np.mean(negative_sample)
 
     eff_size = (positive_mean-negative_mean)/pooled_std
+
     return eff_size, negative_mean, pooled_std
 
 def hedge_effect_size(positive_sample, negative_sample, n_bootstraps=0):
@@ -346,13 +362,16 @@ def add_effect_sizes(
             )
     if debug:
         print('')
+        print('='*100)
+        print(f'Name = {name}:\n')
         for eff_size_name, values in info.items():
             eff_size, pos_mean, negative_mean, negative_std = values
-            print(f'Effect size {eff_size_name} = {eff_size}')
-            print(f'Positive mean = {pos_mean}')
-            print(f'Negative mean = {negative_mean}')
-            print(f'Negative std = {negative_std}')
+            print(f'  - Effect size {eff_size_name} = {eff_size}')
+            print(f'  - Positive mean = {pos_mean}')
+            print(f'  - Negative mean = {negative_mean}')
+            print(f'  - Negative std = {negative_std}')
             print('-'*100)
+        print('='*100)
         import pdb; pdb.set_trace()
 
 def add_missing_cells_to_df_agg_from_segm(df_agg, segm_data):

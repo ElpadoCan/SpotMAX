@@ -126,22 +126,24 @@ def _spots_detection(aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
 
 def _compute_obj_spots_metrics(
         sharp_spot_obj_z, backgr_mask_z_spot, spheroids_mask, yx_center, 
-        block=True
+        local_spot_bkgr_mask_z, ID=1, block=True
     ):
     from cellacdc.plot import imshow
     y, x = yx_center
     points_coords = np.array([[y, x]])
     win = imshow(
         sharp_spot_obj_z, 
-        backgr_mask_z_spot,
+        backgr_mask_z_spot.astype(np.uint16)*ID,
         spheroids_mask,
+        local_spot_bkgr_mask_z,
         points_coords=points_coords,
-        block=block
+        block=block, 
+        annotate_labels_idxs=[1], 
+        axis_titles=[
+            'Spot z-slice intensity img', 'Background mask', 'Spots masks', 
+            'Local spot background mask'
+        ]
     )
-    if block:
-        import pdb; pdb.set_trace()
-    else:
-        return win
 
 def _spotfit_fit(
         gauss3Dmodel, spots_img, fit_coeffs, num_spots_s, 

@@ -78,17 +78,30 @@ def check_cli_file_path(file_path, desc='parameters'):
         f'The following {desc} file provided does not exist: "{abs_file_path}"'
     )
 
-def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):    
+def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):  
+    is_default = False  
     if custom_logs_folderpath is None:
         from . import logs_path
         custom_logs_folderpath = logs_path
+        is_default = True
     
     logger = acdc_utils.Logger(name='spotmax-logger', module=name)
     sys.stdout = logger
 
     if not os.path.exists(custom_logs_folderpath):
         os.mkdir(custom_logs_folderpath)
-
+    elif is_default:
+        # Keep 30 most recent logs in the default spotmax_appdata
+        ls = listdir(custom_logs_folderpath)
+        if len(ls)>30:
+            ls = [os.path.join(custom_logs_folderpath, f) for f in ls]
+            ls.sort(key=lambda x: os.path.getmtime(x))
+            for file in ls[:-20]:
+                try:
+                    os.remove(file)
+                except Exception as e:
+                    pass
+                
     date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     id = uuid4()
     log_filename = f'{date_time}_{name}_{id}_stdout.log'

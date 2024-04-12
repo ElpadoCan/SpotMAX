@@ -554,13 +554,16 @@ def get_local_spheroid_mask(spots_zyx_radii_pxl, logger_func=print):
 
 def get_spheroids_maks(
         zyx_coords, mask_shape, min_size_spheroid_mask=None, 
-        zyx_radii_pxl=None, debug=False
+        zyx_radii_pxl=None, debug=False, return_spheroids_lab=False
     ):
     mask = np.zeros(mask_shape, dtype=bool)
     if min_size_spheroid_mask is None:
         min_size_spheroid_mask = get_local_spheroid_mask(
             zyx_radii_pxl
         )
+    
+    if return_spheroids_lab:
+        spheroids_lab = np.zeros(mask.shape, dtype=np.uint16)
     
     for s, zyx_center in enumerate(zyx_coords):
         if isinstance(min_size_spheroid_mask, pd.Series):
@@ -575,6 +578,12 @@ def get_spheroids_maks(
         )
         local_mask = spot_mask[slice_crop_local]
         mask[slice_global_to_local][local_mask] = True
+        if return_spheroids_lab:
+            spheroids_lab[slice_global_to_local][local_mask] = s+1
+    
+    if return_spheroids_lab:
+        return mask, spheroids_lab, min_size_spheroid_mask
+    
     return mask, min_size_spheroid_mask
 
 def get_expand_obj_delta_tolerance(spots_zyx_radii):
