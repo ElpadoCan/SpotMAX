@@ -1,3 +1,4 @@
+from typing import Iterable
 import os
 import sys
 import traceback
@@ -7,25 +8,65 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from functools import wraps
 
+def _warn_ask_install_package(commands: Iterable[str]):
+    open_str = '='*100
+    sep_str = '-'*100
+    commands_txt = '\n'.join([f'  {command}' for command in commands])
+    text = (
+        'SpotMAX needs to run the following commands:\n\n'
+        f'{commands_txt}\n\n'
+    )
+    question = (
+        'How do you want to proceed?: '
+        '1) Run the commands now. '
+        'q) Quit, I will run the commands myself (1/q): '
+    )
+    print(open_str)
+    print(text)
+    
+    message_on_exit = (
+        '[WARNING]: Execution aborted. Run the following commands before '
+        f'running spotMAX again:\n\n{commands_txt}\n'
+    )
+    msg_on_invalid = (
+        '$answer is not a valid answer. '
+        'Type "1" to run the commands now or "q" to quit.'
+    )
+    try:
+        while True:
+            answer = input(question)
+            if answer == 'q':
+                print(open_str)
+                exit(message_on_exit)
+            elif answer == '1':
+                break
+            else:
+                print(sep_str)
+                print(msg_on_invalid.replace('$answer', answer))
+                print(sep_str)
+    except Exception as err:
+        traceback.print_exc()
+        print(open_str)
+        print(message_on_exit)
+
+def _run_pip_commands(commands: Iterable[str]):
+    import subprocess
+    for command in commands:
+        try:
+            subprocess.check_call([sys.executable, '-m', *command.split()])
+        except Exception as err:
+            pass
+    
 try:
     import requests
 except Exception as err:
     print('SpotMAX detected corrupted library, fixing it now...')
-    import subprocess
-    try:
-        subprocess.check_call(
-            [sys.executable, '-m', 'pip', 'uninstall', '-y', 'charset-normalizer']
-        )
-    except Exception as err:
-        pass
-    try:
-        subprocess.check_call([
-            sys.executable, '-m', 'pip', 'install', '--upgrade', 
-            'charset-normalizer'
-        ]
-        )
-    except Exception as err:
-        pass
+    commands = (
+        'pip uninstall -y charset-normalizer', 
+        'pip install --upgrade charset-normalizer'
+    )
+    _warn_ask_install_package(commands)
+    _run_pip_commands(commands)
 
 is_cli = True
 
@@ -43,17 +84,16 @@ __author__ = 'Francesco Padovani'
 try:
     import cellacdc
 except Exception as err:
-    import subprocess
-    print('Installing Cell-ACDC...')
+    print('SpotMAX needs to install Cell-ACDC')
+    commands = (
+        'pip install git+https://github.com/SchmollerLab/Cell_ACDC.git', 
+    )
+    _warn_ask_install_package(commands)
     try:
-        subprocess.check_call([
-            sys.executable, '-m', 'pip', 'install', 
-            'git+https://github.com/SchmollerLab/Cell_ACDC.git'
-        ])
+        _run_pip_commands(commands)
     except Exception as err:
-        subprocess.check_call([
-            sys.executable, '-m', 'pip', 'install', 'cellacdc'
-        ])
+        commands = ('pip install cellacdc',)
+        _run_pip_commands(commands)
     print('Cell-ACDC installed')
 
 try:
