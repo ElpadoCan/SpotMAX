@@ -64,7 +64,7 @@ def _check_cli_params_extension(params_path):
         )
 
 def check_cli_file_path(file_path, desc='parameters'):
-    if os.path.isabs(file_path):
+    if os.path.exists(file_path) and os.path.isabs(file_path):
         _check_cli_params_extension(file_path)
         return file_path
     
