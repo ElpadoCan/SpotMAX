@@ -798,6 +798,8 @@ def reference_channel_quantify(
     return df_agg, df_ref_ch, filtered_ref_ch_segm
 
 def _add_spot_vs_ref_location(ref_ch_mask, zyx_center, df, idx):
+    if ref_ch_mask is None:
+        return
     is_spot_in_ref_ch = int(ref_ch_mask[zyx_center] > 0)
     df.at[idx, 'is_spot_inside_ref_ch'] = is_spot_in_ref_ch
     _, dist_from_ref_ch = core.nearest_nonzero(ref_ch_mask, zyx_center)
