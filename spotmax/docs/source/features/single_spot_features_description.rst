@@ -175,6 +175,18 @@ effect sizes:
   :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n` being the 
   difference between the background's and spots' number of pixels. 
 
+* **Glass (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
+  Glass's effect size where the **background intensities are obtained from the 
+  local environment around the spot** and not from the whole segmented object.
+
+* **Cohen (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
+  Cohen's effect size where the **background intensities are obtained from the 
+  local environment around the spot** and not from the whole segmented object.
+
+* **Hedge (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
+  Hedge's effect size where the **background intensities are obtained from the 
+  local environment around the spot** and not from the whole segmented object. 
+
 Effect size (vs. ref. ch.)
 --------------------------
 
@@ -227,7 +239,6 @@ effect sizes:
   Formula: :m:`d * c_f` where :m:`d` is the Cohen's effect size and 
   :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n` being the 
   difference between the reference channel's and spots' number of pixels. 
-
 
 Statistical test (vs. backgr.)
 ------------------------------
