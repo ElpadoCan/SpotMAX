@@ -8,12 +8,12 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 from functools import wraps
 
-def _warn_ask_install_package(commands: Iterable[str]):
+def _warn_ask_install_package(commands: Iterable[str], note_txt=''):
     open_str = '='*100
     sep_str = '-'*100
     commands_txt = '\n'.join([f'  {command}' for command in commands])
     text = (
-        'SpotMAX needs to run the following commands:\n\n'
+        f'SpotMAX needs to run the following commands{note_txt}:\n\n'
         f'{commands_txt}\n\n'
     )
     question = (
@@ -65,7 +65,9 @@ except Exception as err:
         'pip uninstall -y charset-normalizer', 
         'pip install --upgrade charset-normalizer'
     )
-    _warn_ask_install_package(commands)
+    _warn_ask_install_package(
+        commands, note_txt=' (fixing charset-normalizer package)'
+    )
     _run_pip_commands(commands)
 
 is_cli = True
@@ -88,7 +90,9 @@ except Exception as err:
     commands = (
         'pip install git+https://github.com/SchmollerLab/Cell_ACDC.git', 
     )
-    _warn_ask_install_package(commands)
+    _warn_ask_install_package(
+        commands, note_txt=' (to install Cell-ACDC package)'
+    )
     try:
         _run_pip_commands(commands)
     except Exception as err:
