@@ -146,6 +146,8 @@ The effect size is a measure of Signal-to-Noise Ratio (SNR). It is a standardize
 measurement that does not depend on the absolute intensities. There are multiple ways 
 to calculate the effect size (see below). 
 
+.. include:: _effect_size_description.rst
+
 In this case, the ``vs. backgr.`` means that the background is the negative sample, 
 i.e., the Noise part in the SNR. 
 
@@ -180,7 +182,9 @@ The effect size is a measure of Signal-to-Noise Ratio (SNR). It is a standardize
 measurement that does not depend on the absolute intensities. There are multiple ways 
 to calculate the effect size (see below). 
 
-In this case, the ``vs. ref. ch.`` means that the reference channel's intensities 
+.. include:: _effect_size_description.rst
+
+Here, the ``vs. ref. ch.`` means that the reference channel's intensities 
 inside the spots mask (see below) is the negative sample, i.e., the Noise part 
 in the SNR. 
 
