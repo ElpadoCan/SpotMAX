@@ -1133,20 +1133,20 @@ def _compute_obj_spots_features(
                 add_bkgr_corrected_metrics=True
             )
 
-        # Intensities metrics around the spots (local)
+        # Intensities metrics from background around the spots (local)
         features.add_distribution_metrics(
             local_sharp_spot_bkgr_vals, df_obj_spots, spot_id, 
-            col_name='spot_preproc_*name_in_spot_minimumsize_vol',
+            col_name='background_local_*name_z_slice_spot_detection_image',
             add_bkgr_corrected_metrics=False
         )
         features.add_distribution_metrics(
             local_preproc_spot_bkgr_vals, df_obj_spots, spot_id, 
-            col_name='spot_preproc_*name_in_spot_minimumsize_vol',
+            col_name='background_local_*name_z_slice_preproc_image',
             add_bkgr_corrected_metrics=False
         )
         features.add_distribution_metrics(
             local_raw_spot_bkgr_vals, df_obj_spots, spot_id, 
-            col_name='spot_preproc_*name_in_spot_minimumsize_vol',
+            col_name='background_local_*name_z_slice_raw_image',
             add_bkgr_corrected_metrics=False
         )
         
