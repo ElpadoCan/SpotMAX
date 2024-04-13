@@ -16,7 +16,7 @@ from . import filters
 from . import transformations
 from . import printl
 from . import ZYX_LOCAL_COLS, ZYX_LOCAL_EXPANDED_COLS, ZYX_GLOBAL_COLS
-from . import ZYX_FIT_COLS
+from . import ZYX_FIT_COLS, LOCAL_BKGR_DIST_PIXELS
 from . import features
 from . import utils
 from . import core
@@ -943,7 +943,7 @@ def _compute_obj_spots_features(
         vox_to_fl = np.prod(zyx_voxel_size)
     
     # Get local background labels
-    expand_dist = zyx_voxel_size[1]*5
+    expand_dist = zyx_voxel_size[1]*LOCAL_BKGR_DIST_PIXELS
     spheroids_local_bkgr_lab = transformations.expand_labels(
         spheroids_lab, distance=expand_dist, zyx_vox_size=zyx_voxel_size
     )
@@ -1019,9 +1019,13 @@ def _compute_obj_spots_features(
         )
         slice_global_to_local, slice_crop_local = slices
         
+        # Intensity image at spot center z-slice 
+        sharp_spot_obj_z = sharp_spots_img_obj[zyx_center[0]]
+        preproc_spot_obj_z = spots_img_obj[zyx_center[0]]
+        raw_spot_obj_z = raw_spots_img_obj[zyx_center[0]]
+        
         # Background values at spot z-slice
         backgr_mask_z_spot = backgr_mask[zyx_center[0]]
-        sharp_spot_obj_z = sharp_spots_img_obj[zyx_center[0]]
         backgr_vals_z_spot = sharp_spot_obj_z[backgr_mask_z_spot]
         
         if len(backgr_vals_z_spot) == 0:
@@ -1035,7 +1039,9 @@ def _compute_obj_spots_features(
         
         local_spot_bkgr_lab_z = spheroids_local_bkgr_lab[zyx_center[0]]
         local_spot_bkgr_mask_z = local_spot_bkgr_lab_z==(spot_idx+1)
-        local_spot_bkgr_vals = sharp_spot_obj_z[local_spot_bkgr_mask_z]
+        local_sharp_spot_bkgr_vals = sharp_spot_obj_z[local_spot_bkgr_mask_z]
+        local_preproc_spot_bkgr_vals = preproc_spot_obj_z[local_spot_bkgr_mask_z]
+        local_raw_spot_bkgr_vals = raw_spot_obj_z[local_spot_bkgr_mask_z]
         
         if debug:
             _debug_compute_obj_spots_features(
@@ -1127,6 +1133,23 @@ def _compute_obj_spots_features(
                 add_bkgr_corrected_metrics=True
             )
 
+        # Intensities metrics around the spots (local)
+        features.add_distribution_metrics(
+            local_sharp_spot_bkgr_vals, df_obj_spots, spot_id, 
+            col_name='spot_preproc_*name_in_spot_minimumsize_vol',
+            add_bkgr_corrected_metrics=False
+        )
+        features.add_distribution_metrics(
+            local_preproc_spot_bkgr_vals, df_obj_spots, spot_id, 
+            col_name='spot_preproc_*name_in_spot_minimumsize_vol',
+            add_bkgr_corrected_metrics=False
+        )
+        features.add_distribution_metrics(
+            local_raw_spot_bkgr_vals, df_obj_spots, spot_id, 
+            col_name='spot_preproc_*name_in_spot_minimumsize_vol',
+            add_bkgr_corrected_metrics=False
+        )
+        
         # When comparing to the background we use the sharpened image 
         # at the center z-slice of the spot
         features.add_ttest_values(
@@ -1142,7 +1165,7 @@ def _compute_obj_spots_features(
         )
         
         features.add_effect_sizes(
-            sharp_spot_intensities_z_edt, local_spot_bkgr_vals, 
+            sharp_spot_intensities_z_edt, local_sharp_spot_bkgr_vals, 
             df_obj_spots, spot_id, name='spot_vs_local_backgr',
             debug=debug
         )

@@ -23,7 +23,8 @@ sharpening filter.
 .. note:: 
 
   Background metrics ending with ``z_slice`` are calculated from the center 
-  z-slice of each spot
+  z-slice of each spot, while ``local`` means that the background intensities 
+  are extracted from the surrounding of each spot (in the z-slice of the spot).
 
 .. include:: _background_description.rst
 
@@ -60,30 +61,41 @@ raw image.
 .. note:: 
 
   Background metrics ending with ``z_slice`` are calculated from the center 
-  z-slice of each spot
+  z-slice of each spot, while ``local`` means that the background intensities 
+  are extracted from the surrounding of each spot (in the z-slice of the spot).
 
 .. include:: _background_description.rst
 
 * **Mean**: column name ``background_mean_raw_image``.
 * **Mean z-slice**: column name ``background_mean_z_slice_raw_image``.
+* **Mean local**: column name ``background_local_mean_z_slice_raw_image``.
 * **Sum**: column name ``background_sum_raw_image``.
 * **Sum z-slice**: column name ``background_sum_z_slice_raw_image``.
+* **Sum local**: column name ``background_local_sum_z_slice_raw_image``.
 * **Median**: column name ``background_median_raw_image``.
 * **Median z-slice**: column name ``background_median_z_slice_raw_image``.
+* **Median local**: column name ``background_local_median_z_slice_raw_image``.
 * **Min**: column name ``background_min_raw_image``.
 * **Min z-slice**: column name ``background_min_z_slice_raw_image``.
+* **Min local**: column name ``background_local_min_z_slice_raw_image``.
 * **Max**: column name ``background_max_raw_image``.
 * **Max z-slice**: column name ``background_max_z_slice_raw_image``.
+* **Max local**: column name ``background_local_max_z_slice_raw_image``.
 * **25 percentile**: column name ``background_25_percentile_raw_image``.
 * **25 percentile z-slice**: column name ``background_25_percentile_z_slice_raw_image``.
+* **25 percentile local**: column name ``background_local_25_percentile_z_slice_raw_image``.
 * **75 percentile**: column name ``background_75_percentile_raw_image``.
 * **75 percentile z-slice**: column name ``background_75_percentile_z_slice_raw_image``.
+* **75 percentile local**: column name ``background_local_75_percentile_z_slice_raw_image``.
 * **5 percentile**: column name ``background_5_percentile_raw_image``.
 * **5 percentile z-slice**: column name ``background_5_percentile_z_slice_raw_image``.
+* **5 percentile local**: column name ``background_local_5_percentile_z_slice_raw_image``.
 * **95 percentile**: column name ``background_95_percentile_raw_image``.
 * **95 percentile z-slice**: column name ``background_95_percentile_z_slice_raw_image``.
+* **95 percentile local**: column name ``background_local_95_percentile_z_slice_raw_image``.
 * **Standard deviation**: column name ``background_std_raw_image``.
 * **Standard deviation z-slice**: column name ``background_std_z_slice_raw_image``.
+* **Standard deviation local**: column name ``background_local_std_z_slice_raw_image``.
 
 .. _Background metrics from preproc. intensities:
 
@@ -97,30 +109,41 @@ sharpening filter.
 .. note:: 
 
   Background metrics ending with ``z_slice`` are calculated from the center 
-  z-slice of each spot
+  z-slice of each spot, while ``local`` means that the background intensities 
+  are extracted from the surrounding of each spot (in the z-slice of the spot).
 
 .. include:: _background_description.rst
 
 * **Mean**: column name ``background_mean_preproc_image``.
 * **Mean z-slice**: column name ``background_mean_z_slice_preproc_image``.
+* **Mean local**: column name ``background_local_mean_z_slice_preproc_image``.
 * **Sum**: column name ``background_sum_preproc_image``.
 * **Sum z-slice**: column name ``background_sum_z_slice_preproc_image``.
+* **Sum local**: column name ``background_local_sum_z_slice_preproc_image``.
 * **Median**: column name ``background_median_preproc_image``.
 * **Median z-slice**: column name ``background_median_z_slice_preproc_image``.
+* **Median local**: column name ``background_local_median_z_slice_preproc_image``.
 * **Min**: column name ``background_min_preproc_image``.
 * **Min z-slice**: column name ``background_min_z_slice_preproc_image``.
+* **Min local**: column name ``background_local_min_z_slice_preproc_image``.
 * **Max**: column name ``background_max_preproc_image``.
 * **Max z-slice**: column name ``background_max_z_slice_preproc_image``.
+* **Max local**: column name ``background_local_max_z_slice_preproc_image``.
 * **25 percentile**: column name ``background_25_percentile_preproc_image``.
 * **25 percentile z-slice**: column name ``background_25_percentile_z_slice_preproc_image``.
+* **25 percentile local**: column name ``background_local_25_percentile_z_slice_preproc_image``.
 * **75 percentile**: column name ``background_75_percentile_preproc_image``.
 * **75 percentile z-slice**: column name ``background_75_percentile_z_slice_preproc_image``.
+* **75 percentile local**: column name ``background_local_75_percentile_z_slice_preproc_image``.
 * **5 percentile**: column name ``background_5_percentile_preproc_image``.
 * **5 percentile z-slice**: column name ``background_5_percentile_z_slice_preproc_image``.
+* **5 percentile local**: column name ``background_local_5_percentile_z_slice_preproc_image``.
 * **95 percentile**: column name ``background_95_percentile_preproc_image``.
 * **95 percentile z-slice**: column name ``background_95_percentile_z_slice_preproc_image``.
+* **95 percentile local**: column name ``background_local_95_percentile_z_slice_preproc_image``.
 * **Standard deviation**: column name ``background_std_preproc_image``.
 * **Standard deviation z-slice**: column name ``background_std_z_slice_preproc_image``.
+* **Standard deviation local**: column name ``background_local_std_z_slice_preproc_image``.
 
 .. _Size of the spots metrics:
 
