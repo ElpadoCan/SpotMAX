@@ -6,5 +6,6 @@
     gaussian filtered data and, if gaussian filter is deactivate as well, 
     the intensity data is the raw data.
 
-    Additionally, if :confval:`Optimise detection for high spot density` is 
-    ``True``
+    Additionally, if the parameter :confval:`Optimise detection for high spot density` 
+    is ``True``, the spot intensities are normalized by the euclidean distance 
+    transform.

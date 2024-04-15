@@ -1,3 +1,10 @@
+.. hint:: 
+
+  The background of those metrics containing the text ``z_slice`` in the column 
+  name are calculated from the center z-slice of each spot, while ``local`` 
+  means that the background intensities are extracted from the surrounding of 
+  each spot (in the z-slice of the spot).
+
 Without a reference channel, the background is determined as the pixels outside 
 of the spots and inside the segmented object (e.g., the single cell). 
 To determine if a pixel is inside or outside of the spot, spotMAX will 

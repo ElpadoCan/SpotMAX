@@ -20,12 +20,6 @@ same image that is used to detect spots. The image used to detect spots is
 the pre-processed image (see the :ref:`Pre-processing` parameters) after the 
 sharpening filter.
 
-.. note:: 
-
-  Background metrics ending with ``z_slice`` are calculated from the center 
-  z-slice of each spot, while ``local`` means that the background intensities 
-  are extracted from the surrounding of each spot (in the z-slice of the spot).
-
 .. include:: _background_description.rst
 
 * **Mean**: column name ``background_mean_spot_detection_image``.
@@ -57,12 +51,6 @@ Background metrics from raw intensities
 
 These are the background metrics computed from the background pixels in the 
 raw image. 
-
-.. note:: 
-
-  Background metrics ending with ``z_slice`` are calculated from the center 
-  z-slice of each spot, while ``local`` means that the background intensities 
-  are extracted from the surrounding of each spot (in the z-slice of the spot).
 
 .. include:: _background_description.rst
 
@@ -105,12 +93,6 @@ Background metrics from preproc. intensities
 These are the background metrics computed from the background pixels in the
 pre-processed image (see the :ref:`Pre-processing` parameters) before the 
 sharpening filter.
-
-.. note:: 
-
-  Background metrics ending with ``z_slice`` are calculated from the center 
-  z-slice of each spot, while ``local`` means that the background intensities 
-  are extracted from the surrounding of each spot (in the z-slice of the spot).
 
 .. include:: _background_description.rst
 
