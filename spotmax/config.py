@@ -712,6 +712,7 @@ def _metadata_params():
             'formWidgetFunc': 'widgets.FloatLineEdit',
             'actions': (
                 ('valueChanged', 'updateMinSpotSize'),
+                ('valueChanged', 'updateLocalBackgroundValue'),
             ),
             'dtype': float,
             'valueSetter': 'setValue'
@@ -1081,6 +1082,20 @@ def _spots_ch_params():
             'parser': parse_list_to_configpars,
             'comment': features_thresholds_comment,
             'autoTuneWidget': 'widgets.SelectFeaturesAutoTune'
+        },
+        'localBkgrRingWidth': {
+            'desc': 'Local background ring width',
+            'initialVal': '5 pixel',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': False,
+            'formWidgetFunc': 'widgets.LocalBackgroundRingWidthWidget',
+            'valueSetter': 'setText',
+            'actions': None,
+            'dtype': str,
         },
         'optimiseWithEdt': {
             'desc': 'Optimise detection for high spot density',

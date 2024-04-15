@@ -789,7 +789,26 @@ Spots channel
 
   :type: dictionary of {feature_name: (min_threshold, max_threshold)} or None
   :default: ``None``  
- 
+
+.. confval:: Local background ring width
+
+  Width of the ring around each spot used to determine the local effect sizes 
+  (see the section :ref:`Effect size (vs. backgr.)`). 
+
+  You can specify this in ``pixel`` or ``micrometre``. The unit must be written 
+  after the value in the INI configuration file separated by a space. The default 
+  unit is ``pixel`` while the default value is ``5``. 
+
+  Example:
+
+  .. code-block:: ini
+    
+    [Spots channel]
+    Local background ring width = 5.0 pixel
+
+  :type: string
+  :default: ``5 pixel`` 
+
 .. confval:: Optimise detection for high spot density
 
   If ``True``, spotMAX will normalise the intensities within each single spot mask 

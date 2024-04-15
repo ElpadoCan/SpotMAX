@@ -16,7 +16,7 @@ from . import filters
 from . import transformations
 from . import printl
 from . import ZYX_LOCAL_COLS, ZYX_LOCAL_EXPANDED_COLS, ZYX_GLOBAL_COLS
-from . import ZYX_FIT_COLS, LOCAL_BKGR_DIST_PIXELS
+from . import ZYX_FIT_COLS
 from . import features
 from . import utils
 from . import core
@@ -835,6 +835,7 @@ def _compute_obj_spots_features(
         min_size_spheroid_mask=None, 
         zyx_voxel_size=None,
         dist_transform_spheroid=None,
+        local_background_ring_width_pixel=5,
         optimise_for_high_spot_density=False,
         ref_ch_mask_obj=None, 
         ref_ch_img_obj=None, 
@@ -887,6 +888,9 @@ def _compute_obj_spots_features(
         neighbouring peaks. 
         It must have the same shape of `min_size_spheroid_mask`.
         If None, normalisation will not be performed.
+    local_background_ring_width_pixel : int, optional
+        Width of the ring in pixels around each spot used to determine the 
+        local effect sizes.
     optimise_for_high_spot_density : bool, optional
         If True and `dist_transform_spheroid` is None, then 
         `dist_transform_spheroid` will be initialized with the euclidean 
@@ -943,7 +947,7 @@ def _compute_obj_spots_features(
         vox_to_fl = np.prod(zyx_voxel_size)
     
     # Get local background labels
-    expand_dist = zyx_voxel_size[1]*LOCAL_BKGR_DIST_PIXELS
+    expand_dist = zyx_voxel_size[1]*local_background_ring_width_pixel
     spheroids_local_bkgr_lab = transformations.expand_labels(
         spheroids_lab, distance=expand_dist, zyx_vox_size=zyx_voxel_size
     )
@@ -1458,6 +1462,7 @@ def spots_calc_features_and_filter(
         zyx_voxel_size=None,
         optimise_for_high_spot_density=False,
         dist_transform_spheroid=None,
+        local_background_ring_width='5 pixel',
         get_backgr_from_inside_ref_ch_mask=False,
         custom_combined_measurements=None,
         show_progress=True,
@@ -1545,6 +1550,12 @@ def spots_calc_features_and_filter(
         If None and `optimise_for_high_spot_density` is True, this will be 
         initialized with the euclidean distance transform of 
         `min_size_spheroid_mask`. Default is None
+    local_background_ring_width : '<value> pixel' or '<value> micrometre'
+        Width of the ring around each spot used to determine the local effect 
+        sizes. It can be specified in pixel or micrometre, e.g. '5 pixel' or 
+        '0.4 micrometre'. If the unit is 'micrometre', then the value will 
+        be converted to 'pixel' using `zyx_voxel_size[-1]` and rounded to the 
+        nearest integer. Default is '5 pixel'
     get_backgr_from_inside_ref_ch_mask : bool, optional
         If True, the background will be determined from the pixels that are
         outside of the spots, but inside the reference channel mask. 
@@ -1588,6 +1599,10 @@ def spots_calc_features_and_filter(
     
     if gop_filtering_thresholds is None:
         gop_filtering_thresholds = {}
+    
+    local_backgr_ring_width_pixel = utils.get_local_backgr_ring_width_pixel(
+        local_background_ring_width, zyx_voxel_size[-1]
+    )
     
     if lab is None:
         lab = np.zeros(image.shape, dtype=np.uint8)
@@ -1730,6 +1745,7 @@ def spots_calc_features_and_filter(
                 min_size_spheroid_mask=min_size_spheroid_mask, 
                 zyx_voxel_size=zyx_voxel_size,
                 dist_transform_spheroid=dist_transform_spheroid,
+                local_background_ring_width_pixel=local_backgr_ring_width_pixel,
                 optimise_for_high_spot_density=optimise_for_high_spot_density,
                 ref_ch_mask_obj=local_ref_ch_mask, 
                 ref_ch_img_obj=local_ref_ch_img,

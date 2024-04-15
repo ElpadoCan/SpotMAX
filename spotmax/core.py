@@ -980,8 +980,8 @@ class _ParamsParser(_DataLoader):
             f'(run numbers presents are {run_nums}):\n\n'
             f'{exp_path}'
         )
+        print('')
         if self._force_default:
-            print('')
             self.logger.info('*'*100)
             self.logger.info(txt)
             io._log_forced_default(default_option, self.logger.info)
@@ -3671,6 +3671,7 @@ class Kernel(_ParamsParser):
             get_backgr_from_inside_ref_ch_mask=False, 
             df_agg=None, 
             keep_only_spots_in_ref_ch=False, 
+            local_background_ring_width='5 pixel',
             gop_filtering_thresholds=None, 
             dist_transform_spheroid=None,
             detection_method='peak_local_max',
@@ -3756,6 +3757,7 @@ class Kernel(_ParamsParser):
             preproc_spots_img=preproc_spots_img,
             raw_spots_img=raw_spots_img,
             keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch, 
+            local_background_ring_width=local_background_ring_width,
             gop_filtering_thresholds=gop_filtering_thresholds,
             dist_transform_spheroid=dist_transform_spheroid,
             custom_combined_measurements=custom_combined_measurements,
@@ -4025,6 +4027,7 @@ class Kernel(_ParamsParser):
             min_size_spheroid_mask=None,
             preproc_spots_img=None,
             raw_spots_img=None, 
+            local_background_ring_width='5 pixel',
             gop_filtering_thresholds=None, 
             keep_only_spots_in_ref_ch=False, 
             dist_transform_spheroid=None,
@@ -4066,6 +4069,7 @@ class Kernel(_ParamsParser):
             min_size_spheroid_mask=min_size_spheroid_mask,
             zyx_voxel_size=self.metadata['zyxVoxelSize'],
             dist_transform_spheroid=dist_transform_spheroid,
+            local_background_ring_width=local_background_ring_width,
             get_backgr_from_inside_ref_ch_mask=bkgr_from_refch,
             custom_combined_measurements=custom_combined_measurements,
             show_progress=True,
@@ -4481,9 +4485,10 @@ class Kernel(_ParamsParser):
         for frame_i in range(stopFrameNum):
             self._current_frame_i = frame_i
             if acdc_df is not None:
-                lineage_table = acdc_df.loc[[frame_i]]
+                lineage_table = acdc_df.loc[[frame_i]].droplevel(0)
             else:
                 lineage_table = None
+
             lab_rp = segm_rp[frame_i]
             ref_ch_img = ref_ch_data[frame_i]
             raw_ref_ch_img = ref_ch_img.copy()
@@ -4601,10 +4606,6 @@ class Kernel(_ParamsParser):
             self._current_frame_i = frame_i
             lab = segm_data[frame_i]
             rp = segm_rp[frame_i]
-            if acdc_df is not None:
-                lineage_table = acdc_df.loc[frame_i]
-            else:
-                lineage_table = None
             df_agg = self._add_segm_obj_features_from_labels(
                 df_agg, lab, rp, is_segm_3D=data['is_segm_3D'], 
                 frame_i=frame_i, metadata=self.metadata
@@ -4725,6 +4726,10 @@ class Kernel(_ParamsParser):
         if gop_filtering_thresholds is None:
             gop_filtering_thresholds = {}
         
+        local_background_ring_width = (
+            self._params[SECTION]['localBkgrRingWidth']['loadedVal']
+        )
+
         prediction_method = (
             self._params[SECTION]['spotPredictionMethod']['loadedVal']
         )
@@ -4810,7 +4815,7 @@ class Kernel(_ParamsParser):
             
             lineage_table = None
             if acdc_df is not None:
-                lineage_table = acdc_df.loc[[frame_i]]
+                lineage_table = acdc_df.loc[[frame_i]].droplevel(0)
             
             df_spots_coords_input = None
             if df_spots_coords_in is not None:
@@ -4837,6 +4842,7 @@ class Kernel(_ParamsParser):
                 spot_footprint=spot_footprint,
                 get_backgr_from_inside_ref_ch_mask=get_backgr_from_inside_ref_ch_mask,
                 keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch,
+                local_background_ring_width=local_background_ring_width,
                 gop_filtering_thresholds=gop_filtering_thresholds,
                 spots_ch_segm_mask=spots_ch_segm_mask,
                 prediction_method=prediction_method,
@@ -5432,6 +5438,8 @@ class Kernel(_ParamsParser):
             report_filepath='',
             parser_args=None
         ):
+        self.were_errors_detected = False
+        
         version = read_version()
         acdc_version = acdc_myutils.read_version()
         
@@ -5464,8 +5472,6 @@ class Kernel(_ParamsParser):
         is_report_enabled = not disable_final_report
         if is_report_enabled and report_filepath:
             self.init_report(self.ini_params_file_path, report_filepath)
-
-        self.were_errors_detected = False
         
         configParams = self._params['Configuration']
         verbose = not configParams['reduceVerbosity']['loadedVal']

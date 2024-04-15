@@ -1002,5 +1002,15 @@ def to_dtype(value, dtype):
     
     raise TypeError(error)
 
+def get_local_backgr_ring_width_pixel(
+        local_background_ring_width: str, pixel_size: float
+    ):
+    value, unit = local_background_ring_width.split()
+    if unit == 'pixel':
+        return round(float(value))
+    
+    value_pixel = float(value) / pixel_size
+    return round(value_pixel)
+
 if __name__ == '__main__':
     df = get_sizes_path(r'C:\Users\Frank', return_df=True)

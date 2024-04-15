@@ -34,7 +34,7 @@ from qtpy.QtWidgets import (
     QScrollArea, QSizePolicy, QComboBox, QPushButton, QScrollBar,
     QGroupBox, QAbstractSlider, QDialog, QStyle, QSpacerItem,
     QAction, QWidgetAction, QMenu, QActionGroup, QFileDialog, QFrame,
-    QListWidget, QApplication
+    QListWidget, QApplication, QDoubleSpinBox
 )
 
 import pyqtgraph as pg
@@ -3174,3 +3174,115 @@ class TuneScatterPlotItem(acdc_widgets.ScatterPlotItem):
         df = df[df['neigh_z'] == df['z']].drop(columns='neigh_z')
         
         return df
+
+class LocalBackgroundRingWidthWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        mainLayout = QGridLayout()
+        
+        controlWidget = QDoubleSpinBox()
+        controlWidget.setDecimals(0)
+        controlWidget.setMinimum(1)
+        controlWidget.setSingleStep(1)
+        controlWidget.setAlignment(Qt.AlignCenter)
+        self.controlWidget = controlWidget
+        
+        unitCombobox = QComboBox()
+        unitCombobox.addItems(['pixel', 'micrometre'])
+        self.unitCombobox = unitCombobox
+        
+        mainLayout.addWidget(controlWidget, 0, 0)
+        mainLayout.addWidget(unitCombobox, 0, 1)
+        
+        indicatorWidget = QLineEdit()
+        indicatorWidget.setAlignment(Qt.AlignCenter)
+        indicatorWidget.setReadOnly(True)
+        otherUnitLabel = QLabel('micrometre')
+        self.indicatorWidget = indicatorWidget
+        self.otherUnitLabel = otherUnitLabel
+        
+        mainLayout.addWidget(indicatorWidget, 1, 0)
+        mainLayout.addWidget(otherUnitLabel, 1, 1)
+        
+        mainLayout.setColumnStretch(0, 1)
+        mainLayout.setColumnStretch(1, 0)
+        
+        mainLayout.setContentsMargins(0,0,0,0)
+        self.setLayout(mainLayout)
+        
+        self.setPixelSize(None)
+        self.valueUpdated(None)
+        
+        unitCombobox.currentTextChanged.connect(self.unitUpdated)
+        controlWidget.valueChanged.connect(self.valueUpdated)
+        
+        self.installEventFilter(controlWidget)
+    
+    def valueUpdated(self, value):
+        if self._pixelSize is None:
+            self.indicatorWidget.setText('n.a.')
+            return
+        
+        if self.unit() == 'pixel':
+            multiplier = self.pixelSize()
+            decimals = 0
+        else:
+            multiplier = 1/self.pixelSize()
+            decimals = 3
+        
+        indicatorValue = round(value*multiplier, decimals)
+        self.indicatorWidget.setText(str(indicatorValue))
+    
+    def unitUpdated(self, unit):
+        if unit == 'pixel':
+            self.controlWidget.setDecimals(0)
+            self.controlWidget.setMinimum(1)
+            self.otherUnitLabel.setText('micrometre')
+        else:
+            self.controlWidget.setDecimals(3)
+            self.controlWidget.setMinimum(self.pixelSize())
+            self.otherUnitLabel.setText('pixel')
+        self.valueUpdated(self.value())
+    
+    def updateStep(self):
+        if self.unit() == 'pixel':
+            self.controlWidget.setSingleStep(1)
+        else:
+            self.controlWidget.setSingleStep(self._pixelSize)
+    
+    def eventFilter(self, object, event) -> bool:
+        if event.type() == QEvent.Type.Wheel:
+            return True
+        return False 
+    
+    def setPixelSize(self, pixelSize):
+        self._pixelSize = pixelSize
+        self.updateStep()
+        self.valueUpdated(self.value())
+    
+    def pixelSize(self):
+        if self._pixelSize is None:
+            return 0
+        
+        return self._pixelSize
+
+    def setText(self, text: str):
+        value, unit = text.split()
+        self.setValue(float(value))
+        self.setUnit(unit)
+    
+    def text(self):
+        return f'{self.value()} {self.unit()}'
+    
+    def setValue(self, value):
+        self.controlWidget.setValue(value)
+    
+    def setUnit(self, unit: str):
+        return self.unitCombobox.setCurrentText(unit)
+    
+    def value(self):
+        return self.controlWidget.value()
+    
+    def unit(self):
+        return self.unitCombobox.currentText()

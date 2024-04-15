@@ -1664,6 +1664,11 @@ class ParamsGroupBox(QGroupBox):
         physicalSizeZ = metadata['voxelDepth']['widget'].value()
         return (physicalSizeZ, physicalSizeY, physicalSizeX)
     
+    def updateLocalBackgroundValue(self, pixelSize):
+        spotParams = self.params['Spots channel']
+        localBkgrRingWidthWidget = spotParams['localBkgrRingWidth']['widget']
+        localBkgrRingWidthWidget.setPixelSize(pixelSize)
+    
     def updateMinSpotSize(self, value=0.0):
         metadata = self.params['METADATA']
         physicalSizeX = metadata['pixelWidth']['widget'].value()

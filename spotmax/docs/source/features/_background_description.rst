@@ -21,4 +21,5 @@ the reference channel mask.
   The background of those metrics containing the text ``z_slice`` in the column 
   name are calculated from the center z-slice of each spot, while ``local`` 
   means that the background intensities are extracted from the surrounding of 
-  each spot (in the z-slice of the spot).
+  each spot (in the z-slice of the spot) using a ring around the spot with 
+  width specified in the parameter :confval:`Local background ring width`.
