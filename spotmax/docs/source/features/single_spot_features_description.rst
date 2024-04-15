@@ -151,10 +151,10 @@ The effect size is a measure of Signal-to-Noise Ratio (SNR). It is a standardize
 measurement that does not depend on the absolute intensities. There are multiple ways 
 to calculate the effect size (see below). 
 
-.. include:: _effect_size_description.rst
-
 In this case, the ``vs. backgr.`` means that the background is the negative sample, 
 i.e., the Noise part in the SNR. 
+
+.. include:: _effect_size_description.rst
 
 .. include:: _background_description.rst
 

@@ -18,7 +18,7 @@ find in the GUI.
 Once you have the configuration file, you can simply run spotMAX in the command 
 line by typing the following command::
 
-    spotmax - p `<path to configuration INI file>
+    spotmax - p path/to/configuration_file.ini
 
 .. important:: 
 

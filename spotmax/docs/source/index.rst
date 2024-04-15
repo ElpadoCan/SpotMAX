@@ -22,6 +22,7 @@ Multi-dimensional spot detection and quantification in microscopy data...
    install/index
    misc/get_started
    run/index
+   how_it_works/index
    parameters/index
    features/index
    misc/output_files
