@@ -85,10 +85,14 @@ def read_rst(rst_filepath):
     for include_filename in includes:
         abspath = (Path(rst_folderpath) / include_filename).resolve()
         with open(abspath, 'r', encoding='utf-8') as txt:
-            include_text = txt.read()
-        rst_text = re.sub(
-            rf'.. include:: {include_filename}', include_text, rst_text
-        )
+            include_text = re.escape(txt.read())
+        try:
+            rst_text = re.sub(
+                rf'.. include:: {include_filename}', include_text, rst_text
+            )
+        except Exception as err:
+            traceback.print_exc()
+            import pdb; pdb.set_trace()
     return rst_text 
     
 def _get_section(idx, groups, rst_text, remove_directives=True):
