@@ -210,7 +210,7 @@ ZYX_LOCAL_EXPANDED_COLS = [
 ]
 ZYX_FIT_COLS = ['z_fit', 'y_fit', 'x_fit']
 ZYX_RESOL_COLS = ['z_resolution_pxl', 'y_resolution_pxl', 'x_resolution_pxl']
-LOCAL_BKGR_DIST_PIXELS = 3
+LOCAL_BKGR_DIST_PIXELS = 5
 
 BASE_COLUMNS = ZYX_GLOBAL_COLS.copy()
 BASE_COLUMNS.extend(ZYX_LOCAL_COLS)
