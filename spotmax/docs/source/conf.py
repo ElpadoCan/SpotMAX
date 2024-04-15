@@ -66,6 +66,7 @@ exclude_patterns = [
     '.DS_Store', 
     'source/features/_background_description.rst', 
     'source/features/_effect_size_description.rst',
+    'source/features/_effect_size_formulas.rst',
     'source/install/_install_numba.rst',
 ]
 

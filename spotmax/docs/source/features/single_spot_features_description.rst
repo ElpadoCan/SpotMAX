@@ -167,18 +167,7 @@ Given :m:`P` the pixels intensities inside the spot, :m:`N` the background
 intensities, and :m:`\mathrm{std}` the standard deviation, spotMAX will compute 
 the following effect sizes:
 
-* **Glass**: column name ``spot_vs_backgr_effect_size_glass``. 
-  Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N)`
-
-* **Cohen**: column name ``spot_vs_backgr_effect_size_cohen``. 
-  Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N \cup P)`
-  where :m:`\mathrm{std}(N \cup P)` is the standard deviation of the spots and 
-  background intensities pooled together. 
-
-* **Hedge**: column name ``spot_vs_backgr_effect_size_hedge``. 
-  Formula: :m:`d * c_f` where :m:`d` is the Cohen's effect size and 
-  :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n` being the 
-  difference between the background's and spots' number of pixels. 
+.. include:: _effect_size_formulas.rst
 
 * **Glass (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
   Glass's effect size where the **background intensities are obtained from the 
@@ -226,24 +215,16 @@ for more information about how the background mask is determined.
 This metric is useful to determine how bright the spots are compared to the 
 reference channel. As a rule of thumb, 0.2 is a small effect, while 0.8 could mean 
 a large effect. However, make sure that you explore your data before deciding 
-on a threshold to filter out false positives.
+on a threshold to filter out false positives. You can explore the effect sizes 
+of the spots by loading the file ``0_detected_spots`` (see the section 
+:ref:`output-files`) using the tools available in the :ref:`inspect-results-tab` 
+of the GUI.
 
 Given :m:`P` the pixels intensities inside the spot, :m:`R` the reference channel  
 intensities, and :m:`std` the standard deviation, spotMAX will compute the following 
 effect sizes:
 
-* **Glass**: column name ``spot_vs_ref_ch_effect_size_glass``. 
-  Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N)`
-
-* **Cohen**: column name ``spot_vs_ref_ch_effect_size_cohen``. 
-  Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N \cup P)`
-  where :m:`\mathrm{std}(N \cup P)` is the standard deviation of the spots and 
-  reference channel intensities pooled together.
-  
-* **Hedge**: column name ``spot_vs_ref_ch_effect_size_hedge``. 
-  Formula: :m:`d * c_f` where :m:`d` is the Cohen's effect size and 
-  :m:`c_f = 1 - 3/(4 * \Delta n - 9)` with :m:`\Delta n` being the 
-  difference between the reference channel's and spots' number of pixels. 
+.. include:: _effect_size_formulas.rst
 
 Statistical test (vs. backgr.)
 ------------------------------
@@ -418,6 +399,8 @@ The pixels belonging to the final mask will be used in the spotFIT step.
 SpotFIT peak coordinates
 ------------------------
 
+Features that are computed during the gaussian fit procedure.
+
 * **x-coordinate of the gaussian peak**: column name ``x_fit``.
 * **y-coordinate of the gaussian peak**: column name ``y_fit``.
 * **z-coordinate of the gaussian peak**: column name ``z_fit``.
@@ -435,6 +418,8 @@ Features that are computed during the gaussian fit procedure.
 
 SpotFIT intens. metrics
 -----------------------
+
+Features that are computed during the gaussian fit procedure.
 
 * **Total integral gauss. peak**: column name ``total_integral_fit``. This is 
   the result of the analytical integration of the gaussian curve including 

@@ -19,6 +19,6 @@ spot with size given by the values you provide in the
   labelling the prediction mask (i.e., segmentation of the spots).
 
 Note that if you are working with a reference channel and you set the parameter 
-:confval:`Use the ref. channel mask to determine background` ``= True`` then 
+:confval:`Use the ref. channel mask to determine background` is ``True`` then 
 the backround will be determined as the pixels outside of the spots and inside 
 the reference channel mask.
