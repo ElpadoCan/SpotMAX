@@ -1005,7 +1005,11 @@ def to_dtype(value, dtype):
 def get_local_backgr_ring_width_pixel(
         local_background_ring_width: str, pixel_size: float
     ):
-    value, unit = local_background_ring_width.split()
+    try:
+        value, unit = local_background_ring_width.split()
+    except ValueError as err:
+        raise ValueError('Local background ring width unit is not specified.')
+        
     if unit == 'pixel':
         return round(float(value))
     
