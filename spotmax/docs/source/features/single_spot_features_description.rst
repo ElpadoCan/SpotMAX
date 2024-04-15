@@ -182,16 +182,16 @@ a large effect. However, make sure that you explore your data before deciding
 on a threshold to filter out false positives.
 
 Given :m:`P` the pixels intensities inside the spot, :m:`N` the background 
-intensities, and :m:`\mathrm{std}` the standard deviation, spotMAX will compute the following 
-effect sizes:
+intensities, and :m:`\mathrm{std}` the standard deviation, spotMAX will compute 
+the following effect sizes:
 
 * **Glass**: column name ``spot_vs_backgr_effect_size_glass``. 
   Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N)`
 
 * **Cohen**: column name ``spot_vs_backgr_effect_size_cohen``. 
   Formula: :m:`(\mathrm{mean}(P) - \mathrm{mean}(N))/\mathrm{std}(N \cup P)`
-  where :m:`\mathrm{std}(N \cup P)` is the standard deviation of the spots and background 
-  intensities pooled together. 
+  where :m:`\mathrm{std}(N \cup P)` is the standard deviation of the spots and 
+  background intensities pooled together. 
 
 * **Hedge**: column name ``spot_vs_backgr_effect_size_hedge``. 
   Formula: :m:`d * c_f` where :m:`d` is the Cohen's effect size and 
@@ -200,15 +200,15 @@ effect sizes:
 
 * **Glass (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
   Glass's effect size where the **background intensities are obtained from the 
-  local environment around the spot** and not from the whole segmented object.
+  local environment around the spot** and not from the entire background mask.
 
 * **Cohen (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
   Cohen's effect size where the **background intensities are obtained from the 
-  local environment around the spot** and not from the whole segmented object.
+  local environment around the spot** and not from the entire background mask.
 
 * **Hedge (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
   Hedge's effect size where the **background intensities are obtained from the 
-  local environment around the spot** and not from the whole segmented object. 
+  local environment around the spot** and not from the entire background mask. 
 
 Effect size (vs. ref. ch.)
 --------------------------
