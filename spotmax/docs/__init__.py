@@ -90,6 +90,7 @@ def read_rst(rst_filepath):
             rst_text = re.sub(
                 rf'.. include:: {include_filename}', include_text, rst_text
             )
+            rst_text = rst_text.replace('\\', '')
         except Exception as err:
             traceback.print_exc()
             import pdb; pdb.set_trace()

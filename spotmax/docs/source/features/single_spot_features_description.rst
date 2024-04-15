@@ -173,11 +173,11 @@ the following effect sizes:
   Glass's effect size where the **background intensities are obtained from the 
   local environment around the spot** and not from the entire background mask.
 
-* **Cohen (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
+* **Cohen (local)**: column name ``spot_vs_local_backgr_effect_size_cohen``. 
   Cohen's effect size where the **background intensities are obtained from the 
   local environment around the spot** and not from the entire background mask.
 
-* **Hedge (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
+* **Hedge (local)**: column name ``spot_vs_local_backgr_effect_size_hedge``. 
   Hedge's effect size where the **background intensities are obtained from the 
   local environment around the spot** and not from the entire background mask. 
 
