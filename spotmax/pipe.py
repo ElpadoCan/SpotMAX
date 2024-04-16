@@ -1332,7 +1332,7 @@ def spot_detection(
             min_distance=min_distance,
             footprint=spot_footprint, 
             labels=labels,
-            debug=True
+            debug=False
         )
         if return_spots_mask:
             spots_masks = transformations.from_spots_coords_to_spots_masks(
@@ -1844,6 +1844,7 @@ def spotfit(
         lab=None, 
         frame_i=0, 
         ref_ch_mask_or_labels=None, 
+        spots_masks_check_merge=None,
         drop_peaks_too_close=False,
         return_df=False,
         use_gpu=False,
@@ -1903,6 +1904,10 @@ def spotfit(
     ref_ch_mask_or_labels : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
         Instance or semantic segmentation of the reference channel. 
         Default is None
+    spots_masks_check_merge : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
+        If not `None`, for each pair of touching spots in this array check 
+        if one gaussian peak fits better than two. If yes, merge the two spots 
+        before running final fitting procedure.
     drop_peaks_too_close : bool, optional
         If True, when two or more peaks are within the same ellipsoid with 
         radii = `spots_zyx_radii_pxl` only the brightest peak is kepts. 
@@ -2095,6 +2100,7 @@ def spotfit(
                 sigma_z_guess_expr=sigma_z_guess_expr,
                 A_guess_expr=A_guess_expr,
                 B_guess_expr=B_guess_expr,
+                spots_masks_check_merge=spots_masks_check_merge,
                 ref_ch_mask_or_labels=ref_ch_mask_or_labels,
                 use_gpu=use_gpu, 
                 logger_func=logger_func

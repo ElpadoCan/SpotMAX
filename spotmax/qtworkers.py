@@ -589,7 +589,4 @@ class ComputeFeaturesWorker(QRunnable):
     def run(self):
         self.logger.log('')
         self.logger.log(f'Computing features...')
-        
-        
-        
         self.signals.finished.emit(None)

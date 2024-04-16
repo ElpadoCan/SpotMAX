@@ -491,15 +491,25 @@ def find_local_peaks(
     peaks_coords = skimage.feature.peak_local_max(
         image, 
         footprint=footprint, 
-        labels=labels.astype('int32')
+        labels=labels.astype('int32'),
+        p_norm=2
     )
     intensities = image[tuple(peaks_coords.transpose())]
     valid_peaks_coords = filters.filter_valid_points_min_distance(
-        peaks_coords, min_distance, intensities=intensities
+        peaks_coords, min_distance, intensities=intensities, 
+        debug=debug
     )
     valid_peaks_coords = transformations.reshape_spots_coords_to_3D(
         valid_peaks_coords
     )
+    
+    if debug:
+        from spotmax import _debug
+        _debug.find_local_peaks(
+            image, labels, peaks_coords, valid_peaks_coords, footprint
+        )
+        import pdb; pdb.set_trace()
+    
     return valid_peaks_coords
 
 def add_custom_combined_measurements(df, logger_func=print, **features_exprs):

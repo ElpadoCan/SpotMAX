@@ -2646,6 +2646,7 @@ class SpotFIT(spheroid):
             B_guess_expr='spotsize_surface_median',
             verbose=0, 
             inspect=0, 
+            spots_masks_check_merge=None,
             ref_ch_mask_or_labels=None, 
             use_gpu=False,
             logger_func=None
@@ -2663,6 +2664,12 @@ class SpotFIT(spheroid):
             self.ref_ch_mask_local = ref_ch_mask_or_labels[expanded_obj.slice] > 0
         else:
             self.ref_ch_mask_local = None
+        
+        if spots_masks_check_merge is not None:
+            self.spots_lab_local = spots_masks_check_merge[expanded_obj.slice]
+        else:
+            self.spots_lab_local = None            
+        
         self.verbose = verbose
         self.inspect = inspect
         # z0, y0, x0, sz, sy, sx, A = coeffs; B added as one coeff
@@ -4743,7 +4750,7 @@ class Kernel(_ParamsParser):
             self._params[SECTION]['spotDetectionMethod']['loadedVal']
         )
         do_spotfit = self._params[SECTION]['doSpotFit']['loadedVal']
-        spotofit_drop_peaks_too_close = (
+        spotfit_drop_peaks_too_close = (
             self._params[SECTION]['dropSpotsMinDistAfterSpotfit']['loadedVal']
         )
         save_spots_mask = (
@@ -4968,7 +4975,7 @@ class Kernel(_ParamsParser):
                     delta_tol=self.metadata['deltaTolerance'], 
                     lab=lab,
                     ref_ch_mask_or_labels=ref_ch_mask_or_labels,
-                    drop_peaks_too_close=spotofit_drop_peaks_too_close,
+                    drop_peaks_too_close=spotfit_drop_peaks_too_close,
                     frame_i=frame_i, 
                     use_gpu=self._get_use_gpu(),
                     show_progress=True,

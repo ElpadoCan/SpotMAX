@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -101,6 +102,18 @@ def _spots_filtering(local_spots_img, df_obj_spots_gop, obj, obj_image):
         points_coords=points_coords, 
         points_data=points_data
     )
+    import pdb; pdb.set_trace()
+
+def find_local_peaks(
+        image, labels, peaks_coords, valid_peaks_coords, footprint
+    ):
+    from cellacdc.plot import imshow
+    
+    df_peaks = pd.DataFrame(data=peaks_coords, columns=['z', 'y', 'x'])
+    df_valid = pd.DataFrame(data=valid_peaks_coords, columns=['z', 'y', 'x'])
+    
+    imshow(image, labels, points_coords_df=df_valid)
+    
     import pdb; pdb.set_trace()
 
 def _spots_detection(aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords):

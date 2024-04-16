@@ -18,6 +18,10 @@ from . import core
 
 from . import printl, error_up_str
 
+class ExpandedObject:
+    def __init__(self, name='ExpandedObject'):
+        self.__name__ = name
+
 def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
     """Generate the slices required to insert a local mask into a larger image.
 
@@ -81,7 +85,7 @@ def get_expanded_obj_slice_image(obj, delta_expand, lab):
     return obj_slice, obj_image, crop_obj_start
 
 def get_expanded_obj(obj, delta_expand, lab):
-    expanded_obj = utils._Dummy(name='ExpandedObject')
+    expanded_obj = ExpandedObject(name='ExpandedObject')
     expanded_results = get_expanded_obj_slice_image(
         obj, delta_expand, lab
     )

@@ -618,7 +618,9 @@ def filter_labels_by_size(labels, min_size):
         filtered_labels[obj.slice][obj.image] = 0
     return filtered_labels
 
-def filter_valid_points_min_distance(points, min_distance, intensities=None):
+def filter_valid_points_min_distance(
+        points, min_distance, intensities=None, debug=False
+    ):
     num_points = len(points)
     if intensities is not None:
         # Sort points by descending intensities
