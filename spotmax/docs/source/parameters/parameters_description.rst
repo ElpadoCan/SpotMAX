@@ -798,6 +798,11 @@ Spots channel
   You can specify this in ``pixel`` or ``micrometre``. The unit must be written 
   after the value in the INI configuration file separated by a space. The default 
   unit is ``pixel`` while the default value is ``5``. 
+  
+  Note that if the unit is ``micrometre`` the value will be converted to 
+  ``pixel`` using the parameter :confval:`Pixel width (μm)`.
+
+  The value in ``pixel`` is rounded to the nearest integer. 
 
   Example:
 
