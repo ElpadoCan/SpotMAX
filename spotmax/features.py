@@ -616,3 +616,12 @@ def compute_spots_zyx_radii_from_params(params, return_voxel_size=False):
         return spots_zyx_radii_pixel, spots_zyx_radii_um, zyx_voxel_size
     else:
         return spots_zyx_radii_pixel, spots_zyx_radii_um
+
+def nearest_point(points, point_idx):
+    point = points[point_idx]
+    diff = np.subtract(points, point)
+    dist = np.linalg.norm(diff, axis=1)
+    dist[point_idx] = np.inf
+    min_idx = dist.argmin()
+    nearest = points[min_idx]
+    return nearest

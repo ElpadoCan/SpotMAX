@@ -1130,6 +1130,17 @@ def _spots_ch_params():
             'actions': None,
             'dtype': get_bool
         },
+        'checkMergeSpotfit': {
+            'desc': 'Merge spots pairs where single peak fits better',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
         'saveSpotsMask': {
             'desc': 'Save spots segmentation masks',
             'initialVal': False,

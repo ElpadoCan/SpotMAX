@@ -2077,11 +2077,9 @@ def spotfit(
         expanded_obj = transformations.get_expanded_obj(obj, delta_tol, lab)
         df_spots_obj = df_spots_spotfit.loc[obj.label].copy()
         start_num_spots = len(df_spots_obj)
-        num_spots = start_num_spots
         filtered_spots_info[obj.label]['start_num_spots'] = start_num_spots
         i = 0
         while True:
-            prev_num_spots = len(df_spots_obj)
             kernel.set_args(
                 expanded_obj, 
                 spots_img, 
@@ -2106,6 +2104,8 @@ def spotfit(
                 logger_func=logger_func
             )
             kernel.fit()
+            prev_num_spots = len(kernel.df_spotFIT_ID)
+            
             if custom_combined_measurements is not None:
                 kernel.add_custom_combined_features(
                     **custom_combined_measurements
@@ -2175,7 +2175,7 @@ def spotfit(
     
     _log_filtered_number_spots(
         verbose, frame_i, filtered_spots_info, logger_func, 
-        category='spots that are NOT too close (spotFIT)'
+        category='valid spots according to spotFIT'
     )
     if not return_df:
         return keys, dfs_spots_spotfit, dfs_spots_spotfit_iter0

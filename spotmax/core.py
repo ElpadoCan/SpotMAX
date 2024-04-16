@@ -2666,7 +2666,9 @@ class SpotFIT(spheroid):
             self.ref_ch_mask_local = None
         
         if spots_masks_check_merge is not None:
-            self.spots_lab_local = spots_masks_check_merge[expanded_obj.slice]
+            self.spots_lab_local = skimage.measure.label(
+                spots_masks_check_merge[expanded_obj.slice]
+            )
         else:
             self.spots_lab_local = None            
         
@@ -2691,15 +2693,216 @@ class SpotFIT(spheroid):
         self.A_guess_expr = A_guess_expr
         self.B_guess_expr = B_guess_expr
 
+    def _fit_peaks_pair_single_peak(
+            self, zz, yy, xx, df_spots_ID, mean_zyx_center, spot_id, 
+            zyx_spot_radii_pixel     
+        ):
+        model = GaussianModel(100*len(zz))
+        model.set_df_spots_ID(df_spots_ID)
+        
+        num_spots_s = 1
+        num_coeffs = self.num_coeffs
+        fit_ids = [spot_id]
+        
+        low_limit, high_limit = model.get_bounds(
+            num_spots_s, num_coeffs, fit_ids,
+            self.xy_center_half_interval_val, 
+            self.z_center_half_interval_val, 
+            self.sigma_x_min_max_expr,
+            self.sigma_y_min_max_expr,
+            self.sigma_z_min_max_expr,
+            self.A_min_max_expr,
+            self.B_min_max_expr,
+        )
+        init_guess_s = model.get_init_guess(
+            num_spots_s, num_coeffs, fit_ids,
+            self.sigma_x_guess_expr,
+            self.sigma_y_guess_expr,
+            self.sigma_z_guess_expr,
+            self.A_guess_expr,
+            self.B_guess_expr,
+            low_limit,
+            high_limit
+        )
+        
+        z0, y0, x0 = mean_zyx_center
+        init_guess_s[:3] = mean_zyx_center
+        
+        zr, yr, xr = zyx_spot_radii_pixel
+        low_limit[0] = z0-zr
+        low_limit[1] = y0-yr
+        low_limit[2] = x0-xr
+        high_limit[0] = z0+zr
+        high_limit[1] = y0+yr
+        high_limit[2] = x0+xr
+        
+        bounds = (low_limit, high_limit)
+        const = 0
+        s_data = self.spots_img_local[zz, yy, xx]
+        
+        desc = 'Fitting single peak'
+        fit_coeffs, success = model.curve_fit(
+            init_guess_s,
+            s_data,
+            zz, yy, xx, 
+            num_spots_s,
+            num_coeffs,
+            const,
+            bounds,
+            self._tol,
+            pbar_desc=desc
+        )
+        
+        # Goodness of fit
+        ddof = num_coeffs
+        s_fit_data =  model.numba_func(
+            zz, yy, xx, fit_coeffs, 1, num_coeffs, const
+        )
+        (reduced_chisq, p_chisq, RMSE, ks, p_ks,
+        NRMSE, F_NRMSE) = model.goodness_of_fit(s_data, s_fit_data, ddof)
+        
+        return RMSE
+    
+    def _fit_peaks_pair_two_peaks(
+            self, zz, yy, xx, df_spots_ID, zyx_centers
+        ):
+        model = GaussianModel(100*len(zz))
+        model.set_df_spots_ID(df_spots_ID)
+        
+        num_spots_s = 2
+        num_coeffs = self.num_coeffs
+        fit_ids = (
+            df_spots_ID.reset_index()
+            .set_index(ZYX_LOCAL_EXPANDED_COLS)
+        ).loc[[tuple(row) for row in zyx_centers], 'spot_id'].to_list()
+        
+        low_limit, high_limit = model.get_bounds(
+            num_spots_s, num_coeffs, fit_ids,
+            self.xy_center_half_interval_val, 
+            self.z_center_half_interval_val, 
+            self.sigma_x_min_max_expr,
+            self.sigma_y_min_max_expr,
+            self.sigma_z_min_max_expr,
+            self.A_min_max_expr,
+            self.B_min_max_expr,
+        )
+        init_guess_s = model.get_init_guess(
+            num_spots_s, num_coeffs, fit_ids,
+            self.sigma_x_guess_expr,
+            self.sigma_y_guess_expr,
+            self.sigma_z_guess_expr,
+            self.A_guess_expr,
+            self.B_guess_expr,
+            low_limit,
+            high_limit
+        )
+        bounds = (low_limit, high_limit)
+        const = 0
+        s_data = self.spots_img_local[zz, yy, xx]
+        
+        desc = 'Fitting peaks pair'
+        fit_coeffs, success = model.curve_fit(
+            init_guess_s,
+            s_data,
+            zz, yy, xx, 
+            num_spots_s,
+            num_coeffs,
+            const,
+            bounds,
+            self._tol,
+            pbar_desc=desc
+        )
+        
+        # Goodness of fit
+        ddof = num_coeffs
+        s_fit_data =  model.numba_func(
+            zz, yy, xx, fit_coeffs, 1, num_coeffs, const
+        )
+        (reduced_chisq, p_chisq, RMSE, ks, p_ks,
+        NRMSE, F_NRMSE) = model.goodness_of_fit(s_data, s_fit_data, ddof)
+        
+        return fit_ids, RMSE
+    
+    def fit_merge_spots_pairs(self):
+        repeat_spotsize = False
+        
+        if self.spots_lab_local is None:
+            return repeat_spotsize
+        
+        while True:
+            df_spots_ID = self.df_spots_ID
+            do_break = True
+            
+            spots_centers = df_spots_ID[ZYX_LOCAL_EXPANDED_COLS].to_numpy()
+            
+            spot_ids = self.spots_lab_local[tuple(spots_centers.T)]
+            unique_ids, counts = np.unique(spot_ids, return_counts=True)
+            
+            for unique_id, count in zip(unique_ids, counts):
+                if count == 1:
+                    continue
+                
+                coords_id = spots_centers[spot_ids==unique_id]
+                intensities_id = self.spots_img_local[tuple(coords_id.T)]
+                brightest_idx = intensities_id.argmax()
+                
+                if count > 2:
+                    # Take the brightest and its closest as pair
+                    nearest_coords = features.nearest_point(
+                        coords_id, brightest_idx
+                    )
+                    brightest_coords = coords_id[brightest_idx]
+                    coords_id = np.row_stack((brightest_coords, nearest_coords))
+                    brightest_idx = 0
+                    do_break = False
+                        
+                zyx_spot_min_vol_um = self.zyx_spot_min_vol_um
+                zyx_spot_size = np.array(zyx_spot_min_vol_um)/2
+                zyx_spot_radii_pixel = zyx_spot_size/self.zyx_vox_size
+                
+                spheroid_mask = self.get_spots_mask(
+                    0, self.zyx_vox_size, zyx_spot_size, coords_id, 
+                )
+                zz, yy, xx = np.nonzero(spheroid_mask)
+                
+                pair_ids, pair_RMSE = self._fit_peaks_pair_two_peaks(
+                    zz, yy, xx, df_spots_ID, coords_id
+                )
+                
+                mean_coords = np.mean(coords_id, axis=0)
+                brightest_spot_id = pair_ids[brightest_idx]
+                dimmer_spot_id = pair_ids[int(not brightest_idx)]
+                single_RMSE = self._fit_peaks_pair_single_peak(
+                    zz, yy, xx, df_spots_ID, mean_coords, 
+                    brightest_spot_id, zyx_spot_radii_pixel
+                )
+                
+                if single_RMSE > pair_RMSE:
+                    continue
+                
+                repeat_spotsize = True
+                self.df_spots_ID = df_spots_ID.drop(index=dimmer_spot_id)
+            
+            if do_break:
+                break
+        
+        return repeat_spotsize
+        
+    
     def fit(self):
         verbose = self.verbose
         inspect = self.inspect
-        df_spots_ID = self.df_spots_ID
-
+        
         self.spotSIZE()
+        
+        repeat_spotsize = self.fit_merge_spots_pairs()
+        
+        if repeat_spotsize:
+            self.spotSIZE()
+            
         self.compute_neigh_intersect()
         self._fit()
-        self._quality_control()
+        self._quality_control()        
 
         if self.fit_again_idx:
             self._fit_again()
@@ -2711,7 +2914,7 @@ class SpotFIT(spheroid):
             .set_index('id')
         )
         _df_spotFIT.index.names = ['spot_id']
-        df_spotFIT_ID = df_spots_ID.join(_df_spotFIT, how='outer')
+        df_spotFIT_ID = self.df_spots_ID.join(_df_spotFIT, how='outer')
         
         df_spotFIT_ID = features.add_additional_spotfit_features(df_spotFIT_ID)
 
@@ -3730,7 +3933,7 @@ class Kernel(_ParamsParser):
             # Use raw image for neural network if no data was explicity passed
             transf_spots_nnet_img = raw_spots_img
         
-        df_spots_coords, aggr_nnet_pred_map = self._spots_detection(
+        _detect_result = self._spots_detection(
             sharp_spots_img, 
             lab, 
             detection_method,
@@ -3747,6 +3950,7 @@ class Kernel(_ParamsParser):
             df_spots_coords_input=df_spots_coords_input,
             min_spot_mask_size=min_spot_mask_size
         )
+        df_spots_coords, nnet_pred_map, spots_labels = _detect_result
         df_spots_det, df_spots_gop = self._spots_filter(
             df_spots_coords, 
             spots_img, 
@@ -3775,7 +3979,7 @@ class Kernel(_ParamsParser):
                 df_spots_det, df_spots_gop, df_agg
             )
 
-        return aggr_nnet_pred_map
+        return nnet_pred_map, spots_labels
 
     def _add_aggr_and_local_coords_from_global(
             self, df_spots_coords_input, lab, aggregated_lab,
@@ -3930,6 +4134,7 @@ class Kernel(_ParamsParser):
         aggr_transf_spots_nnet_img = aggr_imgs[1]
         aggr_nnet_pred_map = None
         
+        labels = None
         if aggr_spots_ch_segm_mask is not None:
             labels = aggr_spots_ch_segm_mask.astype(int)
             labels = filters.filter_labels_by_size(labels, min_spot_mask_size)
@@ -3975,6 +4180,7 @@ class Kernel(_ParamsParser):
                 aggr_nnet_pred_map, aggregated_lab, lab
             )
         
+        spots_labels = None
         spots_masks = None
         if df_spots_coords_input is None:
             aggr_spots_coords, spots_masks = pipe.spot_detection(
@@ -3989,6 +4195,9 @@ class Kernel(_ParamsParser):
                 self._add_local_coords_from_aggr(
                     aggr_spots_coords, aggregated_lab, spots_masks=spots_masks
                 )
+            )
+            spots_labels = transformations.deaggregate_img(
+                labels, aggregated_lab, lab
             )
         else:
             df_spots_coords, num_spots_objs_txts = (
@@ -4015,7 +4224,7 @@ class Kernel(_ParamsParser):
                 f'segmented object:\n{num_spots_objs_txt}'
             )
             print('-'*100)
-        return df_spots_coords, nnet_pred_map
+        return df_spots_coords, nnet_pred_map, spots_labels
         
     def _spots_filter(
             self, 
@@ -4354,6 +4563,32 @@ class Kernel(_ParamsParser):
             warning_txt
         )
 
+    def _warn_if_spotfit_disabled(self, do_spotfit):
+        SECTION = 'Spots channel'
+        if do_spotfit:
+            return
+        
+        ANCHORS = (
+            'dropSpotsMinDistAfterSpotfit', 
+            'checkMergeSpotfit'
+        )
+        
+        for anchor in ANCHORS:
+            value = self._params[SECTION][anchor]['loadedVal']
+            step = self._params[SECTION][anchor]['desc']
+            if not value:
+                continue
+
+            warn_text = (
+                f'Analysis step `{step}` cannot be performed because spotFIT '
+                'is disabled. To active spotFIT, set '
+                '`Compute spots size (fit gaussian peak(s)) = True`'
+            )
+            self.log_warning_report(warn_text)
+            self.logger.info('='*100)
+            self.logger.info(f'[WARNING]: {warn_text}')
+            self.logger.info('^'*100)
+    
     def log_exception_report(self, error, traceback_str=''):
         if self._force_close_on_critical:
             print('')
@@ -4753,6 +4988,11 @@ class Kernel(_ParamsParser):
         spotfit_drop_peaks_too_close = (
             self._params[SECTION]['dropSpotsMinDistAfterSpotfit']['loadedVal']
         )
+        spotfit_check_merge = (
+            self._params[SECTION]['checkMergeSpotfit']['loadedVal']
+        )
+        self._warn_if_spotfit_disabled(do_spotfit)
+        
         save_spots_mask = (
             self._params[SECTION]['saveSpotsMask']['loadedVal']
         )
@@ -4778,6 +5018,7 @@ class Kernel(_ParamsParser):
             preproc_spots_data = np.zeros_like(spots_data)[:stopFrameNum]
         
         nnet_pred_map = None
+        spots_labels_data = None
         desc = 'Frames completed (spot detection)'
         pbar = tqdm(
             total=stopFrameNum, ncols=100, desc=desc, position=2, 
@@ -4832,7 +5073,7 @@ class Kernel(_ParamsParser):
                 if df_spots_coords_input is None:
                     continue
             
-            nnet_pred_map_frame_i = self.spots_detection(
+            detect_result = self.spots_detection(
                 preproc_spots_img, zyx_resolution_limit_pxl, 
                 sharp_spots_img=sharp_spots_img,
                 ref_ch_img=filtered_ref_ch_img, 
@@ -4862,13 +5103,17 @@ class Kernel(_ParamsParser):
                 custom_combined_measurements=custom_combined_measurements,
                 verbose=verbose
             )
-            if nnet_pred_map_frame_i is None:
-                pbar.update()
-                continue
+            nnet_pred_map_frame_i, spots_labels = detect_result
             
-            if nnet_pred_map is None:
+            if nnet_pred_map is None and nnet_pred_map_frame_i is not None:
                 nnet_pred_map = np.zeros(spots_data.shape)
-            nnet_pred_map[frame_i] = nnet_pred_map_frame_i
+            if nnet_pred_map_frame_i is not None:
+                nnet_pred_map[frame_i] = nnet_pred_map_frame_i
+            
+            if spots_labels is not None and spots_labels_data is None:
+                spots_labels_data = np.zeros(spots_data.shape, dtype=np.uint32)
+            if spots_labels is not None:
+                spots_labels_data[frame_i] = spots_labels
             
             pbar.update()
         pbar.close()
@@ -4957,11 +5202,14 @@ class Kernel(_ParamsParser):
                     continue
                 
                 raw_spots_img = spots_data[frame_i]
+                ref_ch_mask_or_labels = None
                 if ref_ch_segm_data is not None:
                     ref_ch_mask_or_labels = ref_ch_segm_data[frame_i]
-                else:
-                    ref_ch_mask_or_labels = None
-                    
+                
+                spots_masks_check_merge = None
+                if spotfit_check_merge and spots_labels_data is not None:
+                    spots_masks_check_merge = spots_labels_data[frame_i]
+                
                 bounds_kwargs = self.get_bounds_kwargs()
                 init_guess_kwargs = self.get_init_guess_kwargs()
                 spotfit_result = pipe.spotfit(
@@ -4975,6 +5223,7 @@ class Kernel(_ParamsParser):
                     delta_tol=self.metadata['deltaTolerance'], 
                     lab=lab,
                     ref_ch_mask_or_labels=ref_ch_mask_or_labels,
+                    spots_masks_check_merge=spots_masks_check_merge,
                     drop_peaks_too_close=spotfit_drop_peaks_too_close,
                     frame_i=frame_i, 
                     use_gpu=self._get_use_gpu(),

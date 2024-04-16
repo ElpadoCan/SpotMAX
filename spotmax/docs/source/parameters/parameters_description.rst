@@ -893,6 +893,25 @@ Spots channel
   :type: boolean
   :default: ``False``
 
+.. confval:: Merge spots pairs where single peak fits better
+
+  If ``True``, for every pair of peaks on the same spot mask (determined by the 
+  :confval:`Spots segmentation method`) spotMAX will fit two Gaussian peaks 
+  and a single one. If the single one has lower root mean squared error 
+  (i.e., better fit) the dimmer peak is dropped.
+
+  .. note:: 
+
+    The bounds and the initial guess used for two and single peaks are the 
+    same you provide in the :ref:`spotfit-params` section, except for the 
+    center coordinates of the single peak. For the single peak, the initial 
+    guess of the center coordinates will be the average between the two 
+    peaks coordinates, while the bounds on the center will be plus/minus 
+    half of the :confval:`Spot (z, y, x) minimum dimensions (radius)`. 
+
+  :type: boolean
+  :default: ``False``
+
 .. confval:: Save spots segmentation masks
 
   If ``True``, spotMAX will save the segmentation masks of the spots in the same 
