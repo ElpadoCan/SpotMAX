@@ -1008,8 +1008,17 @@ def get_local_backgr_ring_width_pixel(
     try:
         value, unit = local_background_ring_width.split()
     except ValueError as err:
-        raise ValueError('Local background ring width unit is not specified.')
-        
+        raise ValueError(
+            'Local background ring width unit is not specified. '
+            'It must be either `pixel` or `micrometre`.'
+        )
+    
+    if unit not in ('pixel', 'micrometre'):
+        raise ValueError(
+            f'`{unit}` is not a valid unit for the local background ring width. '
+            'It must be either `pixel` or `micrometre`.'
+        )
+    
     if unit == 'pixel':
         return round(float(value))
     
