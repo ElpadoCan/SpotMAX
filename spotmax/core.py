@@ -2917,7 +2917,7 @@ class SpotFIT(spheroid):
                     do_break = False
                         
                 zyx_spot_min_vol_um = self.zyx_spot_min_vol_um
-                zyx_spot_size = np.array(zyx_spot_min_vol_um)# /2
+                zyx_spot_size = np.array(zyx_spot_min_vol_um)/2
                 zyx_spot_radii_pixel = zyx_spot_size/self.zyx_vox_size
                 
                 spheroid_mask = self.get_spots_mask(
@@ -2946,7 +2946,7 @@ class SpotFIT(spheroid):
                 single_gof_scores = self._fit_peaks_pair_single_peak(
                     zz, yy, xx, df_spots_ID, mean_coords, 
                     brightest_spot_id, zyx_spot_radii_pixel, pair_fit_coeffs, 
-                    self.num_coeffs, pair_weights
+                    self.num_coeffs, single_weights
                 )
                 (single_reduced_chisq, single_p_chisq, single_RMSE, single_ks, 
                 single_p_ks, single_NRMSE, single_F_NRMSE) = single_gof_scores

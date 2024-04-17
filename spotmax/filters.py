@@ -332,6 +332,7 @@ def local_semantic_segmentation(
                 if sub_obj.area < min_mask_size:
                     continue
                 IDs = obj_mask_lab[sub_obj.slice][sub_obj.image]
+                IDs = IDs[IDs>0]
                 IDs, counts = np.unique(IDs, return_counts=True)
                 most_common_idx = np.argmax(counts)
                 ID = IDs[most_common_idx]
