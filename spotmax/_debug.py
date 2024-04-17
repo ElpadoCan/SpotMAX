@@ -198,7 +198,6 @@ def _spotfit_fit(
         print('')
     img = spots_img
     from cellacdc.plot import imshow
-    imshow(spots_img, points_coords=np.array(points_coords))
     # 3D gaussian evaluated on the entire image
     V_fit = np.zeros_like(spots_img)
     zz, yy, xx = np.nonzero(V_fit==0)
@@ -209,6 +208,13 @@ def _spotfit_fit(
     fit_data = gauss3Dmodel(
         z, y, x, fit_coeffs, num_spots_s, num_coeffs, 0
     )
+    input_data = img[z, y, x]
+    
+    square_res = np.square(input_data-fit_data)
+    SSE = np.sum(square_res)
+    RMSE = np.sqrt(SSE/len(z))
+    
+    printl(f'{RMSE = }')
 
     img_fit = np.zeros_like(img)
     img_fit[z,y,x] = fit_data
@@ -230,6 +236,8 @@ def _spotfit_fit(
     ax[2].scatter(range(len(y_intens)), y_intens)
     ax[2].plot(range(len(y_gauss)), y_gauss, c='r')
     plt.show()
+    
+    imshow(img, V_fit)
 
     import pdb; pdb.set_trace()
 

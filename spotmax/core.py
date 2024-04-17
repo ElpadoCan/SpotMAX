@@ -1890,9 +1890,13 @@ class GaussianModel:
         for i in range(num_spots):
             ith_lb = lb[n:n+num_coeffs]
             ith_hb = hb[n:n+num_coeffs]
-            fixed_bounds_idx = np.nonzero(ith_lb == ith_hb)
-            const_coeffs[fixed_bounds_idx] = ith_lb[fixed_bounds_idx]
+            fixed_bounds_idx = np.nonzero(ith_lb == ith_hb)[0] 
+            const_coeffs[fixed_bounds_idx+n] = ith_lb[fixed_bounds_idx]
             n += num_coeffs
+        
+        if lb[-1] == hb[-1]:
+            const_coeffs[-1] = lb[-1]
+        
         return const_coeffs
     
     def remove_equal_bounds(self, bounds, init_guess):
@@ -1917,6 +1921,7 @@ class GaussianModel:
             desc=pbar_desc, total=100*len(z_s), unit=' fev',
             position=4, leave=False, ncols=100
         )
+        
         # variable_num_coeffs = self.variable_num_coeffs(bounds, num_coeffs)
         const_coeffs = self.const_coeffs(
             bounds, num_coeffs, num_spots_s
@@ -1964,7 +1969,7 @@ class GaussianModel:
             model += A*gauss_x*gauss_y*gauss_z
             n += num_coeffs
         return model + const + B
-
+    
     def func(self, z, y, x, coeffs, B=0):
         """Non-NUMBA version of the model"""
         z0, y0, x0, sz, sy, sx, A = coeffs
@@ -2009,7 +2014,9 @@ class GaussianModel:
         self.pbar.update(1)
         return residuals
 
-    def goodness_of_fit(self, y_obs, y_model, ddof, is_linear_regr=False):
+    def goodness_of_fit(
+            self, y_obs, y_model, ddof, is_linear_regr=False, weights=None
+        ):
         # Degree of freedom
         N = len(y_obs)
         dof = N-ddof
@@ -2030,10 +2037,18 @@ class GaussianModel:
             # print('WARNING: error calculating chisquare')
 
         # Sum of squared errors
-        SSE = np.sum(np.square(y_obs-y_model))
+        squared_residuals = np.square(y_obs-y_model)
+        if weights is not None:
+            squared_residuals = np.multiply(squared_residuals, weights)
+        SSE = np.sum(squared_residuals)
+        
         # Total sum of squares
         y_mean = y_obs.mean()
-        SST = np.sum(np.square(y_obs-y_mean))
+        squared_res_from_mean = np.square(y_obs-y_mean)
+        if weights is not None:
+            squared_res_from_mean = np.multiply(squared_res_from_mean, weights)
+        SST = np.sum(squared_res_from_mean)
+        
         # NOTE: R-square is valid ONLY for linear regressions
         R_sq = 1 - (SSE/SST)
         # Adjusted R squared
@@ -2676,7 +2691,7 @@ class SpotFIT(spheroid):
         self.inspect = inspect
         # z0, y0, x0, sz, sy, sx, A = coeffs; B added as one coeff
         self.num_coeffs = 7
-        self._tol = 1e-10
+        self._tol = 1e-11
         self.use_gpu = use_gpu
         
         self.xy_center_half_interval_val = xy_center_half_interval_val
@@ -2693,10 +2708,25 @@ class SpotFIT(spheroid):
         self.A_guess_expr = A_guess_expr
         self.B_guess_expr = B_guess_expr
 
+    def get_weights_merge_spots(self, zz, yy, xx, zyx_centers, zyx_vox_size):
+        zyx_points = np.column_stack((zz, yy, xx))
+        distances = []
+        for zyx_center in zyx_centers:
+            diff = np.subtract(zyx_points, zyx_center)*zyx_vox_size
+            dist = np.linalg.norm(diff, axis=1)
+            distances.append(dist)
+            
+        distances = np.min(distances, axis=0)
+        weights = -distances
+        weights = weights - weights.min()        
+        weights = weights/weights.max()
+        return weights
+    
     def _fit_peaks_pair_single_peak(
             self, zz, yy, xx, df_spots_ID, mean_zyx_center, spot_id, 
-            zyx_spot_radii_pixel     
+            zyx_spot_radii_pixel, pair_fit_coeffs, num_coeffs, weights     
         ):
+        
         model = GaussianModel(100*len(zz))
         model.set_df_spots_ID(df_spots_ID)
         
@@ -2728,6 +2758,18 @@ class SpotFIT(spheroid):
         z0, y0, x0 = mean_zyx_center
         init_guess_s[:3] = mean_zyx_center
         
+        # # Fix parameters to average of best parameters two peaks
+        # pair_background = pair_fit_coeffs[-1]
+        # pair_fit_coeffs = pair_fit_coeffs[:-1].reshape((2, num_coeffs))
+        # pair_fit_mean_coeffs = np.mean(pair_fit_coeffs[:, 3:7], axis=0)
+        
+        # init_guess_s[3:7] = pair_fit_mean_coeffs
+        # low_limit[3:7] = pair_fit_mean_coeffs
+        # high_limit[3:7] = pair_fit_mean_coeffs
+        # init_guess_s[-1] = pair_background
+        # low_limit[-1] = pair_background
+        # high_limit[-1] = pair_background
+        
         zr, yr, xr = zyx_spot_radii_pixel
         low_limit[0] = z0-zr
         low_limit[1] = y0-yr
@@ -2754,17 +2796,26 @@ class SpotFIT(spheroid):
         )
         
         # Goodness of fit
-        ddof = num_coeffs
         s_fit_data =  model.numba_func(
-            zz, yy, xx, fit_coeffs, 1, num_coeffs, const
+            zz, yy, xx, fit_coeffs, num_spots_s, num_coeffs, 0
         )
-        (reduced_chisq, p_chisq, RMSE, ks, p_ks,
-        NRMSE, F_NRMSE) = model.goodness_of_fit(s_data, s_fit_data, ddof)
+        ddof = num_coeffs
+        gof_scores = model.goodness_of_fit(
+            s_data, s_fit_data, ddof, weights=None
+        )
         
-        return RMSE
+        # from spotmax import _debug
+        # _debug._spotfit_fit(
+        #     model.numba_func, self.spots_img_local, fit_coeffs, num_spots_s,
+        #     num_coeffs, zz, yy, xx, s_data, np.array([mean_zyx_center]), 
+        #     self.ID, fit_ids, init_guess_s, low_limit, high_limit, 0
+        # )
+        # import pdb; pdb.set_trace()
+        
+        return gof_scores
     
     def _fit_peaks_pair_two_peaks(
-            self, zz, yy, xx, df_spots_ID, zyx_centers
+            self, zz, yy, xx, df_spots_ID, zyx_centers, weights
         ):
         model = GaussianModel(100*len(zz))
         model.set_df_spots_ID(df_spots_ID)
@@ -2796,6 +2847,7 @@ class SpotFIT(spheroid):
             low_limit,
             high_limit
         )
+        
         bounds = (low_limit, high_limit)
         const = 0
         s_data = self.spots_img_local[zz, yy, xx]
@@ -2814,14 +2866,22 @@ class SpotFIT(spheroid):
         )
         
         # Goodness of fit
-        ddof = num_coeffs
+        ddof = num_coeffs*2
         s_fit_data =  model.numba_func(
-            zz, yy, xx, fit_coeffs, 1, num_coeffs, const
+            zz, yy, xx, fit_coeffs, num_spots_s, num_coeffs, 0
         )
-        (reduced_chisq, p_chisq, RMSE, ks, p_ks,
-        NRMSE, F_NRMSE) = model.goodness_of_fit(s_data, s_fit_data, ddof)
+        gof_scores = model.goodness_of_fit(
+            s_data, s_fit_data, ddof, weights=None
+        )
         
-        return fit_ids, RMSE
+        # from spotmax import _debug
+        # _debug._spotfit_fit(
+        #     model.numba_func, self.spots_img_local, fit_coeffs, num_spots_s,
+        #     num_coeffs, zz, yy, xx, s_data, zyx_centers, self.ID, 
+        #     fit_ids, init_guess_s, low_limit, high_limit, 0
+        # )
+        
+        return fit_ids, gof_scores, fit_coeffs
     
     def fit_merge_spots_pairs(self):
         repeat_spotsize = False
@@ -2857,7 +2917,7 @@ class SpotFIT(spheroid):
                     do_break = False
                         
                 zyx_spot_min_vol_um = self.zyx_spot_min_vol_um
-                zyx_spot_size = np.array(zyx_spot_min_vol_um)/2
+                zyx_spot_size = np.array(zyx_spot_min_vol_um)# /2
                 zyx_spot_radii_pixel = zyx_spot_size/self.zyx_vox_size
                 
                 spheroid_mask = self.get_spots_mask(
@@ -2865,17 +2925,31 @@ class SpotFIT(spheroid):
                 )
                 zz, yy, xx = np.nonzero(spheroid_mask)
                 
-                pair_ids, pair_RMSE = self._fit_peaks_pair_two_peaks(
-                    zz, yy, xx, df_spots_ID, coords_id
+                pair_weights = self.get_weights_merge_spots(
+                    zz, yy, xx, coords_id, self.zyx_vox_size
                 )
                 
+                pair_result = self._fit_peaks_pair_two_peaks(
+                    zz, yy, xx, df_spots_ID, coords_id, pair_weights
+                )
+                pair_ids, pair_gof_scores, pair_fit_coeffs = pair_result
+                (pair_reduced_chisq, pair_p_chisq, pair_RMSE, 
+                pair_ks, pair_p_ks, pair_NRMSE, pair_F_NRMSE) = pair_gof_scores
+                
                 mean_coords = np.mean(coords_id, axis=0)
+                single_weights = self.get_weights_merge_spots(
+                    zz, yy, xx, [mean_coords], self.zyx_vox_size
+                )
+                
                 brightest_spot_id = pair_ids[brightest_idx]
                 dimmer_spot_id = pair_ids[int(not brightest_idx)]
-                single_RMSE = self._fit_peaks_pair_single_peak(
+                single_gof_scores = self._fit_peaks_pair_single_peak(
                     zz, yy, xx, df_spots_ID, mean_coords, 
-                    brightest_spot_id, zyx_spot_radii_pixel
+                    brightest_spot_id, zyx_spot_radii_pixel, pair_fit_coeffs, 
+                    self.num_coeffs, pair_weights
                 )
+                (single_reduced_chisq, single_p_chisq, single_RMSE, single_ks, 
+                single_p_ks, single_NRMSE, single_F_NRMSE) = single_gof_scores
                 
                 if single_RMSE > pair_RMSE:
                     continue
@@ -2888,7 +2962,6 @@ class SpotFIT(spheroid):
         
         return repeat_spotsize
         
-    
     def fit(self):
         verbose = self.verbose
         inspect = self.inspect
