@@ -898,7 +898,7 @@ Spots channel
   If ``True``, for every pair of peaks on the same spot mask (determined by the 
   :confval:`Spots segmentation method`) spotMAX will fit two Gaussian peaks 
   and a single one. If the single one has lower root mean squared error 
-  (i.e., better fit) the dimmer peak is dropped.
+  (i.e., better fit) or the two peaks merge together the dimmer peak is dropped.
 
   .. note:: 
 

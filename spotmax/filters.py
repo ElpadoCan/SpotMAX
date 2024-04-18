@@ -620,7 +620,8 @@ def filter_labels_by_size(labels, min_size):
     return filtered_labels
 
 def filter_valid_points_min_distance(
-        points, min_distance, intensities=None, debug=False
+        points: np.ndarray, min_distance: np.ndarray, intensities=None, 
+        return_valid_points_mask=False, debug=False
     ):
     num_points = len(points)
     if intensities is not None:
@@ -647,4 +648,8 @@ def filter_valid_points_min_distance(
         masked_points.mask[points_too_close_mask] = True
     
     valid_points = points[valid_points_mask]
+    
+    if return_valid_points_mask:
+        return valid_points, valid_points_mask
+    
     return valid_points

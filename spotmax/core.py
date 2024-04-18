@@ -2770,13 +2770,8 @@ class SpotFIT(spheroid):
         # low_limit[-1] = pair_background
         # high_limit[-1] = pair_background
         
-        zr, yr, xr = zyx_spot_radii_pixel
-        low_limit[0] = z0-zr
-        low_limit[1] = y0-yr
-        low_limit[2] = x0-xr
-        high_limit[0] = z0+zr
-        high_limit[1] = y0+yr
-        high_limit[2] = x0+xr
+        low_limit[:3] = init_guess_s[:3] - zyx_spot_radii_pixel
+        high_limit[:3] = init_guess_s[:3] + zyx_spot_radii_pixel
         
         bounds = (low_limit, high_limit)
         const = 0
@@ -2815,7 +2810,8 @@ class SpotFIT(spheroid):
         return gof_scores
     
     def _fit_peaks_pair_two_peaks(
-            self, zz, yy, xx, df_spots_ID, zyx_centers, weights
+            self, zz, yy, xx, df_spots_ID, zyx_centers, weights, 
+            zyx_spot_radii_pixel
         ):
         model = GaussianModel(100*len(zz))
         model.set_df_spots_ID(df_spots_ID)
@@ -2847,6 +2843,13 @@ class SpotFIT(spheroid):
             low_limit,
             high_limit
         )
+        
+        # Allow peak centers to move and eventually merge
+        low_limit[:3] = init_guess_s[:3] - zyx_spot_radii_pixel
+        high_limit[:3] = init_guess_s[:3] + zyx_spot_radii_pixel
+        
+        low_limit[7:10] = init_guess_s[7:10] - zyx_spot_radii_pixel
+        high_limit[7:10] = init_guess_s[7:10] + zyx_spot_radii_pixel
         
         bounds = (low_limit, high_limit)
         const = 0
@@ -2889,6 +2892,17 @@ class SpotFIT(spheroid):
         if self.spots_lab_local is None:
             return repeat_spotsize
         
+        zyx_spot_min_vol_um = self.zyx_spot_min_vol_um
+        
+        # Radius of the masks to determine pixels to fit
+        zyx_spot_size = np.array(zyx_spot_min_vol_um)/2
+        zyx_spot_radii_pixel = zyx_spot_size/self.zyx_vox_size
+        
+        # Radius of the spheroids used to filter based on distance
+        spheroid_radii_pixel = (
+            np.array(zyx_spot_min_vol_um)/np.array(self.zyx_vox_size)
+        )
+        
         while True:
             df_spots_ID = self.df_spots_ID
             do_break = True
@@ -2915,10 +2929,6 @@ class SpotFIT(spheroid):
                     coords_id = np.row_stack((brightest_coords, nearest_coords))
                     brightest_idx = 0
                     do_break = False
-                        
-                zyx_spot_min_vol_um = self.zyx_spot_min_vol_um
-                zyx_spot_size = np.array(zyx_spot_min_vol_um)/2
-                zyx_spot_radii_pixel = zyx_spot_size/self.zyx_vox_size
                 
                 spheroid_mask = self.get_spots_mask(
                     0, self.zyx_vox_size, zyx_spot_size, coords_id, 
@@ -2930,7 +2940,8 @@ class SpotFIT(spheroid):
                 )
                 
                 pair_result = self._fit_peaks_pair_two_peaks(
-                    zz, yy, xx, df_spots_ID, coords_id, pair_weights
+                    zz, yy, xx, df_spots_ID, coords_id, pair_weights, 
+                    zyx_spot_radii_pixel
                 )
                 pair_ids, pair_gof_scores, pair_fit_coeffs = pair_result
                 (pair_reduced_chisq, pair_p_chisq, pair_RMSE, 
@@ -2951,12 +2962,27 @@ class SpotFIT(spheroid):
                 (single_reduced_chisq, single_p_chisq, single_RMSE, single_ks, 
                 single_p_ks, single_NRMSE, single_F_NRMSE) = single_gof_scores
                 
-                if single_RMSE > pair_RMSE:
+                if single_RMSE <= pair_RMSE:
+                    repeat_spotsize = True
+                    self.df_spots_ID = df_spots_ID.drop(index=dimmer_spot_id)
+                    continue
+                
+                fit_coords = np.row_stack(
+                    (pair_fit_coeffs[:3], pair_fit_coeffs[7:10])
+                )
+                fit_coords_int = np.round(fit_coords).astype(int)
+                i0 = brightest_idx*self.num_coeffs+3
+                brightest_radii_pixel = pair_fit_coeffs[i0:i0+3]*2
+                intensities = self.spots_img_local[tuple(fit_coords_int.T)]
+                valid_coords = filters.filter_valid_points_min_distance(
+                    fit_coords, brightest_radii_pixel, intensities=intensities
+                )
+                if len(valid_coords) == 2:
                     continue
                 
                 repeat_spotsize = True
                 self.df_spots_ID = df_spots_ID.drop(index=dimmer_spot_id)
-            
+                    
             if do_break:
                 break
         
