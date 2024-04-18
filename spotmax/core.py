@@ -2676,7 +2676,9 @@ class SpotFIT(spheroid):
         self.obj_image = expanded_obj.image
         self.zyx_spot_min_vol_um = zyx_spot_min_vol_um
         if ref_ch_mask_or_labels is not None:
-            self.ref_ch_mask_local = ref_ch_mask_or_labels[expanded_obj.slice] > 0
+            self.ref_ch_mask_local = (
+                ref_ch_mask_or_labels[expanded_obj.slice] > 0
+            )
         else:
             self.ref_ch_mask_local = None
         
@@ -2724,7 +2726,7 @@ class SpotFIT(spheroid):
     
     def _fit_peaks_pair_single_peak(
             self, zz, yy, xx, df_spots_ID, mean_zyx_center, spot_id, 
-            zyx_spot_radii_pixel, pair_fit_coeffs, num_coeffs, weights     
+            zyx_spot_radii_pixel, pair_fit_coeffs, num_coeffs, weights=None     
         ):
         
         model = GaussianModel(100*len(zz))
@@ -2810,8 +2812,8 @@ class SpotFIT(spheroid):
         return gof_scores
     
     def _fit_peaks_pair_two_peaks(
-            self, zz, yy, xx, df_spots_ID, zyx_centers, weights, 
-            zyx_spot_radii_pixel
+            self, zz, yy, xx, df_spots_ID, zyx_centers,
+            zyx_spot_radii_pixel, weights=None
         ):
         model = GaussianModel(100*len(zz))
         model.set_df_spots_ID(df_spots_ID)
@@ -2902,90 +2904,87 @@ class SpotFIT(spheroid):
         spheroid_radii_pixel = (
             np.array(zyx_spot_min_vol_um)/np.array(self.zyx_vox_size)
         )
+        spheroid_diameter_pixel = spheroid_radii_pixel*2
         
-        while True:
-            df_spots_ID = self.df_spots_ID
-            do_break = True
+        df_spots_ID = self.df_spots_ID
+        
+        spots_centers = df_spots_ID[ZYX_LOCAL_EXPANDED_COLS].to_numpy()
+        
+        spot_ids = self.spots_lab_local[tuple(spots_centers.T)]
+        unique_ids, counts = np.unique(spot_ids, return_counts=True)
+        
+        for unique_id, count in zip(unique_ids, counts):
+            if count == 1:
+                continue
             
-            spots_centers = df_spots_ID[ZYX_LOCAL_EXPANDED_COLS].to_numpy()
+            all_coords_id = spots_centers[spot_ids==unique_id]
+            # intensities_id = self.spots_img_local[tuple(all_coords_id.T)]
+            # brightest_idx = intensities_id.argmax()
+                
+            if count == 2:
+                pairs = (all_coords_id,)
+            else:
+                pairs = features.get_all_pairs_within_distance(
+                    all_coords_id, spheroid_diameter_pixel
+                )
             
-            spot_ids = self.spots_lab_local[tuple(spots_centers.T)]
-            unique_ids, counts = np.unique(spot_ids, return_counts=True)
-            
-            for unique_id, count in zip(unique_ids, counts):
-                if count == 1:
-                    continue
-                
-                coords_id = spots_centers[spot_ids==unique_id]
-                intensities_id = self.spots_img_local[tuple(coords_id.T)]
-                brightest_idx = intensities_id.argmax()
-                
-                if count > 2:
-                    # Take the brightest and its closest as pair
-                    nearest_coords = features.nearest_point(
-                        coords_id, brightest_idx
-                    )
-                    brightest_coords = coords_id[brightest_idx]
-                    coords_id = np.row_stack((brightest_coords, nearest_coords))
-                    brightest_idx = 0
-                    do_break = False
-                
+            for pair_coords in pairs:
                 spheroid_mask = self.get_spots_mask(
-                    0, self.zyx_vox_size, zyx_spot_size, coords_id, 
+                    0, self.zyx_vox_size, zyx_spot_size, pair_coords, 
                 )
                 zz, yy, xx = np.nonzero(spheroid_mask)
                 
-                pair_weights = self.get_weights_merge_spots(
-                    zz, yy, xx, coords_id, self.zyx_vox_size
-                )
-                
                 pair_result = self._fit_peaks_pair_two_peaks(
-                    zz, yy, xx, df_spots_ID, coords_id, pair_weights, 
+                    zz, yy, xx, df_spots_ID, pair_coords, 
                     zyx_spot_radii_pixel
                 )
                 pair_ids, pair_gof_scores, pair_fit_coeffs = pair_result
                 (pair_reduced_chisq, pair_p_chisq, pair_RMSE, 
                 pair_ks, pair_p_ks, pair_NRMSE, pair_F_NRMSE) = pair_gof_scores
                 
-                mean_coords = np.mean(coords_id, axis=0)
-                single_weights = self.get_weights_merge_spots(
-                    zz, yy, xx, [mean_coords], self.zyx_vox_size
-                )
+                mean_coords = np.mean(pair_coords, axis=0)
                 
-                brightest_spot_id = pair_ids[brightest_idx]
-                dimmer_spot_id = pair_ids[int(not brightest_idx)]
+                zyx_sigmas_1 = pair_fit_coeffs[3:6]
+                zyx_sigmas_2 = pair_fit_coeffs[10:13]
+                sigma_1 = np.linalg.norm(zyx_sigmas_1)
+                sigma_2 = np.linalg.norm(zyx_sigmas_2)
+                largest_idx = np.argmax((sigma_1, sigma_2))
+                
+                largest_spot_id = pair_ids[largest_idx]
+                narrowest_spot_id = pair_ids[int(not largest_idx)]
+                
                 single_gof_scores = self._fit_peaks_pair_single_peak(
                     zz, yy, xx, df_spots_ID, mean_coords, 
-                    brightest_spot_id, zyx_spot_radii_pixel, pair_fit_coeffs, 
-                    self.num_coeffs, single_weights
+                    largest_spot_id, zyx_spot_radii_pixel, pair_fit_coeffs, 
+                    self.num_coeffs
                 )
                 (single_reduced_chisq, single_p_chisq, single_RMSE, single_ks, 
                 single_p_ks, single_NRMSE, single_F_NRMSE) = single_gof_scores
                 
                 if single_RMSE <= pair_RMSE:
                     repeat_spotsize = True
-                    self.df_spots_ID = df_spots_ID.drop(index=dimmer_spot_id)
+                    self.df_spots_ID = df_spots_ID.drop(index=narrowest_spot_id)
                     continue
                 
+                # Check if the two peaks are within twice the largest sigma
                 fit_coords = np.row_stack(
                     (pair_fit_coeffs[:3], pair_fit_coeffs[7:10])
                 )
                 fit_coords_int = np.round(fit_coords).astype(int)
-                i0 = brightest_idx*self.num_coeffs+3
-                brightest_radii_pixel = pair_fit_coeffs[i0:i0+3]*2
-                intensities = self.spots_img_local[tuple(fit_coords_int.T)]
+                i0 = largest_idx*self.num_coeffs+3
+                largest_radii_pixel = pair_fit_coeffs[i0:i0+3]*2
+                intensities = np.array([0, 0])
+                intensities[largest_idx] = 1
                 valid_coords = filters.filter_valid_points_min_distance(
-                    fit_coords, brightest_radii_pixel, intensities=intensities
+                    fit_coords, largest_radii_pixel, intensities=intensities
                 )
+
                 if len(valid_coords) == 2:
                     continue
                 
                 repeat_spotsize = True
-                self.df_spots_ID = df_spots_ID.drop(index=dimmer_spot_id)
-                    
-            if do_break:
-                break
-        
+                self.df_spots_ID = df_spots_ID.drop(index=narrowest_spot_id)
+                
         return repeat_spotsize
         
     def fit(self):
@@ -4296,7 +4295,9 @@ class Kernel(_ParamsParser):
                 )
             )
             spots_labels = transformations.deaggregate_img(
-                labels, aggregated_lab, lab
+                labels, aggregated_lab, lab,
+                delta_expand=self.metadata['deltaTolerance'], 
+                debug=False
             )
         else:
             df_spots_coords, num_spots_objs_txts = (

@@ -625,3 +625,25 @@ def nearest_point(points, point_idx):
     min_idx = dist.argmin()
     nearest = points[min_idx]
     return nearest
+
+def calc_distance_matrix(points, spacing=None):
+    diff = points[:, np.newaxis] - points
+    if spacing is not None:
+        diff = diff/spacing
+    dist_matrix = np.linalg.norm(diff, axis=2)
+    return dist_matrix
+
+def get_all_pairs_within_distance(
+        points: np.ndarray, max_distance: float
+    ):
+    dist_matrix = calc_distance_matrix(points, spacing=max_distance)
+    ii, jj = np.nonzero(dist_matrix <= 1)
+    
+    nondiag_mask = ii != jj
+    ii = ii[nondiag_mask]
+    jj = jj[nondiag_mask]
+    
+    paired_points = [
+        np.row_stack((points[i], points[j])) for i in ii for j in jj if i<j
+    ]
+    return paired_points

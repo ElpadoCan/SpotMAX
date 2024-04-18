@@ -15,6 +15,9 @@ from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS, ZYX_GLOBAL_COLS
 from . import features
 from . import io
 from . import core
+from . import GUI_INSTALLED
+if GUI_INSTALLED:
+    from cellacdc.plot import imshow
 
 from . import printl, error_up_str
 
@@ -67,7 +70,7 @@ def get_slices_local_into_global_3D_arr(zyx_center, global_shape, local_shape):
     
     return tuple(slice_global_to_local), tuple(slice_crop_local)
 
-def get_expanded_obj_slice_image(obj, delta_expand, lab):
+def get_expanded_obj_slice(obj, delta_expand, lab):
     Z, Y, X = lab.shape
     crop_obj_start = np.array([s.start for s in obj.slice]) - delta_expand
     crop_obj_start = np.clip(crop_obj_start, 0, None)
@@ -80,6 +83,38 @@ def get_expanded_obj_slice_image(obj, delta_expand, lab):
         slice(crop_obj_start[1], crop_obj_stop[1]),  
         slice(crop_obj_start[2], crop_obj_stop[2]), 
     )
+    return obj_slice, crop_obj_start
+
+def equalize_two_obj_slices(obj_slice1, obj_slice2):
+    equal_obj_slice1 = []
+    equal_obj_slice2 = []
+    for slice1, slice2 in zip(obj_slice1, obj_slice2):
+        delta1 = slice1.stop - slice1.start
+        delta2 = slice2.stop - slice2.start
+        if delta1 == delta2:
+            equal_obj_slice1.append(slice1)
+            equal_obj_slice2.append(slice2)
+            continue
+        
+        diff = abs(delta1 - delta2)
+        first_half = round(diff/2)
+        second_half = diff - first_half
+        
+        if delta1 > delta2:
+            slice1_stop = slice1.stop-second_half
+            slice1_start = slice1.start+first_half
+            equal_obj_slice1.append(slice(slice1_start, slice1_stop))
+            equal_obj_slice2.append(slice2)
+        else:
+            slice2_stop = slice2.stop-second_half
+            slice2_start = slice2.start+first_half
+            equal_obj_slice1.append(slice1)
+            equal_obj_slice2.append(slice(slice2_start, slice2_stop))
+    return tuple(equal_obj_slice1), tuple(equal_obj_slice2)
+            
+
+def get_expanded_obj_slice_image(obj, delta_expand, lab):    
+    obj_slice, crop_obj_start = get_expanded_obj_slice(obj, delta_expand, lab)
     obj_lab = lab[obj_slice]
     obj_image = obj_lab==obj.label
     return obj_slice, obj_image, crop_obj_start
@@ -443,14 +478,32 @@ def crop_from_segm_data_info(segm_data, delta_tolerance, lineage_table=None):
 
     return segm_slice, pad_widths, crop_to_global_coords
 
-def deaggregate_img(aggr_img, aggregated_lab, lab):
+def deaggregate_img(
+        aggr_img, aggregated_lab, lab, delta_expand=None, debug=False
+    ):
     deaggr_img = np.zeros(lab.shape, dtype=aggr_img.dtype)
     rp = skimage.measure.regionprops(lab)
     aggr_rp = skimage.measure.regionprops(aggregated_lab)
     aggr_rp = {aggr_obj.label:aggr_obj for aggr_obj in aggr_rp}
     for obj in rp:
         aggr_obj = aggr_rp[obj.label]
-        deaggr_img[obj.slice] = aggr_img[aggr_obj.slice]
+        if delta_expand is not None:
+            obj_slice, _ = get_expanded_obj_slice(obj, delta_expand, lab)
+            aggr_obj_slice, _ = get_expanded_obj_slice(
+                aggr_obj, delta_expand, aggregated_lab
+            )
+            obj_slice, aggr_obj_slice = equalize_two_obj_slices(
+                obj_slice, aggr_obj_slice
+            )
+        else:
+            obj_slice = obj.slice
+            aggr_obj_slice = aggr_obj.slice
+        
+        deaggr_img_sliced = deaggr_img[obj_slice]
+        deaggr_zero_mask = deaggr_img_sliced==0
+        deaggr_img_sliced[deaggr_zero_mask] = (
+            aggr_img[aggr_obj_slice][deaggr_zero_mask]
+        )
     return deaggr_img
 
 def index_aggregated_segm_into_input_lab(
