@@ -565,7 +565,27 @@ def filter_df_from_features_thresholds(
         The filtered DataFrame
     """      
     queries = []  
-    for f, (feature_name, thresholds) in enumerate(features_thresholds.items()):
+    for f, (feature_name, thresholds) in enumerate(features_thresholds.items()):        
+        close_parenthesis = False
+
+        statements = []
+        if feature_name.startswith('| '):
+            feature_name = feature_name[2:]
+            statements.append(' | ')
+        elif feature_name.startswith('& '):
+            feature_name = feature_name[2:]
+            statements.append(' & ')
+        elif f>0:
+            statements.append(' & ')
+            
+        if feature_name.startswith('('):
+            feature_name = feature_name[1:]
+            statements.append('(')
+        
+        if feature_name.endswith(')'):
+            feature_name = feature_name[:-1]
+            close_parenthesis = True
+        
         if not is_spotfit and feature_name.endswith('_fit'):
             # Ignore _fit features if not spotfit
             continue
@@ -577,24 +597,7 @@ def filter_df_from_features_thresholds(
             _warn_feature_is_missing(feature_name, logger_func)
             continue
         
-        close_parenthesis = False
-    
-        if feature_name.startswith('| '):
-            feature_name = feature_name[2:]
-            queries.append(' | ')
-        elif feature_name.startswith('& '):
-            feature_name = feature_name[2:]
-            queries.append(' & ')
-        elif f>0:
-            queries.append(' & ')
-            
-        if feature_name.startswith('('):
-            feature_name = feature_name[1:]
-            queries.append('(')
-        
-        if feature_name.endswith(')'):
-            feature_name = feature_name[:-1]
-            close_parenthesis = True
+        queries.extend(statements)
         
         _min, _max = thresholds
         _query = ''

@@ -646,6 +646,22 @@ Reference channel
   (inside each segmented objects, e.g., the single cell) whose volume is less 
   than 10 voxels will be removed.
 
+  You can also use ``OR`` statements and combine it with ``AND`` for more 
+  complex filtering. For example you could write the following:
+
+  .. code-block:: ini
+    
+    Features and thresholds for filtering true spots =
+      (ref_ch_mean_intensity, None, 0.5
+      OR ref_ch_median_intensity, None, 0.5)
+      AND sub_obj_vol_vox, 10, None
+
+  .. warning::
+
+    When using ``OR`` and ``AND`` statements, make sure to have them at 
+    the beginning of each new line. If the statement is missing, defaul is 
+    ``AND``. Also, make sure to **open and close the parenthesis correctly**.
+
   See the section :ref:`ref_ch_features` for more details about the features 
   you can use for filtering.
 
@@ -784,7 +800,7 @@ Spots channel
   reference channel is below 0.025. Equally, with the ``spot_vs_ref_ch_ttest_tstat, 0.0, None`` 
   spotMAX will keep only those spots whose t-statistic of the t-test against the 
   reference channel is above 0.0. Using this syntax, you can filter using an 
-  arbitrary number single-spot features described in the :ref:`single-spot-features` 
+  arbitrary number of single-spot features described in the :ref:`single-spot-features` 
   section.
 
   You can also use ``OR`` statements and combine it with ``AND`` for more 

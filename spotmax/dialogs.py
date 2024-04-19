@@ -97,6 +97,11 @@ class GopFeaturesAndThresholdsDialog(QBaseDialog):
             category=category
         )
         mainLayout.addWidget(self.setFeaturesGroupbox)
+        
+        mainLayout.addWidget(QLabel('Current features and ranges expression:'))
+        self.textEdit = QPlainTextEdit()
+        mainLayout.addWidget(self.textEdit)
+        
         mainLayout.addStretch(1)
 
         buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
@@ -106,6 +111,9 @@ class GopFeaturesAndThresholdsDialog(QBaseDialog):
         mainLayout.addLayout(buttonsLayout)
 
         self.setLayout(mainLayout)
+        
+        self.updateExpression()
+        self.setFeaturesGroupbox.sigValueChanged.connect(self.updateExpression)
     
     def show(self, block=False) -> None:
         super().show(block=False)
@@ -115,20 +123,45 @@ class GopFeaturesAndThresholdsDialog(QBaseDialog):
             self.setFeaturesGroupbox.selectors[0].selectButton.click()
         super().show(block=block)
     
-    def configIniParam(self):
-        paramsText = ''
-        for selector in self.setFeaturesGroupbox.selectors:
+    def updateExpression(self):
+        expr = self.expression(validate=False)
+        self.textEdit.setPlainText(expr)
+    
+    def expression(self, validate=True):
+        exprs = []
+        for s, selector in enumerate(self.setFeaturesGroupbox.selectors):
             selectButton = selector.selectButton
             column_name = selectButton.toolTip()
             if not column_name:
                 continue
+            
             lowValue = selector.lowRangeWidgets.value()
             highValue = selector.highRangeWidgets.value()
-            if lowValue is None and highValue is None:
+            if lowValue is None and highValue is None and validate:
                 self.warnRangeNotSelected(selectButton.text())
-                return False
-            paramsText = f'{paramsText}  * {column_name}, {lowValue}, {highValue}\n'
-        tooltip = f'Features and ranges set:\n\n{paramsText}'
+                return ''
+            
+            if s > 0:
+                logicStatement = selector.logicStatementCombobox.currentText()
+                logicStatement = f'{logicStatement} '
+            else:
+                logicStatement = ''
+            
+            openParenthesis = selector.openParenthesisCombobox.currentText()
+            closeParenthesis = selector.closeParenthesisCombobox.currentText()
+            
+            expr = (
+                f'{logicStatement}{openParenthesis}'
+                f'{column_name}, {lowValue}, {highValue}{closeParenthesis}'
+            )
+            exprs.append(expr)
+        
+        expr = '\n'.join(exprs)
+        return expr
+    
+    def configIniParam(self):
+        expr = self.expression()
+        tooltip = f'Features and ranges set:\n\n{expr}'
         return tooltip
     
     def warnRangeNotSelected(self, buttonText):
@@ -143,8 +176,8 @@ class GopFeaturesAndThresholdsDialog(QBaseDialog):
         msg.critical(self, 'Invalid selection', txt)
     
     def ok_cb(self):
-        isSelectionValid = self.configIniParam()
-        if not isSelectionValid:
+        expr = self.expression()
+        if not expr:
             return
         self.cancel = False
         self.close()

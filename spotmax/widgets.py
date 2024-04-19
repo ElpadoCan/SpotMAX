@@ -322,6 +322,7 @@ class FeatureSelectorButton(QPushButton):
 
 class FeatureSelectorDialog(acdc_apps.TreeSelectorDialog):
     sigClose = Signal()
+    sigValueSelected = Signal(str)
 
     def __init__(self, category='spots', **kwargs) -> None:
         super().__init__(**kwargs)
@@ -382,7 +383,7 @@ class CheckableSpinBoxWidgets:
         return self.spinbox.value()
 
 class FeatureRangeSelector:
-    def __init__(self, category='spots') -> None:
+    def __init__(self, category='spots', withParenthesis=False) -> None:
         self.category = category
         
         self.lowRangeWidgets = CheckableSpinBoxWidgets()
@@ -401,17 +402,45 @@ class FeatureRangeSelector:
         self.selectButton.setSizeLongestText(longestText)
         self.selectButton.clicked.connect(self.selectFeature)
         self.selectButton.setCursor(Qt.PointingHandCursor)
+        
+        startCol = 0 if not withParenthesis else 1
 
         self.widgets = [
-            {'pos': (0, 0), 'widget': self.lowRangeWidgets.checkbox}, 
-            {'pos': (1, 0), 'widget': self.lowRangeWidgets.spinbox}, 
-            {'pos': (1, 1), 'widget': lessThanPushButton(flat=True)},
-            {'pos': (1, 2), 'widget': self.selectButton},
-            {'pos': (1, 3), 'widget': lessThanPushButton(flat=True)},
-            {'pos': (0, 4), 'widget': self.highRangeWidgets.checkbox},
-            {'pos': (1, 4), 'widget': self.highRangeWidgets.spinbox}, 
-            {'pos': (2, 0), 'widget': VerticalSpacerEmptyWidget(height=10)}
+            {'pos': (0, startCol), 'widget': self.lowRangeWidgets.checkbox}, 
+            {'pos': (1, startCol), 'widget': self.lowRangeWidgets.spinbox}, 
+            {'pos': (1, startCol+1), 'widget': lessThanPushButton(flat=True)},
+            {'pos': (1, startCol+2), 'widget': self.selectButton},
+            {'pos': (1, startCol+3), 'widget': lessThanPushButton(flat=True)},
+            {'pos': (0, startCol+4), 'widget': self.highRangeWidgets.checkbox},
+            {'pos': (1, startCol+4), 'widget': self.highRangeWidgets.spinbox}, 
+            {'pos': (2, startCol), 'widget': VerticalSpacerEmptyWidget(height=10)}
         ]
+        if withParenthesis:
+            self.openParenthesisCombobox = QComboBox()
+            self.openParenthesisCombobox.addItems(['', '('])
+            widget = {
+                'pos': (1, 0), 'widget': self.openParenthesisCombobox
+            }
+            self.widgets.insert(0, widget)
+            
+            self.closeParenthesisCombobox = QComboBox()
+            self.closeParenthesisCombobox.addItems(['', ')'])
+            widget = {
+                'pos': (1, startCol+5), 'widget': self.closeParenthesisCombobox
+            }
+            self.widgets.append(widget)
+        
+        self.selectFeatureDialog = FeatureSelectorDialog(
+            category=self.category,
+            parent=self.selectButton, 
+            multiSelection=False, 
+            expandOnDoubleClick=True, 
+            isTopLevelSelectable=False, 
+            infoTxt='Select feature', 
+            allItemsExpanded=False,
+            title='Select feature', 
+            allowNoSelection=False,
+        )
     
     def setText(self, text):
         self.selectButton.setText(text)
@@ -425,17 +454,6 @@ class FeatureRangeSelector:
         return {topLevelText: childText}
     
     def selectFeature(self): 
-        self.selectFeatureDialog = FeatureSelectorDialog(
-            category=self.category,
-            parent=self.selectButton, 
-            multiSelection=False, 
-            expandOnDoubleClick=True, 
-            isTopLevelSelectable=False, 
-            infoTxt='Select feature', 
-            allItemsExpanded=False,
-            title='Select feature', 
-            allowNoSelection=False,
-        )
         self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
         # self.selectFeatureDialog.resizeVertical()
         self.selectFeatureDialog.sigClose.connect(self.setFeatureText)
@@ -457,41 +475,92 @@ class FeatureRangeSelector:
         lowValue = self.lowRangeWidgets.value()
         highValue = self.highRangeWidgets.value()
         self.selectButton.setToolTip(f'{column_name}')
+        self.selectFeatureDialog.sigValueSelected.emit(column_name)
 
 class GopFeaturesAndThresholdsGroupbox(QGroupBox):
+    sigValueChanged = Signal()
+    
     def __init__(self, parent=None, category='spots') -> None:
         super().__init__(parent)
 
         self.setTitle(f'Features and thresholds for filtering true {category}')
-        # self.setCheckable(True)
+        self._category = category
 
         self._layout = QGridLayout()
         self._layout.setVerticalSpacing(0)
+        
+        logicStatementCombobox = QComboBox()
+        logicStatementCombobox.addItems(['AND', 'OR'])
+        sp = logicStatementCombobox.sizePolicy()
+        sp.setRetainSizeWhenHidden(True)
+        logicStatementCombobox.setSizePolicy(sp)
+        logicStatementCombobox.hide()
+        
+        self._layout.addWidget(logicStatementCombobox, 1, 0)
 
-        firstSelector = FeatureRangeSelector(category=category)
+        firstSelector = FeatureRangeSelector(
+            category=category, withParenthesis=True
+        )
+        firstSelector.logicStatementCombobox = logicStatementCombobox
         self.addButton = acdc_widgets.addPushButton('  Add feature    ')
         self.addButton.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
         )
         for col, widget in enumerate(firstSelector.widgets):
             row, col = widget['pos']
-            self._layout.addWidget(widget['widget'], row, col)
+            self._layout.addWidget(widget['widget'], row, col+1)
         lastCol = self._layout.columnCount()
         self._layout.addWidget(self.addButton, 0, lastCol+1, 2, 1)
         self.lastCol = lastCol+1
         self.selectors = [firstSelector]
 
-        self._layout.setColumnStretch(0, 1)
-        self._layout.setColumnStretch(1, 0)
         self.setLayout(self._layout)
 
         self.setFont(font)
 
         self.addButton.clicked.connect(self.addFeatureField)
+        self.connectSelector(firstSelector)
+    
+    def connectSelector(self, selector):
+        selector.logicStatementCombobox.currentTextChanged.connect(
+            self.emitValueChanged
+        )
+        selector.selectFeatureDialog.sigValueSelected.connect(
+            self.emitValueChanged
+        )
+        selector.lowRangeWidgets.spinbox.valueChanged.connect(
+            self.emitValueChanged
+        )
+        selector.lowRangeWidgets.checkbox.toggled.connect(
+            self.emitValueChanged
+        )
+        selector.highRangeWidgets.spinbox.valueChanged.connect(
+            self.emitValueChanged
+        )
+        selector.highRangeWidgets.checkbox.toggled.connect(
+            self.emitValueChanged
+        )
+        selector.openParenthesisCombobox.currentTextChanged.connect(
+            self.emitValueChanged
+        )
+        selector.closeParenthesisCombobox.currentTextChanged.connect(
+            self.emitValueChanged
+        )
+    
+    def emitValueChanged(self):
+        self.sigValueChanged.emit()
 
     def addFeatureField(self):
         row = self._layout.rowCount()
-        selector = FeatureRangeSelector()
+        
+        logicStatementCombobox = QComboBox()
+        logicStatementCombobox.addItems(['AND', 'OR'])
+        self._layout.addWidget(logicStatementCombobox, row+1, 0)
+        
+        selector = FeatureRangeSelector(
+            category=self._category, withParenthesis=True
+        )
+        selector.logicStatementCombobox = logicStatementCombobox
         delButton = acdc_widgets.delPushButton('Remove feature')
         delButton.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
@@ -499,15 +568,17 @@ class GopFeaturesAndThresholdsGroupbox(QGroupBox):
         delButton.selector = selector
         for col, widget in enumerate(selector.widgets):
             relRow, col = widget['pos']
-            self._layout.addWidget(widget['widget'], relRow+row, col)
+            self._layout.addWidget(widget['widget'], relRow+row, col+1)
         self._layout.addWidget(delButton, row, self.lastCol, 2, 1)
         self.selectors.append(selector)
         delButton.clicked.connect(self.removeFeatureField)
+        self.connectSelector(selector)
     
     def removeFeatureField(self):
         delButton = self.sender()
         for widget in delButton.selector.widgets:
             self._layout.removeWidget(widget['widget'])
+        self._layout.removeWidget(delButton.selector.logicStatementCombobox)
         self._layout.removeWidget(delButton)
         self.selectors.remove(delButton.selector)
     
@@ -548,7 +619,7 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
         tooltip = self.toolTip()
         start_idx = len('Features and ranges set:\n')
         text = tooltip[start_idx:]
-        return text.replace('  * ', '')
+        return text
     
     def value(self):
         return self.text()
@@ -558,28 +629,51 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
         if not text:
             super().setText(' Set features or view the selected ones... ')
             return
-        paramsText = ''
-        gop_thresholds = config.get_features_thresholds_filter(text)
+        
+        tooltip = f'Features and ranges set:\n\n{text}'
+        self.setToolTip(tooltip)
+        
+        features_thresholds = config.get_features_thresholds_filter(text)
         featuresGroupBox = self.selectedFeaturesWindow.setFeaturesGroupbox
-        for i, (col_name, values) in enumerate(gop_thresholds.items()):
-            low_val, high_val = values
-            paramsText = f'{paramsText}  * {col_name}, {low_val}, {high_val}\n'
-            if i > 0:
+        for f, (col_name, thresholds) in enumerate(features_thresholds.items()):
+            if f > 0:
                 featuresGroupBox.addFeatureField()
-            selector = featuresGroupBox.selectors[i]
+            
+            selector = featuresGroupBox.selectors[f]
+            
+            close_parenthesis = False            
+            if col_name.startswith('| '):
+                col_name = col_name[2:]
+                selector.logicStatementCombobox.setCurrentText('OR')
+            elif col_name.startswith('& '):
+                col_name = col_name[2:]
+                selector.logicStatementCombobox.setCurrentText('AND')
+            elif f > 0:
+                selector.logicStatementCombobox.setCurrentText('AND')
+                
+            if col_name.startswith('('):
+                col_name = col_name[1:]
+                selector.openParenthesisCombobox.setCurrentText('(')
+            
+            if col_name.endswith(')'):
+                col_name = col_name[:-1]
+                selector.closeParenthesisCombobox.setCurrentText(')')
+            
+            low_val, high_val = thresholds
             if low_val is not None:
                 selector.lowRangeWidgets.checkbox.setChecked(True)
                 selector.lowRangeWidgets.spinbox.setValue(low_val)
             if high_val is not None:
                 selector.highRangeWidgets.checkbox.setChecked(True)
                 selector.highRangeWidgets.spinbox.setValue(high_val)
+            
             feature_name = self.col_to_feature_mapper[col_name]
             selector.selectButton.setFlat(True)
             selector.selectButton.setFeatureText(feature_name)
             selector.selectButton.setToolTip(col_name)
         
-        text = f'Features and ranges set:\n\n{paramsText}'
-        self.setToolTip(text)
+        self.selectedFeaturesWindow.updateExpression()       
+        
 
 class _CenteredLineEdit(tooltipLineEdit):
     def __init__(self, parent=None):
