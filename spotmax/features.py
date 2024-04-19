@@ -647,6 +647,6 @@ def get_all_pairs_within_distance(
     jj = jj[nondiag_mask]
     
     paired_points = [
-        np.row_stack((points[i], points[j])) for i in ii for j in jj if i<j
+        np.row_stack((points[i], points[j])) for i, j in zip(ii, jj) if i<j
     ]
     return paired_points
