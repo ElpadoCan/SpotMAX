@@ -656,6 +656,20 @@ def _configuration_params():
             'dtype': get_bool, 
             'parser_arg': 'reduce_verbosity'
         },
+        'maxNumPairs': {
+            'desc': 'Maximum number of spot pairs to check (merging with spotFIT)',
+            'initialVal': 11,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': False,
+            'formWidgetFunc': 'widgets.SpinBox',
+            'actions': None,
+            'dtype': int, 
+            'parser_arg': 'num_threads'
+        },
     }
     return config_params
 

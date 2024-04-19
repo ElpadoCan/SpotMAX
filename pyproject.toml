@@ -52,7 +52,7 @@ Homepage = "https://github.com/ElpadoCan/spotMAX"
 
 [project.optional-dependencies]
 all = [
-    "cellacdc"
+    "cellacdc",
     "numba",
     "torch",
     "pyyaml",
