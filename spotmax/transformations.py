@@ -925,8 +925,6 @@ def add_closest_ID_col(
     if spots_labels is None:
         nonzero_coords = np.column_stack(np.nonzero(lab))
     
-    import pdb; pdb.set_trace()
-    
     closest_IDs = []
     for point in zyx_coords:        
         if spots_labels is None:
