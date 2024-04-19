@@ -990,6 +990,43 @@ Spots channel
   :type: boolean
   :default: ``False``
 
+.. confval:: Skip objects where segmentation failed
+
+  If ``True``, spotMAX will skip those objects (e.g., the single cells) where 
+  more than 25% of the spots masks determined by 
+  :confval:`Spots segmentation method` are on the background. 
+  
+  The objects are the ones in the file provided by the 
+  :confval:`Cells segmentation end name or path`. 
+
+  If ``False``, spotMAX will still detect spots in these objects, but it 
+  will log a warning in the terminal, in the log file and in the final report. 
+
+  When you segment the spots in a cell that is particularly dark or you 
+  use a threshold method that is too permissive, large parts of the spots 
+  masks will be found on the background. This is often a sign that the 
+  segmentation of the spots failed in that particular object.
+
+  When this happens, we recommend trying to solve this with a different 
+  :confval:`Spots segmentation method` or :confval:`Spot detection threshold function`. 
+
+  However, in some datasets, most of the spots are segmented correctly except 
+  in a few cells. In this case, skipping these objects can be the right 
+  solution (if you can afford it). 
+
+  The invalid objects will not appear in the single-spot tables, while they 
+  will appear with ``num_spots = 0`` and a ``1`` in the column 
+  ``spots_segmentation_might_have_failed`` in the single-objects tables. 
+  See the section :ref:`output-files` for more info about the saved tables.
+
+  .. note:: 
+
+    If you don't skip these problematic objects, analysis can take a long time 
+    and many of the detections are often false positives.
+
+  :type: boolean
+  :default: ``False``
+
 .. _spotfit-params:
 
 SpotFIT

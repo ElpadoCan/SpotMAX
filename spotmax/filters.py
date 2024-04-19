@@ -21,6 +21,7 @@ if GUI_INSTALLED:
 
 from . import error_up_str, printl
 from . import config, transformations
+from . import RATIO_ON_BKGR_TO_TOTAL_SPOT_MASK
 
 import math
 SQRT_2 = math.sqrt(2)
@@ -525,7 +526,8 @@ def _warn_feature_is_missing(missing_feature, logger_func):
 
 def filter_df_from_features_thresholds(
         df_features: pd.DataFrame, 
-        features_thresholds: dict, is_spotfit=False,
+        features_thresholds: dict, 
+        is_spotfit=False,
         debug=False,
         logger_func=print
     ):
@@ -620,7 +622,7 @@ def filter_df_from_features_thresholds(
     if 'do_not_drop' in df_features.columns:
         query = f'({query}) | (do_not_drop > 0)'
     
-    logger_func(f'Filtering with query = `{query}`')
+    # logger_func(f'Filtering with query = `{query}`')
     
     return df_features.query(query)
 
@@ -690,9 +692,28 @@ def validate_spots_labels(spot_labels, lab):
     if spot_labels is None:
         return
     
+    invalid_IDs = []
     labels_rp = skimage.measure.regionprops(spot_labels)
-    for obj in labels_rp:
-        obj_lab = skimage.measure.label(obj.image)
-        obj_rp = skimage.measure.regionprops(obj_lab)
-        printl(obj.label)
-        import pdb; pdb.set_trace()
+    for spot_obj in labels_rp:
+        tourching_IDs, counts = np.unique(
+            lab[spot_obj.slice][spot_obj.image], return_counts=True
+        )
+        if tourching_IDs[0] != 0:
+            continue
+        
+        count_ratio = counts[0]/spot_obj.area
+        if count_ratio < RATIO_ON_BKGR_TO_TOTAL_SPOT_MASK:
+            continue
+        
+        invalid_IDs.append(spot_obj.label)
+    return invalid_IDs
+
+def remove_object_IDs(self, lab, IDs):
+    rp = skimage.measure.regionprops(lab)
+    for obj in rp:
+        if obj.label not in IDs:
+            continue
+        
+        lab[obj.slice][obj.image] = 0
+    return lab
+        

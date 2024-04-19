@@ -4012,6 +4012,7 @@ class Kernel(_ParamsParser):
             save_spots_mask=True,
             df_spots_coords_input=None,
             custom_combined_measurements=None,
+            skip_invalid_IDs_spots_labels=False,
             verbose=True,
         ):        
         if verbose:
@@ -4063,9 +4064,11 @@ class Kernel(_ParamsParser):
             raw_spots_img=raw_spots_img,
             frame_i=frame_i, 
             df_spots_coords_input=df_spots_coords_input,
-            min_spot_mask_size=min_spot_mask_size
+            min_spot_mask_size=min_spot_mask_size, 
+            skip_invalid_IDs_spots_labels=skip_invalid_IDs_spots_labels, 
         )
-        df_spots_coords, nnet_pred_map, spots_labels = _detect_result
+        (df_spots_coords, nnet_pred_map, spots_labels, 
+         spots_labels_invalid_IDs) = _detect_result
         df_spots_det, df_spots_gop = self._spots_filter(
             df_spots_coords, 
             spots_img, 
@@ -4089,12 +4092,12 @@ class Kernel(_ParamsParser):
             custom_combined_measurements=custom_combined_measurements,
             verbose=verbose,
         )
-        if df_spots_det is not None:
-            dfs_segm_obj = self._add_aggregated_spots_features(
-                df_spots_det, df_spots_gop, df_agg
-            )
+        # if df_spots_det is not None:
+        #     dfs_segm_obj = self._add_aggregated_spots_features(
+        #         df_spots_det, df_spots_gop, df_agg
+        #     )
 
-        return nnet_pred_map, spots_labels
+        return nnet_pred_map, spots_labels, spots_labels_invalid_IDs
 
     def _add_aggr_and_local_coords_from_global(
             self, df_spots_coords_input, lab, aggregated_lab,
@@ -4222,6 +4225,26 @@ class Kernel(_ParamsParser):
 
         return df_spots_coords, num_spots_objs_txts
     
+    def _warn_invalid_IDs_spots_labels(self, invalid_IDs, skip_invalid):
+        warn_text = (
+            r'In the following object IDs, more than 25% of the spots masks '
+            f'are on background:\n\n{invalid_IDs}\n\n'
+        )
+        if skip_invalid:
+            warn_text = (
+                f'{warn_text} These objects will be skipped as requested'
+            )
+        else:
+            warn_text = (
+                f'{warn_text}The analysis could take a long time. '
+                'If possible, we recommend setting the following parameters:\n\n'
+                'Skip objects where segmentation failed = True'
+            )
+        
+        self.log_warning_report(warn_text)
+        log_text = f'{error_down_str}\n[WARNING]: {warn_text}\n{error_up_str}'
+        self.logger.info(log_text)
+    
     def _spots_detection(
             self, sharp_spots_img, lab, 
             detection_method, 
@@ -4235,7 +4258,8 @@ class Kernel(_ParamsParser):
             raw_spots_img=None,
             frame_i=0,
             df_spots_coords_input=None,
-            min_spot_mask_size=5
+            min_spot_mask_size=5, 
+            skip_invalid_IDs_spots_labels=False
         ):        
         # Detect peaks on aggregated image
         aggregated = transformations.aggregate_objs(
@@ -4252,6 +4276,7 @@ class Kernel(_ParamsParser):
         aggr_nnet_pred_map = None
         
         labels = None
+        invalid_IDs = None
         if aggr_spots_ch_segm_mask is not None:
             labels = aggr_spots_ch_segm_mask.astype(int)
             labels = filters.filter_labels_by_size(labels, min_spot_mask_size)
@@ -4290,6 +4315,13 @@ class Kernel(_ParamsParser):
                     labels = result
             except Exception as err:
                 labels = result
+            
+            invalid_IDs = filters.validate_spots_labels(labels, aggregated_lab)
+            self._warn_invalid_IDs_spots_labels(
+                invalid_IDs, skip_invalid_IDs_spots_labels
+            )
+            if skip_invalid_IDs_spots_labels:
+                labels = filters.remove_object_IDs(labels, invalid_IDs)
         
         nnet_pred_map = None
         if aggr_nnet_pred_map is not None:
@@ -4300,7 +4332,6 @@ class Kernel(_ParamsParser):
         spots_labels = None
         spots_masks = None
         if df_spots_coords_input is None:
-            # filters.validate_spots_labels(labels, aggregated_lab)
             aggr_spots_coords, spots_masks = pipe.spot_detection(
                 aggr_spots_img, 
                 spots_segmantic_segm=labels,
@@ -4349,7 +4380,7 @@ class Kernel(_ParamsParser):
                 f'segmented object:\n{num_spots_objs_txt}'
             )
             print('-'*100)
-        return df_spots_coords, nnet_pred_map, spots_labels
+        return df_spots_coords, nnet_pred_map, spots_labels, invalid_IDs
         
     def _spots_filter(
             self, 
@@ -4447,9 +4478,19 @@ class Kernel(_ParamsParser):
             dfs_translated.append(df)
         return dfs_translated
     
+    def _add_invalid_IDs_column(self, df_agg, invalid_IDs):
+        df_agg['spots_segmentation_might_have_failed'] = 0
+        if invalid_IDs:
+            return df_agg
+        
+        idx = pd.IndexSlice[:, invalid_IDs]
+        df_agg.loc[idx, 'spots_segmentation_might_have_failed'] = 1
+        return df_agg
+    
     def _add_aggregated_spots_features(
             self, df_spots_det: pd.DataFrame, df_spots_gop: pd.DataFrame, 
-            df_agg: pd.DataFrame, df_spots_fit: pd.DataFrame=None
+            df_agg: pd.DataFrame, df_spots_fit: pd.DataFrame=None, 
+            invalid_IDs=None
         ):
         aggregate_spots_feature_func = (
             features.get_aggregating_spots_feature_func()
@@ -4466,6 +4507,7 @@ class Kernel(_ParamsParser):
         df_agg_det = self._add_missing_cells_and_merge_with_df_agg(
             df_agg, df_agg_det
         )
+        df_agg_det = self._add_invalid_IDs_column(df_agg_det, invalid_IDs)
         
         df_agg_gop = (
             df_spots_gop.reset_index().groupby(['frame_i', 'Cell_ID'])
@@ -4474,6 +4516,7 @@ class Kernel(_ParamsParser):
         df_agg_gop = self._add_missing_cells_and_merge_with_df_agg(
             df_agg, df_agg_gop
         )
+        df_agg_det = self._add_invalid_IDs_column(df_agg_det, invalid_IDs)
         
         if df_spots_fit is not None:
             spotfit_func = {
@@ -4487,6 +4530,9 @@ class Kernel(_ParamsParser):
             )
             df_agg_spotfit = self._add_missing_cells_and_merge_with_df_agg(
                 df_agg, df_agg_spotfit
+            )
+            df_agg_spotfit = self._add_invalid_IDs_column(
+                df_agg_spotfit, invalid_IDs
             )
         else:
             df_agg_spotfit = None
@@ -4680,6 +4726,9 @@ class Kernel(_ParamsParser):
         self.logger.info('#'*100)
 
     def log_warning_report(self, warning_txt):
+        if not hasattr(self, '_report'):
+            return
+        
         if self._current_pos_path not in self._report['pos_info']:
             self._report['pos_info'][self._current_pos_path] = {
                 'errors': [], 'warnings': []
@@ -5127,6 +5176,9 @@ class Kernel(_ParamsParser):
         save_preproc_spots_img = (
             self._params[SECTION]['saveSpotsPreprocImage']['loadedVal']
         )
+        skip_invalid_IDs_spots_labels = (
+            self._params[SECTION]['skipInvalidSpotsLabels']['loadedVal']
+        )
         dfs_lists = {
             'dfs_spots_detection': [], 'dfs_spots_gop_test': [], 'keys': []
         }
@@ -5147,6 +5199,7 @@ class Kernel(_ParamsParser):
         
         nnet_pred_map = None
         spots_labels_data = None
+        spots_labels_invalid_IDs = None
         desc = 'Frames completed (spot detection)'
         pbar = tqdm(
             total=stopFrameNum, ncols=100, desc=desc, position=2, 
@@ -5229,9 +5282,12 @@ class Kernel(_ParamsParser):
                 df_spots_coords_input=df_spots_coords_input,
                 save_spots_mask=save_spots_mask,
                 custom_combined_measurements=custom_combined_measurements,
+                skip_invalid_IDs_spots_labels=skip_invalid_IDs_spots_labels,
                 verbose=verbose
             )
-            nnet_pred_map_frame_i, spots_labels = detect_result
+            nnet_pred_map_frame_i, spots_labels, spots_labels_invalid_IDs = (
+                detect_result
+            )
             
             if nnet_pred_map is None and nnet_pred_map_frame_i is not None:
                 nnet_pred_map = np.zeros(spots_data.shape)
@@ -5403,7 +5459,8 @@ class Kernel(_ParamsParser):
         df_spots_det, df_spots_gop, df_spots_fit = dfs_translated
         
         dfs_agg = self._add_aggregated_spots_features(
-            df_spots_det, df_spots_gop, df_agg, df_spots_fit=df_spots_fit
+            df_spots_det, df_spots_gop, df_agg, df_spots_fit=df_spots_fit, 
+            invalid_IDs=spots_labels_invalid_IDs
         )
         df_agg_det, df_agg_gop, df_agg_spotfit = dfs_agg
         

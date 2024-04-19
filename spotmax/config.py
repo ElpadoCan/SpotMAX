@@ -1186,6 +1186,17 @@ def _spots_ch_params():
             'actions': None,
             'dtype': get_bool
         },
+        'skipInvalidSpotsLabels': {
+            'desc': 'Skip objects where segmentation failed',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
     }
     return spots_ch_params
 
