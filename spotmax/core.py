@@ -2913,6 +2913,8 @@ class SpotFIT(spheroid):
         spot_ids = self.spots_lab_local[tuple(spots_centers.T)]
         unique_ids, counts = np.unique(spot_ids, return_counts=True)
         
+        dropped_coords = set()
+        
         for unique_id, count in zip(unique_ids, counts):
             if count == 1:
                 continue
@@ -2929,6 +2931,13 @@ class SpotFIT(spheroid):
                 )
             
             for pair_coords in pairs:
+                was_pair_dropped = any([
+                    tuple(coords) in dropped_coords for coords in pair_coords
+                ])
+                if was_pair_dropped:
+                    # One of the two points in pair was dropped in previous iter
+                    continue
+                
                 spheroid_mask = self.get_spots_mask(
                     0, self.zyx_vox_size, zyx_spot_size, pair_coords, 
                 )
@@ -2964,6 +2973,7 @@ class SpotFIT(spheroid):
                 if single_RMSE <= pair_RMSE:
                     repeat_spotsize = True
                     self.df_spots_ID = df_spots_ID.drop(index=narrowest_spot_id)
+                    dropped_coords.add(tuple(pair_coords[narrowest_spot_id]))
                     continue
                 
                 # Check if the two peaks are within twice the largest sigma
@@ -2984,6 +2994,8 @@ class SpotFIT(spheroid):
                 
                 repeat_spotsize = True
                 self.df_spots_ID = df_spots_ID.drop(index=narrowest_spot_id)
+                
+                dropped_coords.add(tuple(pair_coords[narrowest_spot_id]))
                 
         return repeat_spotsize
         
