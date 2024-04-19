@@ -787,14 +787,21 @@ Spots channel
   arbitrary number single-spot features described in the :ref:`single-spot-features` 
   section.
 
-  You can also use ``or`` statements and combine it with ``and`` for more 
+  You can also use ``OR`` statements and combine it with ``AND`` for more 
   complex filtering. For example you could write the following:
 
   .. code-block:: ini
     
     Features and thresholds for filtering true spots =
-      spot_vs_ref_ch_ttest_pvalue, None, 0.025
-      spot_vs_ref_ch_ttest_tstat, 0.0, None
+      (spot_vs_ref_ch_ttest_pvalue, None, 0.025
+      OR spot_vs_local_backgr_effect_size_glass, 1.6, None)
+      AND spot_vs_ref_ch_ttest_tstat, 0.0, None
+
+  .. warning::
+
+    When using ``OR`` and ``AND`` statements, make sure to have them at 
+    the beginning of each new line. If the statement is missing, defaul is 
+    ``AND``. Also, make sure to **open and close the parenthesis correctly**. 
 
   :type: dictionary of {feature_name: (min_threshold, max_threshold)} or None
   :default: ``None``  
@@ -921,7 +928,7 @@ Spots channel
   :type: boolean
   :default: ``False``
 
-.. confval:: Maximum number of spot pairs to check (merging with spotFIT)
+.. confval:: Maximum number of spot pairs to check
 
   If the parameter :confval:`Merge spots pairs where single peak fits better` 
   is ``True`` you can set the maximum number of pairs to test in case there 

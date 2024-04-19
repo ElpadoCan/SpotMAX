@@ -565,7 +565,7 @@ def filter_df_from_features_thresholds(
         The filtered DataFrame
     """      
     queries = []  
-    for feature_name, thresholds in features_thresholds.items():
+    for f, (feature_name, thresholds) in enumerate(features_thresholds.items()):
         if not is_spotfit and feature_name.endswith('_fit'):
             # Ignore _fit features if not spotfit
             continue
@@ -576,16 +576,43 @@ def filter_df_from_features_thresholds(
             # Warn and ignore missing features
             _warn_feature_is_missing(feature_name, logger_func)
             continue
+        
+        close_parenthesis = False
+    
+        if feature_name.startswith('| '):
+            feature_name = feature_name[2:]
+            queries.append(' | ')
+        elif feature_name.startswith('& '):
+            feature_name = feature_name[2:]
+            queries.append(' & ')
+        elif f>0:
+            queries.append(' & ')
+            
+        if feature_name.startswith('('):
+            feature_name = feature_name[1:]
+            queries.append('(')
+        
+        if feature_name.endswith(')'):
+            feature_name = feature_name[:-1]
+            close_parenthesis = True
+        
         _min, _max = thresholds
+        _query = ''
         if _min is not None:
-            queries.append(f'({feature_name} > {_min})')
+            _query = f'{feature_name} > {_min}'
         if _max is not None:
-            queries.append(f'({feature_name} < {_max})')
+            _query = f'{_query} & {feature_name} < {_max}'
+        
+        _query = _query.strip(' & ')
+        queries.append(f'({_query})')
+        
+        if close_parenthesis:
+            queries.append(')')
 
     if not queries:
         return df_features
     
-    query = ' & '.join(queries)
+    query = ''.join(queries)
     
     if 'do_not_drop' in df_features.columns:
         query = f'({query}) | (do_not_drop > 0)'

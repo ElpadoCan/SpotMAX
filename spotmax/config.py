@@ -357,16 +357,26 @@ def get_features_thresholds_filter(features_thresholds_to_parse):
     out_features_thresholds = {}
     for feature_thresholds in in_features_thresholds:
         feature_name, *thresholds_str = feature_thresholds.split(',')
+        feature_name = feature_name.strip()
         if not feature_name:
             continue
         if feature_name == 'None':
             continue
         thresholds = [None, None]
         for t, thresh in enumerate(thresholds_str):
+            if thresh.endswith(')'):
+                thresh = thresh[:-1]
+                feature_name = f'{feature_name})'
             try:
                 thresholds[t] = float(thresh)
             except Exception as e:
                 pass
+        
+        feature_name = feature_name.replace('OR', '|')
+        feature_name = feature_name.replace('or', '|')
+        feature_name = feature_name.replace('AND', '&')
+        feature_name = feature_name.replace('and', '&')
+        
         out_features_thresholds[feature_name] = tuple(thresholds)
     return out_features_thresholds
 
@@ -1142,7 +1152,7 @@ def _spots_ch_params():
             'dtype': get_bool
         },
         'maxNumPairs': {
-            'desc': 'Maximum number of spot pairs to check (merging with spotFIT)',
+            'desc': 'Maximum number of spot pairs to check',
             'initialVal': 11,
             'stretchWidget': True,
             'addInfoButton': True,
