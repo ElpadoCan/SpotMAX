@@ -626,8 +626,11 @@ def nearest_point(points, point_idx):
     nearest = points[min_idx]
     return nearest
 
-def calc_distance_matrix(points, spacing=None):
-    diff = points[:, np.newaxis] - points
+def calc_distance_matrix(points, spacing=None, other_points=None):
+    if other_points is None:
+        other_points = points
+        
+    diff = points[:, np.newaxis] - other_points
     if spacing is not None:
         diff = diff/spacing
     dist_matrix = np.linalg.norm(diff, axis=2)

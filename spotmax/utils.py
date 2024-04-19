@@ -78,10 +78,12 @@ def check_cli_file_path(file_path, desc='parameters'):
         f'The following {desc} file provided does not exist: "{abs_file_path}"'
     )
 
-def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):  
+def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None): 
+    from . import logs_path 
+    acdc_utils.delete_older_log_files(logs_path)
+    
     is_default = False  
     if custom_logs_folderpath is None:
-        from . import logs_path
         custom_logs_folderpath = logs_path
         is_default = True
     
@@ -90,17 +92,6 @@ def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):
 
     if not os.path.exists(custom_logs_folderpath):
         os.mkdir(custom_logs_folderpath)
-    elif is_default:
-        # Keep 30 most recent logs in the default spotmax_appdata
-        ls = listdir(custom_logs_folderpath)
-        if len(ls)>30:
-            ls = [os.path.join(custom_logs_folderpath, f) for f in ls]
-            ls.sort(key=lambda x: os.path.getmtime(x))
-            for file in ls[:-20]:
-                try:
-                    os.remove(file)
-                except Exception as e:
-                    pass
                 
     date_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     id = uuid4()
@@ -1000,7 +991,7 @@ def to_dtype(value, dtype):
     else:
         return dtype(value)
     
-    raise TypeError(error)
+    raise TypeError(error)    
 
 def get_local_backgr_ring_width_pixel(
         local_background_ring_width: str, pixel_size: float

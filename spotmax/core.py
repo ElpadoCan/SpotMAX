@@ -4164,7 +4164,8 @@ class Kernel(_ParamsParser):
         return df_spots_coords_input, num_spots_objs_txts
     
     def _add_local_coords_from_aggr(
-            self, aggr_spots_coords, aggregated_lab, spots_masks=None
+            self, aggr_spots_coords, aggregated_lab, spots_masks=None, 
+            labels=None
         ):
         aggr_lab_rp = skimage.measure.regionprops(aggregated_lab)
         if len(aggr_spots_coords) == 0:
@@ -4188,7 +4189,8 @@ class Kernel(_ParamsParser):
         df_spots_coords = df_spots_coords.set_index('Cell_ID').sort_index()
         
         df_spots_coords = transformations.add_closest_ID_col(
-            df_spots_coords, aggregated_lab, ZYX_AGGR_COLS
+            df_spots_coords, aggregated_lab, ZYX_AGGR_COLS, 
+            spots_labels=labels
         )
         
         num_spots_objs_txts = []
@@ -4293,6 +4295,7 @@ class Kernel(_ParamsParser):
         spots_labels = None
         spots_masks = None
         if df_spots_coords_input is None:
+            # filters.validate_spots_labels(labels, aggregated_lab)
             aggr_spots_coords, spots_masks = pipe.spot_detection(
                 aggr_spots_img, 
                 spots_segmantic_segm=labels,
@@ -4301,9 +4304,14 @@ class Kernel(_ParamsParser):
                 return_spots_mask=save_spots_mask,
                 spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
             )
+            if verbose:
+                print('')
+                self.logger.info('Generating spots table...')
+                
             df_spots_coords, num_spots_objs_txts = (
                 self._add_local_coords_from_aggr(
-                    aggr_spots_coords, aggregated_lab, spots_masks=spots_masks
+                    aggr_spots_coords, aggregated_lab, spots_masks=spots_masks, 
+                    labels=labels
                 )
             )
             spots_labels = transformations.deaggregate_img(
@@ -6039,12 +6047,14 @@ def ceil(val, precision=0):
 def floor(val, precision=0):
     return np.true_divide(np.floor(val * 10**precision), 10**precision)
 
-def nearest_nonzero(arr, point):
+def nearest_nonzero(arr, point, nonzero_coords=None):
     value = arr[tuple(point)]
     if value != 0:
         return value, 0
     
-    nonzero_coords = np.column_stack(np.nonzero(arr))
+    if nonzero_coords is None:
+        nonzero_coords = np.column_stack(np.nonzero(arr))
+    
     if nonzero_coords.size == 0:
         return 0, np.nan
     
@@ -6054,3 +6064,5 @@ def nearest_nonzero(arr, point):
     min_dist_point = tuple(nonzero_coords[min_idx])
     min_dist = dist[min_idx]
     return arr[min_dist_point], min_dist
+    
+    

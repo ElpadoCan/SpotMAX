@@ -913,17 +913,44 @@ def from_df_spots_objs_to_spots_lab(df_spots_objs, arr_shape, spots_lab=None):
         spots_lab[slice_global_to_local][cropped_spot_mask] = spot_id
     return spots_lab
 
-def add_closest_ID_col(df_spots_coords, lab, zyx_coords_cols):
+def add_closest_ID_col(
+        df_spots_coords, lab, zyx_coords_cols, spots_labels=None
+    ):
     df_spots_coords['closest_ID'] = df_spots_coords.index.to_list()
     
     if 0 not in df_spots_coords.index:
         return df_spots_coords
     
     zyx_coords = df_spots_coords.loc[[0], zyx_coords_cols].to_numpy()
+    if spots_labels is None:
+        nonzero_coords = np.column_stack(np.nonzero(lab))
+    
+    import pdb; pdb.set_trace()
+    
     closest_IDs = []
     for point in zyx_coords:        
-        closest_ID, _ = core.nearest_nonzero(lab, point)
+        if spots_labels is None:
+            closest_ID, _ = core.nearest_nonzero(
+                lab, point, nonzero_coords=nonzero_coords
+            )
+            closest_IDs.append(closest_ID)
+            continue
+
+        spot_obj_id = spots_labels[tuple(point)]
+        touching_IDs, counts = np.unique(
+            lab[spots_labels==spot_obj_id], return_counts=True
+        )
+        if len(touching_IDs) == 1:
+            closest_IDs.append(touching_IDs[0])
+            continue
+        
+        nonzero_mask = touching_IDs>0
+        nonzero_touching_IDs = touching_IDs[nonzero_mask]
+        nonzero_counts = counts[nonzero_mask]
+        max_count_idx = nonzero_counts.argmax()
+        closest_ID = nonzero_touching_IDs[max_count_idx]
         closest_IDs.append(closest_ID)
+        
     df_spots_coords.loc[[0], 'closest_ID'] = closest_IDs
     return df_spots_coords
     

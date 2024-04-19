@@ -653,3 +653,14 @@ def filter_valid_points_min_distance(
         return valid_points, valid_points_mask
     
     return valid_points
+
+def validate_spots_labels(spot_labels, lab):
+    if spot_labels is None:
+        return
+    
+    labels_rp = skimage.measure.regionprops(spot_labels)
+    for obj in labels_rp:
+        obj_lab = skimage.measure.label(obj.image)
+        obj_rp = skimage.measure.regionprops(obj_lab)
+        printl(obj.label)
+        import pdb; pdb.set_trace()
