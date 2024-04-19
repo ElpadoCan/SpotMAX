@@ -1852,6 +1852,7 @@ def spotfit(
         verbose=True,
         logger_func=print,
         custom_combined_measurements=None,
+        max_number_pairs_check_merge=11,
         xy_center_half_interval_val=0.1, 
         z_center_half_interval_val=0.2, 
         sigma_x_min_max_expr=('0.5', 'spotsize_yx_radius_pxl'),
@@ -1932,6 +1933,13 @@ def spotfit(
         The expression can be any text that can be evaluated by `pandas.eval`. 
         More details here: 
         https://pandas.pydata.org/docs/reference/api/pandas.eval.html
+    max_number_pairs_check_merge : int, optional
+        If `spots_masks_check_merge` is not None, spotMAX will test  
+        `max_number_pairs_check_merge` number of pairs to check if 
+        they require merging. The pairs are determined from all those peaks 
+        that lie on the same spot mask and are within `spots_zyx_radii_pxl` 
+        distance between each other. To test all pairs set this value to -1. 
+        Default is 11 (just a random lucky number :D) 
     xy_center_half_interval_val : float, optional
         Half interval width for bounds on x and y center coordinates during fit. 
         Default is 0.1
@@ -2099,6 +2107,7 @@ def spotfit(
                 A_guess_expr=A_guess_expr,
                 B_guess_expr=B_guess_expr,
                 spots_masks_check_merge=spots_masks_check_merge,
+                max_number_pairs_check_merge=max_number_pairs_check_merge,
                 ref_ch_mask_or_labels=ref_ch_mask_or_labels,
                 use_gpu=use_gpu, 
                 logger_func=logger_func

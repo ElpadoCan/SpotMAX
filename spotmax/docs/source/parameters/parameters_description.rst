@@ -912,6 +912,18 @@ Spots channel
   :type: boolean
   :default: ``False``
 
+.. confval:: Maximum number of spot pairs to check (merging with spotFIT)
+
+  If the parameter :confval:`Merge spots pairs where single peak fits better` 
+  is ``True`` you can set the maximum number of pairs to test in case there 
+  are more than two peaks on the same spot mask. 
+
+  To try all pairs set this value to ``-1``. Default is ``11`` which is just 
+  a random lucky number :D. 
+
+  :type: integer
+  :default: ``11``
+
 .. confval:: Save spots segmentation masks
 
   If ``True``, spotMAX will save the segmentation masks of the spots in the same 
@@ -1274,7 +1286,6 @@ Configuration
 
   :type: boolean
   :default: ``False``
-
 
 .. toctree:: 
   :maxdepth: 1

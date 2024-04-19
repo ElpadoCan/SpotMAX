@@ -655,21 +655,7 @@ def _configuration_params():
             'actions': None,
             'dtype': get_bool, 
             'parser_arg': 'reduce_verbosity'
-        },
-        'maxNumPairs': {
-            'desc': 'Maximum number of spot pairs to check (merging with spotFIT)',
-            'initialVal': 11,
-            'stretchWidget': True,
-            'addInfoButton': True,
-            'addComputeButton': False,
-            'addApplyButton': False,
-            'addBrowseButton': False,
-            'addAutoButton': False,
-            'formWidgetFunc': 'widgets.SpinBox',
-            'actions': None,
-            'dtype': int, 
-            'parser_arg': 'num_threads'
-        },
+        }
     }
     return config_params
 
@@ -1154,6 +1140,19 @@ def _spots_ch_params():
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
             'dtype': get_bool
+        },
+        'maxNumPairs': {
+            'desc': 'Maximum number of spot pairs to check (merging with spotFIT)',
+            'initialVal': 11,
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': False,
+            'formWidgetFunc': 'widgets.SpinBox',
+            'actions': None,
+            'dtype': int, 
         },
         'saveSpotsMask': {
             'desc': 'Save spots segmentation masks',

@@ -2661,6 +2661,7 @@ class SpotFIT(spheroid):
             B_guess_expr='spotsize_surface_median',
             verbose=0, 
             inspect=0, 
+            max_number_pairs_check_merge=11,
             spots_masks_check_merge=None,
             ref_ch_mask_or_labels=None, 
             use_gpu=False,
@@ -2675,6 +2676,7 @@ class SpotFIT(spheroid):
         self.obj_bbox_lower = tuple(expanded_obj.crop_obj_start)
         self.obj_image = expanded_obj.image
         self.zyx_spot_min_vol_um = zyx_spot_min_vol_um
+        self._max_num_pairs_merge = max_number_pairs_check_merge
         if ref_ch_mask_or_labels is not None:
             self.ref_ch_mask_local = (
                 ref_ch_mask_or_labels[expanded_obj.slice] > 0
@@ -2929,6 +2931,9 @@ class SpotFIT(spheroid):
                 pairs = features.get_all_pairs_within_distance(
                     all_coords_id, spheroid_diameter_pixel
                 )
+                max_pairs = self._max_num_pairs_merge
+                if max_pairs > 0 and max_pairs <= len(pairs):
+                    pairs = pairs[:max_pairs]
             
             for pair_coords in pairs:
                 was_pair_dropped = any([
@@ -5111,6 +5116,9 @@ class Kernel(_ParamsParser):
         spotfit_check_merge = (
             self._params[SECTION]['checkMergeSpotfit']['loadedVal']
         )
+        max_number_pairs_check_merge = (
+            self._params[SECTION]['maxNumPairs']['loadedVal']
+        )
         self._warn_if_spotfit_disabled(do_spotfit)
         
         save_spots_mask = (
@@ -5351,6 +5359,7 @@ class Kernel(_ParamsParser):
                     verbose=verbose,
                     logger_func=self.logger.info,
                     custom_combined_measurements=custom_combined_measurements,
+                    max_number_pairs_check_merge=max_number_pairs_check_merge,
                     **bounds_kwargs,
                     **init_guess_kwargs, 
                 )
