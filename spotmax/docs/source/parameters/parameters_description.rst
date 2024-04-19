@@ -787,6 +787,15 @@ Spots channel
   arbitrary number single-spot features described in the :ref:`single-spot-features` 
   section.
 
+  You can also use ``or`` statements and combine it with ``and`` for more 
+  complex filtering. For example you could write the following:
+
+  .. code-block:: ini
+    
+    Features and thresholds for filtering true spots =
+      spot_vs_ref_ch_ttest_pvalue, None, 0.025
+      spot_vs_ref_ch_ttest_tstat, 0.0, None
+
   :type: dictionary of {feature_name: (min_threshold, max_threshold)} or None
   :default: ``None``  
 
