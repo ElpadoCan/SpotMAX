@@ -433,19 +433,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         return self.zSliceScrollBar.sliderPosition()
     
-    def resizeRangeWelcomeText(self):
-        xRange, yRange = self.ax1.viewRange()
-        deltaX = xRange[1] - xRange[0]
-        deltaY = yRange[1] - yRange[0]
-        self.ax1.setXRange(-1, deltaX-1)
-        self.ax1.setYRange(-1, deltaY-1)
-    
     def _setWelcomeText(self):
         html_filepath = os.path.join(html_path, 'gui_welcome.html')
         with open(html_filepath) as html_file:
             htmlText = html_file.read()
         self.ax1.infoTextItem.setHtml(htmlText)
-        QTimer.singleShot(100, self.resizeRangeWelcomeText)
+        QTimer.singleShot(100, super().resizeRangeWelcomeText)
     
     def _disableAcdcActions(self, *actions):
         for action in actions:
@@ -521,7 +514,6 @@ class spotMAX_Win(acdc_gui.guiWin):
     def initGui(self):
         self.isAnalysisRunning = False
         
-        self._setWelcomeText()
         self._disableAcdcActions(
             self.newAction, self.manageVersionsAction, self.openFileAction
         )
@@ -531,6 +523,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.setMeasurementsAction.setText('Set Cell-ACDC measurements...')
         
         self.lastLoadedIniFilepath = None
+        
+        self._setWelcomeText()
     
     def parametersLoaded(self, ini_filepath):
         self.lastLoadedIniFilepath = ini_filepath
