@@ -2125,6 +2125,7 @@ def spotfit(
                 dfs_spots_spotfit_iter0.append(kernel.df_spotFIT_ID.copy())
             
             if not drop_peaks_too_close: 
+                num_spots = prev_num_spots
                 break
             
             df_spotfit = kernel.df_spotFIT_ID

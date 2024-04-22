@@ -718,13 +718,6 @@ class _ParamsParser(_DataLoader):
         )
 
         force_default = parser_args['force_default_values']
-
-        metadata_path = parser_args['metadata']
-        if metadata_path:
-            metadata_path = utils.check_cli_file_path(
-                metadata_path, desc='metadata'
-            )
-            parser_args['metadata'] = metadata_path
         
         log_folder_path = parser_args['log_folderpath']
         if log_folder_path:
@@ -803,15 +796,10 @@ class _ParamsParser(_DataLoader):
         return parser_args
 
     @exception_handler_cli
-    def init_params(self, params_path, metadata_csv_path=''):      
+    def init_params(self, params_path):      
         self._params = config.analysisInputsParams(
             params_path, cast_dtypes=False
         )
-        
-        if metadata_csv_path:
-            self._params = io.add_metadata_from_csv(
-                metadata_csv_path, self._params
-            )
         
         params_folder_path = os.path.dirname(params_path)
         params_file_name = os.path.splitext(os.path.basename(params_path))[0]
@@ -819,25 +807,6 @@ class _ParamsParser(_DataLoader):
         self.ini_params_file_path = os.path.join(
             params_folder_path, self.ini_params_filename
         )
-        if params_path.endswith('.csv'):
-            if os.path.exists(self.ini_params_file_path):       
-                proceed = self._ask_user_save_ini_from_csv(
-                    self.ini_params_file_path
-                )
-                if not proceed:
-                    self.logger.info(
-                        'spotMAX execution stopped by the user. '
-                        'No option to save .ini file was selected.'
-                    )
-                    self.quit()
-                    return
-            io.writeConfigINI(
-                params=self._params, ini_path=self.ini_params_file_path
-            )
-            
-            self.logger.info(
-                f'New parameters file created: "{self.ini_params_file_path}"'
-            )
         
         self.configPars = config.ConfigParser()
         self.configPars.read(self.ini_params_file_path, encoding="utf-8")
@@ -5872,7 +5841,6 @@ class Kernel(_ParamsParser):
     @exception_handler_cli
     def run(
             self, params_path: os.PathLike, 
-            metadata_csv_path: os.PathLike='',
             num_numba_threads: int=-1, 
             force_default_values: bool=False, 
             force_close_on_critical: bool=False, 
@@ -5897,9 +5865,7 @@ class Kernel(_ParamsParser):
         
         io.save_last_used_ini_filepath(params_path)
         
-        proceed, missing_params = self.init_params(
-            params_path, metadata_csv_path=metadata_csv_path
-        )
+        proceed, missing_params = self.init_params(params_path)
         if not proceed:
             self.quit()
             return

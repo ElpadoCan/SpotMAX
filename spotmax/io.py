@@ -2019,7 +2019,7 @@ def to_system_path(path):
 
     return path
 
-def get_abspath(path):
+def get_abspath(path, src_folderpath=''):
     path = to_system_path(path)
     path = os.path.expanduser(path)
     path = os.path.normpath(path)
@@ -2032,9 +2032,17 @@ def get_abspath(path):
     if os.path.isabs(unix_path) and os.path.exists(unix_path):
         return unix_path
     
+    path_parts = os.path.normpath(path).split(os.sep)
+    
+    # Check if relative to input src_folderpath
+    if src_folderpath:
+        abs_path = os.path.join(src_folderpath, *path_parts)
+        if os.path.exists(abs_path):
+            return abs_path
+    
+    # Check if relative to work directory
     cwd_path = os.getcwd()
     path = path.lstrip('.')
-    path_parts = os.path.normpath(path).split(os.sep)
     abs_path = os.path.join(cwd_path, *path_parts)
 
     return abs_path

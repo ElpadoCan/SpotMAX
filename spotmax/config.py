@@ -248,6 +248,7 @@ def parse_exp_paths(ini_filepath):
     
     paths_to_analyse = None
     try:
+        # Check if text file is in same folder of ini file (relative)
         filepath = os.path.join(ini_folderpath, exp_path)
         with open(filepath, 'r') as file:
             paths_to_analyse = file.read()
@@ -255,6 +256,7 @@ def parse_exp_paths(ini_filepath):
         pass
     
     try:
+        # Check if text file path is absolute
         filepath = exp_path
         with open(filepath, 'r') as file:
             paths_to_analyse = file.read()
@@ -264,11 +266,13 @@ def parse_exp_paths(ini_filepath):
     if paths_to_analyse is None:
         paths_to_analyse = input_exp_paths
     
-    paths_to_analyse = get_exp_paths(paths_to_analyse)
+    paths_to_analyse = get_exp_paths(
+        paths_to_analyse, ini_folderpath=ini_folderpath
+    )
     
     return paths_to_analyse
 
-def get_exp_paths(exp_paths):    
+def get_exp_paths(exp_paths, ini_folderpath=''):    
     # Remove white spaces at the start
     exp_paths = exp_paths.lstrip()
 
@@ -295,7 +299,10 @@ def get_exp_paths(exp_paths):
     exp_paths = [path.rstrip('\\') for path in exp_paths if path]
     exp_paths = [path.rstrip('/') for path in exp_paths if path]
 
-    exp_paths = [io.get_abspath(path) for path in exp_paths]
+    exp_paths = [
+        io.get_abspath(path, src_folderpath=ini_folderpath) 
+        for path in exp_paths
+    ]
     
     return exp_paths
 

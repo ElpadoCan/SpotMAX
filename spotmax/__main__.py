@@ -53,14 +53,6 @@ def cli_parser():
     )
 
     ap.add_argument(
-        '-m', '--metadata',
-        default='',
-        type=str,
-        metavar='PATH_TO_METADATA_CSV',
-        help=('Path of the "_metadata.csv" file')
-    )
-
-    ap.add_argument(
         '-g', '--log_folderpath',
         default='',
         type=str,
