@@ -690,7 +690,7 @@ def filter_valid_points_min_distance(
 
 def validate_spots_labels(spot_labels, lab):
     if spot_labels is None:
-        return
+        return []
     
     invalid_IDs = []
     labels_rp = skimage.measure.regionprops(spot_labels)

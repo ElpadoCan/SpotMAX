@@ -4195,6 +4195,9 @@ class Kernel(_ParamsParser):
         return df_spots_coords, num_spots_objs_txts
     
     def _warn_invalid_IDs_spots_labels(self, invalid_IDs, skip_invalid):
+        if not invalid_IDs:
+            return
+        
         warn_text = (
             r'In the following object IDs, more than 25% of the spots masks '
             f'are on background:\n\n{invalid_IDs}\n\n'
@@ -4245,7 +4248,7 @@ class Kernel(_ParamsParser):
         aggr_nnet_pred_map = None
         
         labels = None
-        invalid_IDs = None
+        invalid_IDs = []
         if aggr_spots_ch_segm_mask is not None:
             labels = aggr_spots_ch_segm_mask.astype(int)
             labels = filters.filter_labels_by_size(labels, min_spot_mask_size)
@@ -4289,7 +4292,7 @@ class Kernel(_ParamsParser):
             self._warn_invalid_IDs_spots_labels(
                 invalid_IDs, skip_invalid_IDs_spots_labels
             )
-            if skip_invalid_IDs_spots_labels:
+            if skip_invalid_IDs_spots_labels and invalid_IDs:
                 labels = filters.remove_object_IDs(labels, invalid_IDs)
         
         nnet_pred_map = None
@@ -4449,7 +4452,7 @@ class Kernel(_ParamsParser):
     
     def _add_invalid_IDs_column(self, df_agg, invalid_IDs):
         df_agg['spots_segmentation_might_have_failed'] = 0
-        if invalid_IDs:
+        if not invalid_IDs or invalid_IDs is None:
             return df_agg
         
         idx = pd.IndexSlice[:, invalid_IDs]
