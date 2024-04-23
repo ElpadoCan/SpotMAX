@@ -390,7 +390,7 @@ The pixels belonging to the final mask will be used in the spotFIT step.
 * **Mean of the spot's surface intensities**: column name ``spotsize_surface_mean``.
 * **Standard dev. of the spot's surface intensities**: column name ``spotsize_surface_std``.
 * **Default minium backround level allowed for spotfit**: column name ``spot_B_min``. 
-  This is calculated as the mean of the intensities on the surface of all the spheorids 
+  This is calculated as the mean of the intensities on the surface of all the spheroids 
   minus 3 times the standard deviation of the same intensities. If negative, 
   it is set to 0.
 
@@ -414,7 +414,12 @@ Features that are computed during the gaussian fit procedure.
 * **Radius y-direction**: column name ``sigma_y_fit``.
 * **Radius z-direction**: column name ``sigma_z_fit``.
 * **Mean radius xy-direction**: column name ``sigma_yx_mean_fit``.
-* **Spot volume (voxel)**: column name ``spheroid_vol_vox_fit``.
+* **Spheroid spot volume (voxel)**: column name ``spheroid_vol_vox_fit``. 
+  Volume of the spheroid with z-radius = ``sigma_z_fit`` and y-radius = 
+  x-radius = ``sigma_yx_mean_fit``. 
+* **Ellipsoid spot volume (voxel)**: column name ``ellipsoid_vol_vox_fit``. 
+  Volume of the ellipsoid with z-radius = ``sigma_z_fit``, y-radius = 
+  ``sigma_y_fit``, and the x-radius = ``sigma_x_fit``. 
 
 SpotFIT intens. metrics
 -----------------------

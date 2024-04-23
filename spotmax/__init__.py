@@ -159,7 +159,7 @@ icon_path = os.path.join(resources_folderpath, 'spotMAX_icon.ico')
 logo_path = os.path.join(resources_folderpath, 'spotMAX_logo.png')
 
 from cellacdc import printl as acdc_printl
-from cellacdc import base_cca_dict
+from cellacdc import base_cca_dict, base_cca_tree_dict
 
 def printl(*objects, **kwargs):
     acdc_printl(*objects, idx=2, **kwargs)
@@ -219,6 +219,13 @@ BASE_COLUMNS.extend(ZYX_RESOL_COLS)
 BASE_COLUMNS.extend(base_cca_dict.keys())
 BASE_COLUMNS.extend(CELL_SIZE_COLUMNS)
 
+COLUMNS_FROM_DF_AGG = CELL_SIZE_COLUMNS.copy()
+COLUMNS_FROM_DF_AGG.extend(base_cca_dict.keys())
+COLUMNS_FROM_DF_AGG.extend(base_cca_tree_dict.keys())
+
+CATEGORIES = (
+    '_detection', '_gop', '_spotfit'
+)
 DFs_FILENAMES = {
     'spots_detection': '*rn*_0_detected_spots*desc*',
     'spots_gop': '*rn*_1_valid_spots*desc*',

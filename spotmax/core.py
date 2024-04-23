@@ -59,7 +59,7 @@ from . import filters
 from . import pipe
 from . import ZYX_GLOBAL_COLS, ZYX_AGGR_COLS, ZYX_LOCAL_COLS
 from . import ZYX_LOCAL_EXPANDED_COLS, ZYX_FIT_COLS, ZYX_RESOL_COLS
-from . import BASE_COLUMNS
+from . import BASE_COLUMNS, COLUMNS_FROM_DF_AGG, CATEGORIES
 from . import DFs_FILENAMES
 
 import math
@@ -3681,12 +3681,14 @@ class SpotFIT(spheroid):
         self._df_spotFIT.at[(obj_id, s), 'sigma_z_fit'] = abs(sz_fit)
         self._df_spotFIT.at[(obj_id, s), 'sigma_y_fit'] = abs(sy_fit)
         self._df_spotFIT.at[(obj_id, s), 'sigma_x_fit'] = abs(sx_fit)
-        self._df_spotFIT.at[(obj_id, s), 'sigma_yx_mean_fit'] = (
-            (abs(sy_fit)+abs(sx_fit))/2
-        )
+        sigma_yx_mean = (abs(sy_fit)+abs(sx_fit))/2
+        self._df_spotFIT.at[(obj_id, s), 'sigma_yx_mean_fit'] = sigma_yx_mean
 
-        _vol = 4/3*np.pi*abs(sz_fit)*abs(sy_fit)*abs(sx_fit)
-        self._df_spotFIT.at[(obj_id, s), 'spheroid_vol_vox_fit'] = _vol
+        ellips_vol = 4/3*np.pi*abs(sz_fit)*abs(sy_fit)*abs(sx_fit)
+        self._df_spotFIT.at[(obj_id, s), 'ellipsoid_vol_vox_fit'] = ellips_vol
+        
+        spher_vol = 4/3*np.pi*abs(sz_fit)*abs(sigma_yx_mean)*abs(sigma_yx_mean)
+        self._df_spotFIT.at[(obj_id, s), 'spheroid_vol_vox_fit'] = ellips_vol
 
         self._df_spotFIT.at[(obj_id, s), 'A_fit'] = A_fit
         self._df_spotFIT.at[(obj_id, s), 'B_fit'] = B_fit
@@ -5638,6 +5640,27 @@ class Kernel(_ParamsParser):
 
         return df_agg_dst
 
+    def _add_to_df_spots_cols_from_df_agg(self, dfs):
+        for cat in CATEGORIES:
+            df_spots = dfs.get(f'spots{cat}')
+            if df_spots is None:
+                continue
+            
+            df_agg = dfs.get(f'agg{cat}')
+            if df_agg is None:
+                continue
+            
+            df_spots_frame_IDs = df_spots.index.droplevel('spot_id')
+            idx_agg = df_agg.index.intersection(df_spots_frame_IDs)
+            idx_spots = pd.IndexSlice[
+                idx_agg.get_level_values(0), idx_agg.get_level_values(1), :
+            ]
+            for col in COLUMNS_FROM_DF_AGG:
+                if col not in df_agg.columns:
+                    continue
+
+                df_spots.loc[idx_spots, col] = df_agg.loc[idx_agg, col]
+    
     def add_post_analysis_features(self, dfs):
         zyx_voxel_size = self.metadata['zyxVoxelSize']
         for key, df in dfs.items():
@@ -5652,6 +5675,9 @@ class Kernel(_ParamsParser):
             features.add_consecutive_spots_distance(
                 df, zyx_voxel_size, suffix='_fit'
             )
+        
+        self._add_to_df_spots_cols_from_df_agg(dfs)
+        
     
     def filter_requested_features(self, dfs, on_aggr=False):
         if on_aggr:
