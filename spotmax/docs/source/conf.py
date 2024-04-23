@@ -68,6 +68,8 @@ exclude_patterns = [
     'source/features/_effect_size_description.rst',
     'source/features/_effect_size_formulas.rst',
     'source/install/_install_numba.rst',
+    'source/install/_install_conda_open_terminal.rst',
+    'source/install/_conda_create_activate_acdc.rst',
 ]
 
 # Set html options for the theme
