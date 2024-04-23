@@ -100,16 +100,10 @@ SliderPageStepSub = acdc_gui.SliderPageStepSub
 SliderMove = acdc_gui.SliderMove
 
 class spotMAX_Win(acdc_gui.guiWin):
-    def __init__(
-            self, app, debug=False, parent=None, buttonToRestore=None, 
-            mainWin=None, executed=False, version=None
-        ):
-        super().__init__(
-            app, parent=parent, buttonToRestore=buttonToRestore, 
-            mainWin=mainWin, version=version
-        )
+    def __init__(self, app, executed=False, debug=False, **kwargs):
+        super().__init__(app, **kwargs)
 
-        self._version = version
+        self._version = kwargs.get('version')
         self._appName = 'spotMAX'
         self._executed = executed
     
