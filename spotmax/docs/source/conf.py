@@ -26,6 +26,7 @@ extensions = [
     'sphinxcontrib.email',
     'sphinx_tabs.tabs',
     'sphinx_toolbox.confval'
+    # 'nbsphinx'
     # 'sphinx_rtd_dark_mode'
 ]
 
