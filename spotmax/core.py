@@ -1886,10 +1886,12 @@ class GaussianModel:
             tol,
             pbar_desc=''
         ):
-        self.pbar = tqdm(
-            desc=pbar_desc, total=100*len(z_s), unit=' fev',
-            position=4, leave=False, ncols=100
-        )
+        self.pbar = None
+        if pbar_desc is not None:
+            self.pbar = tqdm(
+                desc=pbar_desc, total=100*len(z_s), unit=' fev',
+                position=4, leave=False, ncols=100
+            )
         
         # variable_num_coeffs = self.variable_num_coeffs(bounds, num_coeffs)
         const_coeffs = self.const_coeffs(
@@ -1912,7 +1914,8 @@ class GaussianModel:
             gtol=tol
         )
         fit_coeffs = self.get_func_coeffs(leastsq_result.x, const_coeffs)
-        self.pbar.close()
+        if self.pbar is not None:
+            self.pbar.close()
         
         return fit_coeffs, leastsq_result.success
     
@@ -1980,7 +1983,8 @@ class GaussianModel:
             z, y, x, coeffs, num_spots, num_coeffs, const
         )
         residuals = data - evaluated_func
-        self.pbar.update(1)
+        if self.pbar is not None:
+            self.pbar.update(1)
         return residuals
 
     def goodness_of_fit(
@@ -2282,10 +2286,11 @@ class GaussianModel:
             print('--------------')
         return I_tot, I_foregr
 
-class spheroid:
-    def __init__(self, V_ch):
+class Spheroid:
+    def __init__(self, V_ch, show_progress=True):
         self.V_ch = V_ch
         self.V_shape = V_ch.shape
+        self.show_progress = show_progress
         Z, Y, X = self.V_shape
 
     def calc_semiax_len(self, i, zyx_vox_dim, zyx_resolution):
@@ -2530,10 +2535,11 @@ class spheroid:
         spots_mask = np.zeros(self.V_shape, dtype)
         temp_mask = np.zeros(self.V_shape, bool)
         # Insert local spot masks into global mask
-        in_pbar = tqdm(
-            desc='Building spots mask', total=len(zyx_centers),
-            unit=' spot', leave=False, position=4, ncols=100
-        )
+        if self.show_progress:
+            in_pbar = tqdm(
+                desc='Building spots mask', total=len(zyx_centers),
+                unit=' spot', leave=False, position=4, ncols=100
+            )
         for c, zyx_c in enumerate(zyx_centers):
             (temp_mask, _, slice_G_to_L,
             slice_crop) = self.index_local_into_global_mask(
@@ -2545,8 +2551,10 @@ class spheroid:
             elif dtype == np.uint32:
                 cropped_mask = local_spot_mask[slice_crop]
                 spots_mask[slice_G_to_L][cropped_mask] = ids[c]
-            in_pbar.update(1)
-        in_pbar.close()
+            if self.show_progress:
+                in_pbar.update(1)
+        if self.show_progress:
+            in_pbar.close()
         return spots_mask
 
     def expand_spots_labels(
@@ -2605,7 +2613,7 @@ class spheroid:
                     grow[b] = cond
         return grow
 
-class SpotFIT(spheroid):
+class SpotFIT(Spheroid):
     def __init__(self, debug=False):
         self.debug = debug
 
@@ -2634,11 +2642,13 @@ class SpotFIT(spheroid):
             spots_masks_check_merge=None,
             ref_ch_mask_or_labels=None, 
             use_gpu=False,
-            logger_func=None
+            logger_func=None, 
+            show_progress=True
         ):
         self.logger_func = logger_func
+        self.show_progress = show_progress
         self.spots_img_local = spots_img[expanded_obj.slice]
-        super().__init__(self.spots_img_local)
+        super().__init__(self.spots_img_local, show_progress=show_progress)
         self.ID = expanded_obj.label
         self.df_spots_ID = df_spots_obj
         self.zyx_vox_size = zyx_vox_size
@@ -2750,7 +2760,10 @@ class SpotFIT(spheroid):
         const = 0
         s_data = self.spots_img_local[zz, yy, xx]
         
-        desc = 'Fitting single peak'
+        desc = None
+        if self.show_progress:
+            desc = 'Fitting single peak'            
+            
         fit_coeffs, success = model.curve_fit(
             init_guess_s,
             s_data,
@@ -2828,7 +2841,10 @@ class SpotFIT(spheroid):
         const = 0
         s_data = self.spots_img_local[zz, yy, xx]
         
-        desc = 'Fitting peaks pair'
+        desc = None
+        if self.show_progress:
+            desc = 'Fitting peaks pair' 
+            
         fit_coeffs, success = model.curve_fit(
             init_guess_s,
             s_data,
@@ -3157,6 +3173,10 @@ class SpotFIT(spheroid):
              self.spots_yx_size_pxl, 
              self.spots_yx_size_pxl)
         )
+        
+        self.df_spots_ID['voxel_size_z'] = self.zyx_vox_size[0]
+        self.df_spots_ID['pixel_size_y'] = self.zyx_vox_size[1]
+        self.df_spots_ID['pixel_size_x'] = self.zyx_vox_size[2]
 
         self.df_spots_ID['spotsize_yx_radius_um'] = self.spots_yx_size_um
         self.df_spots_ID['spotsize_z_radius_um'] = self.spots_z_size_um
@@ -3215,20 +3235,21 @@ class SpotFIT(spheroid):
                 if verbose > 2:
                     print(f'Fully fitted spot idx: {s}')
                 all_intersect_fitted_bool[s] = True
-                pbar = tqdm(
-                    desc=f'Spot done {count+1}/{num_spots}', total=4, 
-                    unit=' fev', position=2, leave=False, ncols=100
-                )
-                pbar.update(1)
-                pbar.close()
+                if self.show_progress:
+                    pbar = tqdm(
+                        desc=f'Spot done {count+1}/{num_spots}', total=4, 
+                        unit=' fev', position=2, leave=False, ncols=100
+                    )
+                    pbar.update(1)
+                    pbar.close()
                 if verbose > 2:
                     print('-----------')
                 continue
             if verbose > 2:
                 print(f'Intersect. coeffs: {intersect_coeffs}')
             # Set coeffs of already fitted neighbours as model constants
-            non_inters_neigh_idx = [s for s in neigh_idx
-                                    if s not in intersect_idx
+            non_inters_neigh_idx = [
+                s for s in neigh_idx if s not in intersect_idx
             ]
             if verbose > 2:
                 print(f'Fitted bool: {all_intersect_fitted_bool}')
@@ -3237,8 +3258,9 @@ class SpotFIT(spheroid):
                 fitted_coeffs[i] for i in non_inters_neigh_idx
                 if all_intersect_fitted_bool[i]
             ]
-            neigh_fitted_idx = [i for i in non_inters_neigh_idx
-                                        if all_intersect_fitted_bool[i]]
+            neigh_fitted_idx = [
+                i for i in non_inters_neigh_idx if all_intersect_fitted_bool[i]
+            ]
             if verbose > 2:
                 print('All-neighbours-fitted coeffs (model constants): '
                       f'{neigh_fitted_coeffs}')
@@ -3279,12 +3301,6 @@ class SpotFIT(spheroid):
             else:
                 const = 0
             # test this https://cars9.uchicago.edu/software/python/lmfit/examples/example_reduce_fcn.html#sphx-glr-examples-example-reduce-fcn-py
-            # bounds, init_guess_s = model.get_bounds_init_guess(
-            #     num_spots_s, num_coeffs, fit_ids, fit_idx, spots_centers,
-            #     spots_3D_lab_ID, spots_rp, spots_radii_pxl, spots_img,
-            #     spots_Bs_guess, spots_B_mins
-            # )
-            
             low_limit, high_limit = model.get_bounds(
                 num_spots_s, num_coeffs, fit_ids,
                 self.xy_center_half_interval_val, 
@@ -3306,7 +3322,10 @@ class SpotFIT(spheroid):
                 high_limit
             )
             bounds = (low_limit, high_limit)
-            desc = f'Fitting spot {s} ({count+1}/{num_spots})'
+            
+            desc = None
+            if self.show_progress:
+                desc = f'Fitting spot {s} ({count+1}/{num_spots})'
             
             fit_coeffs, success = model.curve_fit(
                 init_guess_s,
@@ -3492,17 +3511,13 @@ class SpotFIT(spheroid):
         # Given QC_limit determine which spots should be fitted again
         for obj_id, df_obj in df_spotFIT.groupby(level=0):
             obj_s_idxs = df_obj['neigh_idx'].iloc[0]
+            num_spots_fitted_together = len(df_obj['intersecting_idx'].iloc[0])
             # Iterate single spots
             for s in obj_s_idxs:
                 gof_metrics = all_gof_metrics[s]
 
                 (reduced_chisq, p_chisq, RMSE,
                 ks, p_ks, NRMSE, F_NRMSE) = gof_metrics
-
-                # Initial guess
-                (z0_guess, y0_guess, x0_guess,
-                sz_guess, sy_guess, sx_guess,
-                A_guess) = init_guess_li[s]
 
                 # Fitted coeffs
                 B_fit = Bs_fitted[s]
@@ -3513,7 +3528,7 @@ class SpotFIT(spheroid):
                 # Solution found
                 solution_found = solution_found_li[s]
 
-                # Store s idx of badly fitted peaks
+                # Store s idx of badly fitted peaks for fitting again later
                 num_s_in_obj = len(obj_s_idxs)
                 s_intersect_idx = df_obj.at[(obj_id, s), 'intersecting_idx']
                 num_intersect_s = len(s_intersect_idx)
@@ -3534,12 +3549,14 @@ class SpotFIT(spheroid):
                     lower_bounds=None, upper_bounds=None
                 )
 
-                gof_metrics = (reduced_chisq, p_chisq,
-                               ks, p_ks, RMSE, NRMSE, F_NRMSE)
-
-                self.store_metrics_good_spots(obj_id, s, fitted_coeffs[s],
-                                              I_tot, I_foregr, gof_metrics,
-                                              solution_found, B_fit)
+                gof_metrics = (
+                    reduced_chisq, p_chisq, ks, p_ks, RMSE, NRMSE, F_NRMSE
+                )
+                    
+                self.store_metrics_good_spots(
+                    obj_id, s, fitted_coeffs[s], I_tot, I_foregr, gof_metrics,
+                    solution_found, B_fit, B_fit/num_spots_fitted_together
+                )
 
                 if verbose > 1:
                     print('')
@@ -3617,7 +3634,10 @@ class SpotFIT(spheroid):
 
             # Fit with constants
             s_data = img[z_s, y_s, x_s]
-            desc = f'Fitting spot {s} ({count+1}/{num_spots})'
+            desc = None
+            if self.show_progress:
+                desc = f'Fitting spot {s} ({count+1}/{num_spots})'
+                
             fit_coeffs, success = model.curve_fit(
                 init_guess_s,
                 s_data,
@@ -3658,12 +3678,12 @@ class SpotFIT(spheroid):
             self.store_metrics_good_spots(
                 obj_id, s, fit_coeffs[:-1],
                 I_tot, I_foregr, gof_metrics,
-                success, B_fit=B_fit
+                success, B_fit, B_fit
             )
 
     def store_metrics_good_spots(
             self, obj_id, s, fitted_coeffs_s, I_tot, I_foregr, gof_metrics,
-            solution_found, B_fit
+            solution_found, B_fit, spot_B_fit
         ):
 
         (z0_fit, y0_fit, x0_fit,
@@ -3692,6 +3712,8 @@ class SpotFIT(spheroid):
 
         self._df_spotFIT.at[(obj_id, s), 'A_fit'] = A_fit
         self._df_spotFIT.at[(obj_id, s), 'B_fit'] = B_fit
+        
+        self._df_spotFIT.at[(obj_id, s), 'spot_B_fit'] = spot_B_fit
 
         self._df_spotFIT.at[(obj_id, s), 'total_integral_fit'] = I_tot
         self._df_spotFIT.at[(obj_id, s), 'foreground_integral_fit'] = I_foregr
@@ -3877,10 +3899,10 @@ class Kernel(_ParamsParser):
     def segment_quantify_ref_ch(
             self, ref_ch_img, threshold_method='threshold_otsu', lab_rp=None, 
             lab=None, lineage_table=None, keep_only_largest_obj=False, 
-            do_aggregate=False, df_agg=None, frame_i=0, 
-            vox_to_um3=None, zyx_tolerance=None, ridge_filter_sigmas=0.0, 
-            verbose=True, raw_ref_ch_img=None, return_filtered_img=False,
-            filtering_features_thresholds=None   
+            keep_objects_touching_lab_intact=False, do_aggregate=False, 
+            df_agg=None, frame_i=0, vox_to_um3=None, zyx_tolerance=None, 
+            ridge_filter_sigmas=0.0, verbose=True, raw_ref_ch_img=None, 
+            return_filtered_img=False, filtering_features_thresholds=None   
         ):
         if self._is_lab_all_zeros(lab):
             df_agg['ref_ch_vol_vox'] = np.nan
@@ -3912,6 +3934,7 @@ class Kernel(_ParamsParser):
             ref_ch_img, 
             lab=lab,
             keep_only_largest_obj=keep_only_largest_obj,
+            keep_objects_touching_lab_intact=keep_objects_touching_lab_intact,
             lineage_table=lineage_table,
             do_aggregate=do_aggregate,
             logger_func=self.logger.info,
@@ -4855,6 +4878,9 @@ class Kernel(_ParamsParser):
         is_ref_ch_single_obj = (
             ref_ch_section['refChSingleObj']['loadedVal']
         )
+        ref_ch_out_objs_keep_intact = (
+            ref_ch_section['keepTouchObjectsIntact']['loadedVal']
+        )
         ridge_filter_sigmas = (
             ref_ch_section['refChRidgeFilterSigmas']['loadedVal']
         )
@@ -4890,6 +4916,7 @@ class Kernel(_ParamsParser):
                 ref_ch_img, lab_rp=lab_rp, lab=lab, 
                 threshold_method=ref_ch_threshold_method, 
                 keep_only_largest_obj=is_ref_ch_single_obj,
+                ref_ch_out_objs_keep_intact=ref_ch_out_objs_keep_intact,
                 df_agg=df_agg, 
                 frame_i=frame_i, 
                 do_aggregate=do_aggregate,

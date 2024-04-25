@@ -298,3 +298,7 @@ def njit_replacement(parallel=False):
             return func(*args, **kwargs)
         return inner_function
     return wrap
+
+from . import (
+    config, core, data, features, filters, io, pipe, transformations, utils
+)

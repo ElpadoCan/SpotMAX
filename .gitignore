@@ -22,6 +22,7 @@ spotmax/spotmax_v2_parameters.png
 spotmax/nnet/models/deprecated_pytorch3dunet
 spotmax/docs/source/tutorials/data
 examples/notebooks/bioimageio_models
+deprecated
 **/checkpoints
 _tests
 .setup.cfg

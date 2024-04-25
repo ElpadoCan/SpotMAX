@@ -575,6 +575,18 @@ Reference channel
   :type: boolean
   :default: ``False``
 
+.. confval:: Keep external touching objects intact
+
+  If ``True``, the masks that are partially external to the input objects 
+  (e.g., the single cells, see :confval:`Cells segmentation end name or path`) 
+  are maintained intact. 
+
+  This is helpful when the reference channel structures can extend a 
+  bit outside of the input objects.
+
+  :type: boolean
+  :default: ``False``
+
 .. confval:: Ref. channel gaussian filter sigma
 
   If greater than 0, spotMAX will appy a gaussian filter to the reference 
@@ -849,7 +861,7 @@ Spots channel
 .. confval:: Optimise detection for high spot density
 
   If ``True``, spotMAX will normalise the intensities within each single spot mask 
-  by the euclidean distance transform. 
+  by the euclidean distance transform of the spheroid mask. 
   
   More specifically, the further away from the center a pixel is, the more its 
   intensity will be reduced before computing the mean intensity of the spot. 
@@ -885,12 +897,13 @@ Spots channel
   .. note::
 
     If multiple spots masks are touching each other, they are 
-    fitted together with as many gaussian curves as number of merged spots. 
+    fitted together with as many gaussian curves as the number of touching 
+    spots. 
   
   The equation of the 1D gaussian curve is the following:
 
   .. math::
-    f(x) = e^{-\frac{(x - x_0)^2}{2 \sigma_x ^ 2}}
+    f(x) = \mathrm{exp}(-\frac{(x - x_0)^2}{2 \sigma_x ^ 2})
   
   where :m:`x_0` and :m:`\sigma_x` are fitting parameters and they are the center 
   of the gaussian peak and the standard devation (width), respectively. To obtain the 

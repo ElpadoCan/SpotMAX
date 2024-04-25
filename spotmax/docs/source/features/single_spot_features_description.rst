@@ -433,7 +433,11 @@ Features that are computed during the gaussian fit procedure.
   the result of the analytical integration of the gaussian curve excluding  
   the background.
 * **Amplitude gauss. peak**: column name ``A_fit``.
-* **Backgr. level gauss. peak**: column name ``B_fit``.
+* **Backgr. level gauss. peak**: column name ``B_fit``. This it the background 
+  level shared by touching spots that were fitted together.
+* **Single-spot backgr. level gauss. peak**: column name ``spot_B_fit``. 
+  This is equal to ``B_fit`` divided by the number of spots that were fitted 
+  together. 
 * **Quality factor in xy-direction**: column name ``Q_factor_yx``. 
   Ratio between ``A_fit`` and  ``sigma_yx_mean_fit``. The higher the quality 
   factor the taller and narrower the peak.

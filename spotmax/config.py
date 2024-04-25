@@ -940,6 +940,17 @@ def _ref_ch_params():
             'actions': None,
             'dtype': get_bool
         },
+        'keepTouchObjectsIntact': {
+            'desc': 'Keep external touching objects intact',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
         'refChGaussSigma': {
             'desc': 'Ref. channel gaussian filter sigma',
             'initialVal': 0.75,

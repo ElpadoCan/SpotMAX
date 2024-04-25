@@ -39,6 +39,7 @@ if GUI_INSTALLED:
 
     from cellacdc import apps as acdc_apps
     from cellacdc import widgets as acdc_widgets
+    from cellacdc.plot import imshow
 
     from . import widgets
 
@@ -46,6 +47,7 @@ if GUI_INSTALLED:
 
 from cellacdc import myutils as acdc_utils
 from . import is_mac, is_linux, printl, settings_path, io
+from . import core
 
 class _Dummy:
     def __init__(self, *args, **kwargs):
@@ -1016,5 +1018,55 @@ def get_local_backgr_ring_width_pixel(
     value_pixel = float(value) / pixel_size
     return round(value_pixel)
 
+def get_spotfit_image(df_spotfit: pd.DataFrame, shape: tuple[int, int, int]):
+    if len(shape) == 2:
+        shape = (1, *shape)
+    
+    model = core.GaussianModel()
+    
+    img = np.zeros(shape)
+    mask = np.zeros(shape, dtype=bool)
+    labels = np.zeros(shape, dtype=np.uint32)
+    
+    SizeZ, SizeY, SizeX = shape
+    
+    spheroid = core.Spheroid(img, show_progress=False)
+    
+    pixel_size_cols = ['voxel_size_z', 'pixel_size_y', 'pixel_size_x']
+    zyx_pixel_size = df_spotfit.iloc[0][pixel_size_cols].to_numpy()
+    
+    for row in df_spotfit.itertuples():
+        ID, spot_id = row.Index
+        
+        zyx_center = np.array(
+            (row.z_fit, row.y_fit, row.x_fit)
+        ).round().astype(int)
+        zyx_sigmas = np.array(
+            (row.sigma_z_fit, row.sigma_y_fit, row.sigma_x_fit)
+        )
+        spot_zyx_radii = zyx_sigmas*2
+        
+        semiax_len = spheroid.calc_semiax_len(0, zyx_pixel_size, spot_zyx_radii)
+        local_spot_mask = spheroid.get_local_spot_mask(semiax_len)
+        mask, _, slice_to_local, slice_crop = (
+            spheroid.index_local_into_global_mask(
+                mask, local_spot_mask, zyx_center, semiax_len, 
+                SizeZ, SizeY, SizeX, return_slice=True
+            )
+        )
+        local_spot_mask = local_spot_mask[slice_crop]
+        labels[slice_to_local][local_spot_mask] = spot_id
+        
+        local_zz, local_yy, local_xx = np.nonzero(local_spot_mask)
+        local_zyx_center = zyx_center - [s.start for s in slice_to_local]
+        
+        coeffs = (*local_zyx_center, *zyx_sigmas, row.A_fit)
+        B = row.spot_B_fit
+        spot_vals = model.func(local_zz, local_yy, local_xx, coeffs, B=B)
+        
+        img[slice_to_local][local_zz, local_yy, local_xx] += spot_vals
+        
+    return img, mask, labels
+        
 if __name__ == '__main__':
     df = get_sizes_path(r'C:\Users\Frank', return_df=True)

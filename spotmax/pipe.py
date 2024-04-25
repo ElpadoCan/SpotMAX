@@ -331,6 +331,7 @@ def reference_channel_semantic_segm(
         lab=None,
         gauss_sigma=0.0,
         keep_only_largest_obj=False,
+        keep_objects_touching_lab_intact=False,
         do_remove_hot_pixels=False,
         lineage_table=None,
         do_aggregate=True,
@@ -366,6 +367,10 @@ def reference_channel_semantic_segm(
     keep_only_largest_obj : bool, optional
         If True, keep only the largest object (determined by connected component
         labelling) per segmented object in lab. Default is False
+    keep_objects_touching_lab_intact : bool, optional
+        If `True`, the segmented objects that are partially outside of the 
+        objects in `lab` are kept intact. If `False`, the external part 
+        is erased. Default is False
     do_remove_hot_pixels : bool, optional
         If True, apply a grayscale morphological opening filter before 
         segmenting. Opening can remove small bright spots (i.e. “salt”, or 
@@ -483,7 +488,7 @@ def reference_channel_semantic_segm(
             threshold_func=thresholding_method, 
             logger_func=logger_func, return_image=True,
             keep_input_shape=keep_input_shape,
-            keep_objects_touching_lab_intact=False,
+            keep_objects_touching_lab_intact=keep_objects_touching_lab_intact,
             ridge_filter_sigmas=ridge_filter_sigmas,
             return_only_output_mask=return_only_segm,
             do_try_all_thresholds=do_try_all_thresholds,
@@ -500,7 +505,7 @@ def reference_channel_semantic_segm(
             lineage_table=lineage_table, 
             return_image=True,
             do_max_proj=False, 
-            keep_objects_touching_lab_intact=False,
+            keep_objects_touching_lab_intact=keep_objects_touching_lab_intact,
             ridge_filter_sigmas=ridge_filter_sigmas,
             return_only_output_mask=return_only_segm,
             do_try_all_thresholds=do_try_all_thresholds,
@@ -1093,7 +1098,8 @@ def _compute_obj_spots_features(
             dist_transform_spheroid = (
                 transformations.norm_distance_transform_edt(spot_mask)
             )
-        elif dist_transform_spheroid is None:
+        
+        if dist_transform_spheroid is None:
             # Do not optimise for high spot density
             sharp_spot_slice_z_transf = sharp_spot_slice_z
         else:
@@ -1176,7 +1182,8 @@ def _compute_obj_spots_features(
         
         if ref_ch_img_obj is None:
             # Raw reference channel not present --> continue
-            pbar.update()
+            if show_progress:
+                pbar.update()
             continue
 
         normalised_spot_intensities, normalised_ref_ch_intensities = (
@@ -1279,16 +1286,16 @@ def spot_detection(
     -------
     spots_coords : (N, 3) numpy.ndarray of ints
         (N, 3) array of integers where each row is the (z, y, x) coordinates 
-        of one peak. Returned only if `return_df` is False
+        of one peak. Returned only if `return_df` is `False`.
     
     df_coords : pandas.DataFrame 
         DataFrame with Cell_ID as index and columns 
         {'z', 'y', 'x'} with the detected spots coordinates.
-        Returned only if `return_df` is True
+        Returned only if `return_df` is `True`.
     
     spots_masks : list of region properties or None
         List of spots masks as boolean arrays. None if `return_spots_mask` 
-        is False.
+        is `False`.
     
     See also
     --------
@@ -1354,10 +1361,9 @@ def spot_detection(
     
     if return_df:
         if lab is None:
-            raise NameError(
-                'With `return_df=True`, `lab` cannot be None.'
-            )
-        lab, _ = transformations.reshape_lab_image_to_3D(lab, image)
+            lab = np.ones(image.shape, dtype=np.uint8)
+        else:
+            lab, _ = transformations.reshape_lab_image_to_3D(lab, image)
         df_coords = transformations.from_spots_coords_arr_to_df(
             spots_coords, lab
         )
@@ -1600,12 +1606,15 @@ def spots_calc_features_and_filter(
     if gop_filtering_thresholds is None:
         gop_filtering_thresholds = {}
     
+    if zyx_voxel_size is None:
+        zyx_voxel_size = np.array([1, 1, 1])
+    
     local_backgr_ring_width_pixel = utils.get_local_backgr_ring_width_pixel(
         local_background_ring_width, zyx_voxel_size[-1]
     )
     
     if lab is None:
-        lab = np.zeros(image.shape, dtype=np.uint8)
+        lab = np.ones(image.shape, dtype=np.uint8)
     
     lab, image = transformations.reshape_lab_image_to_3D(lab, image)
     
@@ -1755,6 +1764,7 @@ def spots_calc_features_and_filter(
                 debug=debug, 
                 logger_func=logger_func,
                 logger_warning_report=logger_warning_report,
+                show_progress=show_progress,
                 _ID=obj.label
             )
             if i == 0:
@@ -1836,8 +1846,8 @@ def spotfit(
         kernel,
         spots_img, 
         df_spots, 
-        zyx_voxel_size, 
-        zyx_spot_min_vol_um,
+        zyx_voxel_size=None, 
+        zyx_spot_min_vol_um=None,
         spots_zyx_radii_pxl=None,
         delta_tol=None,
         rp=None, 
@@ -1877,13 +1887,16 @@ def spotfit(
     df_spots : pandas.DataFrame
         DataFrame with Cell_ID as index and the columns {'z', 'y', 'x'} which 
         are the coordinates of the spots in `spots_img` to fit. 
-    zyx_voxel_size : sequence of 3 floats (z, y, x)
-        Voxel size in μm/pixel
+    zyx_voxel_size : sequence of 3 floats (z, y, x), optional
+        Voxel size in μm/pixel. If `None` this will be initialized to 
+        (1, 1, 1). Default is None
     zyx_spot_min_vol_um : (z, y, x) sequence of floats, optional
         Rough estimation of the expected spot radii in z, y, and x direction
         in μm. The values are used to build starting masks for the spotSIZE step.
         The spotSIZE step will determine the extent of each spot, i.e., the pixels 
-        that will be the input for the fitting procedure.
+        that will be the input for the fitting procedure. 
+        If `None` this will be calculated from `spots_zyx_radii_pxl` and 
+        `zyx_voxel_size`. Default is None
     spots_zyx_radii_pxl : (z, y, x) sequence of floats, optional
         Minimum distance between peaks in z, y, and x direction in pixels. 
         Used only if `drop_peaks_too_close` is True. If None and 
@@ -2061,6 +2074,14 @@ def spotfit(
     if delta_tol is None:
         delta_tol = (0, 0, 0)
     
+    if zyx_voxel_size is None:
+        zyx_voxel_size = np.array((1, 1, 1))
+    
+    if zyx_spot_min_vol_um is None:
+        zyx_spot_min_vol_um = np.array(
+            [v*s for v, s in zip(spots_zyx_radii_pxl, zyx_voxel_size)]
+        )
+    
     if spots_zyx_radii_pxl is None and drop_peaks_too_close:
         spots_zyx_radii_pxl = np.array(
             [v/s for v, s in zip(zyx_spot_min_vol_um, zyx_voxel_size)]
@@ -2110,7 +2131,8 @@ def spotfit(
                 max_number_pairs_check_merge=max_number_pairs_check_merge,
                 ref_ch_mask_or_labels=ref_ch_mask_or_labels,
                 use_gpu=use_gpu, 
-                logger_func=logger_func
+                logger_func=logger_func, 
+                show_progress=show_progress
             )
             kernel.fit()
             prev_num_spots = len(kernel.df_spotFIT_ID)

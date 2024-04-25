@@ -29,3 +29,5 @@ Multi-dimensional spot detection and quantification in microscopy data...
    tutorials/index
    misc/contributing
    api/api
+   misc/cite
+   misc/logos

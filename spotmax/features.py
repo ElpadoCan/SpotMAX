@@ -299,7 +299,12 @@ def add_distribution_metrics(
     name_idx = col_name.find("*name")
     bkgr_id = col_name[:name_idx].replace('spot_', '')
     bkgr_col = f'background_median_{bkgr_id}image'
-    bkgr_value = df.at[idx, bkgr_col]
+    
+    try:
+        bkgr_value = df.at[idx, bkgr_col]
+    except Exception as err:
+        return
+    
     bkgr_col_z = f'background_median_z_slice_{bkgr_id}image'
     bkgr_value_z = df.at[idx, bkgr_col_z]
     

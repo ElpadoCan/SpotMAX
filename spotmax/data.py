@@ -1,9 +1,106 @@
 import os
 
+import numpy as np
+
 from cellacdc.data import _Data
 from cellacdc import load
 
-from . import data_path
+from . import data_path, core
+
+def _generate_syntetic_spots_img(img, zyx_spots, zyx_sigmas):
+    model = core.GaussianModel()
+    SizeZ, SizeY, SizeX = img.shape
+    zz, yy, xx = np.ogrid[0:SizeZ, 0:SizeY, 0:SizeX]
+    num_spots = len(zyx_spots)
+
+    for zyx_spot in zyx_spots:
+        coeffs = (*zyx_spot, *zyx_sigmas, 1)
+        spot = model.func(zz, yy, xx, coeffs)
+        img += spot
+    
+    return img
+        
+
+def synthetic_spots(
+        num_spots=20,
+        shape=(25, 256, 256), 
+        spots_radii=(2, 4, 4),
+        noise_scale=0.05, 
+        noise_shape=0.03, 
+        rng_seed=11
+    ):
+    """_summary_
+
+    Parameters
+    ----------
+    num_spots : int, optional
+        Number of spots in the image. Default is 20
+    shape : (SizeY, SizeX) or (SizeZ, SizeY, SizeX) tuple of ints, optional
+        Shape of the image. Default is (25, 256, 256)
+    spots_radii : (y, x) or (z, y, x) tuple of ints, optional
+        Radii of the spots in pixels. Default is (2, 4, 4)
+    noise_scale : float, optional
+        Scale of the gamma distribution used additive noise. Default is 0.05
+    noise_shape : float, optional
+        Shape of the gamma distribution used additive noise. Default is 0.03
+    rng_seed : int, optional
+        Seed for random generator to ensure reproducibility. Default is 11
+
+    Returns
+    -------
+    img : (Y, X) or (Z, Y, X) numpy.ndarray of floats in the [0, 1] range
+        Generated image with spots modelled by a gaussian function.
+    
+    mask : (Y, X) or (Z, Y, X) numpy.ndarray of bools
+        Semantic segmentation masks of the generated spots.
+    
+    zyx_spots_coords : (`num_spots`, 2) or (`num_spots`, 3) numpy.ndarray of ints
+        The coordinates of the spots
+    """    
+    rng = np.random.default_rng(rng_seed)
+    
+    if len(shape) == 2:
+        shape = (1, *shape)
+    
+    SizeZ, SizeY, SizeX = shape
+    
+    if len(spots_radii) == 2:
+        spots_radii = (1, *spots_radii)
+              
+    sz, sy, sx = spots_radii
+    if SizeZ > 1:
+        low_z = int(np.ceil(sz))
+        high_z = int(np.floor(SizeZ-sz))
+        zz_spots = rng.integers(low_z, high_z, num_spots)
+    else:
+        zz_spots = [0]*num_spots  
+    
+    low_y = int(np.ceil(sy))
+    high_y = int(np.floor(SizeY-sy))
+    yy_spots = rng.integers(low_y, high_y, num_spots)
+    
+    low_x = int(np.ceil(sy))
+    high_x = int(np.floor(SizeY-sy))
+    xx_spots = rng.integers(low_x, high_x, num_spots)
+    
+    zyx_spots_coords = np.column_stack((zz_spots, yy_spots, xx_spots))
+    
+    img = np.zeros(shape)
+    spheroid = core.Spheroid(img, show_progress=False)
+    
+    mask = spheroid.get_spots_mask(
+        0, (1, 1, 1), spots_radii, zyx_spots_coords, 
+    )
+    
+    zyx_sigmas = np.array(spots_radii)/2
+    img = _generate_syntetic_spots_img(img, zyx_spots_coords, zyx_sigmas)
+    
+    noise = rng.gamma(noise_scale, noise_shape, size=shape)
+    
+    img += noise
+    img /= img.max()
+    
+    return img, mask, zyx_spots_coords
 
 class _SpotMaxData(_Data):
     def __init__(
