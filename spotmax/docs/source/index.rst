@@ -1,5 +1,3 @@
-
-
 .. |spotmaxlogo| image:: _static/logo.png
    :width: 64
    :target: https://github.com/ElpadoCan/spotMAX/tree/main/spotmax/resources
@@ -29,7 +27,7 @@ SpotMAX will help you with these **two tasks**:
 2. Segment and quantify **fluorescently labelled structures**
 
 SpotMAX excels in particularly challenging situations, such as 
-**low signal-to-noise ratio** and **high spot density**
+**low signal-to-noise ratio** and **high spot density**.
 
 It supports **2D, 3D, 4D, and 5D data**, i.e., z-stacks, timelapse, and multiple 
 fluorescence channels (and combinations thereof).
