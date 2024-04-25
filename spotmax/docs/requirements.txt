@@ -4,3 +4,4 @@ sphinx-copybutton
 sphinxcontrib-email
 sphinx-tabs
 sphinx-toolbox
+sphinx-carousel

@@ -25,7 +25,8 @@ extensions = [
     'sphinx_copybutton',
     'sphinxcontrib.email',
     'sphinx_tabs.tabs',
-    'sphinx_toolbox.confval'
+    'sphinx_toolbox.confval',
+    "sphinx_carousel.carousel",
     # 'nbsphinx'
     # 'sphinx_rtd_dark_mode'
 ]
@@ -48,6 +49,14 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ["_static"]
 html_favicon = "_static/favicon.ico"
 html_logo = "_static/logo.png"
+
+html_context = {
+    'display_github': True, # Integrate GitHub
+    'github_user': 'ElpadoCan', 
+    'github_repo': 'spotMAX',
+    'github_version': 'main',
+    'conf_py_path': '/spotmax/docs',
+}
 
 # -- My css
 html_css_files = [
