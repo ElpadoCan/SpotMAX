@@ -1,8 +1,10 @@
 .. _GNU General Public License v3.0: https://github.com/ElpadoCan/spotMAX/blob/main/LICENSE
 .. _Contributing Guide: blabla
+.. _installation guide: blabla
+.. _PyPI: https://pypi.org/project/spotmax/
 
 
-.. |spotmaxlogo| image:: _static/logo.png
+.. |spotmaxlogo| image:: spotmax/docs/_static/logo.png
    :width: 64
    :target: https://github.com/ElpadoCan/spotMAX/tree/main/spotmax/resources
 
@@ -10,7 +12,7 @@
 =================================
 
 Fluorescence microscopy data analysis in Python
------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you need to **analyse fluorescence microscopy data** you are probably in the 
 right place.
@@ -25,6 +27,16 @@ SpotMAX excels in particularly challenging situations, such as
 
 It supports **2D, 3D, 4D, and 5D data**, i.e., z-stacks, timelapse, and multiple 
 fluorescence channels (and combinations thereof).
+
+Installation
+------------
+
+SpotMAX is published on `PyPI`_, therefore it can simply be installed with::
+
+    pip install spotmax
+
+Depending on how you plan to use it, you will need additional packages. 
+See here for the `installation guide`_
 
 Resources
 ---------

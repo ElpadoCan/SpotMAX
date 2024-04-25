@@ -12,7 +12,7 @@
 =================================
 
 Fluorescence microscopy data analysis in Python
------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 |githublogo| Source code on `GitHub`_
 
