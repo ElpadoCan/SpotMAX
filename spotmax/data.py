@@ -1,11 +1,14 @@
 import os
 
 import numpy as np
+import pandas as pd
 
 from cellacdc.data import _Data
 from cellacdc import load
 
+from . import ZYX_LOCAL_COLS, ZYX_GLOBAL_COLS
 from . import data_path, core
+
 
 def _generate_syntetic_spots_img(img, zyx_spots, zyx_sigmas):
     model = core.GaussianModel()
@@ -19,7 +22,53 @@ def _generate_syntetic_spots_img(img, zyx_spots, zyx_sigmas):
         img += spot
     
     return img
+
+def get_random_coords(shape, num_points, rng_seed=11, rng=None):
+    if len(shape) == 2:
+        shape = (1, *shape)
+    
+    if rng is None:
+        rng = np.random.default_rng(rng_seed)
+    
+    Z, Y, X = shape
+    
+    zz = rng.integers(0, Z, num_points)
+    yy = rng.integers(0, Y, num_points)
+    xx = rng.integers(0, X, num_points)
+    
+    zyx_coords = np.column_stack((zz, yy, xx))
+    return zyx_coords
+    
+def add_random_coords_df(
+        df, shape, num_points, lab=None, rng_seed=11, rng=None
+    ):
+    zyx_coords = get_random_coords(
+        shape, num_points, rng_seed=rng_seed, rng=rng
+    )
+    
+    columns = [*ZYX_GLOBAL_COLS, *ZYX_LOCAL_COLS]
+    if lab is None:
+        zyx_coords = np.hstack((zyx_coords, zyx_coords))
+        start_new_spot_id = df.index.get_level_values(1).max() + 1
+        stop_new_spot_id = start_new_spot_id + num_points
+        new_spot_ids = range(start_new_spot_id, stop_new_spot_id)
+        idx_names = df.index.names
+        index = pd.MultiIndex.from_product(([1], new_spot_ids), names=idx_names)
+        df_new_coords = pd.DataFrame(
+            data=zyx_coords, index=index, columns=columns
+        )
+    
+    df_with_new_coords = pd.concat([df, df_new_coords])
+    return df_with_new_coords
         
+def add_point_df_spots(df, point, ID, spot_id):
+    columns = [*ZYX_GLOBAL_COLS, *ZYX_LOCAL_COLS]
+    idx_names = df.index.names
+    index = pd.MultiIndex.from_product(([ID], [spot_id]), names=idx_names)
+    data = np.array([[*point, *point]])
+    df_point = pd.DataFrame(data=data, index=index, columns=columns)
+    df = pd.concat([df, df_point])
+    return df
 
 def synthetic_spots(
         num_spots=20,

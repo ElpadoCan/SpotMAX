@@ -1067,6 +1067,7 @@ def get_spotfit_image(df_spotfit: pd.DataFrame, shape: tuple[int, int, int]):
         img[slice_to_local][local_zz, local_yy, local_xx] += spot_vals
         
     return img, mask, labels
-        
+
+
 if __name__ == '__main__':
     df = get_sizes_path(r'C:\Users\Frank', return_df=True)

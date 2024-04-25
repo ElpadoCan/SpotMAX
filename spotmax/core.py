@@ -2950,6 +2950,7 @@ class SpotFIT(Spheroid):
                 largest_idx = np.argmax((sigma_1, sigma_2))
                 
                 largest_spot_id = pair_ids[largest_idx]
+                narrowest_spot_idx = int(not largest_idx)
                 narrowest_spot_id = pair_ids[int(not largest_idx)]
                 
                 single_gof_scores = self._fit_peaks_pair_single_peak(
@@ -2963,7 +2964,7 @@ class SpotFIT(Spheroid):
                 if single_RMSE <= pair_RMSE:
                     repeat_spotsize = True
                     self.df_spots_ID = df_spots_ID.drop(index=narrowest_spot_id)
-                    dropped_coords.add(tuple(pair_coords[narrowest_spot_id]))
+                    dropped_coords.add(tuple(pair_coords[narrowest_spot_idx]))
                     continue
                 
                 # Check if the two peaks are within twice the largest sigma
@@ -2985,7 +2986,7 @@ class SpotFIT(Spheroid):
                 repeat_spotsize = True
                 self.df_spots_ID = df_spots_ID.drop(index=narrowest_spot_id)
                 
-                dropped_coords.add(tuple(pair_coords[narrowest_spot_id]))
+                dropped_coords.add(tuple(pair_coords[narrowest_spot_idx]))
                 
         return repeat_spotsize
         

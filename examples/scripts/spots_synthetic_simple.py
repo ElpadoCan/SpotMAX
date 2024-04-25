@@ -36,7 +36,7 @@ imshow(*result.values(), axis_titles=result.keys())
 
 # Detect the spots
 print('Detecting the spots...')
-spots_pred_mask = result['threshold_otsu']
+spots_pred_mask = result['threshold_li']
 spots_detect_img = result['input_image']
 spots_zyx_radii_pxl = spots_radii
 
@@ -50,6 +50,22 @@ print('-'*100)
 print(f'Number of detected spots = {len(df_spots_coords)}')
 print('-'*100)
 
+# Add 5 random false positives
+num_false_pos = 5
+df_spots_coords = sm.data.add_random_coords_df(
+    df_spots_coords, spots_img.shape, num_false_pos
+)
+
+# Add more challenging false positive
+fp_zyx_coord = df_spots_coords.iloc[0][['z', 'y', 'x']].to_numpy()
+fp_zyx_coord[2] -= spots_radii[2]-1
+
+new_spot_id = df_spots_coords.index.get_level_values(1).max() + 1
+
+df_spots_coords = sm.data.add_point_df_spots(
+    df_spots_coords, fp_zyx_coord, 1, new_spot_id
+)
+
 # Quantify the spots
 print('Quantifying the spots...')
 keys, dfs_spots_det, dfs_spots_gop = sm.pipe.spots_calc_features_and_filter(
@@ -57,7 +73,7 @@ keys, dfs_spots_det, dfs_spots_gop = sm.pipe.spots_calc_features_and_filter(
     sharp_spots_image=spots_detect_img, 
     optimise_for_high_spot_density=True, 
     show_progress=False, 
-    verbose=False
+    verbose=True
 )
 df_spots = pd.concat(
     dfs_spots_gop, keys=keys, names=['frame_i', 'Cell_ID']).loc[0]
@@ -68,14 +84,31 @@ columns = [
 ]
 print(df_spots[columns].head(10))
 
+# Quantify spots and filter them based on `spot_vs_backgr_effect_size_glass > 0`
+gop_filtering_thresholds = sm.config.get_features_thresholds_filter(
+    'spot_vs_backgr_effect_size_glass, 0'
+)
+
+keys, dfs_spots_det, dfs_spots_gop = sm.pipe.spots_calc_features_and_filter(
+    spots_img, spots_zyx_radii_pxl, df_spots_coords, 
+    sharp_spots_image=spots_detect_img, 
+    gop_filtering_thresholds=gop_filtering_thresholds,
+    optimise_for_high_spot_density=True, 
+    show_progress=False, 
+    verbose=True
+)
+df_spots = pd.concat(
+    dfs_spots_gop, keys=keys, names=['frame_i', 'Cell_ID']).loc[0]
+
 # Quantify spots with spotFIT
 print('Runnning spotFIT...')
 spotfit_kernel = sm.core.SpotFIT()
 df_spotfit, _ = sm.pipe.spotfit(
     spotfit_kernel, spots_img, df_spots, 
     spots_zyx_radii_pxl=spots_zyx_radii_pxl, 
+    spots_masks_check_merge=spots_pred_mask,
     return_df=True, 
-    verbose=False,
+    verbose=True,
     show_progress=False
 )
 print('')
