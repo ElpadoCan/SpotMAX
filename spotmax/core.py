@@ -137,6 +137,13 @@ class _DataLoader:
         self.logger.info(f'[ERROR]: {error}{error_up_str}')       
         raise error
     
+    def _log_files_images_path(self, images_path):
+        files = os.listdir(images_path)
+        files_format = '\n'.join([f'  * {file}' for file in files])
+        print('-'*100)
+        self.logger.info(f'Files present in "{images_path}":\n\n{files_format}')
+        print('*'*100)
+    
     def _load_data_from_images_path(
             self, images_path: os.PathLike, 
             spots_ch_endname: str, 
@@ -147,6 +154,7 @@ class _DataLoader:
             lineage_table_endname: str, 
             df_spots_coords_in_endname: str
         ):
+        self._log_files_images_path(images_path)
         channels = {
             f'{spots_ch_endname};;1': 'spots_ch', 
             f'{ref_ch_endname};;2': 'ref_ch', 
@@ -159,11 +167,16 @@ class _DataLoader:
             channel = channel_id.split(';;')[0]
             if not channel:
                 continue
-            ch_path = io.get_filepath_from_channel_name(
-                images_path, os.path.basename(channel), 
-                raise_on_duplicates=False
-            )
-            if not os.path.exists(ch_path):
+            
+            try:
+                ch_path = io.get_filepath_from_channel_name(
+                    images_path, os.path.basename(channel), 
+                    raise_on_duplicates=False
+                )
+                if not os.path.exists(ch_path):
+                    raise FileNotFoundError(f'File "{ch_path}" does not exist')
+            except Exception as err:
+                self.logger.exception(traceback.format_exc())
                 self._critical_channel_not_found(channel, images_path)
                 return
 
@@ -5914,6 +5927,13 @@ class Kernel(_ParamsParser):
         self.logger.info(
             f'Running spotMAX v{version} with Cell-ACDC v{acdc_version}')
         print('='*100)
+        
+        self.logger.info(f'Analysis parameters file: "{params_path}"')
+        
+        print('-'*100)
+        with open(params_path, 'r') as file:
+            self.logger.info(f'Analysis parameters:\n\n{file.read()}')
+        print('*'*100)
         
         self._force_default = force_default_values
         self._force_close_on_critical = force_close_on_critical

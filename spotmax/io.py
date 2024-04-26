@@ -2729,34 +2729,39 @@ def write_to_ini(configparser, ini_filepath):
 def get_filepath_from_channel_name(
         images_path, channel_name, raise_on_duplicates=True
     ):
-    valid_channels = (
-        channel_name, 
+    valid_patterns = (
         f'{channel_name}_aligned.npz', 
         f'{channel_name}_aligned.h5', 
         f'{channel_name}.npz', 
         f'{channel_name}.npy', 
         f'{channel_name}.tif', 
+        channel_name,
     )
-    found_files = []
-    for file in utils.listdir(images_path):
-        for valid_channel in valid_channels:
-            if file.endswith(valid_channel):
-                found_files.append(file)
+    found_files = defaultdict(list)
+    for pattern in valid_patterns:
+        for file in utils.listdir(images_path):
+            if file.endswith(pattern):
+                found_files[pattern].append(file)
     
     if not found_files:
         return ''
     
+    first_pattern_found = list(found_files.keys())[0]
+    found_files = found_files[first_pattern_found]
+    
     if len(found_files) > 1:
         closest_files = []
         basename = os.path.commonprefix(found_files)
-        closest_pattern = f'{basename}{channel_name}'
+        endname = first_pattern_found
+        closest_pattern = f'{basename}{endname}'
         for file in found_files:
             file_noext, _ = os.path.splitext(file)
             if file_noext == closest_pattern:
                 closest_files.append(file)
             
             if file == closest_pattern:
-                closest_files.append(file)            
+                closest_files.append(file)    
+                  
         found_files = closest_files
         
     if len(found_files) > 1 and raise_on_duplicates:

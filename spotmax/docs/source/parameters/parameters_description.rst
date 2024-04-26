@@ -777,16 +777,17 @@ Spots channel
 
 .. confval:: Spots detection method
 
-  Method used to detect the spots. This can be either ``Detect local peaks`` or 
-  ``Label prediction mask``. 
+  Method used to detect the spots. This can be either ``peak_local_max`` (choose 
+  ``Detect local peaks`` in the GUI) or ``label_prediction_mask`` ( choose 
+  ``Label prediction mask`` in the GUI). 
 
-  Choose ``Label prediction mask`` when the masks of the spots after segmentation 
+  Choose ``label_prediction_mask`` when the masks of the spots after segmentation 
   are all separated. If some spots are merged, the only way to separate them is 
   to detect the local peaks. See :confval:`Spots segmentation method` for more 
   information. 
 
   :type: string
-  :default: ``Detect local peaks``  
+  :default: ``peak_local_max`` (``Detect local peaks`` in the GUI)  
 
 .. confval:: Features and thresholds for filtering true spots
 
@@ -982,6 +983,13 @@ Spots channel
   parameter, and ``<text_to_append>`` is the text provided at the 
   :confval:`Text to append at the end of the output files` 
   parameter.
+
+  .. important::
+
+    When :confval:`Spots detection method` is ``peak_local_max``, the masks of 
+    the spots are spheroids with :confval:`Spot (z, y, x) minimum dimensions (radius)` 
+    radii. When the detection method is ``label_prediction_mask``, the masks 
+    of the spots are the thresholded spots' channel intensities.
 
   :type: boolean
   :default: ``False``
