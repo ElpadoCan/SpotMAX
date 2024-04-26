@@ -73,6 +73,22 @@ SpotMAX excels in particularly challenging situations, such as
 It supports **2D, 3D, 4D, and 5D data**, i.e., z-stacks, timelapse, and multiple 
 fluorescence channels (and combinations thereof).
 
+.. raw:: html
+
+   <figure>
+
+   <video width="100%" controls autoplay loop muted playsinline>
+      <source src="_static/timelapse_yeast_mito.mp4" type="video/mp4" />
+      <img src="_static/screenshot_timelapse_yeast_mito.png"
+         title="Your browser does not support the video tag"
+         alt="Timelpase microscopy of <i>S. cerevisiae</i> with detection of mitochondrial DNA and segmetnation of mitochondrial network. Dataset by Dr. Padovani F., Helmholtz Munich, Germany"
+      >
+   </video>
+
+   <figcaption>Timelpase microscopy of <i>S. cerevisiae</i> with detection of mitochondrial DNA and segmentation of mitochondrial network.</figcaption>
+
+   </figure>
+
 .. toctree::
    :maxdepth: 2
 

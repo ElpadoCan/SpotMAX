@@ -26,7 +26,8 @@ extensions = [
     'sphinxcontrib.email',
     'sphinx_tabs.tabs',
     'sphinx_toolbox.confval',
-    "sphinx_carousel.carousel",
+    'sphinx_carousel.carousel',
+    'sphinxcontrib.video',
     # 'nbsphinx'
     # 'sphinx_rtd_dark_mode'
 ]

@@ -5,3 +5,4 @@ sphinxcontrib-email
 sphinx-tabs
 sphinx-toolbox
 sphinx-carousel
+sphinxcontrib-video

@@ -1,1 +1,2 @@
 prune spotmax/docs/source/images
+prune spotmax/docs/source/_static
