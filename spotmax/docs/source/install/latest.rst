@@ -32,8 +32,9 @@ Install latest version
     
     .. tip:: 
 
-        If you **already have the stable version** and you want to upgrade to the 
-        latest version run the following command instead:
+        If you **already have the** :ref:`stable version <install-stable-version>` 
+        and you want to upgrade to the latest version run the following command 
+        instead:
 
         .. code-block::
 

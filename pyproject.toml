@@ -71,7 +71,7 @@ include-package-data = true
 namespaces = false
 
 [tool.setuptools_scm]
-version_file = "cellacdc/_version.py"
+version_file = "spotmax/_version.py"
 
 # Ignore DeprecationWarnings
 [tool.pytest.ini_options]

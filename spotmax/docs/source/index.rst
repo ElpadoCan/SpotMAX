@@ -24,15 +24,7 @@ right place.
 SpotMAX will help you with these **two tasks**:
 
 1. Detect and quantify **globular-like structures** (a.k.a. "spots")
-2. Segment and quantify **fluorescently labelled structures**
-
-SpotMAX excels in particularly challenging situations, such as 
-**low signal-to-noise ratio** and **high spot density**.
-
-It supports **2D, 3D, 4D, and 5D data**, i.e., z-stacks, timelapse, and multiple 
-fluorescence channels (and combinations thereof).
-
-Here some examples:
+2. Segment and quantify **fluorescently labelled structures** (e.g., mitochondria, nucelus, etc.)
 
 .. carousel::
    :show_captions_below:
@@ -74,6 +66,12 @@ Here some examples:
       Inspect the results
 
       Annotate detected spots and inspect features by hovering on the spot
+
+SpotMAX excels in particularly challenging situations, such as 
+**low signal-to-noise ratio** and **high spot density**.
+
+It supports **2D, 3D, 4D, and 5D data**, i.e., z-stacks, timelapse, and multiple 
+fluorescence channels (and combinations thereof).
 
 .. toctree::
    :maxdepth: 2
