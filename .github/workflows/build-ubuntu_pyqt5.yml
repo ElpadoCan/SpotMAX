@@ -37,8 +37,7 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
         python -m pip install -e .
         python -m pip install "git+https://github.com/SchmollerLab/Cell_ACDC.git"
-        python -m pip install qtpy pyqtgraph seaborn tables
-        python -m pip install PyQt5
+        python -m pip install -r requirements_gui_pyqt5.txt
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
