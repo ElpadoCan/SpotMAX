@@ -353,8 +353,11 @@ class guiTabControl(QTabWidget):
         containerWidget = QWidget()
         containerLayout = QVBoxLayout()
 
+        buttonsContainerWidget = QWidget()
+        buttonsScrollArea = widgets.InvisibleScrollArea()
+        buttonsScrollArea.setWidget(buttonsContainerWidget)
+        buttonsScrollArea.setWidgetResizable(True)
         buttonsLayout = QHBoxLayout()
-        
         self.saveParamsButton = acdc_widgets.savePushButton(
             'Save parameters to file...'
         )
@@ -376,6 +379,11 @@ class guiTabControl(QTabWidget):
         self.runSpotMaxButton = widgets.RunSpotMaxButton('  Run analysis...')
         buttonsLayout.addWidget(self.runSpotMaxButton)
         
+        buttonsLayout.setContentsMargins(0, 0, 0, 0)
+        buttonsContainerWidget.setLayout(buttonsLayout)
+        buttonsScrollArea.setFixedHeight(
+            buttonsContainerWidget.sizeHint().height()+4)
+        
         buttonsBottomLayout = QHBoxLayout()
         
         self.setMeasurementsButton = acdc_widgets.setPushButton(
@@ -383,10 +391,15 @@ class guiTabControl(QTabWidget):
         )
         buttonsBottomLayout.addWidget(self.setMeasurementsButton)
         buttonsBottomLayout.addStretch(1)
+        self.paramsTabButtonsContainerWidget = buttonsContainerWidget
 
-        containerLayout.addLayout(buttonsLayout)
+        # containerLayout.addLayout(buttonsLayout)
+        containerLayout.addWidget(buttonsScrollArea)
         containerLayout.addWidget(self.parametersTab)
         containerLayout.addLayout(buttonsBottomLayout)
+        containerLayout.setStretch(0, 0)
+        containerLayout.setStretch(1, 1)
+        containerLayout.setStretch(2, 0)
         
         containerWidget.setLayout(containerLayout)
 
@@ -742,6 +755,10 @@ class InspectEditResultsTabWidget(QWidget):
 
         mainLayout = QVBoxLayout()
         
+        buttonsContainerWidget = QWidget()
+        buttonsScrollArea = widgets.InvisibleScrollArea()
+        buttonsScrollArea.setWidget(buttonsContainerWidget)
+        buttonsScrollArea.setWidgetResizable(True)
         buttonsLayout = QHBoxLayout()
         
         self.loadAnalysisButton = acdc_widgets.OpenFilePushButton(
@@ -752,6 +769,11 @@ class InspectEditResultsTabWidget(QWidget):
         
         helpButton = acdc_widgets.helpPushButton('Help...')
         buttonsLayout.addWidget(helpButton)
+        
+        buttonsLayout.setContentsMargins(0, 0, 0, 0)
+        buttonsContainerWidget.setLayout(buttonsLayout)
+        buttonsScrollArea.setFixedHeight(
+            buttonsContainerWidget.sizeHint().height()+4)
         
         scrollArea = QScrollArea(self)
         scrollArea.setWidgetResizable(True)
@@ -771,8 +793,10 @@ class InspectEditResultsTabWidget(QWidget):
         scrollAreaLayout.addWidget(self.viewFeaturesGroupbox)
         scrollArea.setWidget(scrollAreaWidget)
         
-        mainLayout.addLayout(buttonsLayout)
+        mainLayout.addWidget(buttonsScrollArea)
         mainLayout.addWidget(scrollArea)
+        mainLayout.setStretch(0, 0)
+        mainLayout.setStretch(1, 1)
         
         self.setLayout(mainLayout)
         
@@ -1229,6 +1253,11 @@ class AutoTuneTabWidget(QWidget):
 
         buttonsLayout = QHBoxLayout()
         
+        buttonsContainerWidget = QWidget()
+        buttonsScrollArea = widgets.InvisibleScrollArea()
+        buttonsScrollArea.setWidget(buttonsContainerWidget)
+        buttonsScrollArea.setWidgetResizable(True)
+        
         # Start adding points autotune button
         self.addAutoTunePointsButton = widgets.AddAutoTunePointsButton()
         buttonsLayout.addWidget(self.addAutoTunePointsButton)
@@ -1249,11 +1278,20 @@ class AutoTuneTabWidget(QWidget):
 
         self.autoTuneGroupbox = AutoTuneGroupbox(parent=self)
         autoTuneScrollArea.setWidget(self.autoTuneGroupbox)
+        
+        buttonsLayout.setContentsMargins(0, 0, 0, 0)
+        buttonsContainerWidget.setLayout(buttonsLayout)
+        buttonsScrollArea.setFixedHeight(
+            buttonsContainerWidget.sizeHint().height()+4)
 
-        layout.addLayout(buttonsLayout)
+        layout.addWidget(buttonsScrollArea)
         layout.addWidget(autoTuneScrollArea)
         # layout.addStretch(1)
         # layout.addWidget(self.autoTuneGroupbox)
+        
+        layout.setStretch(0, 0)
+        layout.setStretch(1, 1)
+        
         self.setLayout(layout)
 
         autoTuningButton.sigToggled.connect(self.emitAutoTuningSignal)
@@ -4138,5 +4176,3 @@ class EditResultsGropbox(QGroupBox):
         src_df_filename = button.filename
         ini_filepath = self.spotsItems.getAnalysisParamsIniFilepath(button)
         self.sigComputeFeatures.emit(text_to_add, src_df_filename, ini_filepath)
-        
-    

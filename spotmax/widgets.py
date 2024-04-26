@@ -3380,3 +3380,19 @@ class LocalBackgroundRingWidthWidget(QWidget):
     
     def unit(self):
         return self.unitCombobox.currentText()
+
+class InvisibleScrollArea(QScrollArea):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setStyleSheet(
+            'QScrollArea {background: transparent;}'
+            'QScrollArea > QWidget > QWidget { background: transparent;}'
+        )
+
+class DockWidget(QDockWidget):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        self.installEventFilter(self)

@@ -12,7 +12,7 @@ import pandas as pd
 from qtpy.QtCore import (
     Qt, QTimer, QThreadPool, QMutex, QWaitCondition, QEventLoop
 )
-from qtpy.QtGui import QIcon, QGuiApplication
+from qtpy.QtGui import QIcon, QGuiApplication, QMouseEvent
 from qtpy.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
 
 # Interpret image data as row-major instead of col-major
@@ -286,7 +286,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.gui_createParamsDockWidget()
     
     def gui_createParamsDockWidget(self):
-        self.computeDockWidget = QDockWidget('spotMAX Tab Control', self)
+        self.computeDockWidget = widgets.DockWidget('spotMAX Tab Control', self)
         guiTabControl = dialogs.guiTabControl(
             parent=self.computeDockWidget, logging_func=self.logger.info
         )
@@ -2954,12 +2954,14 @@ class spotMAX_Win(acdc_gui.guiWin):
     def resizeComputeDockWidget(self):
         guiTabControl = self.computeDockWidget.widget()
         paramsScrollArea = guiTabControl.parametersTab
-        autoTuneScrollArea = guiTabControl.autoTuneTabWidget
+        # autoTuneScrollArea = guiTabControl.autoTuneTabWidget
         verticalScrollbar = paramsScrollArea.verticalScrollBar()
-        groupboxWidth = autoTuneScrollArea.size().width()
+        # groupboxWidth = autoTuneScrollArea.size().width()
         scrollbarWidth = verticalScrollbar.size().width()
-        minWidth = groupboxWidth + scrollbarWidth + 30
-        self.resizeDocks([self.computeDockWidget], [minWidth], Qt.Horizontal)
+        # minWidth = groupboxWidth + scrollbarWidth + 30        
+        w = guiTabControl.paramsTabButtonsContainerWidget.sizeHint().width()
+        w += scrollbarWidth
+        self.resizeDocks([self.computeDockWidget], [w+10], Qt.Horizontal)
         self.showParamsDockButton.click()
     
     def zSliceScrollBarActionTriggered(self, action):
