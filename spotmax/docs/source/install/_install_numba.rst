@@ -11,11 +11,15 @@ installing ``numba`` with the following command:
 
     .. tab:: conda
         
-        ``conda install numba``
+        .. code-block::
+        
+            conda install numba
     
     .. tab:: pip
         
-        ``pip install numba``
+        .. code-block::
+    
+            pip install numba
 
 .. note::
 

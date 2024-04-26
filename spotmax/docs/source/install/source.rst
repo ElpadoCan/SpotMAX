@@ -49,11 +49,13 @@ If you want to try out experimental features (and, if you have time, maybe repor
     environment with the command ``conda activate acdc`` every time you 
     open a new terminal before starting Cell-ACDC.
     
-    The first time you run Cell-ACDC you will be guided through the automatic 
-    installation of the GUI libraries. Simply answer ``y`` in the terminal when 
+    The first time you run Cell-ACDC you will be guided through the **automatic 
+    installation of the GUI libraries**. Simply answer ``y`` in the terminal when 
     asked. 
 
     At the end you might have to re-start Cell-ACDC. 
+
+    .. include:: _gui_packages.rst
 
 .. include:: _install_numba.rst
 
