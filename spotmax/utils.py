@@ -1,5 +1,4 @@
 import os
-from posixpath import isabs
 import sys
 import pandas as pd
 import datetime
@@ -8,14 +7,12 @@ import cv2
 import logging
 import traceback
 from tqdm import tqdm
+from typing import Tuple
 import numpy as np
-import tkinter as tk
 import pathlib
 import re
-from collections.abc import Iterable
 from uuid import uuid4
 import configparser
-from functools import wraps, partial
 from urllib.parse import urlparse
 from natsort import natsort_keygen, natsorted
 
@@ -1018,7 +1015,7 @@ def get_local_backgr_ring_width_pixel(
     value_pixel = float(value) / pixel_size
     return round(value_pixel)
 
-def get_spotfit_image(df_spotfit: pd.DataFrame, shape: tuple[int, int, int]):
+def get_spotfit_image(df_spotfit: pd.DataFrame, shape: Tuple[int, int, int]):
     if len(shape) == 2:
         shape = (1, *shape)
     

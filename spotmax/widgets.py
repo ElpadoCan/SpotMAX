@@ -6,7 +6,7 @@ import re
 import traceback
 from natsort import natsorted
 import webbrowser
-from pprint import pprint
+
 from functools import partial
 
 import numpy as np

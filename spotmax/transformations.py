@@ -1,5 +1,7 @@
 import os
 
+from typing import Tuple
+
 import math
 import numpy as np
 import pandas as pd
@@ -954,7 +956,7 @@ def add_closest_ID_col(
     
 def extend_3D_segm_in_z(
         segm_data: 'np.ndarray[int]', 
-        low_high_range: tuple[float, float], 
+        low_high_range: Tuple[float, float], 
         errors='raise', 
         logger_func=print,
     ):

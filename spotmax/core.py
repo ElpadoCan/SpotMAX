@@ -3,7 +3,7 @@ import os
 import warnings
 import shutil
 import traceback
-
+from typing import Tuple
 from tqdm import tqdm
 import time
 from datetime import datetime, timedelta
@@ -2052,11 +2052,11 @@ class GaussianModel:
             num_spots_s, num_coeffs, fit_ids,
             xy_center_half_interval_val: float, 
             z_center_half_interval_val: float, 
-            sigma_x_min_max_expr: tuple[str, str],
-            sigma_y_min_max_expr: tuple[str, str],
-            sigma_z_min_max_expr: tuple[str, str],
-            A_min_max_expr: tuple[str, str],
-            B_min_max_expr: tuple[str, str],
+            sigma_x_min_max_expr: Tuple[str, str],
+            sigma_y_min_max_expr: Tuple[str, str],
+            sigma_z_min_max_expr: Tuple[str, str],
+            A_min_max_expr: Tuple[str, str],
+            B_min_max_expr: Tuple[str, str],
         ):
         low_limit = np.zeros(num_spots_s*num_coeffs+1)
         high_limit = np.zeros(num_spots_s*num_coeffs+1)

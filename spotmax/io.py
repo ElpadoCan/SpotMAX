@@ -1,4 +1,3 @@
-from distutils.fancy_getopt import wrap_text
 import os
 from posixpath import basename
 import sys
