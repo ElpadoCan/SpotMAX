@@ -5703,8 +5703,15 @@ class Kernel(_ParamsParser):
                 series_agg = df_agg.loc[idx_agg, col]
                 if pd.api.types.is_bool_dtype(series_agg):
                     series_agg = series_agg.astype(int)
-                    import pdb; pdb.set_trace()
-                    
+                elif pd.api.types.is_object_dtype(series_agg):
+                    obj_to_dtypes = ('int', 'float', 'str')
+                    for _dtype in obj_to_dtypes:
+                        try:
+                            series_agg = series_agg.astype(_dtype)
+                            break
+                        except Exception as err:
+                            pass
+                
                 df_spots.loc[idx_spots, col] = series_agg
                 
     
