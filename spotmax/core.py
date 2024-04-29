@@ -5699,8 +5699,14 @@ class Kernel(_ParamsParser):
             for col in COLUMNS_FROM_DF_AGG:
                 if col not in df_agg.columns:
                     continue
-
-                df_spots.loc[idx_spots, col] = df_agg.loc[idx_agg, col]
+                
+                series_agg = df_agg.loc[idx_agg, col]
+                if pd.api.types.is_bool_dtype(series_agg):
+                    series_agg = series_agg.astype(int)
+                    import pdb; pdb.set_trace()
+                    
+                df_spots.loc[idx_spots, col] = series_agg
+                
     
     def add_post_analysis_features(self, dfs):
         zyx_voxel_size = self.metadata['zyxVoxelSize']
