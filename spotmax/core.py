@@ -3916,7 +3916,7 @@ class Kernel(_ParamsParser):
             keep_objects_touching_lab_intact=False, do_aggregate=False, 
             df_agg=None, frame_i=0, vox_to_um3=None, zyx_tolerance=None, 
             ridge_filter_sigmas=0.0, verbose=True, raw_ref_ch_img=None, 
-            return_filtered_img=False, filtering_features_thresholds=None   
+            return_filtered_img=False, filtering_features_thresholds=None, 
         ):
         if self._is_lab_all_zeros(lab):
             df_agg['ref_ch_vol_vox'] = np.nan
@@ -4930,7 +4930,7 @@ class Kernel(_ParamsParser):
                 ref_ch_img, lab_rp=lab_rp, lab=lab, 
                 threshold_method=ref_ch_threshold_method, 
                 keep_only_largest_obj=is_ref_ch_single_obj,
-                ref_ch_out_objs_keep_intact=ref_ch_out_objs_keep_intact,
+                keep_objects_touching_lab_intact=ref_ch_out_objs_keep_intact,
                 df_agg=df_agg, 
                 frame_i=frame_i, 
                 do_aggregate=do_aggregate,
