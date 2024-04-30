@@ -690,14 +690,15 @@ def reference_channel_quantify(
             # Add intensity metrics
             sub_foregr_vals = ref_ch_img_local[sub_obj.slice][sub_obj.image]
             for name, func in distribution_metrics_func.items():
-                df_ref_ch.loc[sub_obj.label, f'ref_ch_{name}_intensity'] = (
+                col = f'sub_obj_ref_ch_{name}_intensity'
+                df_ref_ch.loc[sub_obj.label, col] = (
                     func(sub_foregr_vals)
                 )
             
             # Add background corrected metrics
             try:
                 sub_mean_val = (
-                    df_ref_ch[sub_obj.label, 'sub_obj_ref_ch_mean_intensity']
+                    df_ref_ch.loc[sub_obj.label, 'sub_obj_ref_ch_mean_intensity']
                 )
                 sub_backgr_val = backgr_val.loc[sub_obj.label]
                 sub_backr_corr_mean = sub_mean_val - sub_backgr_val
@@ -724,12 +725,12 @@ def reference_channel_quantify(
     if filtering_features_thresholds is None:
         return df_agg, df_ref_ch, ref_ch_segm
     
-    df_ref_ch = filters.filter_df_from_features_thresholds(
+    df_ref_ch_filtered = filters.filter_df_from_features_thresholds(
         df_ref_ch, 
         filtering_features_thresholds,
         logger_func=logger_func
     )
-    
+    df_ref_ch = df_ref_ch_filtered
     # Filter valid segmentation masks
     filtered_ref_ch_segm = np.zeros_like(ref_ch_segm)
     for (ID, id), _ in df_ref_ch.groupby(level=(1, 2)):
@@ -2287,21 +2288,22 @@ def filter_spots_from_features_thresholds(
 
 def _log_filtered_number_spots_from_dfs(
         start_df, end_df, frame_i, logger_func=print, 
-        category='valid spots based on spotFIT features'
+        category='valid spots based on spotFIT features', 
+        objects_name='spots', index_names=('Cell_ID', 'spot_id')
     ):
     start_num_spots_df = (
         start_df.reset_index()
-        [['Cell_ID', 'spot_id']]
+        [list(index_names)]
         .groupby('Cell_ID')
         .count()
-        .rename(columns={'spot_id': 'Before filtering'})
+        .rename(columns={index_names[-1]: 'Before filtering'})
     )
     end_num_spots_df = (
         end_df.reset_index()
-        [['Cell_ID', 'spot_id']]
+        [list(index_names)]
         .groupby('Cell_ID')
         .count()
-        .rename(columns={'spot_id': 'After filtering'})
+        .rename(columns={index_names[-1]: 'After filtering'})
     )
     
     dfs = [start_num_spots_df, end_num_spots_df]
@@ -2314,12 +2316,20 @@ def _log_filtered_number_spots_from_dfs(
     different_nums_df = start_end_df[different_nums_mask]
     
     if different_nums_df.empty:
-        info = 'All spots are valid'
+        info = f'All {objects_name} are valid'
     else:
         info = different_nums_df
     
     print('')
-    header = f'Frame n. {frame_i+1}: number of spots after filtering {category}:'
+    if frame_i is not None:
+        header = (
+            f'Frame n. {frame_i+1}: number of {objects_name} '
+            f'after filtering {category}:'
+        )
+    else:
+        header = (
+            f'Number of {objects_name} after filtering {category}:'
+        )
     print('*'*len(header))
     logger_func(f'{header}\n\n{info}')
     print('-'*len(header))

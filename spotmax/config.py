@@ -379,10 +379,10 @@ def get_features_thresholds_filter(features_thresholds_to_parse):
             except Exception as e:
                 pass
         
-        feature_name = feature_name.replace('OR', '|')
-        feature_name = feature_name.replace('or', '|')
-        feature_name = feature_name.replace('AND', '&')
-        feature_name = feature_name.replace('and', '&')
+        feature_name = feature_name.replace('OR ', '| ')
+        feature_name = feature_name.replace('or ', '| ')
+        feature_name = feature_name.replace('AND ', '& ')
+        feature_name = feature_name.replace('and ', '& ')
         
         out_features_thresholds[feature_name] = tuple(thresholds)
     return out_features_thresholds

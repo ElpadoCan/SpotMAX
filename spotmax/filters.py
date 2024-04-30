@@ -618,6 +618,7 @@ def filter_df_from_features_thresholds(
         return df_features
     
     query = ''.join(queries)
+    query = query.strip().lstrip('&').lstrip('|')
     
     if 'do_not_drop' in df_features.columns:
         query = f'({query}) | (do_not_drop > 0)'
