@@ -1126,7 +1126,9 @@ def _compute_obj_spots_features(
         features.add_distribution_metrics(
             spot_intensities, df_obj_spots, spot_id, 
             col_name='spot_preproc_*name_in_spot_minimumsize_vol',
-            add_bkgr_corrected_metrics=True
+            add_bkgr_corrected_metrics=True, 
+            logger_warning_report=logger_warning_report, 
+            logger_func=logger_func, iter_idx=spot_idx
         )
         
         if raw_spots_img_obj is None:
@@ -1141,7 +1143,9 @@ def _compute_obj_spots_features(
             features.add_distribution_metrics(
                 raw_spot_intensities, df_obj_spots, spot_id, 
                 col_name='spot_raw_*name_in_spot_minimumsize_vol',
-                add_bkgr_corrected_metrics=True
+                add_bkgr_corrected_metrics=True, 
+                logger_warning_report=logger_warning_report, 
+                logger_func=logger_func, iter_idx=spot_idx
             )
 
         # Intensities metrics from background around the spots (local)
@@ -1172,13 +1176,15 @@ def _compute_obj_spots_features(
         features.add_effect_sizes(
             sharp_spot_intensities_z_edt, backgr_vals_z_spot, 
             df_obj_spots, spot_id, name='spot_vs_backgr',
-            debug=debug
+            debug=debug, logger_warning_report=logger_warning_report, 
+            logger_func=logger_func
         )
         
         features.add_effect_sizes(
             sharp_spot_intensities_z_edt, local_sharp_spot_bkgr_vals, 
             df_obj_spots, spot_id, name='spot_vs_local_backgr',
-            debug=debug
+            debug=debug, logger_warning_report=logger_warning_report,
+            logger_func=logger_func
         )
         
         if ref_ch_img_obj is None:
@@ -1200,7 +1206,9 @@ def _compute_obj_spots_features(
         )
         features.add_effect_sizes(
             normalised_spot_intensities, normalised_ref_ch_intensities, 
-            df_obj_spots, spot_id, name='spot_vs_ref_ch'
+            df_obj_spots, spot_id, name='spot_vs_ref_ch', 
+            logger_warning_report=logger_warning_report, 
+            logger_func=logger_func
         )
         _add_spot_vs_ref_location(
             ref_ch_mask_obj, zyx_center, df_obj_spots, spot_id

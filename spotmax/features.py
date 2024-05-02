@@ -14,7 +14,7 @@ from . import docs
 from . import printl
 from . import transformations
 from . import filters
-from . import utils
+from . import _warnings
 from . import core
 
 def normalise_by_dist_transform_simple(
@@ -283,7 +283,8 @@ def add_ttest_values(
     df.at[idx, f'{name}_ttest_pvalue'] = pvalue
 
 def add_distribution_metrics(
-        arr, df, idx, col_name='*name', add_bkgr_corrected_metrics=False
+        arr, df, idx, col_name='*name', add_bkgr_corrected_metrics=False, 
+        logger_warning_report=None, logger_func=print, iter_idx=0
     ):
     distribution_metrics_func = get_distribution_metrics_func()
     for name, func in distribution_metrics_func.items():
@@ -317,6 +318,11 @@ def add_distribution_metrics(
     spot_center_intens_col = f'spot_center_{bkgr_id}intensity' 
     spot_center_intens = df.at[idx, spot_center_intens_col]
     spot_bkgr_ratio_col = f'spot_center_{bkgr_id}intens_to_backgr_median_ratio' 
+    if bkgr_value == 0 and iter_idx == 0:
+        _warnings.warn_background_value_is_zero(
+            logger_func, logger_warning_report=logger_warning_report
+        )
+        
     spot_bkgr_ratio_value = spot_center_intens/bkgr_value
     df.at[idx, spot_bkgr_ratio_col] = spot_bkgr_ratio_value
     
@@ -327,6 +333,11 @@ def add_distribution_metrics(
     spot_bkgr_z_ratio_col = (
         f'spot_center_{bkgr_id}intens_to_backgr_z_slice_median_ratio'
     ) 
+    if bkgr_value_z == 0:
+        _warnings.warn_background_value_is_zero(
+            logger_func, logger_warning_report=logger_warning_report
+        )
+        
     spot_bkgr_z_ratio_value = spot_center_intens/bkgr_value_z
     df.at[idx, spot_bkgr_z_ratio_col] = spot_bkgr_z_ratio_value
     
@@ -340,7 +351,8 @@ def add_distribution_metrics(
      
 def add_effect_sizes(
         pos_arr, neg_arr, df, idx, name='spot_vs_backgr', 
-        debug=False
+        debug=False, logger_warning_report=None, 
+        logger_func=print
     ):
     effect_size_func = get_effect_size_func()
     negative_name = name[8:]

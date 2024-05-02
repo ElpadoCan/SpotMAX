@@ -65,7 +65,7 @@ from . import DFs_FILENAMES
 import math
 SQRT_2 = math.sqrt(2)
 
-np.seterr(divide='warn', invalid='warn')
+np.seterr(divide='ignore', invalid='warn')
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
 CHANNELS_KEYS = (
@@ -833,6 +833,8 @@ class _ParamsParser(_DataLoader):
         if not proceed:
             return False, None
         self.cast_loaded_values_dtypes()
+        self.check_ref_ch_save_features_and_masks()
+        
         self.set_abs_exp_paths()
         self.set_metadata()
         self.nnet_model, self.nnet_params = self.check_init_neural_network(
@@ -1645,6 +1647,67 @@ class _ParamsParser(_DataLoader):
             
         return True, missing_params
 
+    def _ask_saving_ref_ch_features_without_masks(self):
+        default_option = 'Save ref. ch. features without saving masks'
+        options = (
+            'Save both ref. ch. features AND masks', 
+            'Save neither ref. ch. features NOR masks',
+            default_option,
+        )
+        txt = (
+            '[WARNING]: You requested to save ref. ch. features but NOT the '
+            'masks. You will not be able to inspect these features in the GUI.'
+        )
+        if self._force_default:
+            self.logger.info('*'*100)
+            self.logger.info(txt)
+            io._log_forced_default(default_option, self.logger.info)
+            return 
+        
+        question = 'What do you want to do'
+        answer = io.get_user_input(
+            question, options=options, info_txt=txt, logger=self.logger.info, 
+            default_option=default_option
+        )
+        if answer is None:
+            self.logger.info(
+                'spotMAX stopped by the user. '
+                'Save ref. ch. features and/or masks not selected.'
+            )
+            self.quit()
+        
+        if answer == default_option:
+            return
+        
+        return answer
+    
+    def check_ref_ch_save_features_and_masks(self):
+        SECTION = 'File paths and channels'
+        section_params = self._params[SECTION]
+        ref_ch_endname = section_params['refChEndName']['loadedVal']
+        if not ref_ch_endname:
+            return
+        
+        SECTION = 'Reference channel'
+        section_params = self._params[SECTION]
+        save_ref_ch_features = section_params['saveRefChFeatures']['loadedVal']
+        if not save_ref_ch_features:
+            return
+        
+        save_ref_ch_segm = section_params['saveRefChMask']['loadedVal']
+        
+        if save_ref_ch_segm:
+            return
+        
+        answer = self._ask_saving_ref_ch_features_without_masks()
+        if answer is None:
+            return
+        
+        if answer.find('AND') != -1:
+            section_params['saveRefChMask']['loadedVal'] = True
+        else:
+            section_params['saveRefChFeatures']['loadedVal'] = False
+
     def _raise_model_params_section_missing_ini(self, network_type):
         raise KeyError(
             f'{network_type} model parameters are missing in the INI file.'
@@ -1655,8 +1718,8 @@ class _ParamsParser(_DataLoader):
         options = ('Do not load the ref. ch. segm. data', default_option)
         question = 'What do you want to do'
         txt = (
-            f'[WARNING]: You requested to load the ref. channel segmentation data '
-            f'but ALSO to segment the ref. channel.'
+            '[WARNING]: You requested to load the ref. channel segmentation data '
+            'but ALSO to segment the ref. channel.'
         )
         if self._force_default:
             self.logger.info('*'*100)
