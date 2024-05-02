@@ -3,6 +3,14 @@
 from datetime import datetime
 import spotmax
 
+# -- Report bug information
+import subprocess
+command = 'sphinx-build --bug-report'
+try:
+    subprocess.check_call([command], shell=True)
+except Exception as err:
+    subprocess.check_call(command.split(), shell=True)
+
 # -- Project information
 
 project = 'SpotMAX'
