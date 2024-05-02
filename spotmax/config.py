@@ -981,7 +981,8 @@ def _ref_ch_params():
             'addComputeButton': True,
             'addApplyButton': False,
             'formWidgetFunc': 'widgets.RefChPredictionMethodWidget',
-            'actions': None
+            'actions': None,
+            'dtype': str
         },
         'refChThresholdFunc': {
             'desc': 'Ref. channel threshold function',

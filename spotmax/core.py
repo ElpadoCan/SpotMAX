@@ -808,6 +808,36 @@ class _ParamsParser(_DataLoader):
 
         return parser_args
 
+    def add_spot_size_metadata(self):
+        metadata = self._params['METADATA']
+        physicalSizeX = metadata['pixelWidth']['loadedVal']
+        physicalSizeY = metadata['pixelHeight']['loadedVal']
+        physicalSizeZ = metadata['voxelDepth']['loadedVal']
+        SizeZ = metadata['SizeZ']['loadedVal']
+        emWavelen = metadata['emWavelen']['loadedVal']
+        NA = metadata['numAperture']['loadedVal']
+        zResolutionLimit_um = metadata['zResolutionLimit']['loadedVal']
+        yxResolMultiplier = metadata['yxResolLimitMultiplier']['loadedVal']
+        zyxMinSize_pxl, zyxMinSize_um = calcMinSpotSize(
+            emWavelen, NA, physicalSizeX, physicalSizeY, physicalSizeZ,
+            zResolutionLimit_um, yxResolMultiplier
+        )
+        if SizeZ == 1:
+            zyxMinSize_pxl = (float('nan'), *zyxMinSize_pxl[1:])
+            zyxMinSize_um = (float('nan'), *zyxMinSize_um[1:])
+        
+        spot_size_pxl_text = (f'{[round(val, 6) for val in zyxMinSize_pxl]} pxl'
+            .replace(']', ')')
+            .replace('[', '(')
+        )
+        spot_size_um_text = (f'{[round(val, 6) for val in zyxMinSize_um]} μm'
+            .replace(']', ')')
+            .replace('[', '(')
+        )
+        metadata['spotMinSizeLabels']['loadedVal'] = (
+            f'{spot_size_pxl_text}\n{spot_size_um_text}'
+        )
+    
     @exception_handler_cli
     def init_params(self, params_path):      
         self._params = config.analysisInputsParams(
@@ -833,6 +863,7 @@ class _ParamsParser(_DataLoader):
         if not proceed:
             return False, None
         self.cast_loaded_values_dtypes()
+        self.add_spot_size_metadata()
         self.check_ref_ch_save_features_and_masks()
         
         self.set_abs_exp_paths()
@@ -1288,7 +1319,7 @@ class _ParamsParser(_DataLoader):
             except Exception as e:
                 missing_metadata.append(options['desc'])
         return missing_metadata
-
+    
     def _check_timelapse_metadata(self, missing_metadata):
         SECTION = 'METADATA'
         timelapse_metadata = ('SizeT', 'stopFrameNum')
@@ -1466,6 +1497,8 @@ class _ParamsParser(_DataLoader):
                 continue
             
             configPars[section_name][desc] = value
+        
+        configPars = io.sort_config_parser_ini(configPars, self._params)
         
         with open(ini_filepath, 'w', encoding="utf-8") as file:
             configPars.write(file)

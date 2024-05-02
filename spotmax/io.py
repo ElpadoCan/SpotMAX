@@ -567,7 +567,20 @@ def add_neural_network_params(params, configPars):
                     'desc': key, 'loadedVal': value, 'isParam': True
                 }
     return params
-    
+
+def sort_config_parser_ini(cp, params):
+    default_params = config.getDefaultParams()
+    sorted_cp = config.ConfigParser()
+    for section, section_params in default_params.items():
+        sorted_cp[section] = {}
+        for anchor, param in section_params.items():
+            option = param['desc']
+            value = cp[section].get(option)
+            if value is None:
+                value = params[section][anchor]['loadedVal']
+            sorted_cp[section][option] = value
+    return sorted_cp
+
 def add_metadata_from_csv(csv_path, ini_params):
     df = pd.read_csv(csv_path).set_index('Description')
     metadata = ini_params['METADATA']
