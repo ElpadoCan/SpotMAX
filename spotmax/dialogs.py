@@ -765,6 +765,11 @@ class InspectEditResultsTabWidget(QWidget):
             'Load results from previous analysis...'
         )
         buttonsLayout.addWidget(self.loadAnalysisButton)
+        
+        self.loadRefChDfButton = acdc_widgets.OpenFilePushButton(
+            'Load ref. channel features table...'
+        )
+        buttonsLayout.addWidget(self.loadRefChDfButton)
         buttonsLayout.addStretch(1)
         
         helpButton = acdc_widgets.helpPushButton('Help...')
@@ -789,8 +794,17 @@ class InspectEditResultsTabWidget(QWidget):
         self.viewFeaturesGroupbox = AutoTuneViewSpotFeatures(
             parent=self, infoText=''
         )
+        
+        self.viewRefChFeaturesGroupbox = ViewRefChannelFeaturesGroupbox(
+            parent=self
+        )
+        
         scrollAreaLayout.addWidget(self.editResultsGroupbox)
         scrollAreaLayout.addWidget(self.viewFeaturesGroupbox)
+        scrollAreaLayout.addWidget(self.viewRefChFeaturesGroupbox)
+        scrollAreaLayout.setStretch(0, 0)
+        scrollAreaLayout.setStretch(1, 4)
+        scrollAreaLayout.setStretch(2, 3)
         scrollArea.setWidget(scrollAreaWidget)
         
         mainLayout.addWidget(buttonsScrollArea)
@@ -810,6 +824,10 @@ class InspectEditResultsTabWidget(QWidget):
             self.emitSigComputeFeatures
         )
         helpButton.clicked.connect(self.helpClicked)
+        
+        self.nameToColMapper = features.feature_names_to_col_names_mapper(
+            category='ref. channel objects'
+        )
     
     def helpClicked(self):
         acdc_myutils.browse_url(docs.readthedocs_url)
@@ -842,6 +860,39 @@ class InspectEditResultsTabWidget(QWidget):
         if point_features is None:
             return
         self.viewFeaturesGroupbox.setFeatures(point_features)       
+    
+    def setLoadedRefChannelFeaturesFile(self, filename):
+        self.viewRefChFeaturesGroupbox.infoLabel.setText(
+            f'Loaded file: <code>{filename}</code>'
+        )
+    
+    def resetLoadedRefChannelFeaturesFile(self):
+        self.viewRefChFeaturesGroupbox.resetInfoLabel()
+    
+    def areFeaturesSelected(self):
+        if len(self.viewRefChFeaturesGroupbox.featureButtons) > 1:
+            return True
+        
+        selectButton = self.viewRefChFeaturesGroupbox.featureButtons[0]
+        return not selectButton.text().startswith('Click to select feature')
+    
+    def setInspectedRefChFeatures(self, df, frame_i, ID, sub_obj_id):
+        for selectButton in self.viewRefChFeaturesGroupbox.featureButtons:
+            if selectButton.text().startswith('Click to select feature'):
+                continue
+            
+            feature_name = selectButton.text()
+            col = self.nameToColMapper[feature_name]
+            
+            value = df.at[(frame_i, ID, sub_obj_id), col]
+            selectButton.entry.setValue(value)
+    
+    def isWholeObjRequested(self):
+        for selectButton in self.viewRefChFeaturesGroupbox.featureButtons:
+            if selectButton.text().find('whole object') != -1:
+                return True
+        
+        return False
         
 
 class AutoTuneGroupbox(QGroupBox):
@@ -1080,6 +1131,124 @@ class AutoTuneSpotProperties(QGroupBox):
         self.trueItem.clear()
         self.falseItem.clear()
 
+class ViewRefChannelFeaturesGroupbox(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.setTitle('Features of the ref. ch. mask under mouse cursor')
+        
+        mainLayout = QVBoxLayout()
+        
+        layout = QGridLayout()
+        
+        txt = html_func.span(
+            '<i>Load ref. ch. masks and image to view features</i>',
+            font_color='red'
+        )
+        self._infoText = txt
+        self.infoLabel = QLabel(txt)
+        
+        col = 0
+        row = 0
+        layout.addWidget(
+            self.infoLabel, row, col, 1, 2, alignment=Qt.AlignCenter
+        )
+        
+        row += 1
+        self.selectButton = widgets.FeatureSelectorButton(
+            'Click to select feature to view...  ', alignment='right'
+        )
+        self.selectButton.setSizeLongestText(
+            'Spotfit intens. metric, Foregr. integral gauss. peak'
+        )
+        self.selectButton.clicked.connect(self.selectFeature)
+        self.selectButton.entry = widgets.ReadOnlyLineEdit()
+        self.addFeatureButton = acdc_widgets.addPushButton()
+        layout.addWidget(self.selectButton, row, col)
+        layout.addWidget(self.selectButton.entry, row, col+1)
+        layout.addWidget(
+            self.addFeatureButton, row, col+2, alignment=Qt.AlignLeft
+        )
+        self.featureButtons = [self.selectButton]
+        self.addFeatureButton.clicked.connect(self.addFeatureEntry)
+        
+        self.nextRow = row + 1
+        
+        self._layout = layout
+        
+        mainLayout.addLayout(layout)
+        mainLayout.addStretch(1)
+        self.setLayout(mainLayout)
+    
+    def resetInfoLabel(self):
+        self.infoLabel.setText(self._infoText)
+    
+    def addFeatureEntry(self):
+        selectButton = widgets.FeatureSelectorButton(
+            'Click to select feature to view...  ', alignment='right'
+        )
+        selectButton.setSizeLongestText(
+            'Spotfit intens. metric, Foregr. integral gauss. peak'
+        )
+        selectButton.clicked.connect(self.selectFeature)
+        selectButton.entry = widgets.ReadOnlyLineEdit()
+        delButton = acdc_widgets.delPushButton()
+        delButton.widgets = [selectButton, selectButton.entry]
+        delButton.selector = selectButton
+        delButton.clicked.connect(self.removeFeatureField)
+        
+        self._layout.addWidget(selectButton, self.nextRow, 0)
+        self._layout.addWidget(selectButton.entry, self.nextRow, 1)
+        self._layout.addWidget(
+            delButton, self.nextRow, 2, alignment=Qt.AlignLeft
+        )
+        self.nextRow += 1
+        
+        self.featureButtons.append(selectButton)
+    
+    def removeFeatureField(self):
+        delButton = self.sender()
+        for widget in delButton.widgets:
+            self._layout.removeWidget(widget)
+        self._layout.removeWidget(delButton)
+        self.featureButtons.remove(delButton.selector)
+    
+    def getFeatureGroup(self):
+        if self.selectButton.text().find('Click') != -1:
+            return ''
+
+        text = self.selectButton.text()
+        topLevelText, childText = text.split(', ')
+        return {topLevelText: childText}
+    
+    def selectFeature(self):
+        self.selectFeatureDialog = widgets.FeatureSelectorDialog(
+            parent=self.sender(), category='ref. channel objects',
+            multiSelection=False, expandOnDoubleClick=True, 
+            isTopLevelSelectable=False, infoTxt='Select feature', 
+            allItemsExpanded=False
+        )
+        self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
+        # self.selectFeatureDialog.resizeVertical()
+        self.selectFeatureDialog.sigClose.connect(self.setFeatureText)
+        self.selectFeatureDialog.show()
+    
+    def setFeatureText(self):
+        if self.selectFeatureDialog.cancel:
+            return
+        selectButton = self.selectFeatureDialog.parent()
+        selectButton.setFlat(True)
+        selection = self.selectFeatureDialog.selectedItems()
+        group_name = list(selection.keys())[0]
+        feature_name = selection[group_name][0]
+        featureText = f'{group_name}, {feature_name}'
+        selectButton.setFeatureText(featureText)
+        mapper = features.feature_names_to_col_names_mapper(
+            category='ref. channel objects'
+        )
+        column_name = mapper[featureText]
+        selectButton.setToolTip(f'{column_name}')
+
 class AutoTuneViewSpotFeatures(QGroupBox):
     def __init__(self, parent=None, infoText=None):
         super().__init__(parent)
@@ -1101,7 +1270,9 @@ class AutoTuneViewSpotFeatures(QGroupBox):
             txt = infoText
         self._infoText = txt
         self.infoLabel = QLabel(txt)
-        layout.addWidget(self.infoLabel, row, col, 1, 2, alignment=Qt.AlignCenter)
+        layout.addWidget(
+            self.infoLabel, row, col, 1, 2, alignment=Qt.AlignCenter
+        )
         
         row += 1
         layout.addWidget(QLabel('x coordinate'), row, col, alignment=Qt.AlignRight)

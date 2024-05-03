@@ -9,6 +9,8 @@ from queue import Queue
 import numpy as np
 import pandas as pd
 
+import skimage.measure
+
 from qtpy.QtCore import (
     Qt, QTimer, QThreadPool, QMutex, QWaitCondition, QEventLoop
 )
@@ -207,6 +209,72 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.onHoverAutoTunePoints(x, y)
         self.onHoverInspectPoints(x, y)
+        self.onHoverRefChMasks(x, y)
+    
+    def onHoverRefChMasks(self, x, y):
+        if self.dfs_ref_ch_features is None:
+            return
+        
+        if not self.dfs_ref_ch_features:
+            return
+        
+        ID = self.currentLab2D[int(y), int(x)]
+        if ID == 0:
+            if self.highlightedRefChObjItem.image is not None:
+                self.highlightedRefChObjLab[:] = 0
+                self.highlightedRefChObjItem.clear()
+            return
+        
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        if not inspectResultsTab.areFeaturesSelected():
+            return
+        
+        if self.highlightedRefChObjLab[int(y), int(x)] == ID:
+            return
+        
+        if self.isSegm3D:
+            subObjID = self.refChSubObjsLab[self.z_lab(), int(y), int(x)]
+        else:
+            subObjID = self.refChSubObjsLab[int(y), int(x)]
+            
+        self.highlightRefChObject(ID, subObjID)
+        
+        posData = self.data[self.pos_i]
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        inspectResultsTab.setInspectedRefChFeatures(
+            self.dfs_ref_ch_features[self.pos_i], posData.frame_i, ID, subObjID
+        )
+    
+    def highlightRefChObject(self, ID, subObjID):
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        isWholeObjRequested = inspectResultsTab.isWholeObjRequested()
+        
+        lut = np.zeros((2, 4), dtype=np.uint8)
+        rgb = self.lut[ID].copy() 
+        lut[1, :-1] = rgb
+        lut[1, -1] = 178  
+        self.highlightedRefChObjItem.setLookupTable(lut)
+        
+        posData = self.data[self.pos_i]
+        obj_idx = posData.IDs_idxs[ID]
+        obj = posData.rp[obj_idx]
+        sub_obj = None
+        if not isWholeObjRequested:
+            sub_obj = self.localRefChSubObjsLabRp[ID][subObjID]
+        
+        obj_slice = self.getObjSlice(obj.slice)
+        obj_image = self.getObjImage(obj.image, obj.bbox)
+        self.highlightedRefChObjLab[:] = 0
+        
+        if sub_obj is None:
+            self.highlightedRefChObjLab[obj_slice][obj_image] = ID
+        else:
+            sub_obj_slice = self.getObjSlice(sub_obj.slice)
+            sub_obj_image = self.getSubObjImage(obj, sub_obj)
+            localLab = self.highlightedRefChObjLab[obj_slice]
+            localLab[sub_obj_slice][sub_obj_image] = ID
+        
+        self.highlightedRefChObjItem.setImage(self.highlightedRefChObjLab)
     
     def onHoverAutoTunePoints(self, x, y):
         if not self.isAutoTuneTabActive:
@@ -341,6 +409,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         inspectTabWidget.loadAnalysisButton.clicked.connect(
             self.loadAnalysisPathSelected
         )
+        inspectTabWidget.loadRefChDfButton.clicked.connect(
+            self.loadReferenceChannelFeaturesTable
+        )
     
     def checkDataLoaded(self):
         if self.isDataLoaded:
@@ -363,7 +434,137 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not proceed:
             return
         
-        self.addSpotsCoordinatesAction.trigger()        
+        self.addSpotsCoordinatesAction.trigger()    
+    
+    def warnWrongRefChOrMasksLoaded(self, loaded_segm_filepath):
+        loaded_segm_filename = os.path.basename(loaded_segm_filepath)
+        path_to_browse = os.path.dirname(loaded_segm_filepath)
+        html_pattern = (
+            '_run_num&lt;run_number&gt;_&lt;ref_ch_name&gt;'
+            '_ref_ch_segm_mask_&lt;appended_text&gt;.npz'
+        )
+        txt = html_func.paragraph(f"""
+            The loaded segmentation file does <b>not have valid reference 
+            channel masks</b>.<br><br>
+            In order to inspect reference channel features make sure you 
+            <b>load the correct channel and the correct masks</b>.<br><br>
+            The masks filename ends with the following pattern:<br><br>
+            <code>{html_pattern}</code>
+            <br><br>
+            Loaded segmentation file:
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(
+            self, 'Loaded segmentation data is not valid ref. ch. masks', txt, 
+            commands=(loaded_segm_filepath,), path_to_browse=path_to_browse
+        )
+    
+    def warnRefChFeaturesTableNotFound(
+            self, file_not_found, spotmax_out_folder
+        ):
+        files = utils.listdir(spotmax_out_folder)
+        files = utils.sort_strings_by_template(files, file_not_found)
+        
+        txt = html_func.paragraph(f"""
+            The requested file <code>{file_not_found}</code> was 
+            <b>not found</b>.<br><br>
+            
+            Did you load the <b>correct reference channel masks</b>?<br><br>
+            
+            See below the present files sorted by similarity to requested file:
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(
+            self, 'Reference channel features table not found', txt, 
+            path_to_browse=spotmax_out_folder, 
+            detailsText='\n'.join(files)
+        )
+        
+    def loadReferenceChannelFeaturesTable(self):
+        posData = self.data[self.pos_i]  
+        
+        run_num_info = io.run_num_and_appended_text_from_segm_path(
+            posData.segm_npz_path, posData.user_ch_name, 
+            channel_type='ref_ch'
+        )
+        
+        if run_num_info is None:
+            self.warnWrongRefChOrMasksLoaded(posData.segm_npz_path)
+            return
+        
+        run_num, appended_text = run_num_info
+        df_ref_ch_filename, found = io.get_ref_channel_dfs_features_filename(
+            run_num, appended_text, posData.spotmax_out_path
+        )
+        
+        if not found:
+            self.warnRefChFeaturesTableNotFound(
+                df_ref_ch_filename, posData.spotmax_out_path
+            )
+            return
+        
+        self.logger.info(
+            f'Loading reference channel features tables `{df_ref_ch_filename}`...'
+        )
+        self.dfs_ref_ch_features = []
+        for _posData in self.data:
+            spotmax_files = utils.listdir(_posData.spotmax_out_path)
+            df_files = [
+                file for file in spotmax_files if file==df_ref_ch_filename
+            ]
+            if not df_files:
+                self.dfs_ref_ch_features.append(None)
+                continue
+            
+            df_file = df_files[0]
+            df_filepath = os.path.join(
+                _posData.spotmax_out_path, df_file
+            )
+            df = io.load_df_ref_ch_features(df_filepath)
+            self.dfs_ref_ch_features.append(df)
+        
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        inspectResultsTab.setLoadedRefChannelFeaturesFile(df_ref_ch_filename)
+        
+        self.initHighlightRefChannelObjImage()
+    
+    def getSubObjImage(self, obj, sub_obj):
+        if not self.isSegm3D:
+            return sub_obj.image
+        
+        zProjHow = self.zProjComboBox.currentText()
+        isZslice = zProjHow == 'single z-slice'
+        if not isZslice:
+            return sub_obj.image.max(axis=0)
+        
+        min_z = obj.bbox[0]
+        z = self.z_lab()
+        local_z = z - min_z
+        sub_obj_local_z = local_z - sub_obj.bbox[0]
+        return sub_obj.image[sub_obj_local_z]
+    
+    def initHighlightRefChannelObjImage(self):
+        if self.dfs_ref_ch_features is None:
+            return
+        
+        if not self.dfs_ref_ch_features:
+            return
+        
+        self.highlightedRefChObjItem = pg.ImageItem()
+        self.ax1.addItem(self.highlightedRefChObjItem)
+        
+        posData = self.data[self.pos_i]
+        self.highlightedRefChObjLab = np.zeros(self.currentLab2D.shape, np.uint8)   
+        self.refChSubObjsLab = np.zeros_like(posData.lab)
+        self.localRefChSubObjsLabRp = {}
+        for obj in posData.rp:
+            ref_ch_lab = skimage.measure.label(obj.image)
+            self.refChSubObjsLab[obj.slice][obj.image] = ref_ch_lab[obj.image]
+            ref_ch_rp = {
+                sub_obj.label:sub_obj
+                for sub_obj in skimage.measure.regionprops(ref_ch_lab)
+            }
+            self.localRefChSubObjsLabRp[obj.label] = ref_ch_rp
     
     def warnNoSpotsFilesFound(self, spotmax_out_path):
         txt = html_func.paragraph(f"""
@@ -499,11 +700,20 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.transformedDataNnetExp = None
         self.transformedDataTime = None
         self.isEditingResults = False
+        self.dfs_ref_ch_features = None
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         autoTuneTabWidget.addAutoTunePointsButton.setChecked(False)
         
         self.checkReinitTuneKernel()
+        
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        inspectResultsTab.resetLoadedRefChannelFeaturesFile()
+        
+        try:
+            self.ax1.removeItem(self.highlightedRefChObjItem)
+        except Exception as err:
+            pass
         
     def initGui(self):
         self.isAnalysisRunning = False
@@ -683,9 +893,26 @@ class spotMAX_Win(acdc_gui.guiWin):
     def gui_connectEditActions(self):
         super().gui_connectEditActions()
     
+    def logFilesInSpotmaxOutPath(self, spotmax_out_path):
+        files_format = '\n'.join([
+            f'  - {file}' for file in utils.listdir(spotmax_out_path)
+        ])
+        if not files_format:
+            self.logger.info('SpotMAX files are not present')
+            return
+        
+        sep = '-'*100
+        self.logger.info(
+            f'{sep}\nFiles present in the first spotMAX_output folder loaded:\n\n'
+            f'{files_format}\n{sep}'
+        )
+    
     def loadingDataCompleted(self):
         super().loadingDataCompleted()
         posData = self.data[self.pos_i]
+        
+        self.logFilesInSpotmaxOutPath(posData.spotmax_out_path)
+        
         self.setWindowTitle(f'spotMAX - GUI - "{posData.exp_path}"')
         self.spotmaxToolbar.setVisible(True)
         self.computeDockWidget.widget().initState(True)
@@ -2999,6 +3226,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             posData.frame_i, z=self.currentZ(checkIfProj=True)
         )
         self.setVisibleAutoTunePoints()
+        self.initHighlightRefChannelObjImage()
     
     def updatePos(self):
         self.setStatusBarLabel()

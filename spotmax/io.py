@@ -7,8 +7,7 @@ import datetime
 import time
 import copy
 from functools import partial
-from typing import List
-import tifffile
+from typing import List, Literal
 import json
 import traceback
 import cv2
@@ -2336,6 +2335,10 @@ def save_df_ref_ch_features(
     
     df_ref_ch.to_csv(filepath)
 
+def load_df_ref_ch_features(filepath):
+    df = pd.read_csv(filepath, index_col=['frame_i', 'Cell_ID', 'sub_obj_id'])
+    return df
+
 def save_df_spots_to_hdf(
         df: pd.DataFrame, folder_path: os.PathLike, filename: str
     ):    
@@ -2783,3 +2786,31 @@ def get_filepath_from_channel_name(
         )
     
     return os.path.join(images_path, found_files[0])
+
+def run_num_and_appended_text_from_segm_path(
+        segm_path, channel_name: str,
+        channel_type: Literal['spots', 'ref_ch']='spots', 
+    ):
+    pattern = fr'_run_num(\d+)_{channel_name}_{channel_type}_segm_mask(_?.*).npz'
+    filename = os.path.basename(segm_path)
+    found = re.findall(pattern, filename)
+    if not found:
+        return
+    
+    found = found[0]
+    if len(found) < 2:
+        return
+    
+    run_num, appended_text = found
+    return run_num, appended_text
+
+def get_ref_channel_dfs_features_filename(
+        run_num: int, appended_text: str, spotmax_out_folder: os.PathLike
+    ):
+    files = utils.listdir(spotmax_out_folder)
+    file_to_match = f'{run_num}_3_ref_channel_features{appended_text}.csv'
+    for file in files:
+        if file == file_to_match:
+            return file, True
+    
+    return file_to_match, False

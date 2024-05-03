@@ -5,8 +5,39 @@
 Output files
 ============
 
-Output files will be saved in each Position folder in a sub-folder called 
-``spotMAX_output``. In this folder you will find the following set of tables::
+Spotmax output files include **segmentation, tabular, and processed image data**. 
+
+Segmentation and processed image data will be saved in each 
+``Position_n/Images`` folder.
+
+Tabular data will be saved in each Position folder in a sub-folder called 
+``spotMAX_output``.
+
+Segmentation data
+-----------------
+
+Segmentation masks are saved from spots and reference channel data. These data 
+are optional and can be saved by activating the parameters 
+:confval:`Save spots segmentation masks` and 
+:confval:`Save reference channel segmentation masks`, respectively.
+
+The naming pattern is the following::
+
+    <basename>_run_num<run_number>_<spots_ch_name>_spots_segm_mask_<appended_text>.npz
+    <basename>_run_num<run_number>_<ref_ch_name>_ref_ch_segm_mask_<appended_text>.npz
+
+where ``<basename>`` is the common part of all the file names in the Position 
+folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
+the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name or path` 
+parameter, ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name or path` 
+parameter, and ``<appended_text>`` is the text provided at the 
+:confval:`Text to append at the end of the output files` 
+parameter.
+
+Tables
+------
+
+In the ``spotMAX_output`` folder you will find the following set of tables::
 
     <run_number>_0_detected_spots_<appended_text>.<ext>
     <run_number>_0_detected_spots_<appended_text>_aggregated.csv
@@ -14,8 +45,7 @@ Output files will be saved in each Position folder in a sub-folder called
     <run_number>_1_valid_spots_<appended_text>_aggregated.csv
     <run_number>_2_spotfit_<appended_text>.<ext>
     <run_number>_2_spotfit_<appended_text>_aggregated.csv
-    <run_number>_3_ref_channel_features_<text_to_append>.csv
-    <run_number>_3_ref_channel_features_<text_to_append>.csv
+    <run_number>_3_ref_channel_features_<appended_text>.csv
     <run_number>_4_<source_table>_<input_text>_<appended_text>.<ext>
     <run_number>_4_<source_table>_<input_text>_<appended_text>_aggregated.csv 
     <run_number>_analysis_parameters_<appended_text>.ini
@@ -28,7 +58,7 @@ parameter, ``<appended_text>`` is the text inserted at the
 
 .. seealso:: 
 
-    For the file ``<run_number>_3_ref_channel_features_<text_to_append>.csv`` 
+    For the file ``<run_number>_3_ref_channel_features_<appended_text>.csv`` 
     see more details in the description of the :confval:`Save reference channel features` 
     parameter.
 
@@ -54,7 +84,7 @@ file contains additional features determined at the spotFIT step, as described
 in the section :ref:`spotfit-features`. 
 
 Concatenate multiple experiments results into single file
----------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you are using the same data structure required by `Cell-ACDC`_ you can 
 concatenate multiple Positions and multiple experiments results into a 
@@ -77,3 +107,24 @@ table with the all the results from each Position and each experiment selected.
 The table will be saved in a folder of your choice (you will be asked to 
 select it) and it will have two additional columns called ``experiment_folderpath`` 
 and ``experiment_foldername`` to identify where the data come from.
+
+Processed image data
+--------------------
+
+Pre-processed images are saved from spots and reference channel data. These data 
+are optional and can be saved by activating the parameters 
+:confval:`Save pre-processed spots image` and 
+:confval:`Save pre-processed reference channel image`, respectively.
+
+The naming pattern is the following::
+
+    <basename>_run_num<run_number>_<spots_ch_name>_preprocessed_<appended_text>.<ext>
+    <basename>_run_num<run_number>_<ref_ch_name>_preprocessed_<appended_text>.<ext>
+
+where ``<basename>`` is the common part of all the file names in the Position 
+folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
+the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name or path` 
+parameter, ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name or path` 
+parameter, ``<appended_text>`` is the text provided at the 
+:confval:`Text to append at the end of the output files` 
+parameter, and ``<ext>`` is the extension of the input channel file.

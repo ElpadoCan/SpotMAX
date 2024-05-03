@@ -3,6 +3,7 @@ import sys
 import pandas as pd
 import datetime
 import time
+import difflib
 import cv2
 import logging
 import traceback
@@ -1064,6 +1065,14 @@ def get_spotfit_image(df_spotfit: pd.DataFrame, shape: Tuple[int, int, int]):
         img[slice_to_local][local_zz, local_yy, local_xx] += spot_vals
         
     return img, mask, labels
+
+def sort_strings_by_template(iterable, template: str):
+    sorted_list = sorted(
+        iterable, 
+        key=lambda x: difflib.SequenceMatcher(a=x, b=template).ratio(), 
+        reverse=True
+    )
+    return sorted_list
 
 
 if __name__ == '__main__':

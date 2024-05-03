@@ -1,5 +1,5 @@
 from logging import warning
-from typing import Union
+from typing import Union, Literal
 from numbers import Number
 import warnings
 
@@ -217,7 +217,9 @@ def get_effect_size_func():
     }
     return effect_size_func
 
-def get_features_groups(category='spots'):
+def get_features_groups(
+        category: Literal['spots', 'ref. channel objects']='spots'
+    ):
     if category == 'spots':
         return docs.parse_single_spot_features_groups()
 
@@ -233,7 +235,9 @@ def aggr_feature_names_to_col_names_mapper():
 def single_spot_feature_names_to_col_names_mapper():
     return docs.single_spot_features_column_names()
 
-def feature_names_to_col_names_mapper(category='spots'):
+def feature_names_to_col_names_mapper(
+        category: Literal['spots', 'ref. channel objects']='spots'
+    ):
     if category == 'spots':
         return single_spot_feature_names_to_col_names_mapper()
     

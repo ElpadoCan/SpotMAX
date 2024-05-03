@@ -5201,6 +5201,7 @@ class Kernel(_ParamsParser):
                     verbose=verbose,
                     logger_func=self.logger.info
                 )
+            
             if save_ref_ch_features:
                 io.save_df_ref_ch_features(
                     df_ref_ch, 
@@ -5907,7 +5908,7 @@ class Kernel(_ParamsParser):
             requires_deletion = (
                 file.find('analysis_parameters') != -1 
                 or file.find('spot') != -1
-                or file.find('ref_channel_features') != -1
+                # or file.find('ref_channel_features') != -1
             )
             if requires_deletion:
                 try:
