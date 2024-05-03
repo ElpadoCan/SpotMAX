@@ -26,6 +26,8 @@ import numpy as np
 import pandas as pd
 from natsort import natsorted
 
+import tifffile
+
 import skimage
 import skimage.io
 import skimage.color
