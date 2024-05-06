@@ -4305,22 +4305,28 @@ class Kernel(_ParamsParser):
             spots_labels=labels
         )
         
+        IDs_rp_mapper = {obj.label:obj for obj in aggr_lab_rp}
+        IDs_idx = df_spots_coords.index.unique()
         num_spots_objs_txts = []
         pbar = tqdm(
             total=len(aggr_lab_rp), ncols=100, position=3, leave=False
         )
-        for obj in aggr_lab_rp:
-            if obj.label not in df_spots_coords.index:
-                continue
+        for ID in IDs_idx:
+            if ID == 0:
+                closestID = df_spots_coords.loc[[ID], 'closest_ID'].iloc[0]
+                obj = IDs_rp_mapper[closestID]
+            else:
+                obj = IDs_rp_mapper[ID]
+                
             min_z, min_y, min_x = obj.bbox[:3]
-            zz_local = df_spots_coords.loc[[obj.label], 'z_aggr'] - min_z
-            df_spots_coords.loc[[obj.label], 'z_local'] = zz_local
+            zz_local = df_spots_coords.loc[[ID], 'z_aggr'] - min_z
+            df_spots_coords.loc[[ID], 'z_local'] = zz_local
 
-            yy_local = df_spots_coords.loc[[obj.label], 'y_aggr'] - min_y
-            df_spots_coords.loc[[obj.label], 'y_local'] = yy_local
+            yy_local = df_spots_coords.loc[[ID], 'y_aggr'] - min_y
+            df_spots_coords.loc[[ID], 'y_local'] = yy_local
 
-            xx_local = df_spots_coords.loc[[obj.label], 'x_aggr'] - min_x
-            df_spots_coords.loc[[obj.label], 'x_local'] = xx_local
+            xx_local = df_spots_coords.loc[[ID], 'x_aggr'] - min_x
+            df_spots_coords.loc[[ID], 'x_local'] = xx_local
 
             s = f'  * Object ID {obj.label} = {len(zz_local)}'
             num_spots_objs_txts.append(s)
