@@ -897,6 +897,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         super().gui_connectEditActions()
     
     def logFilesInSpotmaxOutPath(self, spotmax_out_path):
+        if not os.path.exists(spotmax_out_path):
+            return
+        
         files_format = '\n'.join([
             f'  - {file}' for file in utils.listdir(spotmax_out_path)
         ])
