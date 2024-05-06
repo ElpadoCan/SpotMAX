@@ -479,7 +479,10 @@ class spotMAX_Win(acdc_gui.guiWin):
             path_to_browse=spotmax_out_folder, 
             detailsText='\n'.join(files)
         )
-        
+    
+    def warnDifferentSegmChannel(self, *args):
+        return False
+    
     def loadReferenceChannelFeaturesTable(self):
         posData = self.data[self.pos_i]  
         
