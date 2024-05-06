@@ -304,7 +304,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             return ID
         else:
             return
-    
+
     @exception_handler
     def gui_mousePressEventImg1(self, event):
         super().gui_mousePressEventImg1(event)
@@ -479,10 +479,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             path_to_browse=spotmax_out_folder, 
             detailsText='\n'.join(files)
         )
-    
-    def warnDifferentSegmChannel(self, *args):
-        return False
-    
+        
     def loadReferenceChannelFeaturesTable(self):
         posData = self.data[self.pos_i]  
         
@@ -679,6 +676,26 @@ class spotMAX_Win(acdc_gui.guiWin):
             return False
         
         return True
+    
+    def warnRemovingPointCellIDzero(self):
+        txt = html_func.paragraph("""
+            It looks like you want to remove a spot that was detected 
+            outside of the segmented objects.<br><br>
+            While you can of course do that, these spots were already removed 
+            by spotMAX in the tables called <code>1_valid_spots</code> and 
+            <code>0_detected_spots</code>.<br><br>
+            You probably <b>want to edit the results in those tables</b>.<br><br>
+            Anyway, do you want to continue editing the loaded spots?
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        _, yesButton = msg.question(
+            self, 'Editing detected spots', txt, 
+            buttonsTexts=(
+                'No, I will load another table, thanks', 
+                'Yes, let me edit this table'
+            )
+        )
+        return msg.clickedButton == yesButton
     
     def reInitGui(self):
         super().reInitGui()

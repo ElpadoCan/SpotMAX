@@ -2400,14 +2400,18 @@ class SpotsItems:
             item.removePoint(point._index)
             pos = point.pos()
             xdata, ydata = int(pos.x()-0.5), int(pos.y()-0.5)
-            zzdata = df_xy.loc[[(xdata, ydata)], 'z']
-            for zdata in zzdata.values:
+            zz_data = df_xy.loc[[(xdata, ydata)], 'z']
+            for zdata in zz_data.values:
                 idx_to_drop.append((frame_i, zdata, ydata, xdata))
         
         df_tzyx = (
             df.reset_index()
             .set_index(['frame_i', 'z', 'y', 'x'])
         )
+        
+        clickedIDs = df_tzyx.loc[idx_to_drop, 'Cell_ID']
+        if 0 in clickedIDs.values:
+            self.parent.warnRemovingPointCellIDzero()
         
         button.df = (
             df_tzyx.drop(index=idx_to_drop)
