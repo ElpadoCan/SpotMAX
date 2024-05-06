@@ -2400,8 +2400,9 @@ class SpotsItems:
             item.removePoint(point._index)
             pos = point.pos()
             xdata, ydata = int(pos.x()-0.5), int(pos.y()-0.5)
-            zdata = df_xy.at[(xdata, ydata), 'z']
-            idx_to_drop.append((frame_i, zdata, ydata, xdata))
+            zzdata = df_xy.loc[[(xdata, ydata)], 'z']
+            for zdata in zzdata.values:
+                idx_to_drop.append((frame_i, zdata, ydata, xdata))
         
         df_tzyx = (
             df.reset_index()

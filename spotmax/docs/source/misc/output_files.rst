@@ -78,6 +78,13 @@ detected spots without any filtering, while ``1_valid_spots`` means that the
 file contains the spots after filtering based on the features selected at 
 the :confval:`Features and thresholds for filtering true spots`. 
 
+.. note:: 
+
+    The file ``0_detected_spots`` might also contain spots that are outside 
+    of the segmented objects. This is by design, because the idea is to save 
+    all the detected spots. These spots will appear in the table with 
+    the column ``Cell_ID`` equal to 0.
+
 Finally, the file with ``2_spotfit`` will be created only if 
 :confval:`Compute spots size (fit gaussian peak(s))` paramter is True. This 
 file contains additional features determined at the spotFIT step, as described 
