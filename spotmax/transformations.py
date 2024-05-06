@@ -13,7 +13,7 @@ import cellacdc.io
 import cellacdc.core
 
 from . import utils, rng
-from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS, ZYX_GLOBAL_COLS
+from . import ZYX_RESOL_COLS, ZYX_LOCAL_COLS, ZYX_GLOBAL_COLS, ZYX_AGGR_COLS
 from . import features
 from . import io
 from . import core
@@ -701,11 +701,12 @@ def to_local_zyx_coords(obj, global_zyx_coords):
 
 def add_zyx_local_coords_if_not_valid(df_spots_coords, obj):
     try:
-        valid_local_coords = (df_spots_coords[ZYX_LOCAL_COLS] >= 0).all(axis=None)
+        valid_local_coords = (
+            df_spots_coords.loc[[obj.label]][ZYX_LOCAL_COLS] >= 0).all(axis=None)
         if not valid_local_coords:
             raise TypeError('local coords not valid')
     except Exception as err:
-        zyx_coords = df_spots_coords[ZYX_GLOBAL_COLS].to_numpy()
+        zyx_coords = df_spots_coords[ZYX_AGGR_COLS].to_numpy()
         df_spots_coords[ZYX_LOCAL_COLS] = to_local_zyx_coords(obj, zyx_coords)
     return df_spots_coords
 

@@ -2049,7 +2049,7 @@ def get_abspath(path, src_folderpath=''):
     
     # Check if relative to input src_folderpath
     if src_folderpath:
-        abs_path = os.path.join(src_folderpath, *path_parts)
+        abs_path = os.path.abspath(os.path.join(src_folderpath, *path_parts))
         if os.path.exists(abs_path):
             return abs_path
     
