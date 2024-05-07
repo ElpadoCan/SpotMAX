@@ -700,6 +700,9 @@ def to_local_zyx_coords(obj, global_zyx_coords):
     return local_zyx_coords
 
 def add_zyx_local_coords_if_not_valid(df_spots_coords, obj):
+    if obj.label not in df_spots_coords.index:
+        return df_spots_coords
+    
     try:
         valid_local_coords = (
             df_spots_coords.loc[[obj.label]][ZYX_LOCAL_COLS] >= 0).all(axis=None)

@@ -2036,12 +2036,15 @@ def get_abspath(path, src_folderpath=''):
     path = to_system_path(path)
     path = os.path.expanduser(path)
     path = os.path.normpath(path)
+
+    if path == '.':
+        path = src_folderpath
     
     if os.path.isabs(path):
         return path
     
     # UNIX full paths starts with '/'. Check if user forgot that
-    unix_path = f'{os.sep}{path}'
+    unix_path = f'/{path}'
     if os.path.isabs(unix_path) and os.path.exists(unix_path):
         return unix_path
     
@@ -2750,9 +2753,9 @@ def get_filepath_from_channel_name(
     valid_patterns = (
         f'{channel_name}_aligned.npz', 
         f'{channel_name}_aligned.h5', 
+        f'{channel_name}.tif', 
         f'{channel_name}.npz', 
         f'{channel_name}.npy', 
-        f'{channel_name}.tif', 
         channel_name,
     )
     found_files = defaultdict(list)
