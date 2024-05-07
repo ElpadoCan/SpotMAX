@@ -110,7 +110,7 @@ At the end of the analysis, you will be asked to visualize the results.
 .. tip:: 
 
     If you are working with 3D z-stack data, it can be useful to visualize 
-    results in "max-projection". You can select this on the left-side of the 
+    results in "max-projection". You can select this on the right-side of the 
     scrollbars below the image. 
 
 If you are not happy with the results go back to step 3. and try changing the
