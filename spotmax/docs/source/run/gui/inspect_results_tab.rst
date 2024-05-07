@@ -3,8 +3,8 @@
 
 .. _inspect-results-tab:
 
-Inspect and/or edit results tab
-===============================
+Inspect and edit results
+========================
 
 On this tab you can inspect and edit the results from a previous analysis. 
 

@@ -1,5 +1,8 @@
 .. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
 
+.. |compute| image:: ../images/compute.png
+    :width: 20
+
 Getting started
 ===============
 
@@ -38,6 +41,81 @@ in headless mode (without the GUI).
     or ignoring missing parameters and confirming when you are overwriting some 
     existing file (like from a previous run).
 
-We are constantly improving this documentation and we would like to write a FAQ section. 
-If you want to help out, **feel free to submit the questions you have** on our 
-`GitHub page <https://github.com/ElpadoCan/spotMAX/issues>`_.
+Recommended workflow
+--------------------
+
+While there are multiple ways to run spotMAX (see the section :ref:`how-to-run`) 
+and we certainly encourage you to experiment with the different modules, here 
+we want to outline a **recommended workflow**. 
+
+1. Create data structure
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+In the first step, you want to organize your images in a folder structure that 
+enables batch-processing and loading of the data into the GUI. 
+
+The folder structure required is the same as for our previously published 
+software called `Cell-ACDC`_, therefore we recommend starting from there. 
+
+2. Segment objects of interest
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In the second step you should segment the objects of interest (e.g., the single 
+cells). This is done outside of spotMAX and, again, we recommend using our
+other software called `Cell-ACDC`_. 
+
+This step is **very important** to allow spotMAX to ignore the background when 
+detecting the spots. 
+
+.. tip:: 
+
+    To segment the objects, you can use any software of your choice as long 
+    as you save the segmentation masks inside each ``Position_n/Images`` folder. 
+
+    The segmentation file should be named with the following pattern::
+
+        <basename>_segm_<optional_text>.npz
+    
+    where ``<basename>`` is the common part at the beginning of all the files 
+    inside the Position folder and ``<optional_text>`` is any text you like. 
+    The file should be readable with Python using the NumPy function 
+    ``np.load(segm_filepath)['arr_0']``, which is the default when saving 
+    with ``np.savez_compressed(segm_filepath, segm_masks_arr)``. 
+
+3. Select optimal parameters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Open the spotMAX GUI and load one or more Positions. Go through each one of the 
+parameters and make sure you understand their meaning. Here you find a detailed 
+description :ref:`params-desc`. 
+
+.. seealso::
+
+    We are constantly improving this documentation and we would like to write a FAQ section. 
+    If you want to help out, **feel free to submit the questions you have** on our 
+    `GitHub page <https://github.com/ElpadoCan/spotMAX/issues>`_.
+
+Experiment with different parameters and check intermediate results by clicking 
+on the |compute| compute button beside each testable parameter. Here you can 
+find a guide on how to fine-tune the paramters :ref:`params-tuning`. 
+
+4. Run the analysis on a subset of the data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Once you think you have reasonable parameters, click on the ``Run analysis...`` 
+button on the top-right of the :ref:`analysis-parameters-tab`. 
+
+At the end of the analysis, you will be asked to visualize the results. 
+
+.. tip:: 
+
+    If you are working with 3D z-stack data, it can be useful to visualize 
+    results in "max-projection". You can select this on the left-side of the 
+    scrollbars below the image. 
+
+If you are not happy with the results go back to step 3. and try changing the
+parameters. If you are **struggling with finding good parameters**, feel free to 
+send us a sample image with a description of what you tried so far. Please, 
+include the log file of your best analysis run. You can send us the data 
+on our `GitHub page <https://github.com/ElpadoCan/spotMAX/issues>`_ or 
+at my :email:`padovaf@tcd.ie`. 

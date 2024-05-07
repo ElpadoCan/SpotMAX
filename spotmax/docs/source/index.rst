@@ -99,6 +99,7 @@ fluorescence channels (and combinations thereof).
    parameters/index
    features/index
    misc/output_files
+   gui/inspect_results_tab
    tutorials/index
    misc/contributing
    api/api
