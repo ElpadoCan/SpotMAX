@@ -113,7 +113,7 @@ At the end of the analysis, you will be asked to visualize the results.
     results in "max-projection". You can select this on the right-side of the 
     scrollbars below the image. 
 
-If you are not happy with the results go back to step 3. and try changing the
+If you are not happy with the results go back to step 3 and try changing the
 parameters. If you are **struggling with finding good parameters**, feel free to 
 send us a sample image with a description of what you tried so far. Please, 
 include the log file of your best analysis run. You can send us the data 

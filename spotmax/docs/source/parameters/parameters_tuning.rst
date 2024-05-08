@@ -119,6 +119,11 @@ ratio (SNR)) any of the effect size described in the seciton
 :ref:`Effect size (vs. backgr.)` are good candidates, since the effect size 
 is a measure of the SNR of the spot. 
 
+Another combination that we found working well, is to use an ``OR`` statement 
+between global and local effect sizes. For example, you could filter spots 
+whose global ``OR`` local :ref:`Effect size (vs. backgr.)` are higher than a 
+specific value.
+
 .. tip:: 
 
     To understand what could be a good minimum effect size, run the analysis 
