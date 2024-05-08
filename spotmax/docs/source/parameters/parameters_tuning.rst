@@ -186,7 +186,7 @@ Better pre-processing
 
 * **Decrease smoothing**: try to decrase :confval:`Initial gaussian filter sigma` 
   parameter since the smoothing could be too aggressive resulting in 
-  dimmer spots being filteredo out. Try also values below 1.0, like 0.75 or 0.5.
+  dimmer spots being filtered out. Try also values below 1.0, like 0.75 or 0.5.
 
 * **Activate or deactivate sharpening**: try activating/deactivating  
   :confval:`Sharpen spots signal prior detection` parameter
@@ -202,7 +202,7 @@ Better pre-processing
 Better spots segmentation method
 """"""""""""""""""""""""""""""""
 
-See above `better-spots-segm`_.
+See above :ref:`better-spots-segm`.
 
 Minimum spot size is too large
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
