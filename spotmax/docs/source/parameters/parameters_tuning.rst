@@ -23,10 +23,10 @@ optimal parameters.
     described in this section :ref:`tune-parameters-tab`. 
 
 Before optmizing the parameters we need to identify the type of problem that 
-we have. There are two types of problems:
+we have. There are **two types of problems**:
 
-1. `too-many-spots`_ (i.e., too many false positives)
-2. `too-few-spots`_ (i.e, too few true positives)
+1. :ref:`too-many-spots` (i.e., too many false positives)
+2. :ref:`too-few-spots` (i.e, too few true positives)
 
 Let's start with problem number 1.
 
