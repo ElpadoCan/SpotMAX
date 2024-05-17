@@ -297,6 +297,6 @@ Submit your case with some sample data
 
 Feel free to submit your case with some sample data and the parameters you 
 tried so far by opening an issue on our `GitHub`_ page or by sending me an 
-email at :email:`padovaf@tcd.ie`. 
+email at :email:`elpado6872@gmail.com`. 
 
 Until next time! 

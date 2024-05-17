@@ -13,7 +13,7 @@ the testable ones.
 
 For a detailed description of the paramters see the section :ref:`params-desc`. 
 Please, take some time to read this and do not hesitate to ask us on our `GitHub`_ 
-page or at my email :email:`padovaf@tcd.ie` if something is not clear. 
+page or at my email :email:`elpado6872@gmail.com` if something is not clear. 
 
 The testable parameters are those parameters with a compute button |compute| beside. 
 Click the compute button to see the effect of that parameter in real-time. 
