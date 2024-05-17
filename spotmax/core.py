@@ -5117,6 +5117,9 @@ class Kernel(_ParamsParser):
         ref_ch_data = data.get('ref_ch')
         segm_rp = data.get('segm_rp')
         segm_data = data.get('segm')
+        if not np.any(segm_data):
+            return
+        
         df_agg = data.get('df_agg')
         ref_ch_segm_data = data.get('ref_ch_segm')
         acdc_df = data.get('lineage_table')
