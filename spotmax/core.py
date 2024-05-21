@@ -5715,7 +5715,7 @@ class Kernel(_ParamsParser):
                 elpased_seconds = t1-t0
                 elapsed_delta = str(timedelta(seconds=elpased_seconds))
                 self.logger.info(
-                    f'Execution time = {elapsed_delta} HH:mm:ss '
+                    f'Execution time single Position = {elapsed_delta} HH:mm:ss '
                     f'(Path: "{pos_path}")'
                 )
                 print('='*100)
