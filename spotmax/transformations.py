@@ -956,6 +956,7 @@ def add_closest_ID_col(
         closest_IDs.append(closest_ID)
         
     df_spots_coords.loc[[0], 'closest_ID'] = closest_IDs
+    
     return df_spots_coords
     
 def extend_3D_segm_in_z(

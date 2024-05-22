@@ -1438,7 +1438,7 @@ def _init_df_spots_IDs_0(
         df_spots_coords, lab, rp, delta_tol, spots_zyx_radii_pxl, 
         last_spot_id
     ):
-    closest_IDs = df_spots_coords.loc[[0], 'closest_ID'].to_list()
+    closest_IDs = df_spots_coords.loc[[0], 'closest_ID'].unique()
     IDs = [obj.label for obj in rp]
     dfs_spots_IDs_0 = {}
     for closest_ID in closest_IDs:

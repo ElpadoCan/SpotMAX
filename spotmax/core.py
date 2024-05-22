@@ -4173,6 +4173,7 @@ class Kernel(_ParamsParser):
         )
         (df_spots_coords, nnet_pred_map, spots_labels, 
          spots_labels_invalid_IDs) = _detect_result
+        
         df_spots_det, df_spots_gop = self._spots_filter(
             df_spots_coords, 
             spots_img, 
@@ -4313,11 +4314,32 @@ class Kernel(_ParamsParser):
         )
         for ID in IDs_idx:
             if ID == 0:
-                closestID = df_spots_coords.loc[[ID], 'closest_ID'].iloc[0]
-                obj = IDs_rp_mapper[closestID]
-            else:
-                obj = IDs_rp_mapper[ID]
-                
+                df_spots_ID_0 = df_spots_coords.loc[[0]]
+                nonzero_mask = ~df_spots_coords.index.isin([0])
+                closestIDs = df_spots_ID_0['closest_ID'].unique()
+                for closestID in closestIDs:
+                    obj = IDs_rp_mapper[closestID]
+                    min_z, min_y, min_x = obj.bbox[:3]
+                    
+                    mask = df_spots_coords['closest_ID'] == closestID
+                    mask[nonzero_mask] = False
+                    
+                    zz_local = df_spots_coords.loc[mask, 'z_aggr'] - min_z
+                    df_spots_coords.loc[mask, 'z_local'] = zz_local
+                    
+                    yy_local = df_spots_coords.loc[mask, 'y_aggr'] - min_y
+                    df_spots_coords.loc[mask, 'y_local'] = yy_local
+
+                    xx_local = df_spots_coords.loc[mask, 'x_aggr'] - min_x
+                    df_spots_coords.loc[mask, 'x_local'] = xx_local
+                    
+                num_spots_ID_0 = len(df_spots_ID_0)
+                s = f'  * Object ID {obj.label} = {num_spots_ID_0}'
+                num_spots_objs_txts.append(s)
+                pbar.update()
+                continue
+            
+            obj = IDs_rp_mapper[ID]
             min_z, min_y, min_x = obj.bbox[:3]
             zz_local = df_spots_coords.loc[[ID], 'z_aggr'] - min_z
             df_spots_coords.loc[[ID], 'z_local'] = zz_local
@@ -5489,7 +5511,7 @@ class Kernel(_ParamsParser):
         
         df_spots_gop = pd.concat(
             dfs_lists['dfs_spots_gop_test'], keys=keys, names=names
-        ).drop(columns='closest_ID', errors='ignore')
+        ).drop(columns=['closest_ID'], errors='ignore')
 
         if do_spotfit:
             zyx_spot_min_vol_um = self.metadata['zyxResolutionLimitUm']
