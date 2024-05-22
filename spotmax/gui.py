@@ -56,6 +56,7 @@ from . import icon_path
 from . import issues_url
 from . import features
 from . import prompts
+from . import spotmax_path
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
@@ -111,6 +112,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def run(self, module='spotmax_gui', logs_path=logs_path):
         super().run(module=module, logs_path=logs_path)
+        
+        self.logger.info(f'SpotMAX installation directory: "{spotmax_path}"')
 
         self.initGui()
         self.createThreadPool()
