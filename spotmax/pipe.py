@@ -86,7 +86,7 @@ def spots_semantic_segmentation(
         do_remove_hot_pixels=False,
         lineage_table=None,
         do_aggregate=True,
-        thresh_only_inside_objs_intens=False,
+        thresh_only_inside_objs_intens=True,
         min_spot_mask_size=5,
         keep_objects_touching_lab_intact=True,
         use_gpu=False,

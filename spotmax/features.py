@@ -675,3 +675,11 @@ def get_all_pairs_within_distance(
         np.row_stack((points[i], points[j])) for i, j in zip(ii, jj) if i<j
     ]
     return paired_points
+
+def kurtosis_from_hist(bin_centers, counts):
+    # see here https://stackoverflow.com/questions/54414462/how-can-i-calculate-the-kurtosis-of-already-binned-data
+    total = np.sum(counts)
+    mean = np.sum(counts * bin_centers) / total
+    variance = np.sum(counts * (bin_centers - mean)**2) / total
+    kurtosis = np.sum(counts * (bin_centers - mean)**4) / (variance**2 * total)
+    return kurtosis

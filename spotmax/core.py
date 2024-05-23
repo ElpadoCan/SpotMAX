@@ -3580,6 +3580,7 @@ class SpotFIT(Spheroid):
         img = self.spots_img_local
 
         all_gof_metrics = np.zeros((self.num_spots, 7))
+        spots_fitted_coords = {}
         self.fit_again_idx = []
         for obj_id, df_obj in df_spotFIT.groupby(level=0):
             obj_s_idxs = df_obj['neigh_idx'].iloc[0]
@@ -3607,6 +3608,8 @@ class SpotFIT(Spheroid):
                     reduced_chisq, p_chisq, RMSE,
                     ks, p_ks, NRMSE, F_NRMSE
                 ]
+                
+                spots_fitted_coords[(obj_id, s)] = (z_s, y_s, x_s)
 
         # Automatic outliers detection
         NRMSEs = all_gof_metrics[:,5]
@@ -3662,10 +3665,13 @@ class SpotFIT(Spheroid):
                 gof_metrics = (
                     reduced_chisq, p_chisq, ks, p_ks, RMSE, NRMSE, F_NRMSE
                 )
+                
+                z_s, y_s, x_s = spots_fitted_coords[(obj_id, s)]
                     
                 self.store_metrics_good_spots(
                     obj_id, s, fitted_coeffs[s], I_tot, I_foregr, gof_metrics,
-                    solution_found, B_fit, B_fit/num_spots_fitted_together
+                    solution_found, B_fit, B_fit/num_spots_fitted_together, 
+                    img, z_s, y_s, x_s
                 )
 
                 if verbose > 1:
@@ -3786,19 +3792,17 @@ class SpotFIT(Spheroid):
             )
 
             self.store_metrics_good_spots(
-                obj_id, s, fit_coeffs[:-1],
-                I_tot, I_foregr, gof_metrics,
-                success, B_fit, B_fit
+                obj_id, s, fit_coeffs[:-1], I_tot, I_foregr, gof_metrics,
+                success, B_fit, B_fit, img, z_s, y_s, x_s
             )
 
     def store_metrics_good_spots(
             self, obj_id, s, fitted_coeffs_s, I_tot, I_foregr, gof_metrics,
-            solution_found, B_fit, spot_B_fit
+            solution_found, B_fit, spot_B_fit, fitted_img, zz_fit, yy_fit, 
+            xx_fit
         ):
 
-        (z0_fit, y0_fit, x0_fit,
-        sz_fit, sy_fit, sx_fit,
-        A_fit) = fitted_coeffs_s
+        z0_fit, y0_fit, x0_fit, sz_fit, sy_fit, sx_fit, A_fit = fitted_coeffs_s
 
         min_z, min_y, min_x = self.obj_bbox_lower
 
@@ -3827,6 +3831,27 @@ class SpotFIT(Spheroid):
 
         self._df_spotFIT.at[(obj_id, s), 'total_integral_fit'] = I_tot
         self._df_spotFIT.at[(obj_id, s), 'foreground_integral_fit'] = I_foregr
+        
+        zc, yc, xc = round(z0_fit), round(y0_fit), round(x0_fit)
+        
+        kurtosis_z = features.kurtosis_from_hist(
+            fitted_img[zz_fit, yc, xc], zz_fit
+        )
+        self._df_spotFIT.at[(obj_id, s), 'kurtosis_z_fit'] = kurtosis_z
+        
+        kurtosis_y = features.kurtosis_from_hist(
+            fitted_img[zc, yy_fit, xc], yy_fit
+        )
+        self._df_spotFIT.at[(obj_id, s), 'kurtosis_y_fit'] = kurtosis_y
+        
+        kurtosis_x = features.kurtosis_from_hist(
+            fitted_img[zc, yc, xx_fit], xx_fit
+        )
+        self._df_spotFIT.at[(obj_id, s), 'kurtosis_x_fit'] = kurtosis_x
+        
+        # PS: not an insult to Kurt :D
+        mean_kurt_yx = (kurtosis_y + kurtosis_x)/2
+        self._df_spotFIT.at[(obj_id, s), 'mean_kurtosis_yx_fit'] = mean_kurt_yx
 
         (reduced_chisq, p_chisq,
         ks, p_ks, RMSE, NRMSE, F_NRMSE) = gof_metrics
