@@ -4510,6 +4510,9 @@ class Kernel(_ParamsParser):
             print('')
             print('*'*100)
             num_spots_objs_txt = '\n'.join(num_spots_objs_txts)
+            if not num_spots_objs_txt:
+                num_spots_objs_txt = '\nAll objects have 0 spots'
+                
             self.logger.info(
                 f'Frame n. {frame_i+1}: number of spots per '
                 f'segmented object:\n{num_spots_objs_txt}'

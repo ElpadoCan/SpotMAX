@@ -509,6 +509,10 @@ def find_local_peaks(
             zyx_radii_pxl
         )
     
+    if labels is not None and not np.any(labels):
+        # No point in searching for spots, labels are empty
+        return np.zeros((0, 2), dtype=np.int32)
+    
     peaks_coords = skimage.feature.peak_local_max(
         image, 
         footprint=footprint, 

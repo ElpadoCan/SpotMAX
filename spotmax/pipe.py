@@ -1613,10 +1613,10 @@ def spots_calc_features_and_filter(
     --------
     `skimage.measure.regionprops <https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops>`__
     """    
-    if verbose:
+    if verbose and len(df_spots_coords) > 0:
         print('')
         logger_func('Filtering valid spots...')
-    
+
     if gop_filtering_thresholds is None:
         gop_filtering_thresholds = {}
     
@@ -1832,11 +1832,15 @@ def _log_filtered_number_spots(
     if not verbose:
         return
     
+    are_all_objs_with_0_spots = True
     num_spots_filtered_log = []
     for ID, info_ID in filtered_spots_info.items():
         start_num_spots = info_ID['start_num_spots']
         end_num_spots = info_ID['end_num_spots']
         num_iter = info_ID['num_iter']
+        if start_num_spots != 0:
+            are_all_objs_with_0_spots = False
+            
         if start_num_spots == end_num_spots:
             continue
         txt = (
@@ -1844,6 +1848,9 @@ def _log_filtered_number_spots(
             f'({num_iter} iterations)'
         )
         num_spots_filtered_log.append(txt)
+    
+    if are_all_objs_with_0_spots:
+        return
     
     if num_spots_filtered_log:
         info = '\n'.join(num_spots_filtered_log)
