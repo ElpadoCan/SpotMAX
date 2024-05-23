@@ -370,7 +370,7 @@ def global_semantic_segmentation(
         return_image=False,
         keep_input_shape=True,
         keep_objects_touching_lab_intact=True,
-        thresh_only_inside_objs_intens=False,
+        thresh_only_inside_objs_intens=True,
         nnet_model=None, 
         nnet_params=None,
         nnet_input_data=None, 

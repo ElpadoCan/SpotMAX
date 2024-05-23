@@ -480,7 +480,7 @@ Pre-processing
     resulting in missed detections. 
   
   :type: boolean
-  :default: ``False``
+  :default: ``True``
 
 .. confval:: Remove hot pixels
 

@@ -848,7 +848,7 @@ def _pre_processing_params():
         },
         'thresholdWithObjsMask': {
             'desc': 'Threshold only inside segmented objects',
-            'initialVal': False,
+            'initialVal': True,
             'stretchWidget': False,
             'addInfoButton': True,
             'addComputeButton': False,
