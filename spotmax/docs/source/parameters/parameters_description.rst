@@ -461,6 +461,27 @@ Pre-processing
   :type: boolean
   :default: ``True``
 
+.. confval:: Threshold only inside segmented objects
+
+  If ``True``, spotMAX will use only the intensities from inside the segmented 
+  objects to determine the threshold value. 
+
+  The segmented objects are the one in the 
+  :confval:`Cells segmentation end name or path` file.
+
+  This parameter is ignored when using a :confval:`Spots segmentation method` 
+  or :confval:`Ref. channel segmentation method` different from 
+  ``Thresholding``
+
+  .. tip:: 
+
+    This parameter is useful when you have **bright artefacts close to the 
+    segmented objects** that would otherwise skew towards a higher threshold 
+    resulting in missed detections. 
+  
+  :type: boolean
+  :default: ``False``
+
 .. confval:: Remove hot pixels
 
   If ``True``, spotMAX will run a morphological opening operation on the intensity 

@@ -86,6 +86,7 @@ def spots_semantic_segmentation(
         do_remove_hot_pixels=False,
         lineage_table=None,
         do_aggregate=True,
+        thresh_only_inside_objs_intens=False,
         min_spot_mask_size=5,
         keep_objects_touching_lab_intact=True,
         use_gpu=False,
@@ -145,6 +146,9 @@ def spots_semantic_segmentation(
         https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
     do_aggregate : bool, optional
         If True, perform segmentation on all the cells at once. Default is True
+    thresh_only_inside_objs_intens : bool, optional
+        If True, use only the intensities from inside the segmented objects 
+        (in `lab`). Default is False
     min_spot_mask_size : int, optional
         Minimum size (in pixels) of the spots masks. Masks with 
         `size < min_spot_mask_size` will be removed. Default is 5.
@@ -290,6 +294,7 @@ def spots_semantic_segmentation(
             return_image=True,
             keep_input_shape=keep_input_shape,
             keep_objects_touching_lab_intact=keep_objects_touching_lab_intact,
+            thresh_only_inside_objs_intens=thresh_only_inside_objs_intens,
             nnet_model=nnet_model,
             nnet_params=nnet_params,
             nnet_input_data=nnet_input_data,

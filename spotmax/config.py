@@ -846,6 +846,17 @@ def _pre_processing_params():
             'actions': None,
             'dtype': get_bool
         },
+        'thresholdWithObjsMask': {
+            'desc': 'Threshold only inside segmented objects',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
         'removeHotPixels': {
             'desc': 'Remove hot pixels',
             'initialVal': False,

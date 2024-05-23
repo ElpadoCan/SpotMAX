@@ -4108,6 +4108,7 @@ class Kernel(_ParamsParser):
             prediction_method='Thresholding',
             threshold_method='threshold_otsu', 
             do_aggregate=False,
+            thresh_only_inside_objs_intens=False,
             lineage_table=None, 
             min_size_spheroid_mask=None,
             min_spot_mask_size=5,
@@ -4160,6 +4161,7 @@ class Kernel(_ParamsParser):
             threshold_method, 
             do_aggregate, 
             spot_footprint,
+            thresh_only_inside_objs_intens=thresh_only_inside_objs_intens,
             transf_spots_nnet_img=transf_spots_nnet_img,
             spots_ch_segm_mask=spots_ch_segm_mask, 
             lineage_table=lineage_table, 
@@ -4385,6 +4387,7 @@ class Kernel(_ParamsParser):
             detection_method, 
             threshold_method, 
             do_aggregate, footprint, 
+            thresh_only_inside_objs_intens=False,
             transf_spots_nnet_img=None,
             spots_ch_segm_mask=None,
             save_spots_mask=True,
@@ -4426,6 +4429,7 @@ class Kernel(_ParamsParser):
                 spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
                 lineage_table=lineage_table,
                 do_aggregate=do_aggregate,
+                thresh_only_inside_objs_intens=thresh_only_inside_objs_intens,
                 logger_func=self.logger.info,
                 thresholding_method=threshold_method,
                 nnet_model=self.nnet_model,
@@ -5139,6 +5143,9 @@ class Kernel(_ParamsParser):
         do_aggregate = (
             self._params['Pre-processing']['aggregate']['loadedVal']
         )
+        thresh_only_inside_objs_intens = (
+            self._params['Pre-processing']['thresholdWithObjsMask']['loadedVal']
+        )
         ref_ch_data = data.get('ref_ch')
         segm_rp = data.get('segm_rp')
         segm_data = data.get('segm')
@@ -5424,6 +5431,7 @@ class Kernel(_ParamsParser):
                 threshold_method=threshold_method,
                 detection_method=detection_method,
                 do_aggregate=do_aggregate,
+                thresh_only_inside_objs_intens=thresh_only_inside_objs_intens,
                 lineage_table=lineage_table,
                 df_spots_coords_input=df_spots_coords_input,
                 save_spots_mask=save_spots_mask,
