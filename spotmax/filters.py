@@ -275,9 +275,12 @@ def local_semantic_segmentation(
         labels = np.zeros_like(lab)
         for obj in rp:
             if lineage_table is not None:
-                if lineage_table.at[obj.label, 'relationship'] == 'bud':
-                    # Skip buds since they are aggregated with mother
-                    continue
+                try:
+                    if lineage_table.at[obj.label, 'relationship'] == 'bud':
+                        # Skip buds since they are aggregated with mother
+                        continue
+                except Exception as err:
+                    import pdb; pdb.set_trace()
             
             spots_img_obj, lab_mask_lab, merged_obj_slice, bud_ID = (
                 slicer.slice(image, obj)
@@ -348,7 +351,7 @@ def local_semantic_segmentation(
                 local_labels[sub_obj.slice][sub_obj.image] = ID
         
         # labels = filter_labels_by_size(labels, min_mask_size)
-        
+
         result[method] = labels.astype(np.int32)
         if do_try_all_thresholds:
             pbar.update()

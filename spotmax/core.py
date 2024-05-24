@@ -200,8 +200,11 @@ class _DataLoader:
             return data
 
         # Load lineage table
-        table_path = cellacdc.io.get_filepath_from_endname(
-            images_path, os.path.basename(lineage_table_endname), ext='.csv'
+        csv_endname = os.path.basename(lineage_table_endname)
+        if csv_endname.endswith('.csv'):
+            csv_endname = csv_endname[:-4]
+        table_path, _ = cellacdc.load.get_path_from_endname(
+            csv_endname, images_path, ext='.csv'
         )
         if table_path is None:
             self._critical_channel_not_found(
