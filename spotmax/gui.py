@@ -57,6 +57,7 @@ from . import issues_url
 from . import features
 from . import prompts
 from . import spotmax_path
+from . import _warnings
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
@@ -584,6 +585,10 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def addSpotsCoordinatesTriggered(self):
         posData = self.data[self.pos_i]
+        if not os.path.exists(posData.spotmax_out_path):
+            _warnings.warnSpotmaxOutFolderDoesNotExist(
+                posData.spotmax_out_path, qparent=self
+            )
         df_spots_files = {}
         for _posData in self.data:
             df_spots_files[_posData.spotmax_out_path] = (
