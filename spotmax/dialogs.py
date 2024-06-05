@@ -100,6 +100,7 @@ class GopFeaturesAndThresholdsDialog(QBaseDialog):
         
         mainLayout.addWidget(QLabel('Current features and ranges expression:'))
         self.textEdit = QPlainTextEdit()
+        self.textEdit.setReadOnly(True)
         mainLayout.addWidget(self.textEdit)
         
         mainLayout.addStretch(1)
@@ -2094,9 +2095,6 @@ class ParamsGroupBox(QGroupBox):
         print('-'*100)
         print(f'Configuration file saved to: "{ini_filepath}"')
         print('*'*100)
-
-    def showInfo(self):
-        print(self.sender().label.text())
 
 class spotStyleDock(QDockWidget):
     sigOk = Signal(int)
