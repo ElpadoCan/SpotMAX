@@ -30,3 +30,17 @@ def warnSpotmaxOutFolderDoesNotExist(spotmax_out_path, qparent=None):
         commands=(spotmax_out_path,),
         path_to_browse=os.path.dirname(spotmax_out_path)
     )
+
+def warnNeuralNetNotInitialized(qparent=None, model_type='SpotMAX AI'):
+    from cellacdc import widgets
+    
+    txt = html_func.paragraph(f"""
+        {model_type} <b>parameters</b> were <b>not initialized</b>.<br><br>
+        
+        You need to <b>initialize the model's parameters</b> by clicking on the settings 
+        button on the right of the selection box<br>
+        at the <code>Spots segmentation method</code> parameter.
+    """)
+    
+    msg = widgets.myMessageBox(wrapText=False)
+    msg.warning(qparent, 'Model parameters not initialized', txt)
