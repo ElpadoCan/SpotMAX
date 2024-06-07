@@ -2771,6 +2771,16 @@ class SpinBox(acdc_widgets.SpinBox):
             return True
         return False
 
+class DoubleSpinBox(QDoubleSpinBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.installEventFilter(self)
+    
+    def eventFilter(self, object, event) -> bool:
+        if event.type() == QEvent.Type.Wheel:
+            return True
+        return False
+
 class RunNumberSpinbox(SpinBox):
     def __init__(self, parent=None, disableKeyPress=False):
         super().__init__(parent=parent, disableKeyPress=disableKeyPress)
@@ -3280,7 +3290,7 @@ class LocalBackgroundRingWidthWidget(QWidget):
         
         mainLayout = QGridLayout()
         
-        controlWidget = QDoubleSpinBox()
+        controlWidget = DoubleSpinBox()
         controlWidget.setDecimals(0)
         controlWidget.setMinimum(1)
         controlWidget.setSingleStep(1)
@@ -3324,12 +3334,12 @@ class LocalBackgroundRingWidthWidget(QWidget):
             return
         
         if self.unit() == 'pixel':
-            multiplier = self.pixelSize()
-            decimals = 0
-        else:
             multiplier = 1/self.pixelSize()
             decimals = 3
-        
+        else:
+            multiplier = self.pixelSize()
+            decimals = 0
+    
         indicatorValue = round(value*multiplier, decimals)
         self.indicatorWidget.setText(str(indicatorValue))
     
