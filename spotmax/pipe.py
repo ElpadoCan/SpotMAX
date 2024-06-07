@@ -864,7 +864,7 @@ def _compute_obj_spots_features(
         debug=False,
         _ID=1
     ):
-    """_summary_
+    """Compute spots features in the parent object.
 
     Parameters
     ----------
@@ -957,6 +957,9 @@ def _compute_obj_spots_features(
         debug=debug
     )
     spheroids_mask, spheroids_lab, min_size_spheroid_mask = result
+    
+    obj_rp = skimage.measure.regionprops(obj_mask.astype(np.uint8))[0]
+    obj_centroid = obj_rp.centroid
     
     vox_to_fl = 1
     if zyx_voxel_size is not None:
@@ -1194,6 +1197,13 @@ def _compute_obj_spots_features(
             sharp_spot_intensities_z_edt, local_sharp_spot_bkgr_vals, 
             df_obj_spots, spot_id, name='spot_vs_local_backgr',
             debug=debug, logger_warning_report=logger_warning_report,
+            logger_func=logger_func
+        )
+        
+        features.add_spot_localization_metrics(
+            df_obj_spots, spot_id, zyx_center, obj_centroid,
+            voxel_size=zyx_voxel_size,
+            logger_warning_report=logger_warning_report,
             logger_func=logger_func
         )
         

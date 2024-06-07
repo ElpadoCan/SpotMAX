@@ -1072,6 +1072,22 @@ class _ParamsParser(_DataLoader):
         with open(self.ini_params_file_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
 
+    def _raise_pos_path_not_valid(self, images_path):
+        print('\n')
+        print('-'*100)
+        err_msg = (
+            '[ERROR]: The Images path requested (see below) does not belong '
+            'to any Position folder.\n\n'
+            f'Requested Images path: "{images_path}"\n\n'
+            'Make sure to place the Images folder in a folder whose name '
+            'starts with "Position_" and ends with an integer '
+            '(e.g., "Position_1")'
+            f'{error_up_str}'
+        )
+        self.logger.info(err_msg)
+        self.logger.info('spotMAX aborted due to ERROR. See above more details.')
+        self.quit()
+    
     @exception_handler_cli
     def set_abs_exp_paths(self):
         self.logger.info('Scanning experiment folders...')
@@ -1095,6 +1111,8 @@ class _ParamsParser(_DataLoader):
             elif io.is_images_path(exp_path):
                 images_path = exp_path
                 pos_path = os.path.dirname(images_path)
+                if not acdc_myutils.is_pos_folderpath(pos_path):
+                    self._raise_pos_path_not_valid(images_path)
                 pos_foldername = os.path.basename(pos_path)
                 if pos_foldername.startswith('Position_'):
                     exp_path = os.path.dirname(os.path.dirname(images_path))
@@ -4533,12 +4551,12 @@ class Kernel(_ParamsParser):
                 )
             )
         
-        # if self.debug:
-        #     from . import _debug
-        #     ID = 36
-        #     _debug._spots_detection(
-        #         aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
-        #     )
+        if self.debug:
+            from . import _debug
+            ID = None
+            _debug._spots_detection(
+                aggregated_lab, labels, aggr_spots_img, df_spots_coords, ID=ID
+            )
 
         if verbose:
             print('')

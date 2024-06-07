@@ -3,6 +3,8 @@ from typing import Union, Literal
 from numbers import Number
 import warnings
 
+import math
+
 import numpy as np
 import pandas as pd
 
@@ -394,6 +396,19 @@ def add_effect_sizes(
             print('-'*100)
         print('='*100)
         import pdb; pdb.set_trace()
+
+def add_spot_localization_metrics(
+        df, spot_id, zyx_center, obj_centroid, voxel_size=(1, 1, 1), 
+        debug=False, logger_warning_report=None, logger_func=print
+    ):
+    dist_pxl = math.dist(zyx_center, obj_centroid)
+    df.at[spot_id, 'spot_distance_from_obj_centroid_pixels'] = dist_pxl
+    
+    p_um = [c/ps for c, ps in zip(zyx_center, voxel_size)]
+    q_um = [c/ps for c, ps in zip(obj_centroid, voxel_size)]
+    
+    dist_um = math.dist(p_um, q_um)
+    df.at[spot_id, 'spot_distance_from_obj_centroid_um'] = dist_um
 
 def add_missing_cells_to_df_agg_from_segm(df_agg, segm_data):
     missing_rows = [df_agg]

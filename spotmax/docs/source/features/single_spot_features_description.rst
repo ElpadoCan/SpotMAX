@@ -359,6 +359,22 @@ actual segmentation of the spots.
 * **95 percentile**: column name ``spot_preproc_q95_in_spot_minimumsize_vol``.
 * **Standard deviation**: column name ``spot_preproc_std_in_spot_minimumsize_vol``.
 
+.. spotloc-features:
+
+Spatial localization metrics
+----------------------------
+
+Features that describe the spatial localization of the spots within the 
+segmentated objects. 
+
+* **Distance from object centroid (pixel)**: column name ``spot_distance_from_obj_centroid_pixels``.
+  Distance (in pixels) between the spot center and the centroid of the segmented object 
+  (e.g., the cell).  
+* **Distance from object centroid ((micro-m))**: column name ``spot_distance_from_obj_centroid_um``.
+  Distance (in micrometers) between the spot center and the centroid of the segmented object 
+  (e.g., the cell). 
+
+
 .. _spotfit-features:
 
 SpotSIZE metrics
