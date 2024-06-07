@@ -581,6 +581,7 @@ class GopFeaturesAndThresholdsGroupbox(QGroupBox):
         self._layout.removeWidget(delButton.selector.logicStatementCombobox)
         self._layout.removeWidget(delButton)
         self.selectors.remove(delButton.selector)
+        self.emitValueChanged()
     
     def setValue(self, value):
         pass
