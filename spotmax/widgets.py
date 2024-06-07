@@ -293,6 +293,12 @@ class FeatureSelectorButton(QPushButton):
         self._isFeatureSet = False
         self._alignment = alignment
         self.setCursor(Qt.PointingHandCursor)
+        self._initText = text
+    
+    def reset(self):
+        self._isFeatureSet = False
+        self.setFlat(False)
+        self.setText(self._initText)
     
     def setFeatureText(self, text):
         self.setText(text)
@@ -459,6 +465,18 @@ class FeatureRangeSelector:
         self.selectFeatureDialog.sigClose.connect(self.setFeatureText)
         self.selectFeatureDialog.show()
     
+    def reset(self):
+        self.selectButton.reset()
+        self.lowRangeWidgets.checkbox.setChecked(False)
+        self.lowRangeWidgets.spinbox.setValue(0.0)
+        self.highRangeWidgets.checkbox.setChecked(False)
+        self.highRangeWidgets.spinbox.setValue(0.0)
+        try:
+            self.openParenthesisCombobox.setCurrentIndex(0)
+            self.closeParenthesisCombobox.setCurrentIndex(0)
+        except Exception as err:
+            pass
+    
     def setFeatureText(self):
         if self.selectFeatureDialog.cancel:
             return
@@ -513,6 +531,7 @@ class GopFeaturesAndThresholdsGroupbox(QGroupBox):
         self._layout.addWidget(self.addButton, 0, lastCol+1, 2, 1)
         self.lastCol = lastCol+1
         self.selectors = [firstSelector]
+        self.delButtons = []
 
         self.setLayout(self._layout)
 
@@ -572,15 +591,30 @@ class GopFeaturesAndThresholdsGroupbox(QGroupBox):
         self._layout.addWidget(delButton, row, self.lastCol, 2, 1)
         self.selectors.append(selector)
         delButton.clicked.connect(self.removeFeatureField)
+        self.delButtons.append(delButton)
         self.connectSelector(selector)
     
-    def removeFeatureField(self):
-        delButton = self.sender()
+    def clearAll(self):
+        self.selectors[0].reset()
+        
+        for delButton in self.delButtons:
+            self.removeFeatureField(delButton=delButton, removeDelButton=False)
+        
+        self.delButtons = []
+        self.emitValueChanged()
+    
+    def removeFeatureField(
+            self, checked=True, delButton=None, removeDelButton=True
+        ):
+        if delButton is None:
+            delButton = self.sender()
         for widget in delButton.selector.widgets:
             self._layout.removeWidget(widget['widget'])
         self._layout.removeWidget(delButton.selector.logicStatementCombobox)
         self._layout.removeWidget(delButton)
         self.selectors.remove(delButton.selector)
+        if removeDelButton:
+            self.delButtons.remove(delButton)
         self.emitValueChanged()
     
     def setValue(self, value):
