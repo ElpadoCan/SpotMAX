@@ -1856,6 +1856,7 @@ class ParamsGroupBox(QGroupBox):
 
         self.setLayout(mainLayout)
         self.updateMinSpotSize()
+        self.doSpotFitToggled(False)
     
     def addFieldToParams(self, formWidget):
         if formWidget.fieldIdx == 0:
@@ -1957,6 +1958,27 @@ class ParamsGroupBox(QGroupBox):
         spotParams = self.params['Spots channel']
         localBkgrRingWidthWidget = spotParams['localBkgrRingWidth']['widget']
         localBkgrRingWidthWidget.setPixelSize(pixelSize)
+    
+    def doSpotFitToggled(self, checked):
+        for section, section_params in self.params.items():
+            for anchor, param in section_params.items():
+                parentActivator = param.get('parentActivator')
+                if parentActivator is None:
+                    continue
+                
+                parentSection, parentAnchor = parentActivator
+                parentParam = self.params[parentSection][parentAnchor]
+                isDisabled = not parentParam['widget'].isChecked()
+                param['formWidget'].setDisabled(isDisabled)
+                if not isDisabled:
+                    continue
+                
+                parentDesc = parentParam['desc']
+                tooltip = (
+                    'This parameter is disabled because it requires\n'
+                    f'`{parentDesc}` to be activated.'
+                )
+                param['formWidget'].setToolTip(tooltip)
     
     def updateMinSpotSize(self, value=0.0):
         metadata = self.params['METADATA']

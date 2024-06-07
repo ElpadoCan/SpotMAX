@@ -1083,6 +1083,7 @@ class formWidget(QWidget):
     sigEditClicked = Signal(object)
     sigAddField = Signal(object)
     sigRemoveField = Signal(str, str, int)
+    sigToggled = Signal(object)
 
     def __init__(
             self, widget,
@@ -1131,6 +1132,11 @@ class formWidget(QWidget):
             widget.setParent(self)
             widget.parentFormWidget = self
 
+        try:
+            widget.toggled.connect(self.emitToggled)
+        except Exception as err:
+            pass
+        
         self.initialVal = initialVal
         self.valueSetter = valueSetter
         self.setValue(initialVal, valueSetter=valueSetter)
@@ -1253,6 +1259,20 @@ class formWidget(QWidget):
         if addLabel:
             self.labelLeft.clicked.connect(self.tryChecking)
         self.labelRight.clicked.connect(self.tryChecking)
+    
+    def setDisabled(self, disabled: bool) -> None:
+        for item in self.items:
+            try:
+                item.setDisabled(disabled)
+            except Exception as err:
+                pass
+    
+    def setToolTip(self, tooltip):
+        self.labelLeft.setToolTip(tooltip)
+        self.widget.setToolTip(tooltip)
+    
+    def emitToggled(self):
+        self.sigToggled.emit(self)
     
     def addField(self):
         items = [None]*len(self.items)
