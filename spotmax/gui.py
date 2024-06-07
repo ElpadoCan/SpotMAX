@@ -45,6 +45,7 @@ from cellacdc import io as acdc_io
 from cellacdc.myutils import get_salute_string, determine_folder_type
 from cellacdc import qrc_resources
 from cellacdc import base_cca_dict
+from cellacdc import myutils as acdc_utils
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
@@ -797,7 +798,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.logger.info('Starting spotMAX analysis...')
         self._analysis_started_datetime = datetime.datetime.now()
         self.funcDescription = 'starting analysis process'
-        worker = qtworkers.AnalysisWorker(ini_filepath, is_tempfile)
+        
+        # Close logger to pass the file to cli logger
+        log_handler = self.logger.handlers[0]
+        self.logger.removeHandler(log_handler)
+        log_handler.close()
+        
+        worker = qtworkers.AnalysisWorker(
+            ini_filepath, is_tempfile, log_filepath=self.log_path
+        )
 
         command = worker.getCommandForClipboard()
         widgets.toClipboard(command)
@@ -865,10 +874,31 @@ class spotMAX_Win(acdc_gui.guiWin):
         return msg_func == 'information'
     
     def analysisWorkerFinished(self, args):
+        self.reOpenLogger()
         success = self.promptAnalysisWorkerFinished(args)
         
-        if success:
+        if not success:
+            return
+        
+        if self.isDataLoaded:
             self.askVisualizeResults()
+        else:
+            self.instructHowToVisualizeResults()
+    
+    def instructHowToVisualizeResults(self):
+        txt = html_func.paragraph("""
+            To visualize results load the image data, then go to the 
+            <code>Inspect and/or edit results</code> tab (top-left),<br>
+            and click on <code>Load results from previous analysis...</code>.
+            <br><br>
+            Have fun!
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.question(self, 'How to visualize results', txt)
+    
+    def reOpenLogger(self):
+        file_handler = utils.logger_file_handler(self.log_path, mode='a')
+        self.logger.addHandler(file_handler)
     
     def askVisualizeResults(self):        
         txt = html_func.paragraph(
@@ -2450,7 +2480,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         df_spots_objs = df_coords.copy()
         df_spots_objs['spot_mask'] = spots_masks
         spots_lab = transformations.from_df_spots_objs_to_spots_lab(
-            df_spots_objs, image.shape
+            df_spots_objs, image.shape, show_pbar=True
         )
         self.logger.info(
             f'Total number of detected spots = {len(df_coords)}'
@@ -2472,7 +2502,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             image, 
             spots_lab, 
             axis_titles=['Detect image', 'Spots masks'],
-            annotate_labels_idxs=[1],
+            # annotate_labels_idxs=[1],
             points_coords_df=df_coords
         )
     

@@ -496,6 +496,11 @@ class _ParamsParser(_DataLoader):
 
         self.logger.info(f'Log file moved to "{self.log_path}"')
     
+    def _add_logger_file_handler(self, log_filepath):
+        self.logger.info(f'Logging to additional log file "{log_filepath}"')
+        file_handler = utils.logger_file_handler(log_filepath, mode='a')
+        self.logger.addHandler(file_handler)
+    
     def _check_report_filepath(
             self, report_folderpath, params_path, report_filename='', 
             force_default=False
@@ -695,7 +700,7 @@ class _ParamsParser(_DataLoader):
         with open(params_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
 
-    def _add_missing_args_from_params_ini_file(self, parser_args, params_path):
+    def _add_args_from_params_ini_file(self, parser_args, params_path):
         if not params_path.endswith('.ini'):
             return parser_args
 
@@ -708,14 +713,7 @@ class _ParamsParser(_DataLoader):
         
         config_default_params = config._configuration_params()
         for anchor, options in config_default_params.items():
-            parser_value = parser_args[options['parser_arg']]
-            option = configPars.get(SECTION, options['desc'], fallback=None)
-            if parser_value:
-                # User explicitly passed a value --> use it regardless of ini
-                continue
-            
-            if option is None or not option:
-                continue
+            option = configPars.get(SECTION, options['desc'], fallback='')                        
             dtype_converter = options['dtype']
             value = dtype_converter(option)
             parser_args[options['parser_arg']] = value
@@ -729,17 +727,20 @@ class _ParamsParser(_DataLoader):
         params_path = parser_args['params']
         params_path = utils.check_cli_file_path(params_path)
 
-        parser_args = self._add_missing_args_from_params_ini_file(
+        parser_args = self._add_args_from_params_ini_file(
             parser_args, params_path
         )
-
         force_default = parser_args['force_default_values']
         
         log_folder_path = parser_args['log_folderpath']
         if log_folder_path:
             self._setup_logger_file_handler(log_folder_path)
+        
         if not log_folder_path:
             parser_args['log_folderpath'] = self.logs_path
+        
+        if parser_args['log_filepath']:
+            self._add_logger_file_handler(parser_args['log_filepath'])
         
         disable_final_report = parser_args['disable_final_report']
         report_folderpath = parser_args['report_folderpath']
@@ -1588,9 +1589,8 @@ class _ParamsParser(_DataLoader):
             'If you do not need a reference channel, then set the following '
             'parameters in the parameters file:\n\n'
             f'   - {param_requiring_ref_ch} = False'
-            '\n\n'
+            f'{error_up_str}\n\n'
         )
-
         return missing_ref_ch_msg
     
     def _check_missing_exp_folder(self, missing_params):
@@ -1615,7 +1615,8 @@ class _ParamsParser(_DataLoader):
         
         missing_exp_folder_msg = (
             '[ERROR]: Neither the "Spots channel end name" nor the '
-            '"Reference channel end name or path" are present in the .ini params file.\n\n'
+            '"Reference channel end name or path" are present in the '
+            f'.ini params file.{error_up_str}\n\n'
         )
         return missing_exp_folder_msg    
 
@@ -3898,6 +3899,7 @@ class Kernel(_ParamsParser):
         self._current_frame_i = -1
         self._current_step = 'Kernel initialization'
         self._current_pos_path = 'Not determined yet'
+        self.were_errors_detected = False
     
     def _preprocess(self, image_data, is_ref_ch=False, verbose=True):
         SECTION = 'Pre-processing'
@@ -6097,9 +6099,7 @@ class Kernel(_ParamsParser):
             disable_final_report=False,
             report_filepath='',
             parser_args=None
-        ):
-        self.were_errors_detected = False
-        
+        ):        
         version = read_version()
         acdc_version = acdc_myutils.read_version()
         

@@ -1807,6 +1807,10 @@ class ParamsGroupBox(QGroupBox):
             mainLayout.addWidget(groupBox)
 
         # mainLayout.addStretch()
+        
+        metadata = self.params['METADATA']
+        pixelSize = metadata['pixelWidth']['widget'].value()
+        self.updateLocalBackgroundValue(pixelSize)
 
         self.setLayout(mainLayout)
         self.updateMinSpotSize()

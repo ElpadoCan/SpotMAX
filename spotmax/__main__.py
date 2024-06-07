@@ -51,63 +51,13 @@ def cli_parser():
         metavar='PATH_TO_PARAMS',
         help=('Path of the ".ini" or "_analysis_inputs.csv" file')
     )
-
+    
     ap.add_argument(
-        '-g', '--log_folderpath',
+        '-l', '--log_filepath',
         default='',
         type=str,
-        metavar='LOG_FILE_FOLDERPATH',
-        help=('Folder path where to save the log file (recommended when reporting an issue)')
-    )
-
-    ap.add_argument(
-        '-t', '--report_folderpath',
-        default='',
-        type=str,
-        metavar='REPORT_FOLDERPATH',
-        help=('Folder path where to save the report created at the end of the analysis')
-    )
-
-    ap.add_argument(
-        '-l', '--report_filename',
-        default='',
-        type=str,
-        metavar='REPORT_FILENAME',
-        help=('Filename of the report created at the end of the analysis')
-    )
-
-    ap.add_argument(
-        '-e', '--disable_final_report',
-        action='store_true',
-        help=('Flag to disable the saving of a report at the end of the analysis.')
-    )
-
-    ap.add_argument(
-        '-n', '--num_threads',
-        default=0,
-        type=int,
-        metavar='NUMBA_NUM_THREADS',
-        help=('Number of threads to use for parallel execution when using numba.')
-    )
-
-    ap.add_argument(
-        '-f', '--force_default_values',
-        action='store_true',
-        help=('Flag to disable user inputs and use default values for missing parameters.')
-    )
-
-    ap.add_argument(
-        '-v', '--reduce-verbosity',
-        action='store_true',
-        help=('Flag to reduce the amount of infromation logged and displayed in the terminal.')
-    )
-
-    ap.add_argument(
-        '-o', '--output_tables_file_ext',
-        default='.h5',
-        type=str,
-        metavar='OUTPUT_TABLES_FILE_EXT',
-        help=('File extension of the output tables')
+        metavar='LOG_FILEPATH',
+        help=('Path of an additional log file')
     )
 
     # NOTE: the user doesn't need to pass `-c`` because passing the path to the 
@@ -124,23 +74,6 @@ def cli_parser():
     )
 
     ap.add_argument(
-        '-r', '--raise_on_critical',
-        action='store_true',
-        help=(
-            'Flag to force spotMAX to close upon critical error when running '
-            'in batch mode.'
-        )
-    )
-
-    ap.add_argument(
-        '-u', '--gpu',
-        action='store_true',
-        help=(
-            'Try using CUDA-compatible GPU. Requires `cupy` package.'
-        )
-    )
-
-    ap.add_argument(
         '-d', '--debug',
         action='store_true',
         help=(
@@ -153,6 +86,7 @@ def cli_parser():
 
 def run():
     # print('Setting up required libraries...')
+    from spotmax import error_up_str
     from cellacdc._run import _install_tables
     requires_restart = _install_tables(parent_software='SpotMAX')
     if requires_restart:
@@ -168,12 +102,13 @@ def run():
     RUN_CLI = parser_args['cli']
 
     if RUN_CLI and not PARAMS_PATH:
-        raise FileNotFoundError(
+        error_msg = (
             '[ERROR]: To run spotMAX from the command line you need to '
             'provide a path to the "_analysis_inputs.ini" or '
             '"_analysis_inputs.csv" file. To run the GUI use the command '
-            '`spotmax -g`'
+            f'`spotmax -g`{error_up_str}'
         )
+        raise FileNotFoundError(error_msg)
 
     if PARAMS_PATH:
         run_cli(parser_args, debug=DEBUG)
