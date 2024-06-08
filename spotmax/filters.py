@@ -1,4 +1,3 @@
-from sklearn import neural_network
 from tqdm import tqdm
 
 import numpy as np
