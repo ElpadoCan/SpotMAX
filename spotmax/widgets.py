@@ -3389,10 +3389,10 @@ class LocalBackgroundRingWidthWidget(QWidget):
             return
         
         if self.unit() == 'pixel':
-            multiplier = 1/self.pixelSize()
+            multiplier = self.pixelSize()
             decimals = 3
         else:
-            multiplier = self.pixelSize()
+            multiplier = 1/self.pixelSize()
             decimals = 0
     
         indicatorValue = round(value*multiplier, decimals)
