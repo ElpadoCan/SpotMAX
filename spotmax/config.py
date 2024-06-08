@@ -846,6 +846,17 @@ def _pre_processing_params():
             'actions': None,
             'dtype': get_bool
         },
+        'thresholdWithObjsMask': {
+            'desc': 'Threshold only inside segmented objects',
+            'initialVal': True,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
         'removeHotPixels': {
             'desc': 'Remove hot pixels',
             'initialVal': False,
@@ -1146,7 +1157,10 @@ def _spots_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool, 
+            'actions': (
+                ('toggled', 'doSpotFitToggled'),
+            ),
         },
         'dropSpotsMinDistAfterSpotfit': {
             'desc': 'After spotFIT, drop spots that are too close',
@@ -1157,7 +1171,8 @@ def _spots_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool, 
+            'parentActivator': ('Spots channel', 'doSpotFit')
         },
         'checkMergeSpotfit': {
             'desc': 'Merge spots pairs where single peak fits better',
@@ -1168,7 +1183,8 @@ def _spots_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool, 
+            'parentActivator': ('Spots channel', 'doSpotFit')
         },
         'maxNumPairs': {
             'desc': 'Maximum number of spot pairs to check',
@@ -1182,6 +1198,7 @@ def _spots_ch_params():
             'formWidgetFunc': 'widgets.SpinBox',
             'actions': None,
             'dtype': int, 
+            'parentActivator': ('Spots channel', 'doSpotFit')
         },
         'saveSpotsMask': {
             'desc': 'Save spots segmentation masks',

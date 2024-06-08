@@ -82,10 +82,8 @@ def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):
     from . import logs_path 
     acdc_utils.delete_older_log_files(logs_path)
     
-    is_default = False  
     if custom_logs_folderpath is None:
         custom_logs_folderpath = logs_path
-        is_default = True
     
     logger = acdc_utils.Logger(name='spotmax-logger', module=name)
     sys.stdout = logger
@@ -101,6 +99,10 @@ def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):
     output_file_handler = logger_file_handler(log_path)
     logger._file_handler = output_file_handler
     logger.addHandler(output_file_handler)
+    
+    acdc_utils._log_system_info(
+        logger, log_path, is_cli=True, also_spotmax=True
+    )
     
     # stdout_handler = logging.StreamHandler(sys.stdout)    
     # logger.addHandler(stdout_handler)
@@ -946,7 +948,7 @@ def parse_log_file():
     with open(log_path, 'r') as file:
         log_text = file.read()
     
-    errors = re.findall(r'(\[ERROR\]: .+)\n\^', log_text)
+    errors = re.findall(r'(^\[ERROR\]: [\w\W]*?^)\^.*', log_text, re.M)
     
     return log_path, errors
 

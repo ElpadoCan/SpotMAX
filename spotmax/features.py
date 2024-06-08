@@ -3,6 +3,8 @@ from typing import Union, Literal
 from numbers import Number
 import warnings
 
+import math
+
 import numpy as np
 import pandas as pd
 
@@ -395,6 +397,19 @@ def add_effect_sizes(
         print('='*100)
         import pdb; pdb.set_trace()
 
+def add_spot_localization_metrics(
+        df, spot_id, zyx_center, obj_centroid, voxel_size=(1, 1, 1), 
+        debug=False, logger_warning_report=None, logger_func=print
+    ):
+    dist_pxl = math.dist(zyx_center, obj_centroid)
+    df.at[spot_id, 'spot_distance_from_obj_centroid_pixels'] = dist_pxl
+    
+    p_um = [c/ps for c, ps in zip(zyx_center, voxel_size)]
+    q_um = [c/ps for c, ps in zip(obj_centroid, voxel_size)]
+    
+    dist_um = math.dist(p_um, q_um)
+    df.at[spot_id, 'spot_distance_from_obj_centroid_um'] = dist_um
+
 def add_missing_cells_to_df_agg_from_segm(df_agg, segm_data):
     missing_rows = [df_agg]
     for frame_i, lab in enumerate(segm_data):
@@ -508,6 +523,10 @@ def find_local_peaks(
         footprint = transformations.get_local_spheroid_mask(
             zyx_radii_pxl
         )
+    
+    if labels is not None and not np.any(labels):
+        # No point in searching for spots, labels are empty
+        return np.zeros((0, 2), dtype=np.int32)
     
     peaks_coords = skimage.feature.peak_local_max(
         image, 
@@ -671,3 +690,11 @@ def get_all_pairs_within_distance(
         np.row_stack((points[i], points[j])) for i, j in zip(ii, jj) if i<j
     ]
     return paired_points
+
+def kurtosis_from_hist(bin_centers, counts):
+    # see here https://stackoverflow.com/questions/54414462/how-can-i-calculate-the-kurtosis-of-already-binned-data
+    total = np.sum(counts)
+    mean = np.sum(counts * bin_centers) / total
+    variance = np.sum(counts * (bin_centers - mean)**2) / total
+    kurtosis = np.sum(counts * (bin_centers - mean)**4) / (variance**2 * total)
+    return kurtosis

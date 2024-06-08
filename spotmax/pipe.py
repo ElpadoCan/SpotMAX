@@ -86,6 +86,7 @@ def spots_semantic_segmentation(
         do_remove_hot_pixels=False,
         lineage_table=None,
         do_aggregate=True,
+        thresh_only_inside_objs_intens=True,
         min_spot_mask_size=5,
         keep_objects_touching_lab_intact=True,
         use_gpu=False,
@@ -145,6 +146,9 @@ def spots_semantic_segmentation(
         https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
     do_aggregate : bool, optional
         If True, perform segmentation on all the cells at once. Default is True
+    thresh_only_inside_objs_intens : bool, optional
+        If True, use only the intensities from inside the segmented objects 
+        (in `lab`). Default is False
     min_spot_mask_size : int, optional
         Minimum size (in pixels) of the spots masks. Masks with 
         `size < min_spot_mask_size` will be removed. Default is 5.
@@ -290,6 +294,7 @@ def spots_semantic_segmentation(
             return_image=True,
             keep_input_shape=keep_input_shape,
             keep_objects_touching_lab_intact=keep_objects_touching_lab_intact,
+            thresh_only_inside_objs_intens=thresh_only_inside_objs_intens,
             nnet_model=nnet_model,
             nnet_params=nnet_params,
             nnet_input_data=nnet_input_data,
@@ -859,7 +864,7 @@ def _compute_obj_spots_features(
         debug=False,
         _ID=1
     ):
-    """_summary_
+    """Compute spots features in the parent object.
 
     Parameters
     ----------
@@ -952,6 +957,9 @@ def _compute_obj_spots_features(
         debug=debug
     )
     spheroids_mask, spheroids_lab, min_size_spheroid_mask = result
+    
+    obj_rp = skimage.measure.regionprops(obj_mask.astype(np.uint8))[0]
+    obj_centroid = obj_rp.centroid
     
     vox_to_fl = 1
     if zyx_voxel_size is not None:
@@ -1189,6 +1197,13 @@ def _compute_obj_spots_features(
             sharp_spot_intensities_z_edt, local_sharp_spot_bkgr_vals, 
             df_obj_spots, spot_id, name='spot_vs_local_backgr',
             debug=debug, logger_warning_report=logger_warning_report,
+            logger_func=logger_func
+        )
+        
+        features.add_spot_localization_metrics(
+            df_obj_spots, spot_id, zyx_center, obj_centroid,
+            voxel_size=zyx_voxel_size,
+            logger_warning_report=logger_warning_report,
             logger_func=logger_func
         )
         
@@ -1438,7 +1453,7 @@ def _init_df_spots_IDs_0(
         df_spots_coords, lab, rp, delta_tol, spots_zyx_radii_pxl, 
         last_spot_id
     ):
-    closest_IDs = df_spots_coords.loc[[0], 'closest_ID'].to_list()
+    closest_IDs = df_spots_coords.loc[[0], 'closest_ID'].unique()
     IDs = [obj.label for obj in rp]
     dfs_spots_IDs_0 = {}
     for closest_ID in closest_IDs:
@@ -1613,10 +1628,10 @@ def spots_calc_features_and_filter(
     --------
     `skimage.measure.regionprops <https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops>`__
     """    
-    if verbose:
+    if verbose and len(df_spots_coords) > 0:
         print('')
         logger_func('Filtering valid spots...')
-    
+
     if gop_filtering_thresholds is None:
         gop_filtering_thresholds = {}
     
@@ -1832,11 +1847,15 @@ def _log_filtered_number_spots(
     if not verbose:
         return
     
+    are_all_objs_with_0_spots = True
     num_spots_filtered_log = []
     for ID, info_ID in filtered_spots_info.items():
         start_num_spots = info_ID['start_num_spots']
         end_num_spots = info_ID['end_num_spots']
         num_iter = info_ID['num_iter']
+        if start_num_spots != 0:
+            are_all_objs_with_0_spots = False
+            
         if start_num_spots == end_num_spots:
             continue
         txt = (
@@ -1844,6 +1863,9 @@ def _log_filtered_number_spots(
             f'({num_iter} iterations)'
         )
         num_spots_filtered_log.append(txt)
+    
+    if are_all_objs_with_0_spots:
+        return
     
     if num_spots_filtered_log:
         info = '\n'.join(num_spots_filtered_log)

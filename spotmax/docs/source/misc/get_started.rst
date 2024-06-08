@@ -118,4 +118,4 @@ parameters. If you are **struggling with finding good parameters**, feel free to
 send us a sample image with a description of what you tried so far. Please, 
 include the log file of your best analysis run. You can send us the data 
 on our `GitHub page <https://github.com/ElpadoCan/spotMAX/issues>`_ or 
-at my :email:`padovaf@tcd.ie`. 
+at my :email:`elpado6872@gmail.com`. 

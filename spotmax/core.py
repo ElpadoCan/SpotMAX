@@ -200,8 +200,11 @@ class _DataLoader:
             return data
 
         # Load lineage table
-        table_path = cellacdc.io.get_filepath_from_endname(
-            images_path, os.path.basename(lineage_table_endname), ext='.csv'
+        csv_endname = os.path.basename(lineage_table_endname)
+        if csv_endname.endswith('.csv'):
+            csv_endname = csv_endname[:-4]
+        table_path, _ = cellacdc.load.get_path_from_endname(
+            csv_endname, images_path, ext='.csv'
         )
         if table_path is None:
             self._critical_channel_not_found(
@@ -493,6 +496,11 @@ class _ParamsParser(_DataLoader):
 
         self.logger.info(f'Log file moved to "{self.log_path}"')
     
+    def _add_logger_file_handler(self, log_filepath):
+        self.logger.info(f'Logging to additional log file "{log_filepath}"')
+        file_handler = utils.logger_file_handler(log_filepath, mode='a')
+        self.logger.addHandler(file_handler)
+    
     def _check_report_filepath(
             self, report_folderpath, params_path, report_filename='', 
             force_default=False
@@ -692,7 +700,7 @@ class _ParamsParser(_DataLoader):
         with open(params_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
 
-    def _add_missing_args_from_params_ini_file(self, parser_args, params_path):
+    def _add_args_from_params_ini_file(self, parser_args, params_path):
         if not params_path.endswith('.ini'):
             return parser_args
 
@@ -705,14 +713,7 @@ class _ParamsParser(_DataLoader):
         
         config_default_params = config._configuration_params()
         for anchor, options in config_default_params.items():
-            parser_value = parser_args[options['parser_arg']]
-            option = configPars.get(SECTION, options['desc'], fallback=None)
-            if parser_value:
-                # User explicitly passed a value --> use it regardless of ini
-                continue
-            
-            if option is None or not option:
-                continue
+            option = configPars.get(SECTION, options['desc'], fallback='')                        
             dtype_converter = options['dtype']
             value = dtype_converter(option)
             parser_args[options['parser_arg']] = value
@@ -726,17 +727,20 @@ class _ParamsParser(_DataLoader):
         params_path = parser_args['params']
         params_path = utils.check_cli_file_path(params_path)
 
-        parser_args = self._add_missing_args_from_params_ini_file(
+        parser_args = self._add_args_from_params_ini_file(
             parser_args, params_path
         )
-
         force_default = parser_args['force_default_values']
         
         log_folder_path = parser_args['log_folderpath']
         if log_folder_path:
             self._setup_logger_file_handler(log_folder_path)
+        
         if not log_folder_path:
             parser_args['log_folderpath'] = self.logs_path
+        
+        if parser_args['log_filepath']:
+            self._add_logger_file_handler(parser_args['log_filepath'])
         
         disable_final_report = parser_args['disable_final_report']
         report_folderpath = parser_args['report_folderpath']
@@ -1068,6 +1072,22 @@ class _ParamsParser(_DataLoader):
         with open(self.ini_params_file_path, 'w', encoding="utf-8") as file:
             configPars.write(file)
 
+    def _raise_pos_path_not_valid(self, images_path):
+        print('\n')
+        print('-'*100)
+        err_msg = (
+            '[ERROR]: The Images path requested (see below) does not belong '
+            'to any Position folder.\n\n'
+            f'Requested Images path: "{images_path}"\n\n'
+            'Make sure to place the Images folder in a folder whose name '
+            'starts with "Position_" and ends with an integer '
+            '(e.g., "Position_1")'
+            f'{error_up_str}'
+        )
+        self.logger.info(err_msg)
+        self.logger.info('spotMAX aborted due to ERROR. See above more details.')
+        self.quit()
+    
     @exception_handler_cli
     def set_abs_exp_paths(self):
         self.logger.info('Scanning experiment folders...')
@@ -1091,6 +1111,8 @@ class _ParamsParser(_DataLoader):
             elif io.is_images_path(exp_path):
                 images_path = exp_path
                 pos_path = os.path.dirname(images_path)
+                if not acdc_myutils.is_pos_folderpath(pos_path):
+                    self._raise_pos_path_not_valid(images_path)
                 pos_foldername = os.path.basename(pos_path)
                 if pos_foldername.startswith('Position_'):
                     exp_path = os.path.dirname(os.path.dirname(images_path))
@@ -1585,9 +1607,8 @@ class _ParamsParser(_DataLoader):
             'If you do not need a reference channel, then set the following '
             'parameters in the parameters file:\n\n'
             f'   - {param_requiring_ref_ch} = False'
-            '\n\n'
+            f'{error_up_str}\n\n'
         )
-
         return missing_ref_ch_msg
     
     def _check_missing_exp_folder(self, missing_params):
@@ -1612,7 +1633,8 @@ class _ParamsParser(_DataLoader):
         
         missing_exp_folder_msg = (
             '[ERROR]: Neither the "Spots channel end name" nor the '
-            '"Reference channel end name or path" are present in the .ini params file.\n\n'
+            '"Reference channel end name or path" are present in the '
+            f'.ini params file.{error_up_str}\n\n'
         )
         return missing_exp_folder_msg    
 
@@ -3580,6 +3602,7 @@ class SpotFIT(Spheroid):
         img = self.spots_img_local
 
         all_gof_metrics = np.zeros((self.num_spots, 7))
+        spots_fitted_coords = {}
         self.fit_again_idx = []
         for obj_id, df_obj in df_spotFIT.groupby(level=0):
             obj_s_idxs = df_obj['neigh_idx'].iloc[0]
@@ -3607,6 +3630,8 @@ class SpotFIT(Spheroid):
                     reduced_chisq, p_chisq, RMSE,
                     ks, p_ks, NRMSE, F_NRMSE
                 ]
+                
+                spots_fitted_coords[(obj_id, s)] = (z_s, y_s, x_s)
 
         # Automatic outliers detection
         NRMSEs = all_gof_metrics[:,5]
@@ -3662,10 +3687,13 @@ class SpotFIT(Spheroid):
                 gof_metrics = (
                     reduced_chisq, p_chisq, ks, p_ks, RMSE, NRMSE, F_NRMSE
                 )
+                
+                z_s, y_s, x_s = spots_fitted_coords[(obj_id, s)]
                     
                 self.store_metrics_good_spots(
                     obj_id, s, fitted_coeffs[s], I_tot, I_foregr, gof_metrics,
-                    solution_found, B_fit, B_fit/num_spots_fitted_together
+                    solution_found, B_fit, B_fit/num_spots_fitted_together, 
+                    img, z_s, y_s, x_s
                 )
 
                 if verbose > 1:
@@ -3786,19 +3814,17 @@ class SpotFIT(Spheroid):
             )
 
             self.store_metrics_good_spots(
-                obj_id, s, fit_coeffs[:-1],
-                I_tot, I_foregr, gof_metrics,
-                success, B_fit, B_fit
+                obj_id, s, fit_coeffs[:-1], I_tot, I_foregr, gof_metrics,
+                success, B_fit, B_fit, img, z_s, y_s, x_s
             )
 
     def store_metrics_good_spots(
             self, obj_id, s, fitted_coeffs_s, I_tot, I_foregr, gof_metrics,
-            solution_found, B_fit, spot_B_fit
+            solution_found, B_fit, spot_B_fit, fitted_img, zz_fit, yy_fit, 
+            xx_fit
         ):
 
-        (z0_fit, y0_fit, x0_fit,
-        sz_fit, sy_fit, sx_fit,
-        A_fit) = fitted_coeffs_s
+        z0_fit, y0_fit, x0_fit, sz_fit, sy_fit, sx_fit, A_fit = fitted_coeffs_s
 
         min_z, min_y, min_x = self.obj_bbox_lower
 
@@ -3827,6 +3853,27 @@ class SpotFIT(Spheroid):
 
         self._df_spotFIT.at[(obj_id, s), 'total_integral_fit'] = I_tot
         self._df_spotFIT.at[(obj_id, s), 'foreground_integral_fit'] = I_foregr
+        
+        zc, yc, xc = round(z0_fit), round(y0_fit), round(x0_fit)
+        
+        kurtosis_z = features.kurtosis_from_hist(
+            fitted_img[zz_fit, yc, xc], zz_fit
+        )
+        self._df_spotFIT.at[(obj_id, s), 'kurtosis_z_fit'] = kurtosis_z
+        
+        kurtosis_y = features.kurtosis_from_hist(
+            fitted_img[zc, yy_fit, xc], yy_fit
+        )
+        self._df_spotFIT.at[(obj_id, s), 'kurtosis_y_fit'] = kurtosis_y
+        
+        kurtosis_x = features.kurtosis_from_hist(
+            fitted_img[zc, yc, xx_fit], xx_fit
+        )
+        self._df_spotFIT.at[(obj_id, s), 'kurtosis_x_fit'] = kurtosis_x
+        
+        # PS: not an insult to Kurt :D
+        mean_kurt_yx = (kurtosis_y + kurtosis_x)/2
+        self._df_spotFIT.at[(obj_id, s), 'mean_kurtosis_yx_fit'] = mean_kurt_yx
 
         (reduced_chisq, p_chisq,
         ks, p_ks, RMSE, NRMSE, F_NRMSE) = gof_metrics
@@ -3870,6 +3917,7 @@ class Kernel(_ParamsParser):
         self._current_frame_i = -1
         self._current_step = 'Kernel initialization'
         self._current_pos_path = 'Not determined yet'
+        self.were_errors_detected = False
     
     def _preprocess(self, image_data, is_ref_ch=False, verbose=True):
         SECTION = 'Pre-processing'
@@ -4108,6 +4156,7 @@ class Kernel(_ParamsParser):
             prediction_method='Thresholding',
             threshold_method='threshold_otsu', 
             do_aggregate=False,
+            thresh_only_inside_objs_intens=True,
             lineage_table=None, 
             min_size_spheroid_mask=None,
             min_spot_mask_size=5,
@@ -4160,6 +4209,7 @@ class Kernel(_ParamsParser):
             threshold_method, 
             do_aggregate, 
             spot_footprint,
+            thresh_only_inside_objs_intens=thresh_only_inside_objs_intens,
             transf_spots_nnet_img=transf_spots_nnet_img,
             spots_ch_segm_mask=spots_ch_segm_mask, 
             lineage_table=lineage_table, 
@@ -4173,6 +4223,7 @@ class Kernel(_ParamsParser):
         )
         (df_spots_coords, nnet_pred_map, spots_labels, 
          spots_labels_invalid_IDs) = _detect_result
+        
         df_spots_det, df_spots_gop = self._spots_filter(
             df_spots_coords, 
             spots_img, 
@@ -4313,11 +4364,32 @@ class Kernel(_ParamsParser):
         )
         for ID in IDs_idx:
             if ID == 0:
-                closestID = df_spots_coords.loc[[ID], 'closest_ID'].iloc[0]
-                obj = IDs_rp_mapper[closestID]
-            else:
-                obj = IDs_rp_mapper[ID]
-                
+                df_spots_ID_0 = df_spots_coords.loc[[0]]
+                nonzero_mask = ~df_spots_coords.index.isin([0])
+                closestIDs = df_spots_ID_0['closest_ID'].unique()
+                for closestID in closestIDs:
+                    obj = IDs_rp_mapper[closestID]
+                    min_z, min_y, min_x = obj.bbox[:3]
+                    
+                    mask = df_spots_coords['closest_ID'] == closestID
+                    mask[nonzero_mask] = False
+                    
+                    zz_local = df_spots_coords.loc[mask, 'z_aggr'] - min_z
+                    df_spots_coords.loc[mask, 'z_local'] = zz_local
+                    
+                    yy_local = df_spots_coords.loc[mask, 'y_aggr'] - min_y
+                    df_spots_coords.loc[mask, 'y_local'] = yy_local
+
+                    xx_local = df_spots_coords.loc[mask, 'x_aggr'] - min_x
+                    df_spots_coords.loc[mask, 'x_local'] = xx_local
+                    
+                num_spots_ID_0 = len(df_spots_ID_0)
+                s = f'  * Object ID {obj.label} = {num_spots_ID_0}'
+                num_spots_objs_txts.append(s)
+                pbar.update()
+                continue
+            
+            obj = IDs_rp_mapper[ID]
             min_z, min_y, min_x = obj.bbox[:3]
             zz_local = df_spots_coords.loc[[ID], 'z_aggr'] - min_z
             df_spots_coords.loc[[ID], 'z_local'] = zz_local
@@ -4363,6 +4435,7 @@ class Kernel(_ParamsParser):
             detection_method, 
             threshold_method, 
             do_aggregate, footprint, 
+            thresh_only_inside_objs_intens=True,
             transf_spots_nnet_img=None,
             spots_ch_segm_mask=None,
             save_spots_mask=True,
@@ -4404,6 +4477,7 @@ class Kernel(_ParamsParser):
                 spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
                 lineage_table=lineage_table,
                 do_aggregate=do_aggregate,
+                thresh_only_inside_objs_intens=thresh_only_inside_objs_intens,
                 logger_func=self.logger.info,
                 thresholding_method=threshold_method,
                 nnet_model=self.nnet_model,
@@ -4477,17 +4551,20 @@ class Kernel(_ParamsParser):
                 )
             )
         
-        # if self.debug:
-        #     from . import _debug
-        #     ID = 36
-        #     _debug._spots_detection(
-        #         aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
-        #     )
+        if self.debug:
+            from . import _debug
+            ID = None
+            _debug._spots_detection(
+                aggregated_lab, labels, aggr_spots_img, df_spots_coords, ID=ID
+            )
 
         if verbose:
             print('')
             print('*'*100)
             num_spots_objs_txt = '\n'.join(num_spots_objs_txts)
+            if not num_spots_objs_txt:
+                num_spots_objs_txt = '\nAll objects have 0 spots'
+                
             self.logger.info(
                 f'Frame n. {frame_i+1}: number of spots per '
                 f'segmented object:\n{num_spots_objs_txt}'
@@ -5114,9 +5191,15 @@ class Kernel(_ParamsParser):
         do_aggregate = (
             self._params['Pre-processing']['aggregate']['loadedVal']
         )
+        thresh_only_inside_objs_intens = (
+            self._params['Pre-processing']['thresholdWithObjsMask']['loadedVal']
+        )
         ref_ch_data = data.get('ref_ch')
         segm_rp = data.get('segm_rp')
         segm_data = data.get('segm')
+        if not np.any(segm_data):
+            return
+        
         df_agg = data.get('df_agg')
         ref_ch_segm_data = data.get('ref_ch_segm')
         acdc_df = data.get('lineage_table')
@@ -5396,6 +5479,7 @@ class Kernel(_ParamsParser):
                 threshold_method=threshold_method,
                 detection_method=detection_method,
                 do_aggregate=do_aggregate,
+                thresh_only_inside_objs_intens=thresh_only_inside_objs_intens,
                 lineage_table=lineage_table,
                 df_spots_coords_input=df_spots_coords_input,
                 save_spots_mask=save_spots_mask,
@@ -5486,7 +5570,7 @@ class Kernel(_ParamsParser):
         
         df_spots_gop = pd.concat(
             dfs_lists['dfs_spots_gop_test'], keys=keys, names=names
-        ).drop(columns='closest_ID', errors='ignore')
+        ).drop(columns=['closest_ID'], errors='ignore')
 
         if do_spotfit:
             zyx_spot_min_vol_um = self.metadata['zyxResolutionLimitUm']
@@ -5712,7 +5796,7 @@ class Kernel(_ParamsParser):
                 elpased_seconds = t1-t0
                 elapsed_delta = str(timedelta(seconds=elpased_seconds))
                 self.logger.info(
-                    f'Execution time = {elapsed_delta} HH:mm:ss '
+                    f'Execution time single Position = {elapsed_delta} HH:mm:ss '
                     f'(Path: "{pos_path}")'
                 )
                 print('='*100)
@@ -6033,9 +6117,7 @@ class Kernel(_ParamsParser):
             disable_final_report=False,
             report_filepath='',
             parser_args=None
-        ):
-        self.were_errors_detected = False
-        
+        ):        
         version = read_version()
         acdc_version = acdc_myutils.read_version()
         

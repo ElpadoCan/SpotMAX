@@ -2033,6 +2033,9 @@ def to_system_path(path):
     return path
 
 def get_abspath(path, src_folderpath=''):
+    if not path:
+        return ''
+    
     path = to_system_path(path)
     path = os.path.expanduser(path)
     path = os.path.normpath(path)

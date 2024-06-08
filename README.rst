@@ -59,7 +59,7 @@ Contact
 -------
 
 **Do not hesitate to contact us** here on GitHub (by opening an issue)
-or directly at the email padovaf@tcd.ie for any problem and/or feedback
+or directly at the email elpado6872@gmail.com for any problem and/or feedback
 on how to improve the user experience!
 
 Contributing

@@ -1,6 +1,7 @@
 import os
 
 from typing import Tuple
+from tqdm import tqdm
 
 import math
 import numpy as np
@@ -900,12 +901,17 @@ def from_spots_coords_to_spots_masks(spots_coords, spot_zyx_size, debug=False):
     ]
     return spots_masks
 
-def from_df_spots_objs_to_spots_lab(df_spots_objs, arr_shape, spots_lab=None):
+def from_df_spots_objs_to_spots_lab(
+        df_spots_objs, arr_shape, spots_lab=None, show_pbar=False
+    ):
     if spots_lab is None:
         spots_lab = np.zeros(arr_shape, dtype=np.uint32)
     
     if spots_lab.ndim == 2:
         spots_lab = spots_lab[np.newaxis]
+    
+    if show_pbar:
+        pbar = tqdm(total=len(df_spots_objs), ncols=100)
     
     for row in df_spots_objs.itertuples():
         ID, spot_id = row.Index
@@ -917,6 +923,10 @@ def from_df_spots_objs_to_spots_lab(df_spots_objs, arr_shape, spots_lab=None):
         slice_global_to_local, slice_crop_local = slices
         cropped_spot_mask = spot_mask[slice_crop_local].copy()
         spots_lab[slice_global_to_local][cropped_spot_mask] = spot_id
+        if show_pbar:
+            pbar.update()
+    if show_pbar:
+        pbar.close()
     return spots_lab
 
 def add_closest_ID_col(
@@ -956,6 +966,7 @@ def add_closest_ID_col(
         closest_IDs.append(closest_ID)
         
     df_spots_coords.loc[[0], 'closest_ID'] = closest_IDs
+    
     return df_spots_coords
     
 def extend_3D_segm_in_z(

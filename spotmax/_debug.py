@@ -6,6 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from . import printl
+from . import ZYX_AGGR_COLS, ZYX_LOCAL_COLS
 
 def _gui_autotune_f1_score(to_debug):
     (method, thresholded, input_image, zz_true, yy_true, 
@@ -116,8 +117,20 @@ def find_local_peaks(
     
     import pdb; pdb.set_trace()
 
-def _spots_detection(aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords):
+def _spots_detection(
+        aggregated_lab, labels, aggr_spots_img, df_spots_coords, ID=None
+    ):
     from cellacdc.plot import imshow
+    if ID is None:
+        imshow(
+            aggregated_lab, 
+            labels, 
+            aggr_spots_img,
+            points_coords=df_spots_coords[ZYX_AGGR_COLS].to_numpy()
+        )
+        import pdb; pdb.set_trace()
+        return
+        
     zz, yy, xx = np.nonzero(aggregated_lab == ID)
     zmin, ymin, xmin = zz.min(), yy.min(), xx.min()
     zmax, ymax, xmax = zz.max(), yy.max(), xx.max()
@@ -127,7 +140,7 @@ def _spots_detection(aggregated_lab, ID, labels, aggr_spots_img, df_spots_coords
         slice(xmin, xmax+1),
     )
     points_coords = (
-        df_spots_coords.loc[ID][['z_local', 'y_local', 'x_local']].to_numpy()
+        df_spots_coords.loc[ID][ZYX_LOCAL_COLS].to_numpy()
     )
     imshow(
         aggregated_lab[bbox_slice], 

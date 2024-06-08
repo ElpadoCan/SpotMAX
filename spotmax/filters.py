@@ -125,15 +125,23 @@ def DoG_spots(
     return sharp_rescaled
 
 def threshold(
-        image, threshold_func, do_max_proj=False, logger_func=print
+        image, threshold_func, do_max_proj=False, logger_func=print, 
+        mask=None
     ):
     if do_max_proj and image.ndim == 3:
         input_image = image.max(axis=0)
+        if mask is not None:
+            mask = mask.max(axis=0)
     else:
         input_image = image
     
+    if mask is None:
+        input_vals = input_image
+    else:
+        input_vals = input_image[mask]
+    
     try:
-        thresh_val = threshold_func(input_image)
+        thresh_val = threshold_func(input_vals)
     except Exception as e:
         logger_func(f'{e} ({threshold_func})')
         thresh_val = np.inf
@@ -266,9 +274,12 @@ def local_semantic_segmentation(
         labels = np.zeros_like(lab)
         for obj in rp:
             if lineage_table is not None:
-                if lineage_table.at[obj.label, 'relationship'] == 'bud':
-                    # Skip buds since they are aggregated with mother
-                    continue
+                try:
+                    if lineage_table.at[obj.label, 'relationship'] == 'bud':
+                        # Skip buds since they are aggregated with mother
+                        continue
+                except Exception as err:
+                    import pdb; pdb.set_trace()
             
             spots_img_obj, lab_mask_lab, merged_obj_slice, bud_ID = (
                 slicer.slice(image, obj)
@@ -339,7 +350,7 @@ def local_semantic_segmentation(
                 local_labels[sub_obj.slice][sub_obj.image] = ID
         
         # labels = filter_labels_by_size(labels, min_mask_size)
-        
+
         result[method] = labels.astype(np.int32)
         if do_try_all_thresholds:
             pbar.update()
@@ -361,6 +372,7 @@ def global_semantic_segmentation(
         return_image=False,
         keep_input_shape=True,
         keep_objects_touching_lab_intact=True,
+        thresh_only_inside_objs_intens=True,
         nnet_model=None, 
         nnet_params=None,
         nnet_input_data=None, 
@@ -414,11 +426,15 @@ def global_semantic_segmentation(
     return_nnet_prediction = return_nnet_prediction or save_pred_map
     
     # Thresholding
+    thresh_mask = None
+    if thresh_only_inside_objs_intens:
+        thresh_mask = aggregated_lab > 0
+        
     result = {}
     for method, thresh_func in threshold_funcs.items():
         thresholded = threshold(
             aggr_img, thresh_func, logger_func=logger_func,
-            do_max_proj=True
+            do_max_proj=True, mask=thresh_mask
         )
         thresholded = filter_labels_by_size(thresholded, min_mask_size)
         result[method] = thresholded

@@ -317,7 +317,6 @@ actual segmentation of the spots.
 * **95 percentile**: column name ``spot_raw_q95_in_spot_minimumsize_vol``.
 * **Standard deviation**: column name ``spot_raw_std_in_spot_minimumsize_vol``.
 
-
 Preprocessed intens. metrics
 ----------------------------
 
@@ -359,6 +358,22 @@ actual segmentation of the spots.
 * **5 percentile**: column name ``spot_preproc_q05_in_spot_minimumsize_vol``.
 * **95 percentile**: column name ``spot_preproc_q95_in_spot_minimumsize_vol``.
 * **Standard deviation**: column name ``spot_preproc_std_in_spot_minimumsize_vol``.
+
+.. spotloc-features:
+
+Spatial localization metrics
+----------------------------
+
+Features that describe the spatial localization of the spots within the 
+segmentated objects. 
+
+* **Distance from object centroid (pixel)**: column name ``spot_distance_from_obj_centroid_pixels``.
+  Distance (in pixels) between the spot center and the centroid of the segmented object 
+  (e.g., the cell).  
+* **Distance from object centroid ((micro-m))**: column name ``spot_distance_from_obj_centroid_um``.
+  Distance (in micrometers) between the spot center and the centroid of the segmented object 
+  (e.g., the cell). 
+
 
 .. _spotfit-features:
 
@@ -432,19 +447,33 @@ Features that are computed during the gaussian fit procedure.
 * **Foregr. integral gauss. peak**: column name ``foreground_integral_fit``. This is 
   the result of the analytical integration of the gaussian curve excluding  
   the background.
-* **Amplitude gauss. peak**: column name ``A_fit``.
+* **Amplitude gauss. peak**: column name ``A_fit``. Height of the peak 
+  from the background level. 
 * **Backgr. level gauss. peak**: column name ``B_fit``. This it the background 
   level shared by touching spots that were fitted together.
 * **Single-spot backgr. level gauss. peak**: column name ``spot_B_fit``. 
   This is equal to ``B_fit`` divided by the number of spots that were fitted 
   together. 
-* **Quality factor in xy-direction**: column name ``Q_factor_yx``. 
+* **Quality factor in xy-direction**: column name ``Q_factor_yx_fit``. 
   Ratio between ``A_fit`` and  ``sigma_yx_mean_fit``. The higher the quality 
   factor the taller and narrower the peak.
-* **Quality factor in z-direction**: column name ``Q_factor_z``. 
-  Ration between ``A_fit`` and  ``sigma_z_fit``. The higher the quality 
+* **Quality factor in z-direction**: column name ``Q_factor_z_fit``. 
+  Ratio between ``A_fit`` and  ``sigma_z_fit``. The higher the quality 
   factor the taller and narrower the peak.
-
+* **Kurtosis in x-direction**: column name ``kurtosis_x_fit``.
+  Pearson's kurtosis calculated along the x-axis at peak center. 
+  The lower the kurtosis, the flatter the peak. Kurtosis = 3 is typical  
+  of a normal distribution.  
+* **Kurtosis in y-direction**: column name ``kurtosis_y_fit``. 
+  Pearson's kurtosis calculated along the y-axis at peak center. 
+  The lower the kurtosis, the flatter the peak. Kurtosis = 3 is typical  
+  of a normal distribution.
+* **Kurtosis in z-direction**: column name ``kurtosis_z_fit``. 
+  Pearson's kurtosis calculated along the z-axis at peak center. 
+  The lower the kurtosis, the flatter the peak. Kurtosis = 3 is typical  
+  of a normal distribution.
+* **Mean kurtosis in yx-direction**: column name ``mean_kurtosis_yx_fit``. 
+  Mean between ``kurtosis_y_fit`` and ``kurtosis_x_fit``
 
 SpotFIT Goodness-of-fit
 -----------------------

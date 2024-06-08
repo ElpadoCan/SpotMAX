@@ -45,6 +45,7 @@ from cellacdc import io as acdc_io
 from cellacdc.myutils import get_salute_string, determine_folder_type
 from cellacdc import qrc_resources
 from cellacdc import base_cca_dict
+from cellacdc import myutils as acdc_utils
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
@@ -56,6 +57,8 @@ from . import icon_path
 from . import issues_url
 from . import features
 from . import prompts
+from . import spotmax_path
+from . import _warnings
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
@@ -111,6 +114,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def run(self, module='spotmax_gui', logs_path=logs_path):
         super().run(module=module, logs_path=logs_path)
+        
+        self.logger.info(f'SpotMAX installation directory: "{spotmax_path}"')
 
         self.initGui()
         self.createThreadPool()
@@ -581,6 +586,10 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def addSpotsCoordinatesTriggered(self):
         posData = self.data[self.pos_i]
+        if not os.path.exists(posData.spotmax_out_path):
+            _warnings.warnSpotmaxOutFolderDoesNotExist(
+                posData.spotmax_out_path, qparent=self
+            )
         df_spots_files = {}
         for _posData in self.data:
             df_spots_files[_posData.spotmax_out_path] = (
@@ -646,7 +655,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'spotPredictionMethod'
         return spotsParams[anchor]['widget'].currentText() == 'spotMAX AI'
     
-    def isBioImageIOModelRequested(self, section, anchor):
+    def isBioImageIOModelRequested(
+            self, section='Spots channel', anchor='spotPredictionMethod'
+        ):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         spotsParams = ParamsGroupBox.params[section]
         return spotsParams[anchor]['widget'].currentText() == 'BioImage.IO model'
@@ -656,6 +667,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             return False
         
         nnetParams = self.getNeuralNetParams()
+        if nnetParams is None:
+            return False
+        
         if not nnetParams['init']['preprocess_across_experiment']:
             # Pre-processing not requested
             return False
@@ -671,6 +685,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             return False
         
         nnetParams = self.getNeuralNetParams()
+        if nnetParams is None:
+            return False
+        
         if not nnetParams['init']['preprocess_across_timepoints']:
             # Pre-processing not requested
             return False
@@ -781,7 +798,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.logger.info('Starting spotMAX analysis...')
         self._analysis_started_datetime = datetime.datetime.now()
         self.funcDescription = 'starting analysis process'
-        worker = qtworkers.AnalysisWorker(ini_filepath, is_tempfile)
+        
+        # Close logger to pass the file to cli logger
+        log_handler = self.logger.handlers[0]
+        self.logger.removeHandler(log_handler)
+        log_handler.close()
+        
+        worker = qtworkers.AnalysisWorker(
+            ini_filepath, is_tempfile, log_filepath=self.log_path
+        )
 
         command = worker.getCommandForClipboard()
         widgets.toClipboard(command)
@@ -849,10 +874,31 @@ class spotMAX_Win(acdc_gui.guiWin):
         return msg_func == 'information'
     
     def analysisWorkerFinished(self, args):
+        self.reOpenLogger()
         success = self.promptAnalysisWorkerFinished(args)
         
-        if success:
+        if not success:
+            return
+        
+        if self.isDataLoaded:
             self.askVisualizeResults()
+        else:
+            self.instructHowToVisualizeResults()
+    
+    def instructHowToVisualizeResults(self):
+        txt = html_func.paragraph("""
+            To visualize results load the image data, then go to the 
+            <code>Inspect and/or edit results</code> tab (top-left),<br>
+            and click on <code>Load results from previous analysis...</code>.
+            <br><br>
+            Have fun!
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.question(self, 'How to visualize results', txt)
+    
+    def reOpenLogger(self):
+        file_handler = utils.logger_file_handler(self.log_path, mode='a')
+        self.logger.addHandler(file_handler)
     
     def askVisualizeResults(self):        
         txt = html_func.paragraph(
@@ -1882,10 +1928,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         
     @exception_handler
     def _computeSpotPrediction(self, formWidget, run=True, **kwargsToAdd):
+        if not self.isSpotPredSetupCorrectly():
+            return 
+        
         proceed = self.checkPreprocessAcrossExp()
         if not proceed:
             self.logger.info('Computing spots segmentation cancelled.')
             return
+        
+        
         
         self.checkPreprocessAcrossTime()
         self.funcDescription = 'Spots location semantic segmentation'
@@ -1981,7 +2032,16 @@ class spotMAX_Win(acdc_gui.guiWin):
         closing = '*'*100
         text = f'{text}{closing}'
         self.logger.info(text)        
+    
+    def isSpotPredSetupCorrectly(self):
+        if self.isNeuralNetworkRequested() and self.getNeuralNetParams() is None:
+            return False
         
+        if self.isBioImageIOModelRequested() and self.getBioImageIOParams() is None:
+            return False
+
+        return True
+    
     def addNnetKwargsAndThresholdMethodIfNeeded(self, kwargs):
         if not self.isNeuralNetworkRequested():
             return kwargs
@@ -2246,6 +2306,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         section = 'Reference channel'
         kwargs = self.addBioImageIOModelKwargs(kwargs, section, anchor)
+        if kwargs is None:
+            return 
+        
         self.logNnetParams(
             kwargs.get('bioimageio_params'), model_name='BioImage.IO model'
         )
@@ -2417,7 +2480,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         df_spots_objs = df_coords.copy()
         df_spots_objs['spot_mask'] = spots_masks
         spots_lab = transformations.from_df_spots_objs_to_spots_lab(
-            df_spots_objs, image.shape
+            df_spots_objs, image.shape, show_pbar=True
         )
         self.logger.info(
             f'Total number of detected spots = {len(df_coords)}'
@@ -2439,7 +2502,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             image, 
             spots_lab, 
             axis_titles=['Detect image', 'Spots masks'],
-            annotate_labels_idxs=[1],
+            # annotate_labels_idxs=[1],
             points_coords_df=df_coords
         )
     
@@ -2690,27 +2753,25 @@ class spotMAX_Win(acdc_gui.guiWin):
         anchor = 'spotPredictionMethod'
         spotPredictionMethodWidget = spotsParams[anchor]['widget']
         if spotPredictionMethodWidget.nnetModel is None:
-            raise ValueError(
-                'Neural network parameters were not initialized. Before trying '
-                'to use it, you need to initialize the model\'s parameters by '
-                'clicking on the settings button on the right of the selection '
-                'box at the "Spots segmentation method" parameter.'
+            _warnings.warnNeuralNetNotInitialized(
+                qparent=self, model_type='SpotMAX AI'
             )
+            return 
         
         return spotPredictionMethodWidget.nnetParams  
     
     @exception_handler
-    def getBioImageIOParams(self, section, anchor):
+    def getBioImageIOParams(
+            self, section='Spots channel', anchor='spotPredictionMethod'
+        ):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         spotsParams = ParamsGroupBox.params[section]
         spotPredictionMethodWidget = spotsParams[anchor]['widget']
         if spotPredictionMethodWidget.bioImageIOModel is None:
-            raise ValueError(
-                'BioImage.IO model parameters were not initialized. Before trying '
-                'to use it, you need to initialize the model\'s parameters by '
-                'clicking on the settings button on the right of the selection '
-                'box at the "Spots segmentation method" parameter.'
+            _warnings.warnNeuralNetNotInitialized(
+                qparent=self, model_type='BioImage.IO model'
             )
+            return
         
         return spotPredictionMethodWidget.bioImageIOParams  
     

@@ -311,7 +311,7 @@ inspect the results using the tools in the :ref:`inspect-results-tab`.
 
 That's it! I hope you found this tutorial useful and you can let us know 
 if you found mistakes or any other feedback on our `GitHub`_ page or by 
-sending us an email at :email:`padovaf@tcd.ie`.
+sending us an email at :email:`elpado6872@gmail.com`.
 
 Until next time! 
 

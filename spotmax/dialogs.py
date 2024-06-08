@@ -93,27 +93,70 @@ class GopFeaturesAndThresholdsDialog(QBaseDialog):
 
         mainLayout = QVBoxLayout()
 
+        scrollArea = QScrollArea()
+        scrollAreaLayout = QVBoxLayout()
+        scrollAreaContainer = QWidget()
+        scrollAreaContainer.setContentsMargins(0, 0, 0, 0)
+        scrollArea.setWidgetResizable(True)
         self.setFeaturesGroupbox = widgets.GopFeaturesAndThresholdsGroupbox(
             category=category
         )
-        mainLayout.addWidget(self.setFeaturesGroupbox)
+        scrollAreaLayout.addWidget(self.setFeaturesGroupbox)
+        scrollAreaLayout.addStretch(1)
+        scrollAreaContainer.setLayout(scrollAreaLayout)
+        scrollArea.setWidget(scrollAreaContainer)
+        
+        width = (
+            self.setFeaturesGroupbox.sizeHint().width()
+            + scrollArea.verticalScrollBar().sizeHint().width()
+            + 10
+        )
+        scrollArea.setMinimumWidth(width)
+        scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        
+        height = int(
+            self.setFeaturesGroupbox.sizeHint().height()*2.5
+            + scrollArea.horizontalScrollBar().sizeHint().height()
+        )
+        scrollArea.setMinimumHeight(height)
+        
+        mainLayout.addWidget(scrollArea)
+        
+        clearAllButton = acdc_widgets.eraserPushButton(' Clear all')
+        clearAllLayout = QHBoxLayout()
+        clearAllLayout.addStretch(1)
+        clearAllLayout.addWidget(clearAllButton)
+        mainLayout.addLayout(clearAllLayout)
         
         mainLayout.addWidget(QLabel('Current features and ranges expression:'))
         self.textEdit = QPlainTextEdit()
+        self.textEdit.setReadOnly(True)
         mainLayout.addWidget(self.textEdit)
         
-        mainLayout.addStretch(1)
+        mainLayout.addSpacing(20)
 
         buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
         buttonsLayout.cancelButton.clicked.connect(self.close)
         buttonsLayout.okButton.clicked.connect(self.ok_cb)
 
         mainLayout.addLayout(buttonsLayout)
+        
+        mainLayout.setStretch(0, 1)
+        mainLayout.setStretch(1, 0)
+        mainLayout.setStretch(2, 0)
+        mainLayout.setStretch(3, 0)
+        mainLayout.setStretch(4, 0)
+        mainLayout.setStretch(5, 0)
 
         self.setLayout(mainLayout)
         
         self.updateExpression()
         self.setFeaturesGroupbox.sigValueChanged.connect(self.updateExpression)
+        clearAllButton.clicked.connect(self.clearAll)
+    
+    def clearAll(self):
+        self.setFeaturesGroupbox.clearAll()
+        self.textEdit.setPlainText('')
     
     def show(self, block=False) -> None:
         super().show(block=False)
@@ -1806,9 +1849,14 @@ class ParamsGroupBox(QGroupBox):
             mainLayout.addWidget(groupBox)
 
         # mainLayout.addStretch()
+        
+        metadata = self.params['METADATA']
+        pixelSize = metadata['pixelWidth']['widget'].value()
+        self.updateLocalBackgroundValue(pixelSize)
 
         self.setLayout(mainLayout)
         self.updateMinSpotSize()
+        self.doSpotFitToggled(False)
     
     def addFieldToParams(self, formWidget):
         if formWidget.fieldIdx == 0:
@@ -1910,6 +1958,27 @@ class ParamsGroupBox(QGroupBox):
         spotParams = self.params['Spots channel']
         localBkgrRingWidthWidget = spotParams['localBkgrRingWidth']['widget']
         localBkgrRingWidthWidget.setPixelSize(pixelSize)
+    
+    def doSpotFitToggled(self, checked):
+        for section, section_params in self.params.items():
+            for anchor, param in section_params.items():
+                parentActivator = param.get('parentActivator')
+                if parentActivator is None:
+                    continue
+                
+                parentSection, parentAnchor = parentActivator
+                parentParam = self.params[parentSection][parentAnchor]
+                isDisabled = not parentParam['widget'].isChecked()
+                param['formWidget'].setDisabled(isDisabled)
+                if not isDisabled:
+                    continue
+                
+                parentDesc = parentParam['desc']
+                tooltip = (
+                    'This parameter is disabled because it requires\n'
+                    f'`{parentDesc}` to be activated.'
+                )
+                param['formWidget'].setToolTip(tooltip)
     
     def updateMinSpotSize(self, value=0.0):
         metadata = self.params['METADATA']
@@ -2094,9 +2163,6 @@ class ParamsGroupBox(QGroupBox):
         print('-'*100)
         print(f'Configuration file saved to: "{ini_filepath}"')
         print('*'*100)
-
-    def showInfo(self):
-        print(self.sender().label.text())
 
 class spotStyleDock(QDockWidget):
     sigOk = Signal(int)

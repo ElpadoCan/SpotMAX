@@ -1,6 +1,6 @@
 import sys
 import os
-import time
+import re
 import subprocess
 
 from importlib import import_module
@@ -59,21 +59,32 @@ class signals(QObject):
     sigLoadingNewChunk = Signal(object)
 
 class AnalysisWorker(QRunnable):
-    def __init__(self, ini_filepath, is_tempfile):
+    def __init__(self, ini_filepath, is_tempfile, log_filepath: os.PathLike=''):
         QRunnable.__init__(self)
         self.signals = signals()
         self._ini_filepath = ini_filepath
         self._is_tempfile = is_tempfile
+        self._log_filepath = log_filepath
         self.logger = workerLogger(self.signals.progress)
 
     def getCommandForClipboard(self):
-        command_format = f'spotmax -p "{self._ini_filepath}"'
-        return command_format
+        command = f'{self.cli_command()},'
+        command_cp = re.sub(r'-p, (.*?),', r'-p, "\1"', command)
+        command_cp = re.sub(r'-l, (.*?),', '', command_cp)
+        command_cp = command_cp.replace(',', '')
+        return command_cp
+    
+    def cli_command(self):
+        command = f'spotmax, -p, {self._ini_filepath}'
+        if self._log_filepath:
+            command = f'{command}, -l, {self._log_filepath}'
+        return command
     
     @worker_exception_handler
     def run(self):
         from . import _process
-        command = f'spotmax, -p, {self._ini_filepath}'
+        command = self.cli_command()
+            
         # command = r'python, spotmax\test.py'
         command_format = self.getCommandForClipboard()
         self.logger.log(f'spotMAX analysis started with command `{command_format}`')
