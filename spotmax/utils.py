@@ -940,15 +940,21 @@ def get_current_log_file_path():
         log_path = file.read()
     return log_path
 
-def parse_log_file():
-    log_path = get_current_log_file_path()
+def parse_log_file(log_path=None):
     if log_path is None:
-        return '', []
+        log_path = get_current_log_file_path()
+        if log_path is None:
+            return '', []
     
     with open(log_path, 'r') as file:
         log_text = file.read()
     
     errors = re.findall(r'(^\[ERROR\]: [\w\W]*?^)\^.*', log_text, re.M)
+    tracebacks = re.findall(
+        r'^Traceback[\w\W]+?(?=^\[|\Z)', log_text, re.M | re.X
+    )
+    
+    errors.extend(tracebacks)
     
     return log_path, errors
 

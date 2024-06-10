@@ -3906,6 +3906,7 @@ class SpotFIT(Spheroid):
         )
 
 class Kernel(_ParamsParser):
+    @exception_handler_cli
     def __init__(self, debug=False, is_cli=True):
         self.logger, self.log_path, self.logs_path = utils.setup_cli_logger()
         super().__init__(debug=debug, is_cli=is_cli, log=self.logger.info)
