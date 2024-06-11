@@ -3929,7 +3929,9 @@ class Kernel(_ParamsParser):
             print('')
             self.logger.info(f'Removing hot pixels...')
         if do_remove_hot_pixels:
-            image_data = filters.remove_hot_pixels(image_data, progress=False)
+            image_data = filters.remove_hot_pixels(
+                image_data, progress=False
+            )
         
         options = self._params[SECTION].get('gaussSigma')
         if is_ref_ch:
@@ -3970,14 +3972,14 @@ class Kernel(_ParamsParser):
             use_gpu = False
         return use_gpu 
     
-    def sharpen_spots(self, raw_spots_img, metadata, lab=None):
+    def sharpen_spots(self, input_spots_img, metadata, lab=None):
         """Difference of Gaussians (DoG) detector. The same as TrackMate DoG 
         detector. Source: https://imagej.net/plugins/trackmate/detectors/difference-of-gaussian
 
         Parameters
         ----------
-        raw_spots_img : (Z, Y, X) ndarray
-            Raw spots' signal 3D z-stack image.
+        input_spots_img : (Z, Y, X) ndarray
+            Spots' signal 3D z-stack image (pre-processed if requested).
         metadata : dict
             Dictionary with 'zyxResolutionLimitPxl' key.
         lab : (Y, X) numpy.ndarray of ints or (Z, Y, X) numpy.ndarray of ints, optional
@@ -3999,7 +4001,7 @@ class Kernel(_ParamsParser):
         resolution_limit_radii = metadata['zyxResolutionLimitPxl']
         
         filtered = filters.DoG_spots(
-            raw_spots_img, resolution_limit_radii, use_gpu=use_gpu, 
+            input_spots_img, resolution_limit_radii, use_gpu=use_gpu, 
             logger_func=self.logger.info, lab=lab
         )
         return filtered
@@ -5421,12 +5423,14 @@ class Kernel(_ParamsParser):
                 transf_spots_nnet_img = transformed_spots_ch_nnet[frame_i]
             else:
                 transf_spots_nnet_img = None
-            preproc_spots_img = self._preprocess(raw_spots_img)
+            preproc_spots_img = self._preprocess(
+                raw_spots_img
+            )
             if save_preproc_spots_img:
                 preproc_spots_data[frame_i] = preproc_spots_img
             if do_sharpen_spots:
                 sharp_spots_img = self.sharpen_spots(
-                    raw_spots_img, self.metadata, lab=lab
+                    preproc_spots_img, self.metadata, lab=lab
                 )
             else:
                 sharp_spots_img = None
