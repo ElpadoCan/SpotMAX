@@ -175,7 +175,6 @@ class _DataLoader:
                 if not os.path.exists(ch_path):
                     raise FileNotFoundError(f'File "{ch_path}" does not exist')
             except Exception as err:
-                import pdb; pdb.set_trace()
                 self.logger.exception(traceback.format_exc())
                 self._critical_channel_not_found(channel, images_path)
                 return
