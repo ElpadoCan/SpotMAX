@@ -1806,7 +1806,13 @@ def spots_calc_features_and_filter(
             if i == 0:
                 # Store metrics at first iteration
                 dfs_spots_det[obj_idx] = df_obj_spots_gop.copy()
+            else:
+                # Update metrics in detect df
+                dfs_spots_det[obj_idx].loc[df_obj_spots_gop.index] = (
+                    df_obj_spots_gop
+                )
             
+                
             # from . import _debug
             # _debug._spots_filtering(
             #     local_spots_img, df_obj_spots_gop, obj, obj_image
@@ -1820,7 +1826,7 @@ def spots_calc_features_and_filter(
                 verbose=False
             )
             num_spots_filtered = len(df_obj_spots_gop)   
-
+            
             if num_spots_filtered == num_spots_prev or num_spots_filtered == 0:
                 # Number of filtered spots stopped decreasing --> stop loop
                 break
