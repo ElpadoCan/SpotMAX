@@ -1814,7 +1814,8 @@ def spots_calc_features_and_filter(
             
             df_obj_spots_gop = filter_spots_from_features_thresholds(
                 df_obj_spots_gop, gop_filtering_thresholds,
-                is_spotfit=False, debug=False,
+                is_spotfit=False, 
+                debug=False, # obj.label==6,
                 logger_func=logger_func, 
                 verbose=False
             )

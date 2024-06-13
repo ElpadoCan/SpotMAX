@@ -14,6 +14,8 @@ import logging
 from pathlib import Path
 import shutil as sh
 
+from cellacdc import printl
+
 from .base_model import BaseModel
 from .unet2D.unet_2D_model import UNet2D
 from .unet2D.dice_score import dice_loss, dice_coeff, multiclass_dice_coeff

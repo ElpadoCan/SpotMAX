@@ -330,8 +330,8 @@ class FeatureSelectorDialog(acdc_apps.TreeSelectorDialog):
     sigClose = Signal()
     sigValueSelected = Signal(str)
 
-    def __init__(self, category='spots', **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, category='spots', title='Feature selector', **kwargs) -> None:
+        super().__init__(title=title, **kwargs)
 
         features_groups = features.get_features_groups(category=category)
         self.addTree(features_groups)

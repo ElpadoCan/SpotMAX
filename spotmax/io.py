@@ -580,6 +580,17 @@ def sort_config_parser_ini(cp, params):
             if value is None:
                 value = params[section][anchor]['loadedVal']
             sorted_cp[section][option] = value
+    
+    # Add sections that were not in default params
+    for section in cp.sections():
+        if not sorted_cp.has_section(section):
+            sorted_cp[section] = {}
+        for option in cp.options(section):
+            if sorted_cp.has_option(section, option):
+                continue
+            
+            sorted_cp[section][option] = cp[section][option]
+
     return sorted_cp
 
 def add_metadata_from_csv(csv_path, ini_params):

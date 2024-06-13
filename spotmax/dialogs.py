@@ -1318,6 +1318,11 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         )
         
         row += 1
+        layout.addWidget(QLabel('Spot id'), row, col, alignment=Qt.AlignRight)
+        self.spotIdEntry = widgets.ReadOnlyLineEdit()
+        layout.addWidget(self.spotIdEntry, row, col+1)
+        
+        row += 1
         layout.addWidget(QLabel('x coordinate'), row, col, alignment=Qt.AlignRight)
         self.xLineEntry = widgets.ReadOnlyLineEdit()
         layout.addWidget(self.xLineEntry, row, col+1)
@@ -1363,6 +1368,7 @@ class AutoTuneViewSpotFeatures(QGroupBox):
     
     def setFeatures(self, point_features: pd.Series):
         pos_foldername, frame_i, z, y, x = point_features.name
+        self.spotIdEntry.setText(str(point_features.loc['spot_id']))
         self.xLineEntry.setText(str(x))
         self.yLineEntry.setText(str(y))
         self.zLineEntry.setText(str(z))
@@ -1375,6 +1381,7 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         self.infoLabel.setText('<i>&nbsp;</i>')
     
     def clearFeatures(self):
+        self.spotIdEntry.setText('')
         self.xLineEntry.setText('')
         self.yLineEntry.setText('')
         self.zLineEntry.setText('')

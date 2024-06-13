@@ -640,7 +640,12 @@ def filter_df_from_features_thresholds(
     
     # logger_func(f'Filtering with query = `{query}`')
     
-    return df_features.query(query)
+    df_filtered = df_features.query(query)
+    
+    if debug:
+        import pdb; pdb.set_trace()
+    
+    return df_filtered
 
 def drop_spots_not_in_ref_ch(df, ref_ch_mask, local_peaks_coords):
     if ref_ch_mask is None:
