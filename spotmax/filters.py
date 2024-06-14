@@ -729,7 +729,7 @@ def validate_spots_labels(spot_labels, lab):
         invalid_IDs.append(spot_obj.label)
     return invalid_IDs
 
-def remove_object_IDs(self, lab, IDs):
+def remove_object_IDs(lab, IDs):
     rp = skimage.measure.regionprops(lab)
     for obj in rp:
         if obj.label not in IDs:
