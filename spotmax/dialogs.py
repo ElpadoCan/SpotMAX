@@ -542,7 +542,7 @@ class guiTabControl(QTabWidget):
         msg.warning(self, 'Data not loaded', txt)
         self.sender().setChecked(False)
     
-    def setValuesFromParams(self, params):
+    def setValuesFromParams(self, params, ini_params_file_path):
         # Check if we need to add new widgets for sections with addFieldButton
         for section, section_options in params.items():
             for anchor, options in section_options.items():
@@ -569,10 +569,14 @@ class guiTabControl(QTabWidget):
         for section, anchorOptions in self.parametersQGBox.params.items():
             for anchor, options in anchorOptions.items():
                 formWidget = options['formWidget']
-                try:
-                    val = params[section][anchor]['loadedVal']
-                except Exception as e:
-                    continue
+                if anchor == 'folderPathsToAnalyse':
+                    val = config.parse_exp_paths(ini_params_file_path)
+                    val = '\n'.join(val)
+                else:
+                    try:
+                        val = params[section][anchor]['loadedVal']
+                    except Exception as e:
+                        continue
                 groupbox = options['groupBox']
                 try:
                     groupbox.setChecked(True)
@@ -636,7 +640,7 @@ class guiTabControl(QTabWidget):
         self.showInFileMangerButton.setDisabled(False)
         self.removeAddedFields()
         params = config.analysisInputsParams(filePath, cast_dtypes=False)
-        self.setValuesFromParams(params)
+        self.setValuesFromParams(params, filePath)
         self.parametersQGBox.setSelectedMeasurements(filePath)
         self.showParamsLoadedMessageBox()
         self.sigParametersLoaded.emit(filePath)
