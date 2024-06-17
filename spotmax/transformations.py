@@ -715,7 +715,8 @@ def add_zyx_local_coords_if_not_valid(df_spots_coords, obj):
     return df_spots_coords
 
 def init_df_features(
-        df_spots_coords, obj, crop_obj_start, spots_zyx_radii, ID=None
+        df_spots_coords, obj, crop_obj_start, spots_zyx_radii, ID=None, 
+        tot_num_spots=None
     ):
     if ID is None:
         ID = obj.label
@@ -732,10 +733,16 @@ def init_df_features(
     # `delta_tolerance`
     local_peaks_coords_expanded = global_peaks_coords - crop_obj_start 
     spots_masks = None
-
     num_spots_detected = len(global_peaks_coords)
+    
+    if ID == 0 and tot_num_spots is not None:
+        # For spot ids on cell ID 0 start from last number
+        spot_ids = np.arange(tot_num_spots, tot_num_spots+num_spots_detected)
+    else:
+        spot_ids = np.arange(1, num_spots_detected+1)
+    
     df_features = pd.DataFrame({
-        'spot_id': np.arange(1, num_spots_detected+1),
+        'spot_id': spot_ids,
         'z': global_peaks_coords[:,0],
         'y': global_peaks_coords[:,1],
         'x': global_peaks_coords[:,2],
