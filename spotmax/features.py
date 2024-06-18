@@ -570,6 +570,7 @@ def add_custom_combined_measurements(df, logger_func=print, **features_exprs):
         try:
             df = df.eval(expr_to_eval)
         except Exception as err:
+            print('\n')
             logger_func(
                 f'[WARNING]: could not add feature `{expr_to_eval}`. '
                 'Might retry later. Skipping it for now.'

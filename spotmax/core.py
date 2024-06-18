@@ -3245,7 +3245,7 @@ class SpotFIT(Spheroid):
                 )
                 surf_vals = self.spots_img_local[s_obj.slice][local_spot_surf_mask]
                 if len(surf_vals) == 0:
-                    drop_spots_ids.add(id)
+                    # drop_spots_ids.add(id)
                     continue
                     
                 surf_mean = surf_vals.mean()
@@ -3321,12 +3321,16 @@ class SpotFIT(Spheroid):
         self.df_spots_ID['spotsize_surface_std'] = _spot_surf_stds
         self.df_spots_ID['spot_B_min'] = _spot_B_mins
         
-        self.df_spots_ID = self.df_spots_ID.drop(index=drop_spots_ids)
+        self.spots_rp = skimage.measure.regionprops(spots_3D_lab)
+        self.spot_ids = [obj.label for obj in self.spots_rp]
+        
+        self.df_spots_ID = self.df_spots_ID.loc[self.spot_ids]
         
         # Used as a lower bound for B parameter in spotfit
         self.B_mins = _spot_B_mins
 
         self.spots_3D_lab_ID = spots_3D_lab
+        
 
     def _fit(self):
         verbose = self.verbose
@@ -3523,8 +3527,6 @@ class SpotFIT(Spheroid):
         spots_3D_lab_ID = self.spots_3D_lab_ID
         spots_3D_lab_ID_connect = skimage.measure.label(spots_3D_lab_ID>0)
         self.spots_3D_lab_ID_connect = spots_3D_lab_ID_connect
-        spots_rp = skimage.measure.regionprops(spots_3D_lab_ID)
-        self.spots_rp = spots_rp
         # Get intersect ids by expanding each single object by 1 pixel
         all_intersect_idx = []
         all_neigh_idx = []
@@ -3532,7 +3534,7 @@ class SpotFIT(Spheroid):
         num_intersect = []
         num_neigh = []
         all_neigh_ids = []
-        for s, s_obj in enumerate(spots_rp):
+        for s, s_obj in enumerate(self.spots_rp):
             spot_3D_lab = np.zeros_like(spots_3D_lab_ID)
             spot_3D_lab[s_obj.slice][s_obj.image] = s_obj.label
             spot_3D_mask = spot_3D_lab>0
@@ -3561,16 +3563,19 @@ class SpotFIT(Spheroid):
             all_neigh_ids.append(neigh_ids)
             num_neigh.append(len(neigh_idx))
 
-        self.df_intersect = pd.DataFrame({
-            'id': self.spot_ids,
-            'obj_id': obj_ids,
-            'num_intersect': num_intersect,
-            'num_neigh': num_neigh,
-            'intersecting_idx': all_intersect_idx,
-            'neigh_idx': all_neigh_idx,
-            'neigh_ids': all_neigh_ids}
-        ).sort_values('num_intersect')
-        self.df_intersect.index.name = 's'
+        try:
+            self.df_intersect = pd.DataFrame({
+                'id': self.spot_ids,
+                'obj_id': obj_ids,
+                'num_intersect': num_intersect,
+                'num_neigh': num_neigh,
+                'intersecting_idx': all_intersect_idx,
+                'neigh_idx': all_neigh_idx,
+                'neigh_ids': all_neigh_ids}
+            ).sort_values('num_intersect')
+            self.df_intersect.index.name = 's'
+        except Exception as err:
+            import pdb; pdb.set_trace()
 
     def _quality_control(self):
         """
