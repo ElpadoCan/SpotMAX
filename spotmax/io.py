@@ -2491,7 +2491,7 @@ def save_spots_masks(
         )
         spots_mask_data[frame_i] = spots_lab
     
-    np.savez_compressed(spots_ch_segm_filepath, spots_mask_data)
+    np.savez_compressed(spots_ch_segm_filepath, np.squeeze(spots_mask_data))
     df_spots = df_spots.drop(columns='spot_mask')
     if verbose:
         logger_func(f'Spots masks saved to "{spots_ch_segm_filepath}"')
