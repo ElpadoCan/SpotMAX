@@ -284,10 +284,10 @@ to the data type of the image (e.g., for 8-bit the maximum is 255). This scaling
 does not affect the relative differences between intensities. 
 
 The pixels belonging to  a specific spot are determined by constructing a 
-spehroid with radii equal to  
+spheroid with radii equal to  
 :confval:`Spot (z, y, x) minimum dimensions (radius)` if 
 :confval:`Spots detection method` is 'Detect local peaks'. Otherwise, when using 
-'Label prediction mask' the spheroids are replace by the spot mask of the 
+'Label prediction mask' the spheroids are replaced by the spot mask of the 
 actual segmentation of the spots.
 
 .. note:: 
@@ -326,10 +326,10 @@ Note that the gaussian filter also scales the intensities to the range
 0-1. 
 
 The pixels belonging to  a specific spot are determined by constructing a 
-spehroid with radii equal to  
+spheroid with radii equal to  
 :confval:`Spot (z, y, x) minimum dimensions (radius)` if 
 :confval:`Spots detection method` is 'Detect local peaks'. Otherwise, when using 
-'Label prediction mask' the spheroids are replace by the spot mask of the 
+'Label prediction mask' the spheroids are replaced by the spot mask of the 
 actual segmentation of the spots.
 
 .. note:: 
