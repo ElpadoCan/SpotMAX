@@ -49,6 +49,7 @@ if GUI_INSTALLED:
 
 from cellacdc import data_structure_docs_url
 from cellacdc import myutils as acdc_myutils
+from cellacdc import load as acdc_load
 import cellacdc.features
 
 from . import utils, config
@@ -2382,6 +2383,7 @@ def _save_concat_dfs_to_hdf(dfs, keys, dst_folderpath, filename):
             len(key)
             key = ';;'.join([str(k) for k in key])
             key = key.replace('\\', '/')
+        df = acdc_load.pd_bool_to_int(df)
         key = re.sub(r'[^a-zA-Z0-9]', "_", key)
         store_hdf.append(key, df)
     store_hdf.close()
