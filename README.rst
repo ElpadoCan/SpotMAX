@@ -4,7 +4,7 @@
 .. _PyPI: https://pypi.org/project/spotmax/
 
 
-.. |spotmaxlogo| image:: spotmax/docs/_static/logo.png
+.. |spotmaxlogo| image:: spotmax/docs/source/_static/logo.png
    :width: 64
    :target: https://github.com/ElpadoCan/spotMAX/tree/main/spotmax/resources
 
