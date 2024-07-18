@@ -29,7 +29,10 @@ import cellacdc.myutils as acdc_myutils
 import cellacdc.measure
 from cellacdc import base_cca_dict, base_cca_tree_dict
 from cellacdc.load import read_json
-from cellacdc import regex as acdc_regex
+try:
+    from cellacdc import regex as acdc_regex
+except ModuleNotFoundError:
+    from cellacdc import acdc_regex
 
 from . import read_version
 from . import GUI_INSTALLED, error_up_str, error_down_str
