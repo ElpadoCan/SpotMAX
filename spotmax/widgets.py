@@ -43,9 +43,10 @@ from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
 from cellacdc._palettes import lineedit_invalid_entry_stylesheet
 from cellacdc import myutils as acdc_myutils
+
 try:
     from cellacdc.regex import float_regex
-except ModuleNotFoundError:
+except ImportError:
     from cellacdc.acdc_regex import float_regex
 
 from . import is_mac, is_win, printl, font, font_small
