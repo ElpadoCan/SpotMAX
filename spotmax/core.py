@@ -31,7 +31,7 @@ from cellacdc import base_cca_dict, base_cca_tree_dict
 from cellacdc.load import read_json
 try:
     from cellacdc import regex as acdc_regex
-except ImportError:
+except Exception as err:
     from cellacdc import acdc_regex
 
 from . import read_version

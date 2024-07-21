@@ -46,7 +46,7 @@ from cellacdc import myutils as acdc_myutils
 
 try:
     from cellacdc.regex import float_regex
-except ImportError:
+except Exception as err:
     from cellacdc.acdc_regex import float_regex
 
 from . import is_mac, is_win, printl, font, font_small
