@@ -816,7 +816,7 @@ def reference_channel_quantify(
         ref_ch_local_lab = skimage.measure.label(ref_ch_mask_local)
         ref_ch_local_rp = skimage.measure.regionprops(ref_ch_local_lab)
         sub_obj_ids = [sub_obj.label for sub_obj in ref_ch_local_rp]
-        df_ref_ch['sub_obj_id'] = sub_obj_ids
+        df_ref_ch.loc[idx, 'sub_obj_id'] = sub_obj_ids
     
     return df_agg, df_ref_ch, filtered_ref_ch_segm
 
