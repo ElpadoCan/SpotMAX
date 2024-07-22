@@ -57,6 +57,7 @@ all = [
     "torch",
     "pyyaml",
     "pytorch3dunet @ git+https://github.com/ElpadoCan/pytorch3dunet.git",
+    "wandb"
 ]
 
 [project.scripts]

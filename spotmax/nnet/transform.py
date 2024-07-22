@@ -10,7 +10,7 @@ try:
 except Exception as e:
     from .. import njit_replacement as njit
 
-@njit
+# @njit
 def crop_single(img: np.ndarray, final_size: tuple) -> np.ndarray:
     """Function to crop an image to a final size.
 
@@ -22,12 +22,22 @@ def crop_single(img: np.ndarray, final_size: tuple) -> np.ndarray:
         np:ndarray: Cropped image
     """
 
-    x_size = (img.shape[0] - final_size[0]) // 2
-    y_size = (img.shape[1] - final_size[1]) // 2
-    if img.shape[0] % 2 == 1:
-        return img[y_size : -y_size - 1, x_size : -x_size - 1]
-    else:
-        return img[y_size:-y_size, x_size:-x_size]
+    Y, X = img.shape[-2:]
+    yc, xc = Y/2, X/2
+    y0 = int(yc - final_size[0]/2)
+    x0 = int(xc - final_size[1]/2)
+    y1 = y0 + final_size[0]
+    x1 = x0 + final_size[1]
+    
+    return img[y0:y1,x0:x1]
+    
+    # x_size = (img.shape[0] - final_size[0]) // 2
+    # y_size = (img.shape[1] - final_size[1]) // 2
+    # import pdb; pdb.set_trace()
+    # if img.shape[0] % 2 == 1:
+    #     return img[y_size : -y_size - 1, x_size : -x_size - 1]
+    # else:
+    #     return img[y_size:-y_size, x_size:-x_size]
 
 
 @njit
@@ -107,7 +117,8 @@ def _crop(images: np.ndarray, **kwargs) -> np.ndarray:
         np.ndarray: Cropped images
     """
     final_size = kwargs.get("final_size", (512, 512))
-    return np.asarray([crop_single(img, final_size) for img in images])
+    cropped = np.asarray([crop_single(img, final_size) for img in images])
+    return cropped
 
 
 def _pad_or_crop(images: np.ndarray, **kwargs) -> np.ndarray:
@@ -155,6 +166,7 @@ def _rescale(images: np.ndarray, **kwargs) -> np.ndarray:
     scaled_images = np.asarray(scaled_images)
     if final_size is not None:
         return _pad_or_crop(scaled_images, **kwargs)
+    
     return scaled_images
 
 
@@ -176,6 +188,7 @@ def _normalize(images: np.ndarray, **kwargs) -> np.ndarray:
         images[images > np.percentile(images, percentile)] = (
             np.percentile(images, percentile)
         )
+
     images = scaler.fit_transform(images.reshape(-1, 1))
     images = images.reshape(initial_shape)
     return images
@@ -190,7 +203,8 @@ def _opening(images: np.ndarray, **kwargs) -> np.ndarray:
     Returns:
         np.ndarray: Images after applying opening filter
     """
-    return np.asarray([opening(img) for img in images])
+    opened_imgs = np.asarray([opening(img) for img in images])
+    return opened_imgs
 
 
 def _gaussian_filter(images: np.ndarray, **kwargs) -> np.ndarray:
