@@ -24,6 +24,7 @@ spotmax/docs/source/tutorials/data
 spotmax/docs/source/images/home_carousel/svgs
 examples/notebooks/bioimageio_models
 deprecated
+cuda-keyring_1.1-1_all.deb
 **/checkpoints
 _tests
 .setup.cfg
