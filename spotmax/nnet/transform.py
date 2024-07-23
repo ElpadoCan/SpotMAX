@@ -402,3 +402,14 @@ class ImageTransformer(object):
             print("After the preprocess step the minimum is {:4.3f}".format(np.amin(images)))
 
         return images
+
+def resample_to_multiple_batch_size(imgs: np.ndarray, batch_size=16):
+    num_images = len(imgs)
+    total_num_imgs = (num_images + (batch_size - 1)) & (-batch_size)
+    missing_num_imgs = total_num_imgs - num_images
+    if missing_num_imgs == 0:
+        return imgs
+    
+    rng = np.random.default_rng(12)
+    resampled_imgs = rng.choice(imgs, missing_num_imgs)
+    return np.concatenate((imgs, resampled_imgs))
