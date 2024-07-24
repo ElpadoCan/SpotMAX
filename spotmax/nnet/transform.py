@@ -106,6 +106,55 @@ def _pad(images: np.ndarray, **kwargs) -> np.ndarray:
     pad_images = [pad_single(img, final_size, mode) for img in images]
     return np.asarray(pad_images)
 
+def _get_crops_single(img: np.ndarray, crops_shape=(256, 256)):
+    Y, X = img.shape
+    Y_crop, X_crop = crops_shape
+    if Y < Y_crop or X < X_crop:
+        img = pad_single(img, crops_shape)
+        return (img,)
+    
+    if Y == Y_crop and X == X_crop:
+        return (img,)
+    
+    cropped_imgs = []
+    num_x_crops = X // X_crop
+    num_y_crops = Y // Y_crop
+    for i in range(num_y_crops):
+        for j in range(num_x_crops):
+            y0 = i*Y_crop
+            x0 = j*X_crop
+            y1 = y0 + Y_crop
+            x1 = x0 + X_crop
+            cropped_imgs.append(img[y0:y1, x0:x1])
+    
+    is_Y_crop_left = Y % X_crop > 0
+    is_X_crop_left = X % X_crop > 0
+    
+    if not is_Y_crop_left and not is_X_crop_left:
+        return cropped_imgs
+    
+    if is_Y_crop_left:
+        for j in range(num_x_crops):
+            x0 = j*X_crop
+            x1 = x0 + X_crop
+            cropped_imgs.append(img[-Y_crop:, x0:x1])
+    
+    if is_X_crop_left:
+        for i in range(num_y_crops):
+            y0 = i*Y_crop
+            y1 = y0 + Y_crop
+            cropped_imgs.append(img[y0:y1, -X_crop:])
+    
+    if is_Y_crop_left and is_X_crop_left:
+        cropped_imgs.append(img[-Y_crop:, -X_crop:])
+        
+    return cropped_imgs
+    
+def _get_crops(images: np.ndarray, crops_shape=(256, 256)):
+    cropped_images = [
+        cropped for img in images for cropped in _get_crops_single(img) 
+    ]
+    return cropped_images
 
 def _crop(images: np.ndarray, **kwargs) -> np.ndarray:
     """Function to crop an array of images.
@@ -152,6 +201,7 @@ def _rescale(images: np.ndarray, **kwargs) -> np.ndarray:
     order = kwargs.get("order", 1)
     anti_aliasing = kwargs.get("anti_aliasing", False)
     final_size = kwargs.get("final_size", None)
+    crops_shape = kwargs.get("crops_shape", None)
 
     # Rescale in 2D
     scaled_images = [
@@ -163,11 +213,16 @@ def _rescale(images: np.ndarray, **kwargs) -> np.ndarray:
     ]
     # Rescale in 3D
     #scaled_images = rescale(images, scale, anti_aliasing=anti_aliasing, preserve_range=True, order=order)
-    scaled_images = np.asarray(scaled_images)
+    processed_images = np.asarray(scaled_images)
     if final_size is not None:
-        return _pad_or_crop(scaled_images, **kwargs)
+        processed_images = _pad_or_crop(processed_images, **kwargs)
     
-    return scaled_images
+    if crops_shape is not None:
+        processed_images = _get_crops(
+            processed_images, crops_shape=crops_shape
+        )
+    
+    return processed_images
 
 
 def _normalize(images: np.ndarray, **kwargs) -> np.ndarray:
