@@ -144,7 +144,7 @@ class Unet2DModel(BaseModel):
         val_loader = DataLoader(val_set, shuffle=True, drop_last=True, **loader_args)
 
         # Setting Experiment
-        experiment = wandb.init(project="spoot-deep", entity="lfk", mode=wandb_mode)
+        experiment = wandb.init(project="spotMAX AI", entity="lfk", mode=wandb_mode)
         experiment.config.update(
             dict(
                 epochs=epochs,
@@ -194,7 +194,8 @@ class Unet2DModel(BaseModel):
                             criterion(masks_pred, true_masks) +
                             dice_loss(
                                 F.softmax(masks_pred, dim=1).float(),
-                                F.one_hot(true_masks, self.net.n_classes).permute(0, 3, 1, 2).float(),
+                                F.one_hot(true_masks, self.net.n_classes)
+                                .permute(0, 3, 1, 2).float(),
                                 multiclass=True,
                             )
                         )
@@ -212,11 +213,17 @@ class Unet2DModel(BaseModel):
 
                 # Validation
                 val_score = self._evaluate(val_loader)
-                val_scores.append(val_score.item())
+                if not isinstance(val_score, int):
+                    val_score = val_score.item()
+                
+                val_scores.append(val_score)
                 scheduler.step(val_score)
 
                 # Calculate loss over the validation dataset
-                val_loss = self._val_loss(val_loader, criterion)
+                try:
+                    val_loss = self._val_loss(val_loader, criterion)
+                except Exception as err:
+                    val_loss = np.inf
 
                 # Calculate the average loss per epoch
                 epoch_loss /= n_train // batch_size
@@ -241,7 +248,7 @@ class Unet2DModel(BaseModel):
                 pbar.set_postfix(
                     **{
                         "Loss (batch)": loss.item(),
-                        "Validation Dice score": val_score.item(),
+                        "Validation Dice score": val_score,
                         "Learning rate": optimizer.param_groups[0]["lr"],
                     }
                 )
@@ -252,7 +259,7 @@ class Unet2DModel(BaseModel):
                 logging.info(f"Checkpoint {epoch + 1} saved!")
 
                 # Save the best
-                if val_score.item() == max(val_scores):
+                if val_score == max(val_scores):
                     Path(self.model_dir).mkdir(parents=True, exist_ok=True)
                     torch.save(self.net.state_dict(), self.training_directory + "/unet_best.pth")
                     logging.info(f"Best saved at epch {epoch + 1}!")
