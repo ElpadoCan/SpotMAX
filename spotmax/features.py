@@ -106,8 +106,8 @@ def pooled_std_two_samples(sample_1: np.ndarray, sample_2: np.ndarray):
     # See https://en.wikipedia.org/wiki/Cohen%27s_d
     n1 = len(sample_1)
     n2 = len(sample_2)
-    s1 = np.std(sample_1)
-    s2 = np.std(sample_2)
+    s1 = np.std(sample_1, ddof=1)
+    s2 = np.std(sample_2, ddof=1)
     v1 = s1**2
     v2 = s2**2
     
