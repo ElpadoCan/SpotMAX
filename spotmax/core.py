@@ -2658,11 +2658,13 @@ class Spheroid:
 
     def get_spots_mask(
             self, i, zyx_vox_dim, zyx_resolution, zyx_centers,
-            method='min_spheroid', dtype=bool, ids=[]
+            method='min_spheroid', dtype=bool, ids=[], 
+            semiax_len=None
         ):
         Z, Y, X = self.V_shape
         # Calc spheroid semiaxis lengths in pixels (c: z, a: x and y)
-        semiax_len = self.calc_semiax_len(i, zyx_vox_dim, zyx_resolution)
+        if semiax_len is None:
+            semiax_len = self.calc_semiax_len(i, zyx_vox_dim, zyx_resolution)
         local_spot_mask = self.get_local_spot_mask(semiax_len)
         # Pre-allocate arrays
         spots_mask = np.zeros(self.V_shape, dtype)
@@ -2798,7 +2800,7 @@ class SpotFIT(Spheroid):
         
         if spots_masks_check_merge is not None:
             self.spots_lab_local = skimage.measure.label(
-                spots_masks_check_merge[expanded_obj.slice]
+                spots_masks_check_merge[expanded_obj.slice].copy()
             )
         else:
             self.spots_lab_local = None            
@@ -3029,8 +3031,8 @@ class SpotFIT(Spheroid):
         df_spots_ID = self.df_spots_ID
         
         spots_centers = df_spots_ID[ZYX_LOCAL_EXPANDED_COLS].to_numpy()
-        
         spot_ids = self.spots_lab_local[tuple(spots_centers.T)]
+            
         unique_ids, counts = np.unique(spot_ids, return_counts=True)
         
         dropped_coords = set()
@@ -4141,6 +4143,118 @@ class Kernel(_ParamsParser):
         else:
             return ref_ch_segm, df_agg, df_ref_ch
 
+    def spotfit(
+            self, 
+            spots_data, 
+            df_spots_gop, 
+            segm_data, 
+            segm_rp,
+            dfs_lists,
+            gop_filtering_thresholds,
+            concat_index_names,
+            custom_combined_measurements=None,
+            spots_labels_data=None,
+            ref_ch_segm_data=None, 
+            frame_i=0, 
+            stopFrameNum=0, 
+            verbose=True
+        ):            
+        SECTION = 'Spots channel'
+        spotfit_check_merge = (
+            self._params[SECTION]['checkMergeSpotfit']['loadedVal']
+        )
+        spotfit_drop_peaks_too_close = (
+            self._params[SECTION]['dropSpotsMinDistAfterSpotfit']['loadedVal']
+        )
+        max_number_pairs_check_merge = (
+            self._params[SECTION]['maxNumPairs']['loadedVal']
+        )
+        
+        zyx_spot_min_vol_um = self.metadata['zyxResolutionLimitUm']
+        spots_zyx_radii_pxl = self.metadata['zyxResolutionLimitPxl']
+        zyx_voxel_size = self.metadata['zyxVoxelSize']
+        desc = 'Frames completed (spotFIT)'
+        pbar = tqdm(
+            total=stopFrameNum, ncols=100, desc=desc, position=2, 
+            leave=stopFrameNum>1
+        )
+        for frame_i in range(stopFrameNum):
+            try:
+                df_spots_frame = df_spots_gop.loc[frame_i]
+            except KeyError as err:
+                continue
+            
+            raw_spots_img = spots_data[frame_i]
+            ref_ch_mask_or_labels = None
+            if ref_ch_segm_data is not None:
+                ref_ch_mask_or_labels = ref_ch_segm_data[frame_i]
+            
+            spots_masks_check_merge = None
+            if spotfit_check_merge and spots_labels_data is not None:
+                spots_masks_check_merge = spots_labels_data[frame_i]
+            
+            lab = segm_data[frame_i]
+            rp = segm_rp[frame_i]
+            
+            bounds_kwargs = self.get_bounds_kwargs()
+            init_guess_kwargs = self.get_init_guess_kwargs()
+            spotfit_result = pipe.spotfit(
+                self._SpotFit, 
+                raw_spots_img, 
+                df_spots_frame, 
+                zyx_voxel_size, 
+                zyx_spot_min_vol_um, 
+                spots_zyx_radii_pxl=spots_zyx_radii_pxl,
+                rp=rp, 
+                delta_tol=self.metadata['deltaTolerance'], 
+                lab=lab,
+                ref_ch_mask_or_labels=ref_ch_mask_or_labels,
+                spots_masks_check_merge=spots_masks_check_merge,
+                drop_peaks_too_close=spotfit_drop_peaks_too_close,
+                frame_i=frame_i, 
+                use_gpu=self._get_use_gpu(),
+                show_progress=True,
+                verbose=verbose,
+                logger_func=self.logger.info,
+                custom_combined_measurements=custom_combined_measurements,
+                max_number_pairs_check_merge=max_number_pairs_check_merge,
+                **bounds_kwargs,
+                **init_guess_kwargs, 
+            )
+            dfs_lists['spotfit_keys'].extend(spotfit_result[0])
+            dfs_lists['dfs_spots_spotfit'].extend(spotfit_result[1])
+            dfs_lists['dfs_spots_spotfit_iter0'].extend(spotfit_result[2])
+            pbar.update()
+        pbar.close()
+        
+        keys = dfs_lists['spotfit_keys']
+        if not keys:
+            return
+
+        df_spots_fit = pd.concat(
+            dfs_lists['dfs_spots_spotfit'], keys=keys, 
+            names=concat_index_names
+        )
+        df_spots_fit_iter0 = pd.concat(
+            dfs_lists['dfs_spots_spotfit_iter0'], keys=keys, 
+            names=concat_index_names
+        )
+        self._add_spotfit_features_to_df_spots_gop(
+            df_spots_fit_iter0, df_spots_gop
+        )
+        df_spots_fit = pipe.filter_spots_from_features_thresholds(
+            df_spots_fit, gop_filtering_thresholds,
+            is_spotfit=True, 
+            frame_i=frame_i,
+            debug=False,
+            logger_func=self.logger.info, 
+            verbose=verbose
+        )
+        # df_spots_fit = self._filter_spots_by_size(
+        #     df_spots_fit, spotfit_minsize, spotfit_maxsize
+        # )
+        return df_spots_fit
+    
     @exception_handler_cli
     def spots_detection(
             self, 
@@ -5223,6 +5337,8 @@ class Kernel(_ParamsParser):
                 f'Analysing until frame n. {stopFrameNum} '
                 f'("{os.path.dirname(images_path)}")'
             )
+        
+        """---------------------------INIT DFs-------------------------------"""
         desc = 'Adding segmentation objects features'
         self._current_step = desc
         pbar = tqdm(
@@ -5239,6 +5355,7 @@ class Kernel(_ParamsParser):
             pbar.update()
         pbar.close()
         
+        """---------------------SEGMENT REF CH-------------------------------"""
         SECTION = 'Reference channel'
         segment_ref_ch = (
             ref_ch_data is not None and do_segment_ref_ch
@@ -5370,15 +5487,6 @@ class Kernel(_ParamsParser):
             self._params[SECTION]['spotDetectionMethod']['loadedVal']
         )
         do_spotfit = self._params[SECTION]['doSpotFit']['loadedVal']
-        spotfit_drop_peaks_too_close = (
-            self._params[SECTION]['dropSpotsMinDistAfterSpotfit']['loadedVal']
-        )
-        spotfit_check_merge = (
-            self._params[SECTION]['checkMergeSpotfit']['loadedVal']
-        )
-        max_number_pairs_check_merge = (
-            self._params[SECTION]['maxNumPairs']['loadedVal']
-        )
         self._warn_if_spotfit_disabled(do_spotfit)
         
         save_spots_mask = (
@@ -5408,6 +5516,7 @@ class Kernel(_ParamsParser):
         if save_preproc_spots_img:
             preproc_spots_data = np.zeros_like(spots_data)[:stopFrameNum]
         
+        """---------------------SPOT DETECTION-------------------------------"""
         nnet_pred_map = None
         spots_labels_data = None
         spots_labels_invalid_IDs = None
@@ -5471,7 +5580,9 @@ class Kernel(_ParamsParser):
                 preproc_spots_img, zyx_resolution_limit_pxl, 
                 sharp_spots_img=sharp_spots_img,
                 ref_ch_img=filtered_ref_ch_img, 
-                frame_i=frame_i, lab=lab, rp=rp,
+                frame_i=frame_i, 
+                lab=lab, 
+                rp=rp,
                 ref_ch_mask_or_labels=ref_ch_mask_or_labels, 
                 df_agg=df_agg,
                 preproc_spots_img=preproc_spots_img,
@@ -5510,6 +5621,7 @@ class Kernel(_ParamsParser):
             
             if spots_labels is not None and spots_labels_data is None:
                 spots_labels_data = np.zeros(spots_data.shape, dtype=np.uint32)
+            
             if spots_labels is not None:
                 spots_labels_data[frame_i] = spots_labels
             
@@ -5574,6 +5686,7 @@ class Kernel(_ParamsParser):
             }
             return dfs, data
 
+        """---------------------SPOTFIT--------------------------------------"""
         names = ['frame_i', 'Cell_ID', 'spot_id']
         keys = dfs_lists['keys']
         df_spots_det = pd.concat(
@@ -5583,89 +5696,20 @@ class Kernel(_ParamsParser):
         df_spots_gop = pd.concat(
             dfs_lists['dfs_spots_gop_test'], keys=keys, names=names
         ).drop(columns=['closest_ID'], errors='ignore')
-
-        if do_spotfit:
-            zyx_spot_min_vol_um = self.metadata['zyxResolutionLimitUm']
-            spots_zyx_radii_pxl = self.metadata['zyxResolutionLimitPxl']
-            zyx_voxel_size = self.metadata['zyxVoxelSize']
-            desc = 'Measuring spots (spotFIT)'
-            pbar = tqdm(
-                total=stopFrameNum, ncols=100, desc=desc, position=2, 
-                leave=False
-            )
-            for frame_i in range(stopFrameNum):
-                try:
-                    df_spots_frame = df_spots_gop.loc[frame_i]
-                except KeyError as err:
-                    continue
-                
-                raw_spots_img = spots_data[frame_i]
-                ref_ch_mask_or_labels = None
-                if ref_ch_segm_data is not None:
-                    ref_ch_mask_or_labels = ref_ch_segm_data[frame_i]
-                
-                spots_masks_check_merge = None
-                if spotfit_check_merge and spots_labels_data is not None:
-                    spots_masks_check_merge = spots_labels_data[frame_i]
-                
-                bounds_kwargs = self.get_bounds_kwargs()
-                init_guess_kwargs = self.get_init_guess_kwargs()
-                spotfit_result = pipe.spotfit(
-                    self._SpotFit, 
-                    raw_spots_img, 
-                    df_spots_frame, 
-                    zyx_voxel_size, 
-                    zyx_spot_min_vol_um, 
-                    spots_zyx_radii_pxl=spots_zyx_radii_pxl,
-                    rp=rp, 
-                    delta_tol=self.metadata['deltaTolerance'], 
-                    lab=lab,
-                    ref_ch_mask_or_labels=ref_ch_mask_or_labels,
-                    spots_masks_check_merge=spots_masks_check_merge,
-                    drop_peaks_too_close=spotfit_drop_peaks_too_close,
-                    frame_i=frame_i, 
-                    use_gpu=self._get_use_gpu(),
-                    show_progress=True,
-                    verbose=verbose,
-                    logger_func=self.logger.info,
-                    custom_combined_measurements=custom_combined_measurements,
-                    max_number_pairs_check_merge=max_number_pairs_check_merge,
-                    **bounds_kwargs,
-                    **init_guess_kwargs, 
-                )
-                dfs_lists['spotfit_keys'].extend(spotfit_result[0])
-                dfs_lists['dfs_spots_spotfit'].extend(spotfit_result[1])
-                dfs_lists['dfs_spots_spotfit_iter0'].extend(spotfit_result[2])
-                pbar.update()
-            pbar.close()
-            
-            keys = dfs_lists['spotfit_keys']
-            if not keys:
-                df_spots_fit = None
-            else:
-                df_spots_fit = pd.concat(
-                    dfs_lists['dfs_spots_spotfit'], keys=keys, names=names
-                )
-                df_spots_fit_iter0 = pd.concat(
-                    dfs_lists['dfs_spots_spotfit_iter0'], keys=keys, names=names
-                )
-                self._add_spotfit_features_to_df_spots_gop(
-                    df_spots_fit_iter0, df_spots_gop
-                )
-                df_spots_fit = pipe.filter_spots_from_features_thresholds(
-                    df_spots_fit, gop_filtering_thresholds,
-                    is_spotfit=True, 
-                    frame_i=frame_i,
-                    debug=False,
-                    logger_func=self.logger.info, 
-                    verbose=verbose
-                )
-            # df_spots_fit = self._filter_spots_by_size(
-            #     df_spots_fit, spotfit_minsize, spotfit_maxsize
-            # )
-        else:
-            df_spots_fit = None
         
+        df_spots_fit = None
+        if do_spotfit:
+            df_spots_fit = self.spotfit(
+                spots_data, df_spots_gop, segm_data, segm_rp, 
+                dfs_lists, gop_filtering_thresholds, names, 
+                custom_combined_measurements=custom_combined_measurements, 
+                spots_labels_data=spots_labels_data,
+                ref_ch_segm_data=ref_ch_segm_data, 
+                frame_i=frame_i, 
+                stopFrameNum=stopFrameNum, 
+                verbose=verbose
+            )
+            
         dfs_translated = self._translate_coords_segm_crop(
             df_spots_det, df_spots_gop, df_spots_fit, 
             crop_to_global_coords=data['crop_to_global_coords']
