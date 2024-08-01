@@ -154,6 +154,8 @@ class Model:
     
     def _get_scale_factor(self, pixel_size_um, resolution_multiplier_yx):
         pixel_size_nm = pixel_size_um*1000
+        if self._config['base_pixel_size_nm'] == -1:
+            base_pixel_size_nm = 1
         sf = (
             pixel_size_nm
             /self._config['base_pixel_size_nm']

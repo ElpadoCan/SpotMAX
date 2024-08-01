@@ -1729,6 +1729,7 @@ def spots_calc_features_and_filter(
             df_spots_coords, obj, crop_obj_start, spots_zyx_radii_pxl
         )
         df_obj_spots_det, expanded_obj_coords = result
+            
         if df_obj_spots_det is None:
             filtered_spots_info[obj.label]['start_num_spots'] = 0
             filtered_spots_info[obj.label]['end_num_spots'] = 0
@@ -2156,7 +2157,7 @@ def spotfit(
         start_num_spots = len(df_spots_obj)
         filtered_spots_info[obj.label]['start_num_spots'] = start_num_spots
         i = 0
-        while True:
+        while True:                
             kernel.set_args(
                 expanded_obj, 
                 spots_img, 

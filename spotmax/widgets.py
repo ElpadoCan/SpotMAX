@@ -792,11 +792,23 @@ class SpotPredictionMethodWidget(QWidget):
         self.configButton = acdc_widgets.setPushButton()
         self.configButton.setDisabled(True)
         
+        self.trainSmaxAiButton = acdc_widgets.TrainPushButton()
+        self.trainSmaxAiButton.setDisabled(True)
+        
         self.configButton.clicked.connect(self.promptConfigModel)
         self.combobox.currentTextChanged.connect(self.onTextChanged)
+        self.trainSmaxAiButton.clicked.connect(self.promptSetupSmaxAiTraining)
+        
+        self.trainSmaxAiButton.setToolTip(
+            'Setup workflow to train spotMAX AI from ground-truth annotations'
+        )
+        self.configButton.setToolTip(
+            'Set/view neural network model parameters'
+        )
         
         layout.addWidget(self.combobox)
         layout.addWidget(self.configButton)
+        layout.addWidget(self.trainSmaxAiButton)
         layout.setStretch(0, 1)
         layout.setStretch(1, 0)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -808,6 +820,8 @@ class SpotPredictionMethodWidget(QWidget):
         return self.value()
     
     def onTextChanged(self, text):
+        self.trainSmaxAiButton.setEnabled(text == 'spotMAX AI')
+        
         self.configButton.setDisabled(text == 'Thresholding')
         if not self.configButton.isEnabled():
             return
@@ -822,6 +836,9 @@ class SpotPredictionMethodWidget(QWidget):
         self.stopBlinkingTimer = QTimer(self)
         self.stopBlinkingTimer.timeout.connect(self.stopBlinkConfigButton)
         self.stopBlinkingTimer.start(2000)
+    
+    def promptSetupSmaxAiTraining(self):
+        dialogs.setupSpotmaxAiTraining()
     
     def stopBlinkConfigButton(self):
         self.blinkingTimer.stop()
@@ -1536,9 +1553,14 @@ class FormLayout(QGridLayout):
         
 
 class ReadOnlyElidingLineEdit(acdc_widgets.ElidingLineEdit):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, transparent=False):
         super().__init__(parent)
         self.setReadOnly(True)
+        if transparent:
+            self.setFrame(False)
+            palette = self.palette()
+            palette.setColor(QPalette.Base, Qt.transparent)
+            self.setPalette(palette)
 
 class myQScrollBar(QScrollBar):
     sigActionTriggered = Signal(int)
@@ -3470,3 +3492,149 @@ class DockWidget(QDockWidget):
         super().__init__(*args, **kwargs)
         
         self.installEventFilter(self)
+
+class VoxelSizeWidget(QWidget):
+    def __init__(self, parent=None, um_to_pixel=1.0, unit='pixel'):
+        super().__init__(parent)
+        
+        self.um_to_pixel = um_to_pixel
+        
+        try:
+            len(um_to_pixel)
+            self.um_to_pixel = np.array(um_to_pixel, dtype=float)
+        except Exception as err:
+            pass
+        
+        layout = QGridLayout()
+        
+        controlWidget = acdc_widgets.VectorLineEdit()
+        self.controlWidget = controlWidget
+        
+        displayLabel = QLabel('0.0')
+        displayLabel.setAlignment(Qt.AlignCenter)
+        self.displayLabel = displayLabel
+        
+        unitCombobox = QComboBox()
+        unitCombobox.addItems(['pixel', 'micrometre'])
+        self.unitCombobox = unitCombobox
+        
+        unitLabel = QLabel('micrometre')
+        
+        layout.addWidget(controlWidget, 0, 0)
+        layout.addWidget(unitCombobox, 0, 1, alignment=Qt.AlignLeft)
+        
+        layout.addWidget(displayLabel, 1, 0)
+        layout.addWidget(unitLabel, 1, 1, alignment=Qt.AlignLeft)
+        
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.controlWidget.valueChanged.connect(self.onValueChanged)
+        self.unitCombobox.currentTextChanged.connect(self.onValueChanged)
+        
+        self.setToolTip()
+        
+        self.setLayout(layout)
+    
+    def setValue(self, value):
+        self.controlWidget.setValue(value)
+    
+    def setToolTip(self):
+        unit = self.unitCombobox.currentText()
+        try:
+            len(self.um_to_pixel)
+            um_to_pixel = tuple(self.um_to_pixel)
+        except Exception as err:
+            um_to_pixel = self.um_to_pixel
+            
+        kwargs = {
+            'um_to_pixel': um_to_pixel, 
+            'unit': unit
+        }     
+        super().setToolTip(str(kwargs))   
+    
+    def onValueChanged(self, placeholder):
+        value = self.controlWidget.value()
+        
+        if self.unitCombobox.currentText() == 'pixel':
+            mult_factor = self.um_to_pixel
+            decimals = 4
+        else:
+            mult_factor = 1/self.um_to_pixel
+            decimals = 1
+        
+        self.setToolTip()
+        
+        try:
+            len(value)
+            value = np.round(np.array(value, dtype=float), decimals)
+            conv_value = value * mult_factor
+            text = str(tuple(conv_value))
+            self.displayLabel.setText(text)
+            return
+        except Exception as err:
+            pass
+        
+        try:
+            conv_value = round(value * mult_factor, decimals)
+            text = str(conv_value)
+            self.displayLabel.setText(text)
+            return
+        except Exception as err:
+            pass
+        
+        self.displayLabel.setText(html_func.span('ERROR', font_color='red'))
+    
+    def value(self):
+        if self.unitCombobox.currentText() == 'pixel':
+            try:
+                value = tuple(self.controlWidget.value())
+                return value
+            except Exception as err:
+                return self.controlWidget.value()
+        else:
+            return eval(self.displayLabel.text())
+        
+
+class LineEdit(QLineEdit):
+    def __init__(self, *args, centered=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setAlignment(Qt.AlignCenter)
+    
+    def value(self):
+        return self.text()
+
+class SelectPosFoldernamesButton(acdc_widgets.editPushButton):
+    def __init__(self, *args, exp_path='', **kwargs):
+        if not args:
+            args = ['Select/view Positions']
+            
+        super().__init__(*args, **kwargs)
+        
+        self._exp_path = exp_path
+        self._value = []
+        self.setToolTip()
+        
+        self.clicked.connect(self.selectPositions)
+    
+    def setToolTip(self):
+        super().setToolTip(str({'exp_path': self._exp_path}))
+    
+    def selectPositions(self):
+        pos_foldernames = acdc_myutils.get_pos_foldernames(self._exp_path)
+        win = acdc_widgets.QDialogListbox(
+            'Select Positions', 
+            'Select Positions', 
+            pos_foldernames,
+            parent=self, 
+            preSelectedItems=self.value()
+        )
+        win.exec_()
+        if win.cancel:
+            return
+        self.setValue(win.selectedItemsText)
+    
+    def setValue(self, value):
+        self._value = value
+    
+    def value(self):
+        return self._value

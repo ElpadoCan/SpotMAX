@@ -45,7 +45,7 @@ from cellacdc import io as acdc_io
 from cellacdc.myutils import get_salute_string, determine_folder_type
 from cellacdc import qrc_resources
 from cellacdc import base_cca_dict
-from cellacdc import myutils as acdc_utils
+from cellacdc import myutils as acdc_myutils
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func

@@ -56,9 +56,15 @@ def gaussian(image, sigma, use_gpu=False, logger_func=print):
     
     try:
         if len(sigma) == 0:
-            sigma = sigma[0]
+            return image
     except Exception as err:
         pass
+    
+    if image.ndim == 2:
+        try:
+            sigma = sigma[1:]
+        except Exception as err:
+            pass
     
     if CUPY_INSTALLED and use_gpu:
         try:

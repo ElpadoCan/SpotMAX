@@ -204,13 +204,17 @@ def _rescale(images: np.ndarray, **kwargs) -> np.ndarray:
     crops_shape = kwargs.get("crops_shape", None)
 
     # Rescale in 2D
-    scaled_images = [
-        rescale(
-            img, scale, anti_aliasing=anti_aliasing, 
-            preserve_range=True, order=order
-        ) 
-        for img in images
-    ]
+    if scale != 1:
+        scaled_images = [
+            rescale(
+                img, scale, anti_aliasing=anti_aliasing, 
+                preserve_range=True, order=order
+            ) 
+            for img in images
+        ]
+    else:
+        scaled_images = images
+        
     # Rescale in 3D
     #scaled_images = rescale(images, scale, anti_aliasing=anti_aliasing, preserve_range=True, order=order)
     processed_images = np.asarray(scaled_images)
