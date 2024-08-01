@@ -31,6 +31,7 @@ from . import last_cli_log_file_path
 from . import GUI_INSTALLED
 from . import DFs_FILENAMES
 from . import valid_true_bool_str, valid_false_bool_str
+from . import rng
 
 if GUI_INSTALLED:
     import matplotlib.colors

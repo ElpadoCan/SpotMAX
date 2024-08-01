@@ -200,6 +200,30 @@ class AutoTuningButton(QPushButton):
             self.setIcon(QIcon(':tune.svg'))
         self.sigToggled.emit(self, checked)
 
+class TrainSpotmaxAIButton(acdc_widgets.TrainPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setToolTip(
+            'Setup workflow to train spotMAX AI from ground-truth annotations'
+        )
+        self.clicked.connect(self.onClicked)
+    
+    def onClicked(self):
+        dialogs.setupSpotmaxAiTraining()
+
+class IsFieldSetButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        flat = kwargs.get('flat', True)
+        self.setFlat(flat)
+        self.setSelected(False)
+    
+    def setSelected(self, selected):
+        if selected:
+            self.setIcon(QIcon(':greenTick.svg'))
+        else:
+            self.setIcon(QIcon(':orange_question_mark.svg'))
+
 class AddAutoTunePointsButton(acdc_widgets.CrossCursorPointButton):
     sigToggled = Signal(object, bool)
 
@@ -792,16 +816,12 @@ class SpotPredictionMethodWidget(QWidget):
         self.configButton = acdc_widgets.setPushButton()
         self.configButton.setDisabled(True)
         
-        self.trainSmaxAiButton = acdc_widgets.TrainPushButton()
+        self.trainSmaxAiButton = TrainSpotmaxAIButton()
         self.trainSmaxAiButton.setDisabled(True)
         
         self.configButton.clicked.connect(self.promptConfigModel)
         self.combobox.currentTextChanged.connect(self.onTextChanged)
-        self.trainSmaxAiButton.clicked.connect(self.promptSetupSmaxAiTraining)
-        
-        self.trainSmaxAiButton.setToolTip(
-            'Setup workflow to train spotMAX AI from ground-truth annotations'
-        )
+
         self.configButton.setToolTip(
             'Set/view neural network model parameters'
         )
@@ -836,9 +856,6 @@ class SpotPredictionMethodWidget(QWidget):
         self.stopBlinkingTimer = QTimer(self)
         self.stopBlinkingTimer.timeout.connect(self.stopBlinkConfigButton)
         self.stopBlinkingTimer.start(2000)
-    
-    def promptSetupSmaxAiTraining(self):
-        dialogs.setupSpotmaxAiTraining()
     
     def stopBlinkConfigButton(self):
         self.blinkingTimer.stop()

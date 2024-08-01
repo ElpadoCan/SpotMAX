@@ -1482,8 +1482,12 @@ class AutoTuneTabWidget(QWidget):
         buttonsLayout.addWidget(self.loadingCircle)
         self.autoTuningButton = autoTuningButton
         
-        helpButton = acdc_widgets.helpPushButton('Help...')
         buttonsLayout.addStretch(1)
+        
+        trainButton = widgets.TrainSpotmaxAIButton('Train spotMAX AI...')
+        buttonsLayout.addWidget(trainButton)
+        
+        helpButton = acdc_widgets.helpPushButton('Help...')
         buttonsLayout.addWidget(helpButton)
         
         autoTuneScrollArea = QScrollArea(self)
@@ -3850,6 +3854,7 @@ class SelectFolderToAnalyse(QBaseDialog):
         self.cancel = True
         self.onlyExpPaths = onlyExpPaths
         self.setWindowTitle('Select experiments to analyse')
+        self.scanTree = scanFolderTree
         
         mainLayout = QVBoxLayout()
         
@@ -3921,6 +3926,8 @@ class SelectFolderToAnalyse(QBaseDialog):
         self.close()
     
     def addFolderPath(self, path):
+        acdc_myutils.addToRecentPaths(path)
+        
         if self.scanTree:
             pathScanner = io.expFolderScanner(path)
             pathScanner.getExpPaths(path)
@@ -3930,7 +3937,7 @@ class SelectFolderToAnalyse(QBaseDialog):
         
         for selectedPath in paths:
             if self.onlyExpPaths:
-                selectedPath = acdc_load.get_exp_path()
+                selectedPath = acdc_load.get_exp_path(selectedPath)
             
             selectedPath = selectedPath.replace('\\', '/')
             if selectedPath in self.pathsList():
@@ -4445,11 +4452,21 @@ class SetupUnetTrainingDialog(QBaseDialog):
         self.cancel = True
         super().__init__(parent)
         
+        self.selectedSpotsCoordsFiles = None
+        self.selectedChannelNamesFiles = None
+        self.selectedMasksFiles = None
+        self.selectedSpotMaskSizes = None
+        self.selectedPixelSizes = None
+        self.selectedTrainPositions = None
+        self.selectedValPositions = None
+        
         self.setWindowTitle('Setup SpotMAX AI Training Workflow')
         
         mainLayout = QVBoxLayout()
         
         paramsLayout = QGridLayout()
+        
+        self.isSetButtonsMapper = {}
         
         row = 0
         paramsLayout.addWidget(QLabel('Ground-truth Experiments: '), row, 0)
@@ -4459,6 +4476,20 @@ class SetupUnetTrainingDialog(QBaseDialog):
         paramsLayout.addWidget(self.selectExpPathsButton, row, 1, 1, 2)
         selectPosInfoButton = acdc_widgets.infoPushButton()
         paramsLayout.addWidget(selectPosInfoButton, row, 3)
+        self.areExpPathsSetButton = widgets.IsFieldSetButton()
+        paramsLayout.addWidget(self.areExpPathsSetButton , row, 4)
+        
+        row += 1
+        paramsLayout.addWidget(QLabel('Spots channel names: '), row, 0)
+        self.selectChannelNamesButton = acdc_widgets.editPushButton(
+            ' Select/view spots channel names... '
+        )
+        paramsLayout.addWidget(self.selectChannelNamesButton, row, 1, 1, 2)
+        isFieldSetButton = widgets.IsFieldSetButton()
+        paramsLayout.addWidget(isFieldSetButton , row, 4)
+        self.isSetButtonsMapper[self.selectChannelNamesButton] = (
+            isFieldSetButton, 'selectedChannelNamesFiles'
+        )
         
         row += 1
         paramsLayout.addWidget(
@@ -4496,6 +4527,11 @@ class SetupUnetTrainingDialog(QBaseDialog):
             ' Select/view experiment folders to use as training data... '
         )
         paramsLayout.addWidget(self.selectTrainPosButton, row, 1, 1, 2)
+        isFieldSetButton = widgets.IsFieldSetButton()
+        paramsLayout.addWidget(isFieldSetButton , row, 4)
+        self.isSetButtonsMapper[self.selectExpPathsButton] = (
+            isFieldSetButton, 'selectedTrainPositions'
+        )
         
         row += 1
         paramsLayout.addWidget(QLabel('Validation Positions: '), row, 0)
@@ -4503,13 +4539,11 @@ class SetupUnetTrainingDialog(QBaseDialog):
             ' Select/view experiment folders to use as validation data... '
         )
         paramsLayout.addWidget(self.selectValPosButton, row, 1, 1, 2)
-        
-        row += 1
-        paramsLayout.addWidget(QLabel('Spots channel names: '), row, 0)
-        self.selectChannelNamesButton = acdc_widgets.editPushButton(
-            ' Select/view spots channel names... '
+        isFieldSetButton = widgets.IsFieldSetButton()
+        paramsLayout.addWidget(isFieldSetButton , row, 4)
+        self.isSetButtonsMapper[self.selectValPosButton] = (
+            isFieldSetButton, 'selectedValPositions'
         )
-        paramsLayout.addWidget(self.selectChannelNamesButton, row, 1, 1, 2)
         
         row += 1
         paramsLayout.addWidget(QLabel('Ground-truth spots coords: '), row, 0)
@@ -4517,6 +4551,11 @@ class SetupUnetTrainingDialog(QBaseDialog):
             ' Select/view spots coords files... '
         )
         paramsLayout.addWidget(self.selectCoordsFilesButton, row, 1, 1, 2)
+        isFieldSetButton = widgets.IsFieldSetButton()
+        paramsLayout.addWidget(isFieldSetButton , row, 4)
+        self.isSetButtonsMapper[self.selectCoordsFilesButton] = (
+            isFieldSetButton, 'selectedSpotsCoordsFiles'
+        )
         
         row += 1
         paramsLayout.addWidget(QLabel('Spot mask size: '), row, 0)
@@ -4524,13 +4563,23 @@ class SetupUnetTrainingDialog(QBaseDialog):
             ' Select/view spot mask size... '
         )
         paramsLayout.addWidget(self.selectSpotMaskSizeButton, row, 1, 1, 2)
+        isFieldSetButton = widgets.IsFieldSetButton()
+        paramsLayout.addWidget(isFieldSetButton , row, 4)
+        self.isSetButtonsMapper[self.selectSpotMaskSizeButton] = (
+            isFieldSetButton, 'selectedSpotMaskSizes'
+        )
         
         row += 1
         paramsLayout.addWidget(QLabel('Pixel size (XY): '), row, 0)
-        self.selecetedPixelSizesButton = acdc_widgets.editPushButton(
+        self.selectedPixelSizesButton = acdc_widgets.editPushButton(
             ' Select/view XY pixel size... '
         )
-        paramsLayout.addWidget(self.selecetedPixelSizesButton, row, 1, 1, 2)
+        paramsLayout.addWidget(self.selectedPixelSizesButton, row, 1, 1, 2)
+        isFieldSetButton = widgets.IsFieldSetButton()
+        paramsLayout.addWidget(isFieldSetButton, row, 4)
+        self.isSetButtonsMapper[self.selectedPixelSizesButton] = (
+            isFieldSetButton, 'selectedPixelSizes'
+        )
         
         row += 1
         paramsLayout.addWidget(QLabel('Ground-truth spots masks: '), row, 0)
@@ -4538,6 +4587,11 @@ class SetupUnetTrainingDialog(QBaseDialog):
             ' Select/view spots masks files... '
         )
         paramsLayout.addWidget(self.selectMasksFilesButton, row, 1, 1, 2)
+        isFieldSetButton = widgets.IsFieldSetButton()
+        paramsLayout.addWidget(isFieldSetButton , row, 4)
+        self.isSetButtonsMapper[self.selectMasksFilesButton] = (
+            isFieldSetButton, 'selectedMasksFiles'
+        )
         
         row += 1
         paramsLayout.addWidget(QLabel('Model size: '), row, 0)
@@ -4679,34 +4733,32 @@ class SetupUnetTrainingDialog(QBaseDialog):
         selectPosInfoButton.clicked.connect(self.showSelectPosInfo)
         self.selectExpPathsButton.clicked.connect(self.selectExperimentPaths)
         
-        self.selecetedSpotsCoordsFiles = None
-        self.selectCoordsFilesButton.clicked.connect(partial(
-            self.selectEntries, 
-            attrToSet='selecetedSpotsCoordsFiles', 
-            extensions={'Tables': ['.csv', '.h5']}, 
-            allow_spotmax_output=True
-        ))
-        
-        self.selecetedChannelNamesFiles = None
         self.selectChannelNamesButton.clicked.connect(partial(
             self.selectEntries, 
-            attrToSet='selecetedChannelNamesFiles', 
+            attrToSet='selectedChannelNamesFiles', 
             extensions={'TIFF': ['.tif']}, 
             allow_spotmax_output=False
         ))
         
-        self.selecetedMasksFiles = None
-        self.selectMasksFilesButton.clicked.connect(partial(
+        self.selectCoordsFilesButton.clicked.connect(partial(
             self.selectEntries, 
-            attrToSet='selecetedMasksFiles', 
-            extensions={'Masks': ['.tif', '.npz']}, 
-            allow_spotmax_output=False
+            attrToSet='selectedSpotsCoordsFiles', 
+            extensions={'Tables': ['.csv', '.h5']}, 
+            allow_spotmax_output=True, 
+            depends_on_channels=True
         ))
         
-        self.selecetedSpotMaskSizes = None
+        self.selectMasksFilesButton.clicked.connect(partial(
+            self.selectEntries, 
+            attrToSet='selectedMasksFiles', 
+            extensions={'Masks': ['.tif', '.npz']}, 
+            allow_spotmax_output=False, 
+            depends_on_channels=True
+        ))
+        
         self.selectSpotMaskSizeButton.clicked.connect(partial(
             self.selectEntries, 
-            attrToSet='selecetedSpotMaskSizes', 
+            attrToSet='selectedSpotMaskSizes', 
             widget_name='widgets.VoxelSizeWidget', 
             add_browse_button=False, 
             use_tooltip_as_widget_kwargs=True, 
@@ -4714,10 +4766,9 @@ class SetupUnetTrainingDialog(QBaseDialog):
             entry_header='Spot mask radius'
         ))
         
-        self.selecetedPixelSizes = None
-        self.selecetedPixelSizesButton.clicked.connect(partial(
+        self.selectedPixelSizesButton.clicked.connect(partial(
             self.selectEntries, 
-            attrToSet='selecetedPixelSizes', 
+            attrToSet='selectedPixelSizes', 
             widget_name='widgets.FloatLineEdit', 
             add_browse_button=False, 
             use_tooltip_as_widget_kwargs=False, 
@@ -4725,7 +4776,6 @@ class SetupUnetTrainingDialog(QBaseDialog):
             entry_header='Pixel size (um/pixel)'
         ))
         
-        self.selectedTrainPositions = None
         self.selectTrainPosButton.clicked.connect(partial(
             self.selectEntries, 
             attrToSet='selectedTrainPositions', 
@@ -4736,7 +4786,6 @@ class SetupUnetTrainingDialog(QBaseDialog):
             entry_header='Training Positions'
         ))
         
-        self.selectedValPositions = None
         self.selectValPosButton.clicked.connect(partial(
             self.selectEntries, 
             attrToSet='selectedValPositions', 
@@ -4760,6 +4809,18 @@ class SetupUnetTrainingDialog(QBaseDialog):
         self.cropBkgrToggle.toggled.connect(self.cropBkgrToggled)
         
         self.setLayout(mainLayout)
+        
+        self.checkWhichFieldsAreSet()
+    
+    def checkWhichFieldsAreSet(self):
+        selectedPaths = self.selectExpPathsButton.toolTip().split('\n')
+        selectedPaths = [path for path in selectedPaths if path]
+        self.areExpPathsSetButton.setSelected(len(selectedPaths)>0)
+        
+        for items in self.isSetButtonsMapper.items():
+            selectButton, (isFieldSetButton, selectedMapperName) = items
+            selectedMapper = getattr(self, selectedMapperName)
+            isFieldSetButton.setSelected(selectedMapper is not None)
     
     def augmentToggled(self, checked):
         if checked:
@@ -4823,9 +4884,9 @@ class SetupUnetTrainingDialog(QBaseDialog):
             else:
                 tooltip = 'Images'
             
-            if self.selecetedChannelNamesFiles is None:
-                self.selecetedChannelNamesFiles = {}
-            self.selecetedChannelNamesFiles[exp_path] = (tooltip, channel_name)
+            if self.selectedChannelNamesFiles is None:
+                self.selectedChannelNamesFiles = {}
+            self.selectedChannelNamesFiles[exp_path] = (tooltip, channel_name)
             
             masks_endname = cp[exp_path].get('masks_endname')
             if masks_endname is not None:
@@ -4837,16 +4898,16 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 else:
                     tooltip = 'Images'
                 
-                if self.selecetedMasksFiles is None:
-                    self.selecetedMasksFiles = {}
-                self.selecetedMasksFiles[exp_path] = (
+                if self.selectedMasksFiles is None:
+                    self.selectedMasksFiles = {}
+                self.selectedMasksFiles[exp_path] = (
                     tooltip, masks_endname
                 )
             
-            if self.selecetedPixelSizes is None:
-                self.selecetedPixelSizes = {}
+            if self.selectedPixelSizes is None:
+                self.selectedPixelSizes = {}
             pixel_size = cp[exp_path]['pixel_size']
-            self.selecetedPixelSizes[exp_path] = (r'{}', pixel_size)
+            self.selectedPixelSizes[exp_path] = (r'{}', pixel_size)
             
             spot_masks_size = cp[exp_path].get('spot_masks_size')
             if spot_masks_size is not None:
@@ -4858,9 +4919,9 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 }  
                 tooltip = str(kwargs)
                 
-                if self.selecetedSpotMaskSizes is None:
-                    self.selecetedSpotMaskSizes = {}
-                self.selecetedSpotMaskSizes[exp_path] = (
+                if self.selectedSpotMaskSizes is None:
+                    self.selectedSpotMaskSizes = {}
+                self.selectedSpotMaskSizes[exp_path] = (
                     tooltip, spot_masks_size
                 )
             
@@ -4874,9 +4935,9 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 else:
                     tooltip = 'Images'
                 
-                if self.selecetedSpotsCoordsFiles is None:
-                    self.selecetedSpotsCoordsFiles = {}
-                self.selecetedSpotsCoordsFiles[exp_path] = (
+                if self.selectedSpotsCoordsFiles is None:
+                    self.selectedSpotsCoordsFiles = {}
+                self.selectedSpotsCoordsFiles[exp_path] = (
                     tooltip, masks_endname
                 )
             
@@ -4920,6 +4981,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
         
         self.randomSplitToggle.setChecked(self.selectedTrainPositions is None)
         
+        self.checkWhichFieldsAreSet()
+        
         self._showInfo(
             'Parameters loaded', 
             'Done! Parameters loaded from the following workflow file:<br>',
@@ -4928,8 +4991,6 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 
     def randomSplitToggled(self, checked):
         if checked:
-            self.selectedTrainPositions = {}
-            self.selectedValPositions = {}
             selectedPaths = self.selectExpPathsButton.toolTip().split('\n')
             selectedPaths = [path for path in selectedPaths if path]
             expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
@@ -4938,15 +4999,21 @@ class SetupUnetTrainingDialog(QBaseDialog):
                     pos_foldernames
                 )
                 pos_foldernames = acdc_myutils.get_pos_foldernames(exp_path)
+                if self.selectedTrainPositions is None:
+                    self.selectedTrainPositions = {}
                 self.selectedTrainPositions[exp_path] = (
-                    exp_path, train_positions
+                    str({'exp_path': exp_path}), train_positions
                 )
+                if self.selectedValPositions is None:
+                    self.selectedValPositions = {}
                 self.selectedValPositions[exp_path] = (
-                    exp_path, val_positions
+                    str({'exp_path': exp_path}), val_positions
                 )
         else:
             self.selectedTrainPositions = None
             self.selectedValPositions = None
+        
+        self.checkWhichFieldsAreSet()
     
     def showHelp(self):
         title = 'Setup training worflow help'
@@ -4983,6 +5050,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
         win.exec_()
         if win.cancel:
             return
+        
         selectedPathsList = win.paths
         selectedPaths = '\n'.join(selectedPathsList)
         self.selectExpPathsButton.setToolTip(selectedPaths)
@@ -4992,8 +5060,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
         for exp_path in expPaths:
             exp_path = exp_path.replace('\\', '/')
             
-            if self.selecetedSpotMaskSizes is None:
-                self.selecetedSpotMaskSizes = {}
+            if self.selectedSpotMaskSizes is None:
+                self.selectedSpotMaskSizes = {}
             
             pos_foldernames = acdc_myutils.get_pos_foldernames(exp_path)
             sample_pos = pos_foldernames[0]
@@ -5018,14 +5086,14 @@ class SetupUnetTrainingDialog(QBaseDialog):
             tooltip = str(kwargs)
             value = defaultSpotSize
             
-            if exp_path in self.selecetedSpotMaskSizes:
-                self.selecetedSpotMaskSizes[exp_path] = (tooltip, value)
+            if exp_path in self.selectedSpotMaskSizes:
+                self.selectedSpotMaskSizes[exp_path] = (tooltip, value)
             
-            if self.selecetedPixelSizes is None:
-                self.selecetedPixelSizes = {}
+            if self.selectedPixelSizes is None:
+                self.selectedPixelSizes = {}
             
-            if exp_path not in self.selecetedPixelSizes and set_pixel_size:
-                self.selecetedPixelSizes[exp_path] = ('', PhysicalSizeY)
+            if exp_path not in self.selectedPixelSizes and set_pixel_size:
+                self.selectedPixelSizes[exp_path] = ('', PhysicalSizeY)
             
             if self.randomSplitToggle.isChecked():
                 train_positions, val_positions = self._randomChoiceTrainValPos(
@@ -5039,12 +5107,15 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 
                 if exp_path not in self.selectedTrainPositions:
                     self.selectedTrainPositions[exp_path] = (
-                        exp_path, train_positions
+                        str({'exp_path': exp_path}), train_positions
                     )
                     self.selectedValPositions[exp_path] = (
-                        exp_path, val_positions
+                        str({'exp_path': exp_path}), val_positions
                     )
-                
+        
+        self.checkWhichFieldsAreSet()
+        
+        
     def _randomChoiceTrainValPos(self, pos_foldernames):
         train_perc = self.trainPercSpinbox.value()
         val_perc = self.valPercSpinbox.value()
@@ -5332,11 +5403,19 @@ class SetupUnetTrainingDialog(QBaseDialog):
             self, attrToSet='', extensions=None, allow_spotmax_output=False, 
             widget_name='widgets.LineEdit', use_tooltip_as_widget_kwargs=False, 
             add_browse_button=True, use_value_as_widgets_value=False, 
-            entry_header='File endname'
+            entry_header='File endname', depends_on_channels=False
         ):
         selectedPaths = self._validateSelectedPaths()
         if not selectedPaths:
             return
+        
+        selectedChannelNames = None
+        if depends_on_channels:
+            selectedChannelNames = self._validateSelectedChannelNames(
+                selectedPaths
+            )
+            if not selectedChannelNames:
+                return 
         
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
         selectedValuesMapper = getattr(self, attrToSet)
@@ -5367,13 +5446,15 @@ class SetupUnetTrainingDialog(QBaseDialog):
             widgets_kwargs=widgets_kwargs, 
             widgets_values=widgets_values,
             allow_spotmax_output=allow_spotmax_output, 
-            entry_header=entry_header
+            entry_header=entry_header, 
+            channel_names=selectedChannelNames
         )
         win.exec_()
         if win.cancel:
             return
         
         setattr(self, attrToSet, win.selectedValues)
+        self.checkWhichFieldsAreSet()
     
     def _validateSelectedPaths(self):
         selectedPaths = self.selectExpPathsButton.toolTip().split('\n')
@@ -5384,7 +5465,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
         return selectedPaths
     
     def _validateSelectedChannelNames(self, selectedPaths):
-        if self.selecetedChannelNamesFiles is None:
+        if self.selectedChannelNamesFiles is None:
             self.warnChannelsNotSelected()
             return {}
         
@@ -5392,11 +5473,11 @@ class SetupUnetTrainingDialog(QBaseDialog):
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
         for exp_path in expPaths:
             exp_path = exp_path.replace('\\', '/')
-            if exp_path not in self.selecetedChannelNamesFiles:
+            if exp_path not in self.selectedChannelNamesFiles:
                 self.warnChannelNotSelectedForExpPath(exp_path)
                 return {}
 
-            value = self.selecetedChannelNamesFiles[exp_path][1]
+            value = self.selectedChannelNamesFiles[exp_path][1]
             channelNamesMapper[exp_path] = value
             
         return channelNamesMapper
@@ -5417,23 +5498,23 @@ class SetupUnetTrainingDialog(QBaseDialog):
     
     def _validateMasks(self, selectedPaths):
         masksParamsNotSelected = (
-            self.selecetedMasksFiles is None 
-            and self.selecetedSpotsCoordsFiles is None
+            self.selectedMasksFiles is None 
+            and self.selectedSpotsCoordsFiles is None
         )
         if masksParamsNotSelected:
             self.warnMasksParamsNotSelected()
             return {}
         
-        if self.selecetedMasksFiles is not None:
+        if self.selectedMasksFiles is not None:
             spotMasksEndnames = {}
             expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
             for exp_path in expPaths:
                 exp_path = exp_path.replace('\\', '/')
-                if exp_path not in self.selecetedMasksFiles:
+                if exp_path not in self.selectedMasksFiles:
                     self.warnSpotMasksNotSelectedForExpPath(exp_path)
                     return {}
 
-                value = self.selecetedMasksFiles[exp_path][1]
+                value = self.selectedMasksFiles[exp_path][1]
                 spotMasksEndnames[exp_path] = value
             return spotMasksEndnames
     
@@ -5442,11 +5523,11 @@ class SetupUnetTrainingDialog(QBaseDialog):
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
         for exp_path in expPaths:
             exp_path = exp_path.replace('\\', '/')
-            if exp_path not in self.selecetedSpotsCoordsFiles:
+            if exp_path not in self.selectedSpotsCoordsFiles:
                 self.warnSpotsCoordsNotSelectedForExpPath(exp_path)
                 return {}
 
-            value = self.selecetedSpotsCoordsFiles[exp_path][1]
+            value = self.selectedSpotsCoordsFiles[exp_path][1]
             spotCoordsEndnames[exp_path] = value
         return spotCoordsEndnames
     
@@ -5455,11 +5536,11 @@ class SetupUnetTrainingDialog(QBaseDialog):
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
         for exp_path in expPaths:
             exp_path = exp_path.replace('\\', '/')
-            if exp_path not in self.selecetedPixelSizes:
+            if exp_path not in self.selectedPixelSizes:
                 self.warnPixelSizeNotSelectedForExpPath(exp_path)
                 return {}
 
-            value = self.selecetedPixelSizes[exp_path][1]
+            value = self.selectedPixelSizes[exp_path][1]
             pixelSizes[exp_path] = value
         return pixelSizes
     
@@ -5494,17 +5575,17 @@ class SetupUnetTrainingDialog(QBaseDialog):
         return workflowFilepath
     
     def _validateSpotMasksSize(self, selectedPaths):
-        if self.selecetedMasksFiles is not None:
+        if self.selectedMasksFiles is not None:
             return True
         
-        if self.selecetedSpotMaskSizes is None:
+        if self.selectedSpotMaskSizes is None:
             return False
         
         spotMasksSizes = {}
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
         for exp_path in expPaths:
             exp_path = exp_path.replace('\\', '/')
-            value = self.selecetedSpotMaskSizes[exp_path][1]
+            value = self.selectedSpotMaskSizes[exp_path][1]
             try:
                 valid = len(value) == 2
             except TypeError as err:
@@ -5690,6 +5771,7 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             title='Select files', 
             selected_files=None, 
             selected_values=None,
+            channel_names=None,
             widget_name='widgets.LineEdit',
             extensions=None,
             allow_spotmax_output=False,
@@ -5726,55 +5808,79 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             widgetFunc = getattr(widgets_module, attr)
         except KeyError as e:
             widgetFunc = globals()[attr]
-            
+        
+        if channel_names is None:
+            channel_names = ['']
+        
         self.widgets = {}
-        for row, exp_path in enumerate(experiment_paths):
+        row = 1
+        stretchCol = 1
+        for exp_path in experiment_paths:
             expPathLabel = widgets.ReadOnlyElidingLineEdit(transparent=True)
             expPathLabel.setToolTip(exp_path)
             expPathLabel.setText(exp_path)
             expPathLabel.setFrame(False)
-            gridLayout.addWidget(expPathLabel, row+1, 0)
+            rowSpan = len(channel_names)
+            gridLayout.addWidget(
+                expPathLabel, row, 0, rowSpan, 1, alignment=Qt.AlignVCenter
+            )
             
             widget_kwargs = {}
             if widgets_kwargs is not None:
                 widget_kwargs = widgets_kwargs[row]
             
-            widget = widgetFunc(**widget_kwargs)
-            if selected_files is not None:
-                endname = selected_files[row]
-                filepath = acdc_load.search_filepath_from_endname(
-                    exp_path, endname
-                )
-                if filepath is not None:
-                    self.setValueLineEdit(widget, filepath)
-            
-            if widgets_values is not None:
-                widget.setValue(widgets_values[row])
-            
-            # lineEdit.setReadOnly(True)
-            gridLayout.addWidget(widget, row+1, 1)
-            
-            if add_browse_button:
-                browseFileButton = acdc_widgets.browseFileButton(
-                    ext=extensions, 
-                    title=title,
-                    start_dir=exp_path, 
-                )
-                gridLayout.addWidget(browseFileButton, row+1, 2)
+            channelsLayout = QGridLayout()
+            for ch, channel in enumerate(channel_names):
+                col = 1
+                widgetLayout = QHBoxLayout()
+                widget = widgetFunc(**widget_kwargs)
                 
-                browseFileButton.sigPathSelected.connect(
-                    partial(
-                        self.pathSelected, 
-                        lineEdit=widget, 
-                        parentExpPath=exp_path
+                if selected_files is not None:
+                    endname = selected_files[row]
+                    filepath = acdc_load.search_filepath_from_endname(
+                        exp_path, endname
                     )
-                )
+                    if filepath is not None:
+                        self.setValueLineEdit(widget, filepath)
                 
-            self.widgets[exp_path] = widget
+                if widgets_values is not None:
+                    widget.setValue(widgets_values[row])
+                    
+                if channel:
+                    gridLayout.addWidget(
+                        QLabel(f'| {channel}: '), row, col, 
+                        alignment=Qt.AlignLeft
+                    )
+                    stretchCol = 2
+                    col += 1
+                
+                # lineEdit.setReadOnly(True)
+                gridLayout.addWidget(widget, row, col)
+                col += 1
+            
+                if add_browse_button:
+                    browseFileButton = acdc_widgets.browseFileButton(
+                        ext=extensions, 
+                        title=title,
+                        start_dir=exp_path, 
+                    )                    
+                    browseFileButton.sigPathSelected.connect(
+                        partial(
+                            self.pathSelected, 
+                            lineEdit=widget, 
+                            parentExpPath=exp_path
+                        )
+                    )
+                    gridLayout.addWidget(browseFileButton, row, col)
+                
+                self.widgets[(exp_path, channel)] = widget
+                row += 1
 
         gridLayout.setColumnStretch(0, 2)
-        gridLayout.setColumnStretch(1, 1)
-        gridLayout.setColumnStretch(2, 0)
+        if stretchCol == 2:
+            gridLayout.setColumnStretch(1, 0)
+        gridLayout.setColumnStretch(stretchCol, 1)
+        gridLayout.setColumnStretch(stretchCol+1, 0)
         
         buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
         
@@ -5844,7 +5950,7 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
         
         self.selectedValues= {
             exp_path:(widget.toolTip(), widget.value()) 
-            for exp_path, widget in self.widgets.items()
+            for (exp_path, channel), widget in self.widgets.items()
         }
         
         self.close()
