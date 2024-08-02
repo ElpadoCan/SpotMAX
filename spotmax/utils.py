@@ -1150,144 +1150,34 @@ def _crop_background_training_workflow(
     )
     return img_data
 
-def generate_unet_training_workflow_files(
-        src_train_pos_paths: Dict[str, List[str]], 
-        src_val_pos_paths: Dict[str, List[str]], 
-        channel_names: Dict[str, str],
-        workflow_filepath: os.PathLike,
-        pixel_sizes: Dict[str, float],
-        rescale_to_pixel_size: float=-1.0,
-        model_size: str='Large',
-        spots_coords_endnames: Optional[Dict[str, str]]=None, 
-        masks_endnames: Optional[Dict[str, str]]=None, 
-        spot_masks_size: Optional[Union[Dict[str, float], Dict[str, Tuple[float]]]]=None,
-        crops_shapes: Optional[Tuple[float]]=(256, 256), 
-        data_augment_params: Optional[Dict[str, dict]]=None, 
-        crop_background: bool=True,
-        crop_background_pad: int=5,
-        visualize: bool=False
+def generate_dataset_training_workflow(
+        exp_path, 
+        channel_names_exp, 
+        training_positions, 
+        val_positions, 
+        pixel_size,
+        datasets_folderpath,
+        masks_endnames=None,
+        spot_masks_size=None,
+        spots_coords_endnames=None,
+        data_augment_params=None, 
+        crop_background=True,
+        crop_background_pad=5, 
+        visualize=False
     ):
-    """Generate training workflow files to train spotMAX AI model. 
-
-    Parameters
-    ----------
-    src_train_pos_paths : Dict[str, List[str]]
-        Dictionary with experiment folder paths as keys and list of Position 
-        folders to use as training positions as values.
-    src_val_pos_paths : Dict[str, List[str]]
-        Dictionary with experiment folder paths as keys and list of Position 
-        folders to use as validation positions as values.
-    channel_names : Dict[str, str]
-        Dictionary with experiment folder paths as keys and channel names 
-        for the spots channel images as values.
-    workflow_filepath : os.PathLike
-        Filepath of the generated INI workflow file. The extension is '.ini'.
-    pixel_sizes : Dict[str, float]
-        Dictionary with experiment folder paths as keys and single number for 
-        the pixel size in x- and y-direction as value.
-    rescale_to_pixel_size : float, optional
-        Single number representing the pixel size target of image rescaling. 
-        For example, if the pixel size is 0.1 and the rescale pixel size is 
-        0.2, the images will be upscaled by factor 2. This is useful if you 
-        want to predict on images with variable pixel size. Note that rescaling 
-        if performed when you run the training routine, not in this function. 
-        If -1.0 do not rescale images. Default is -1.0
-    model_size : {'Large', 'Medium', 'Small'}, optional
-        Model size. The larger the model, the more parameters it has. 
-    spots_coords_endnames : Optional[Dict[str, str]], optional
-        Dictionary with experiment folder paths as keys and the endname of 
-        the table file with coordinates of the spots as values. This table must 
-        have the 'x', and 'y' column with additional 'z' column for 3D 
-        z-stacks images, and 't' or 'frame_i' column for timelapse data. 
-        Default is None
-    masks_endnames : Optional[Dict[str, str]], optional
-        Dictionary with experiment folder paths as keys and the endname of 
-        the file with the spots masks (same shape of the image data) as values. 
-        Default is None
-    spot_masks_size : Optional[Union[Dict[str, float], Dict[str, Tuple[float]]]], optional
-        Dictionary with experiment folder paths as keys and (y, x) or 
-        (z, y, x) size of the spots (in pixels) as values. These values will 
-        be used to generate the spheroid spots masks together with the 
-        relative `spots_coords_endnames`. Default is None
-    crops_shapes : Optional[Tuple[float]], optional
-        (Y, X) values for the target shape of the single images input of 
-        the neural network. The larger the shape, the more memory required 
-        on the GPU. Default is (256, 256)
-    data_augment_params : Optional[Dict[str, dict]], optional
-        Dictionary of with 'N;importable_function' as keys 
-        (e.g. '1:spotmax.filters.gaussian') and keyword arguments of the 
-        relative function as values. 
-        The keys can be any importable function, e.g. 'spotmax.filters.gaussian' 
-        for a Gaussian filter. Default is None
-    crop_background : bool, optional
-        If True, crop as much background as possible around the spots 
-        masks. This is useful if you have multiple cells in the image 
-        but you did not annotate all of them. Default is True
-    crop_background_pad : float, optional
-        Number of pixels for padding the spots masks when cropping the 
-        background (when `crop_background` is True). Default is 5.
-    visualize : bool, optional
-        If True, generation will pause and you will be able to visualize the
-        loaded images and spots masks. Default is False
-    """    
-    cp = config.ConfigParser()
-    workflow_folderpath = os.path.dirname(workflow_filepath).replace('\\', '/')
-    datasets_folderpath = f'{workflow_folderpath}/datasets'
     os.makedirs(datasets_folderpath, exist_ok=True)
-    
-    if data_augment_params is None:
-        data_augment_params = {}
-        
-    for filter_module, filter_kwargs in data_augment_params.items():
-        cp[f'data_augmentation_{filter_module}'] = {
-            kwarg:str(value) for kwarg, value in filter_kwargs.items()
-        }
-            
-    training_params = {}
-    exp_paths = src_train_pos_paths.keys()
-    
-    for exp_path in tqdm(exp_paths, ncols=100):
-        exp_path = exp_path.replace('\\', '/')
-        channel_name = channel_names[exp_path]
-        pixel_size = pixel_sizes[exp_path]
-        exp_path_params = {
-            'channel_name': channel_name, 
-            'pixel_size': pixel_size
-        }
-        if masks_endnames is not None:
-            exp_path_params['masks_endname'] = masks_endnames[exp_path]
-        
-        if spots_coords_endnames is not None:
-            exp_path_params['spots_coords_endname'] = spots_coords_endnames[exp_path]
-        
-        if spot_masks_size is not None:
-            exp_path_params['spot_masks_size'] = str(spot_masks_size[exp_path])
-
-        training_positions = src_train_pos_paths[exp_path]
-        training_positions_str = '\n'.join(training_positions)
-        exp_path_params['training_positions'] = training_positions_str
-        
-        val_positions = []
-        try:
-            val_positions = src_val_pos_paths[exp_path]
-            val_positions_str = '\n'.join(val_positions)
-        except KeyError:
-            val_positions_str = ''
-        
-        exp_path_params['validation_positions'] = val_positions_str
-        
-        cp[exp_path] = exp_path_params
-        
-        positions_mapper = {
-            'TRAIN': training_positions, 
-            'VAL': val_positions
-        }
-        for category, positions in positions_mapper.items():
-            X_list = []
-            y_list = []
-            for pos_foldername in positions:
-                pos_path = os.path.join(exp_path, pos_foldername)
-                channel_filepath = acdc_load.search_filepath_in_pos_path_from_endname(
+    search_file_func = acdc_load.search_filepath_in_pos_path_from_endname
+    positions_mapper = {
+        'TRAIN': training_positions, 
+        'VAL': val_positions
+    }
+    for category, positions in positions_mapper.items():
+        X_list = []
+        y_list = []
+        for pos_foldername in positions:
+            pos_path = os.path.join(exp_path, pos_foldername)
+            for channel_name in channel_names_exp:
+                channel_filepath = search_file_func(
                     pos_path, channel_name
                 )
                 img_data = acdc_load.load_image_file(channel_filepath)
@@ -1301,7 +1191,8 @@ def generate_unet_training_workflow_files(
                     spheroid_radii = spot_masks_size[exp_path]
                     spots_coords_endname = spots_coords_endnames[exp_path]
                     spots_masks = _generate_spots_masks_training_workflow(
-                        pos_path, img_data, spheroid_radii, spots_coords_endname
+                        pos_path, img_data, spheroid_radii, 
+                        spots_coords_endname
                     )
                 
                 Y, X = img_data.shape[-2:]
@@ -1336,16 +1227,193 @@ def generate_unet_training_workflow_files(
                 if visualize:
                     imshow(flat_2d_img_data, flat_2d_spots_masks)
                     import pdb; pdb.set_trace()
-                
-            h5_filename = f'{os.path.basename(exp_path)}_{category}.h5'
-            h5_filepath = os.path.join(datasets_folderpath, h5_filename)
-            dset = h5py.File(h5_filepath, 'w')
-            dset['pixel_size'] = pixel_size
-            dset['X'] = np.array(X_list)
-            dset['y'] = np.array(y_list)
+            
+        h5_filename = f'{os.path.basename(exp_path)}_{category}.h5'
+        h5_filepath = os.path.join(datasets_folderpath, h5_filename)
+        dset = h5py.File(h5_filepath, 'w')
+        dset['pixel_size'] = pixel_size
+        dset['X'] = np.array(X_list)
+        dset['y'] = np.array(y_list)
+
+def generate_unet_training_workflow_files(
+        src_train_pos_paths: Dict[str, List[str]], 
+        src_val_pos_paths: Dict[str, List[str]], 
+        channel_names: Dict[str, Union[str, List[str]]],
+        workflow_filepath: os.PathLike,
+        pixel_sizes: Dict[str, float],
+        rescale_to_pixel_size: float=-1.0,
+        model_size: str='Large',
+        spots_coords_endnames: Optional[Dict[str, str]]=None, 
+        masks_endnames: Optional[Dict[str, str]]=None, 
+        spot_masks_size: Optional[Union[Dict[str, float], Dict[str, Tuple[float]]]]=None,
+        crops_shapes: Optional[Tuple[float]]=(256, 256), 
+        max_number_of_crops: int=-1,
+        data_augment_params: Optional[Dict[str, dict]]=None, 
+        crop_background: bool=True,
+        crop_background_pad: int=5,
+        visualize: bool=False, 
+        do_not_generate_datasets=False,
+    ):
+    """Generate training workflow files to train spotMAX AI model. 
+
+    Parameters
+    ----------
+    src_train_pos_paths : Dict[str, List[str]]
+        Dictionary with experiment folder paths as keys and list of Position 
+        folders to use as training positions as values.
+    src_val_pos_paths : Dict[str, List[str]]
+        Dictionary with experiment folder paths as keys and list of Position 
+        folders to use as validation positions as values.
+    channel_names : Dict[str, str | List[str]]
+        Dictionary with experiment folder paths as keys and channel names 
+        for the spots channel images as values. A list of multiple channels 
+        can also be passed for each experiment folder. 
+    workflow_filepath : os.PathLike
+        Filepath of the generated INI workflow file. The extension is '.ini'.
+    pixel_sizes : Dict[str, float]
+        Dictionary with experiment folder paths as keys and single number for 
+        the pixel size in x- and y-direction as value.
+    rescale_to_pixel_size : float, optional
+        Single number representing the pixel size target of image rescaling. 
+        For example, if the pixel size is 0.1 and the rescale pixel size is 
+        0.2, the images will be upscaled by factor 2. This is useful if you 
+        want to predict on images with variable pixel size. Note that rescaling 
+        if performed when you run the training routine, not in this function. 
+        If -1.0 do not rescale images. Default is -1.0
+    model_size : {'Large', 'Medium', 'Small'}, optional
+        Model size. The larger the model, the more parameters it has. 
+    spots_coords_endnames : Optional[Dict[str, str]], optional
+        Dictionary with experiment folder paths as keys and the endname of 
+        the table file with coordinates of the spots as values. This table must 
+        have the 'x', and 'y' column with additional 'z' column for 3D 
+        z-stacks images, and 't' or 'frame_i' column for timelapse data. 
+        Default is None
+    masks_endnames : Optional[Dict[str, str]], optional
+        Dictionary with experiment folder paths as keys and the endname of 
+        the file with the spots masks (same shape of the image data) as values. 
+        Default is None
+    spot_masks_size : Optional[Union[Dict[str, float], Dict[str, Tuple[float]]]], optional
+        Dictionary with experiment folder paths as keys and (y, x) or 
+        (z, y, x) size of the spots (in pixels) as values. These values will 
+        be used to generate the spheroid spots masks together with the 
+        relative `spots_coords_endnames`. Default is None
+    crops_shapes : Optional[Tuple[float]], optional
+        (Y, X) values for the target shape of the single images input of 
+        the neural network. The larger the shape, the more memory required 
+        on the GPU. Default is (256, 256)
+    max_number_of_crops : int, optional
+        Maximum number of crops per image. A value of -1 means no upper 
+        limit to the number of crops. Default is -1
+    data_augment_params : Optional[Dict[str, dict]], optional
+        Dictionary of with 'N;importable_function' as keys 
+        (e.g. '1:spotmax.filters.gaussian') and keyword arguments of the 
+        relative function as values. 
+        The keys can be any importable function, e.g. 'spotmax.filters.gaussian' 
+        for a Gaussian filter. Default is None
+    crop_background : bool, optional
+        If True, crop as much background as possible around the spots 
+        masks. This is useful if you have multiple cells in the image 
+        but you did not annotate all of them. Default is True
+    crop_background_pad : float, optional
+        Number of pixels for padding the spots masks when cropping the 
+        background (when `crop_background` is True). Default is 5.
+    visualize : bool, optional
+        If True, generation will pause and you will be able to visualize the
+        loaded images and spots masks. Default is False
+    """    
+    cp = config.ConfigParser()
+    workflow_folderpath = os.path.dirname(workflow_filepath).replace('\\', '/')
+    datasets_folderpath = f'{workflow_folderpath}/datasets'
     
-    training_params['model_size'] = model_size
-    training_params['crops_shapes'] = str(crops_shapes[exp_path])
+    if data_augment_params is None:
+        data_augment_params = {}
+        
+    for filter_module, filter_kwargs in data_augment_params.items():
+        cp[f'data_augmentation_{filter_module}'] = {
+            kwarg:str(value) for kwarg, value in filter_kwargs.items()
+        }
+            
+    training_params = {}
+    exp_paths = src_train_pos_paths.keys()
+    
+    for exp_path in tqdm(exp_paths, ncols=100):
+        exp_path = exp_path.replace('\\', '/')
+        exp_path_params = {}
+        channel_names_exp = channel_names.get(exp_path)
+        if channel_names_exp is not None:
+            if isinstance(channel_names_exp, str):
+                channel_names_exp = [channel_names_exp]
+            channels = '\n'.join(channel_names_exp)
+            exp_path_params['channels'] = channels
+        
+        pixel_size = pixel_sizes.get(exp_path)
+        if pixel_size is not None:
+            exp_path_params['pixel_size'] = pixel_size
+
+        if masks_endnames is not None:
+            masks_endnames_exp = masks_endnames.get(exp_path)
+            if masks_endnames_exp is not None:
+                if isinstance(masks_endnames_exp, str):
+                    masks_endnames_exp = [masks_endnames_exp]
+                masks_endnames_exp_str = '\n'.join(channel_names_exp)
+                exp_path_params['masks_endnames'] = masks_endnames_exp_str
+        
+        if spots_coords_endnames is not None:
+            spots_coords_endnames_exp = spots_coords_endnames.get(exp_path)
+            if spots_coords_endnames_exp is not None:
+                if isinstance(spots_coords_endnames_exp, str):
+                    spots_coords_endnames_exp = [spots_coords_endnames_exp]
+                spots_coords_endnames_exp_str = '\n'.join(spots_coords_endnames_exp)
+                exp_path_params['spots_coords_endnames'] = spots_coords_endnames_exp
+        
+        if spot_masks_size is not None:
+            spot_masks_size_exp = spot_masks_size.get(exp_path)
+            if spot_masks_size_exp is not None:
+                exp_path_params['spot_masks_size'] = str(spot_masks_size_exp)
+
+        training_positions = src_train_pos_paths[exp_path]
+        training_positions_str = '\n'.join(training_positions)
+        exp_path_params['training_positions'] = training_positions_str
+        
+        val_positions = []
+        try:
+            val_positions = src_val_pos_paths[exp_path]
+            val_positions_str = '\n'.join(val_positions)
+        except KeyError:
+            val_positions_str = ''
+        
+        exp_path_params['validation_positions'] = val_positions_str
+        
+        cp[exp_path] = exp_path_params
+        
+        if do_not_generate_datasets:
+            continue
+        
+        generate_dataset_training_workflow(
+            exp_path, 
+            channel_names_exp, 
+            training_positions, 
+            val_positions, 
+            pixel_size,
+            datasets_folderpath,
+            masks_endnames=masks_endnames,
+            spot_masks_size=spot_masks_size,
+            spots_coords_endnames=spots_coords_endnames,
+            data_augment_params=data_augment_params, 
+            crop_background=crop_background,
+            crop_background_pad=crop_background_pad, 
+            visualize=visualize
+        )
+
+    if model_size:
+        training_params['model_size'] = model_size
+    
+    if crops_shapes:
+        training_params['crops_shapes'] = str(crops_shapes)
+        
+    if max_number_of_crops:
+        training_params['max_number_of_crops'] = str(max_number_of_crops)
+    
     training_params['rescale_to_pixel_size'] = str(rescale_to_pixel_size)
 
     training_params['crop_background'] = str(crop_background)
@@ -1355,6 +1423,9 @@ def generate_unet_training_workflow_files(
     
     with open(workflow_filepath, 'w', encoding="utf-8") as ini:
         cp.write(ini)
+    
+    if do_not_generate_datasets:
+        return
     
     with open(config_yaml_path, 'r') as yaml_file:
         config_yaml = yaml.safe_load(yaml_file)

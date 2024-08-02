@@ -21,7 +21,7 @@ from qtpy import QtCore
 from qtpy.QtCore import Qt, Signal, QEventLoop, QPointF, QTimer
 from qtpy.QtGui import (
     QFont, QFontMetrics, QTextDocument, QPalette, QColor,
-    QIcon
+    QIcon, QResizeEvent
 )
 from qtpy.QtWidgets import (
     QDialog, QComboBox, QVBoxLayout, QHBoxLayout, QLabel, QApplication,
@@ -32,6 +32,7 @@ from qtpy.QtWidgets import (
     QFileDialog, QDockWidget, QTabWidget, QScrollArea, QScrollBar, 
     QRadioButton, QLineEdit
 )
+from qtpy.compat import getexistingdirectory
 
 import matplotlib
 import pyqtgraph as pg
@@ -4463,7 +4464,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
         self.setWindowTitle('Setup SpotMAX AI Training Workflow')
         
         mainLayout = QVBoxLayout()
-        
+                
         paramsLayout = QGridLayout()
         
         self.isSetButtonsMapper = {}
@@ -4546,6 +4547,18 @@ class SetupUnetTrainingDialog(QBaseDialog):
         )
         
         row += 1
+        paramsLayout.addWidget(QLabel('Ground-truth spots masks: '), row, 0)
+        self.selectMasksFilesButton = acdc_widgets.editPushButton(
+            ' Select/view spots masks files... '
+        )
+        paramsLayout.addWidget(self.selectMasksFilesButton, row, 1, 1, 2)
+        isFieldSetButton = widgets.IsFieldSetButton()
+        paramsLayout.addWidget(isFieldSetButton , row, 4)
+        self.isSetButtonsMapper[self.selectMasksFilesButton] = (
+            isFieldSetButton, 'selectedMasksFiles'
+        )
+        
+        row += 1
         paramsLayout.addWidget(QLabel('Ground-truth spots coords: '), row, 0)
         self.selectCoordsFilesButton = acdc_widgets.editPushButton(
             ' Select/view spots coords files... '
@@ -4579,18 +4592,6 @@ class SetupUnetTrainingDialog(QBaseDialog):
         paramsLayout.addWidget(isFieldSetButton, row, 4)
         self.isSetButtonsMapper[self.selectedPixelSizesButton] = (
             isFieldSetButton, 'selectedPixelSizes'
-        )
-        
-        row += 1
-        paramsLayout.addWidget(QLabel('Ground-truth spots masks: '), row, 0)
-        self.selectMasksFilesButton = acdc_widgets.editPushButton(
-            ' Select/view spots masks files... '
-        )
-        paramsLayout.addWidget(self.selectMasksFilesButton, row, 1, 1, 2)
-        isFieldSetButton = widgets.IsFieldSetButton()
-        paramsLayout.addWidget(isFieldSetButton , row, 4)
-        self.isSetButtonsMapper[self.selectMasksFilesButton] = (
-            isFieldSetButton, 'selectedMasksFiles'
         )
         
         row += 1
@@ -4681,6 +4682,15 @@ class SetupUnetTrainingDialog(QBaseDialog):
         paramsLayout.addWidget(cropsShapeInfoButton, row, 3)
         
         row += 1
+        self.maxNumCropsSpinbox = acdc_widgets.SpinBox()
+        self.maxNumCropsSpinbox.setValue(-1)
+        self.maxNumCropsSpinbox.setMinimum(-1)
+        paramsLayout.addWidget(QLabel('Max number of crops per image: '), row, 0)
+        paramsLayout.addWidget(self.maxNumCropsSpinbox, row, 1, 1, 2)
+        maxNumCropsInfoButton = acdc_widgets.infoPushButton()
+        paramsLayout.addWidget(maxNumCropsInfoButton, row, 3)
+        
+        row += 1
         paramsLayout.addWidget(QLabel('Folder where to save worflow: '), row, 0)
         self.folderPathWorflowWidget = acdc_widgets.ElidingLineEdit()
         paramsLayout.addWidget(
@@ -4722,6 +4732,11 @@ class SetupUnetTrainingDialog(QBaseDialog):
         )
         buttonsLayout.insertWidget(3, loadFromWorkflowFileButton)
         
+        saveToWorkflowFileButton = acdc_widgets.savePushButton(
+            'Save to workflow file...'
+        )
+        buttonsLayout.insertWidget(3, saveToWorkflowFileButton)
+        
         helpButton = acdc_widgets.helpPushButton('Help...')
         buttonsLayout.insertWidget(3, helpButton)
         
@@ -4735,24 +4750,34 @@ class SetupUnetTrainingDialog(QBaseDialog):
         
         self.selectChannelNamesButton.clicked.connect(partial(
             self.selectEntries, 
+            widget_name='widgets.EndnameLineEdit', 
             attrToSet='selectedChannelNamesFiles', 
             extensions={'TIFF': ['.tif']}, 
-            allow_spotmax_output=False
+            use_value_as_widgets_value=True,
+            allow_spotmax_output=False, 
+            widgets_values_are_multiple_entries=True,
+            allow_add_field=True
         ))
         
         self.selectCoordsFilesButton.clicked.connect(partial(
             self.selectEntries, 
+            widget_name='widgets.EndnameLineEdit', 
             attrToSet='selectedSpotsCoordsFiles', 
             extensions={'Tables': ['.csv', '.h5']}, 
             allow_spotmax_output=True, 
+            use_value_as_widgets_value=True,
+            widgets_values_are_multiple_entries=True,
             depends_on_channels=True
         ))
         
         self.selectMasksFilesButton.clicked.connect(partial(
             self.selectEntries, 
+            widget_name='widgets.EndnameLineEdit', 
             attrToSet='selectedMasksFiles', 
             extensions={'Masks': ['.tif', '.npz']}, 
             allow_spotmax_output=False, 
+            use_value_as_widgets_value=True,
+            widgets_values_are_multiple_entries=True,
             depends_on_channels=True
         ))
         
@@ -4798,10 +4823,12 @@ class SetupUnetTrainingDialog(QBaseDialog):
         
         cropsShapeInfoButton.clicked.connect(self.showCropsShapeInfo)
         helpButton.clicked.connect(self.showHelp)
+        maxNumCropsInfoButton.clicked.connect(self.showMaxNumCropsInfo)
         self.randomSplitToggle.toggled.connect(self.randomSplitToggled)
         loadFromWorkflowFileButton.sigPathSelected.connect(
             self.loadFromWorkflowFile
         )
+        saveToWorkflowFileButton.clicked.connect(self.saveToWorkflowFile)
         augmentInfoButton.clicked.connect(self.showAugmentInfo)
         self.augmentToggle.toggled.connect(self.augmentToggled)
         
@@ -4875,21 +4902,37 @@ class SetupUnetTrainingDialog(QBaseDialog):
             
             expPaths.append(exp_path)
             
-            channel_name = cp[exp_path]['channel_name']
-            filepath = acdc_load.search_filepath_from_endname(
-                exp_path, channel_name
-            )
-            if os.path.dirname(filepath).endswith('spotMAX_output'):
-                tooltip = 'spotMAX_output'
-            else:
-                tooltip = 'Images'
+            channels = cp[exp_path].get('channels', '').split('\n')
+            channel_names = []
+            for channel_name in channels:
+                if not channel_name:
+                    continue
+                
+                filepath = acdc_load.search_filepath_from_endname(
+                    exp_path, channel_name
+                )
+                if os.path.dirname(filepath).endswith('spotMAX_output'):
+                    tooltip = 'spotMAX_output'
+                else:
+                    tooltip = 'Images'
+                
+                if self.selectedChannelNamesFiles is None:
+                    self.selectedChannelNamesFiles = {}
+                
+                if exp_path not in self.selectedChannelNamesFiles:
+                    self.selectedChannelNamesFiles[exp_path] = {}
+                
+                self.selectedChannelNamesFiles[exp_path][channel_name] = (
+                    tooltip, channel_name
+                )
+                channel_names.append(channel_name)
             
-            if self.selectedChannelNamesFiles is None:
-                self.selectedChannelNamesFiles = {}
-            self.selectedChannelNamesFiles[exp_path] = (tooltip, channel_name)
-            
-            masks_endname = cp[exp_path].get('masks_endname')
-            if masks_endname is not None:
+            m = 0
+            masks_endnames = cp[exp_path].get('masks_endnames', '').split('\n')
+            for masks_endname in masks_endnames:
+                if not masks_endname:
+                    continue
+                    
                 filepath = acdc_load.search_filepath_from_endname(
                     exp_path, masks_endname
                 )
@@ -4900,10 +4943,16 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 
                 if self.selectedMasksFiles is None:
                     self.selectedMasksFiles = {}
-                self.selectedMasksFiles[exp_path] = (
+                
+                if exp_path not in self.selectedMasksFiles:
+                    self.selectedMasksFiles[exp_path] = {}
+                
+                channel_name = channel_names[m]
+                self.selectedMasksFiles[exp_path][channel_name] = (
                     tooltip, masks_endname
                 )
-            
+                m += 1
+                
             if self.selectedPixelSizes is None:
                 self.selectedPixelSizes = {}
             pixel_size = cp[exp_path]['pixel_size']
@@ -4925,8 +4974,14 @@ class SetupUnetTrainingDialog(QBaseDialog):
                     tooltip, spot_masks_size
                 )
             
-            spots_coords_endname = cp[exp_path].get('spots_coords_endname')
-            if spots_coords_endname is not None:
+            m = 0
+            spots_coords_endnames = (
+                cp[exp_path].get('spots_coords_endnames', '').split('\n')
+            )
+            for spots_coords_endname in spots_coords_endnames:
+                if not spots_coords_endname:
+                    continue
+                    
                 filepath = acdc_load.search_filepath_from_endname(
                     exp_path, spots_coords_endname
                 )
@@ -4937,9 +4992,15 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 
                 if self.selectedSpotsCoordsFiles is None:
                     self.selectedSpotsCoordsFiles = {}
-                self.selectedSpotsCoordsFiles[exp_path] = (
-                    tooltip, masks_endname
+                
+                if exp_path not in self.selectedSpotsCoordsFiles:
+                    self.selectedSpotsCoordsFiles[exp_path] = {}
+                
+                channel_name = channel_names[m]
+                self.selectedSpotsCoordsFiles[exp_path][channel_name] = (
+                    tooltip, spots_coords_endname
                 )
+                m += 1
             
             training_positions = cp[exp_path].get('training_positions')
             training_positions = training_positions.split('\n')
@@ -4968,19 +5029,37 @@ class SetupUnetTrainingDialog(QBaseDialog):
         self.cropYspinbox.setValue(crop_shapes[0])
         self.cropXspinbox.setValue(crop_shapes[1])
         
-        rescale_to_pixel_size = training_params.getfloat(
-            'rescale_to_pixel_size'
-        )
-        self.rescaleToPixelSizeWidget.setValue(rescale_to_pixel_size)
+        max_number_of_crops = training_params.getint('max_number_of_crops')
+        self.maxNumCropsSpinbox.setValue(max_number_of_crops)
+
+        try:
+            rescale_to_pixel_size = training_params.getfloat(
+                'rescale_to_pixel_size'
+            )
+            self.rescaleToPixelSizeWidget.setValue(rescale_to_pixel_size)
+        except Exception as err:
+            pass
         
-        crop_background = training_params.getboolean('crop_background')
-        self.cropBkgrToggle.setChecked(crop_background)
+        try:
+            crop_background = training_params.getboolean('crop_background')
+            self.cropBkgrToggle.setChecked(crop_background)
+        except Exception as err:
+            pass
         
-        crop_background_pad = training_params.getint('crop_background_pad')
-        self.cropBkgrPadWidget.setValue(crop_background_pad)
+        try:
+            crop_background_pad = training_params.getint('crop_background_pad')
+            self.cropBkgrPadWidget.setValue(crop_background_pad)
+        except Exception as err:
+            pass
         
-        self.randomSplitToggle.setChecked(self.selectedTrainPositions is None)
-        
+        if self.selectedTrainPositions is not None:
+            self.randomSplitToggle.toggled.disconnect()
+            self.randomSplitToggle.setChecked(False)
+            self.randomSplitToggle.toggled.connect(self.randomSplitToggled)
+        else:
+            self.randomSplitToggle.setChecked(True)
+            self.randomSplitToggled(True)
+            
         self.checkWhichFieldsAreSet()
         
         self._showInfo(
@@ -4988,17 +5067,31 @@ class SetupUnetTrainingDialog(QBaseDialog):
             'Done! Parameters loaded from the following workflow file:<br>',
             commands=(ini_filepath,)
         )
-                
+    
+    def saveToWorkflowFile(self):
+        workflowFolderpath = self.folderPathWorflowWidget.text()
+        if not workflowFolderpath or not os.path.exists(workflowFolderpath):
+            workflowFolderpath = getexistingdirectory(
+                parent=self,
+                caption='Select folder where to save workflow file', 
+                basedir=acdc_myutils.getMostRecentPath()
+            )
+            if not workflowFolderpath:
+                return
+            self.folderPathWorflowWidget.setText(workflowFolderpath)
+        
+        self.generateWorkflow(doNotCreateDatasets=True)
+    
     def randomSplitToggled(self, checked):
         if checked:
             selectedPaths = self.selectExpPathsButton.toolTip().split('\n')
             selectedPaths = [path for path in selectedPaths if path]
             expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
             for exp_path in expPaths:
+                pos_foldernames = acdc_myutils.get_pos_foldernames(exp_path)
                 train_positions, val_positions = self._randomChoiceTrainValPos(
                     pos_foldernames
                 )
-                pos_foldernames = acdc_myutils.get_pos_foldernames(exp_path)
                 if self.selectedTrainPositions is None:
                     self.selectedTrainPositions = {}
                 self.selectedTrainPositions[exp_path] = (
@@ -5055,7 +5148,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
         selectedPaths = '\n'.join(selectedPathsList)
         self.selectExpPathsButton.setToolTip(selectedPaths)
 
-        defaultSpotSize = (2.0, 3.0, 3.0)
+        defaultSpotSize = (2.0, 3.0)
         expPaths = acdc_load.get_unique_exp_paths(selectedPathsList)
         for exp_path in expPaths:
             exp_path = exp_path.replace('\\', '/')
@@ -5084,10 +5177,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 'unit': 'pixel'
             }
             tooltip = str(kwargs)
-            value = defaultSpotSize
-            
-            if exp_path in self.selectedSpotMaskSizes:
-                self.selectedSpotMaskSizes[exp_path] = (tooltip, value)
+            if exp_path not in self.selectedSpotMaskSizes:
+                self.selectedSpotMaskSizes[exp_path] = (tooltip, defaultSpotSize)
             
             if self.selectedPixelSizes is None:
                 self.selectedPixelSizes = {}
@@ -5115,7 +5206,6 @@ class SetupUnetTrainingDialog(QBaseDialog):
         
         self.checkWhichFieldsAreSet()
         
-        
     def _randomChoiceTrainValPos(self, pos_foldernames):
         train_perc = self.trainPercSpinbox.value()
         val_perc = self.valPercSpinbox.value()
@@ -5123,7 +5213,23 @@ class SetupUnetTrainingDialog(QBaseDialog):
             pos_foldernames, train_perc=train_perc, val_perc=val_perc
         )
         return train_positions, val_positions
-                
+    
+    def showMaxNumCropsInfo(self):
+        note_admon = html_func.to_admonition(
+            'A value of -1 means no upper limit to the number of crops'
+        )
+        title = 'Max number of crops info'
+        txt = (f"""
+            To avoid GPU memory issues, images are cropped with patches 
+            of the requested shape.<br><br>
+            However, if the images are large compared to the crop size, 
+            you might end up with too many images<br>
+            and the <b>training process might take very long</b>.<br><br>
+            To reduce the number of total images, set a maximum number of crops.<br><br>
+            SpotMAX will then randomly select crops from each image.<br>
+            {note_admon}
+        """)
+        self._showInfo(title, txt)      
 
     def showCropsShapeInfo(self):
         title = 'Crops shape info'
@@ -5319,6 +5425,18 @@ class SetupUnetTrainingDialog(QBaseDialog):
             path_to_browse=exp_path
         )
     
+    def warnTrainValPosNotSelectedForExpPath(self, exp_path, category):
+        txt = html_func.paragraph(f"""
+            You did <b>not select any {category} Position</b> for the following 
+            experiment folder path:<br>                         
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(
+            self, 'Channel not selected', txt, 
+            commands=(exp_path,), 
+            path_to_browse=exp_path
+        )
+    
     def warnSpotMaskSizeInvalidForExpPath(self, exp_path, value):
         txt = html_func.paragraph(f"""
             The selected <b>spot masks size</b> for the experiment folder below 
@@ -5403,51 +5521,69 @@ class SetupUnetTrainingDialog(QBaseDialog):
             self, attrToSet='', extensions=None, allow_spotmax_output=False, 
             widget_name='widgets.LineEdit', use_tooltip_as_widget_kwargs=False, 
             add_browse_button=True, use_value_as_widgets_value=False, 
-            entry_header='File endname', depends_on_channels=False
+            entry_header='File endname', depends_on_channels=False, 
+            allow_add_field=False, widgets_values_are_multiple_entries=False,
         ):
         selectedPaths = self._validateSelectedPaths()
         if not selectedPaths:
             return
         
-        selectedChannelNames = None
+        channel_names = None
         if depends_on_channels:
             selectedChannelNames = self._validateSelectedChannelNames(
                 selectedPaths
             )
             if not selectedChannelNames:
                 return 
+            channel_names = list(selectedChannelNames.values())
         
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
-        selectedValuesMapper = getattr(self, attrToSet)
-        selectedFiles = None
-        if selectedValuesMapper is not None and not use_value_as_widgets_value:
-            selectedFiles = [
-                selectedValuesMapper[exp_path][1] for exp_path in expPaths 
-            ]
-        
+        selectedValuesMapper = getattr(self, attrToSet)        
         widgets_kwargs = None
-        if use_tooltip_as_widget_kwargs:
-            widgets_kwargs = [
-                eval(selectedValuesMapper[exp_path][0]) for exp_path in expPaths
-            ]
+        if use_tooltip_as_widget_kwargs and selectedValuesMapper is not None:
+            if allow_add_field or depends_on_channels:
+                widgets_kwargs = []
+                for exp_path in expPaths:
+                    values_mapper = selectedValuesMapper[exp_path]
+                    kwargs_list = [
+                        eval(value[0]) for value in values_mapper.keys()
+                    ]
+                    widgets_kwargs.append(kwargs_list)
+            elif selectedValuesMapper is not None:
+                widgets_kwargs = [
+                    eval(selectedValuesMapper[exp_path][0]) 
+                    for exp_path in expPaths
+                ]
         
         widgets_values = None
-        if use_value_as_widgets_value:
-            widgets_values = [
-                selectedValuesMapper[exp_path][1] for exp_path in expPaths
-            ]
+        if use_value_as_widgets_value and selectedValuesMapper is not None:
+            if allow_add_field or depends_on_channels:
+                widgets_values = []
+                for exp_path in expPaths:
+                    values_mapper = selectedValuesMapper[exp_path]
+                    values_list = [
+                        eval(value[1]) for value in values_mapper.keys()
+                    ]
+                    widgets_values.append(values_list)
+            elif selectedValuesMapper is not None:
+                widgets_values = [
+                    selectedValuesMapper[exp_path][1] for exp_path in expPaths
+                ]
         
+        are_values_multiple_entries = widgets_values_are_multiple_entries
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
         win = SelectInfoForEachExperimentDialog(
             expPaths, 
-            selected_files=selectedFiles,
             extensions=extensions, 
             widget_name=widget_name, 
             widgets_kwargs=widgets_kwargs, 
             widgets_values=widgets_values,
             allow_spotmax_output=allow_spotmax_output, 
             entry_header=entry_header, 
-            channel_names=selectedChannelNames
+            channel_names=channel_names, 
+            allow_add_field=allow_add_field, 
+            widgets_values_are_multiple_entries=are_values_multiple_entries, 
+            add_browse_button=add_browse_button
         )
         win.exec_()
         if win.cancel:
@@ -5464,9 +5600,10 @@ class SetupUnetTrainingDialog(QBaseDialog):
             return []
         return selectedPaths
     
-    def _validateSelectedChannelNames(self, selectedPaths):
+    def _validateSelectedChannelNames(self, selectedPaths, warn=True):
         if self.selectedChannelNamesFiles is None:
-            self.warnChannelsNotSelected()
+            if warn:
+                self.warnChannelsNotSelected()
             return {}
         
         channelNamesMapper = {}
@@ -5474,35 +5611,74 @@ class SetupUnetTrainingDialog(QBaseDialog):
         for exp_path in expPaths:
             exp_path = exp_path.replace('\\', '/')
             if exp_path not in self.selectedChannelNamesFiles:
-                self.warnChannelNotSelectedForExpPath(exp_path)
-                return {}
+                if warn:
+                    self.warnChannelNotSelectedForExpPath(exp_path)
+                    return {}
+                continue
 
-            value = self.selectedChannelNamesFiles[exp_path][1]
-            channelNamesMapper[exp_path] = value
+            channels = []
+            channels_mapper = self.selectedChannelNamesFiles[exp_path]
+            for key, (tooltip, channel_name) in channels_mapper.items():
+                channels.append(channel_name)
+                
+            channelNamesMapper[exp_path] = channels
             
         return channelNamesMapper
 
-    def _validateSelectedTrainPos(self):
+    def _validateSelectedTrainPos(self, selectedPaths, warn=True):
         if self.selectedTrainPositions is None:
-            self.warnTrainPosNotSelected()
+            if warn:
+                self.warnTrainPosNotSelected()
             return {}
+        
+        trainingPosMapper = {}
+        expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
+        for exp_path in expPaths:
+            exp_path = exp_path.replace('\\', '/')
+            if exp_path not in self.selectedTrainPositions:
+                if warn:
+                    self.warnTrainValPosNotSelectedForExpPath(
+                        exp_path, 'training'
+                    )
+                    return {}
+                continue
             
-        return self.selectedTrainPositions
+            _, positions = self.selectedTrainPositions[exp_path]
+            trainingPosMapper[exp_path] = positions
+        
+        return trainingPosMapper
 
-    def _validateSelectedValPos(self):
+    def _validateSelectedValPos(self, selectedPaths, warn=True):
         if self.selectedValPositions is None:
-            self.warnValPosNotSelected()
+            if warn:
+                self.warnValPosNotSelected()
             return {}
             
-        return self.selectedValPositions
+        validationPosMapper = {}
+        expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
+        for exp_path in expPaths:
+            exp_path = exp_path.replace('\\', '/')
+            if exp_path not in self.selectedValPositions:
+                if warn:
+                    self.warnTrainValPosNotSelectedForExpPath(
+                        exp_path, 'validation'
+                    )
+                    return {}
+                continue
+            
+            _, positions = self.selectedValPositions[exp_path]
+            validationPosMapper[exp_path] = positions
+        
+        return validationPosMapper
     
-    def _validateMasks(self, selectedPaths):
+    def _validateSelectedMasks(self, selectedPaths, warn=True):
         masksParamsNotSelected = (
             self.selectedMasksFiles is None 
             and self.selectedSpotsCoordsFiles is None
         )
         if masksParamsNotSelected:
-            self.warnMasksParamsNotSelected()
+            if warn:
+                self.warnMasksParamsNotSelected()
             return {}
         
         if self.selectedMasksFiles is not None:
@@ -5511,34 +5687,52 @@ class SetupUnetTrainingDialog(QBaseDialog):
             for exp_path in expPaths:
                 exp_path = exp_path.replace('\\', '/')
                 if exp_path not in self.selectedMasksFiles:
-                    self.warnSpotMasksNotSelectedForExpPath(exp_path)
-                    return {}
+                    if warn:
+                        self.warnSpotMasksNotSelectedForExpPath(exp_path)
+                        return {}
+                    else:
+                        continue
 
-                value = self.selectedMasksFiles[exp_path][1]
-                spotMasksEndnames[exp_path] = value
+                values = []
+                channels_mapper = self.selectedMasksFiles[exp_path]
+                for channel, (tooltip, value) in channels_mapper.items():
+                    values.append(value)
+                spotMasksEndnames[exp_path] = values
             return spotMasksEndnames
     
-    def _validateSpotsCoords(self, selectedPaths):        
+    def _validateSelectedSpotsCoords(self, selectedPaths, warn=False):   
+        if self.selectedSpotsCoordsFiles is None:
+            return {}
+             
         spotCoordsEndnames = {}
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
         for exp_path in expPaths:
             exp_path = exp_path.replace('\\', '/')
             if exp_path not in self.selectedSpotsCoordsFiles:
-                self.warnSpotsCoordsNotSelectedForExpPath(exp_path)
-                return {}
+                if warn:
+                    self.warnSpotsCoordsNotSelectedForExpPath(exp_path)
+                    return {}
+                else:
+                    continue
 
-            value = self.selectedSpotsCoordsFiles[exp_path][1]
-            spotCoordsEndnames[exp_path] = value
+            values = []
+            channels_mapper = self.selectedSpotsCoordsFiles[exp_path]
+            for channel, (tooltip, value) in channels_mapper.items():
+                values.append(value)
+            spotCoordsEndnames[exp_path] = values
         return spotCoordsEndnames
     
-    def _validatePixelSizes(self, selectedPaths):
+    def _validateSelectedPixelSizes(self, selectedPaths, warn=True):
         pixelSizes = {}
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
         for exp_path in expPaths:
             exp_path = exp_path.replace('\\', '/')
             if exp_path not in self.selectedPixelSizes:
-                self.warnPixelSizeNotSelectedForExpPath(exp_path)
-                return {}
+                if warn:
+                    self.warnPixelSizeNotSelectedForExpPath(exp_path)
+                    return {}
+                else:
+                    continue
 
             value = self.selectedPixelSizes[exp_path][1]
             pixelSizes[exp_path] = value
@@ -5576,10 +5770,10 @@ class SetupUnetTrainingDialog(QBaseDialog):
     
     def _validateSpotMasksSize(self, selectedPaths):
         if self.selectedMasksFiles is not None:
-            return True
+            return
         
         if self.selectedSpotMaskSizes is None:
-            return False
+            return 
         
         spotMasksSizes = {}
         expPaths = acdc_load.get_unique_exp_paths(selectedPaths)
@@ -5590,9 +5784,9 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 valid = len(value) == 2
             except TypeError as err:
                 valid = True
-            
+
             if not valid:
-                return False
+                continue
             
             spotMasksSizes[exp_path] = value
         
@@ -5629,14 +5823,17 @@ class SetupUnetTrainingDialog(QBaseDialog):
         
         return -1.0
     
-    def _validateRescaleToPixelSize(self):
+    def _validateRescaleToPixelSize(self, warn=True):
         if self.rescaleToPixelSizeWidget.value():
             return self.rescaleToPixelSizeWidget.value()
         
-        value = self.askRescaleToPixelSize()
+        if warn:
+            value = self.askRescaleToPixelSize()
+        else:
+            value = ''
         return value
     
-    def _validateDataAugmentParams(self):
+    def _validateDataAugmentParams(self, warn=True):
         sigma1 = self.gaussSigmaOneWidget.value()
         sigma2 = self.gaussSigmaOneTwoWidget.value()
         
@@ -5658,7 +5855,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 valid = False
         
         if not valid:
-            self.warnDoGspotSizeNotValid()
+            if warn:
+                self.warnDoGspotSizeNotValid()
             return False
         
         params = {
@@ -5674,36 +5872,46 @@ class SetupUnetTrainingDialog(QBaseDialog):
         }
         return params
     
-    def validateParameters(self):
+    def generateWorkflow(self, doNotCreateDatasets=False):
         selectedPaths = self._validateSelectedPaths()
         if not selectedPaths:
             return False
 
-        selectedChannelNames = self._validateSelectedChannelNames(selectedPaths)
-        if not selectedChannelNames:
+        warn = not doNotCreateDatasets
+        
+        selectedChannelNames = self._validateSelectedChannelNames(
+            selectedPaths, warn=warn
+        )
+        if not selectedChannelNames and warn:
             return False
         
-        selectedTrainPos = self._validateSelectedTrainPos(selectedPaths)
-        if not selectedTrainPos:
+        selectedTrainPos = self._validateSelectedTrainPos(
+            selectedPaths, warn=warn
+        )
+        if not selectedTrainPos and warn:
             return False
         
-        selectedValPos = self._validateSelectedValPos(selectedPaths)
-        if not selectedValPos:
+        selectedValPos = self._validateSelectedValPos(
+            selectedPaths, warn=warn
+        )
+        if not selectedValPos and warn:
             return False
         
         selectedSpotsCoords = None
-        selectedMasks = self._validateMasks(selectedPaths)
+        selectedMasks = self._validateSelectedMasks(selectedPaths, warn=warn)
         if not selectedMasks:
-            selectedSpotsCoords = self._validateSpotsCoords(selectedPaths)
-            if not selectedMasks:
+            selectedSpotsCoords = self._validateSelectedSpotsCoords(
+                selectedPaths, warn=warn
+            )
+            if not selectedMasks and warn:
                 return False
         
-        pixelSizes = self._validatePixelSizes(selectedPaths)
-        if not pixelSizes:
+        pixelSizes = self._validateSelectedPixelSizes(selectedPaths, warn=warn)
+        if not pixelSizes and warn:
             return False
         
-        rescaleToPixelSize = self._validateRescaleToPixelSize()
-        if not rescaleToPixelSize:
+        rescaleToPixelSize = self._validateRescaleToPixelSize(warn=warn)
+        if not rescaleToPixelSize and warn:
             return False
         
         workflowFolderpath = self._validateWorflowFolderpath()
@@ -5714,24 +5922,24 @@ class SetupUnetTrainingDialog(QBaseDialog):
         if not workflowFilepath:
             return False
         
-        spotMasksSize = self._validateSpotMasksSize()
-        if not spotMasksSize:
-            return False
-        
-        dataAugmentParams = self._validateDataAugmentParams()
-        if not dataAugmentParams:
+        spotMasksSize = self._validateSpotMasksSize(selectedPaths)
+                
+        dataAugmentParams = self._validateDataAugmentParams(warn=warn)
+        if not dataAugmentParams and warn:
             return False
         
         cropsShape = (
             self.cropYspinbox.value(), self.cropXspinbox.value()
         )
         
-        proceed = self.warnDataPrepProcessStartsNow(workflowFilepath)
-        if not proceed:
-            return False
+        proceed = True
+        if warn:
+            proceed = self.warnDataPrepProcessStartsNow(workflowFilepath)
+            if not proceed:
+                return False
         
         self.workflowFilepath = workflowFilepath
-        acdc_myutils.addToRecentPaths(workflowFolderpath)
+        # acdc_myutils.addToRecentPaths(workflowFolderpath)
         
         try:
             print('Generating spotMAX AI training workflow files...')
@@ -5747,18 +5955,36 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 masks_endnames=selectedMasks,
                 spot_masks_size=spotMasksSize, 
                 crops_shapes=cropsShape, 
+                max_number_of_crops=self.maxNumCropsSpinbox.value(),
                 data_augment_params=dataAugmentParams, 
                 crop_background=self.cropBkgrToggle.isChecked(), 
-                crop_background_pad=self.cropBkgrPadWidget.value()
+                crop_background_pad=self.cropBkgrPadWidget.value(),
+                do_not_generate_datasets=doNotCreateDatasets
             )
         except Exception as err:
             traceback.print_exc()
             return False
         
+        if doNotCreateDatasets:
+            self.workflowFileCreated(workflowFilepath)
+    
         return proceed
     
+    def workflowFileCreated(self, workflowFilepath):
+        title = 'Workflow file saved'
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph("""
+            Done!<br><br>
+            Workflow file saved at the following location:<br>
+        """)
+        msg.information(
+            self, title, txt, 
+            commands=workflowFilepath, 
+            path_to_browse=os.path.dirname(workflowFilepath)
+        )
+    
     def ok_cb(self):
-        proceed = self.validateParameters()
+        proceed = self.generateWorkflow()
         if not proceed:
             return
         
@@ -5769,8 +5995,6 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
     def __init__(
             self, experiment_paths, 
             title='Select files', 
-            selected_files=None, 
-            selected_values=None,
             channel_names=None,
             widget_name='widgets.LineEdit',
             extensions=None,
@@ -5778,7 +6002,9 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             add_browse_button=True,
             widgets_kwargs=None, 
             widgets_values=None,
+            widgets_values_are_multiple_entries=False,
             entry_header='File endname',
+            allow_add_field=False,
             parent=None, 
         ):        
         self.cancel = True
@@ -5786,20 +6012,31 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
         
         self._allow_spotmax_output = allow_spotmax_output
         self._add_browse_button = add_browse_button
+        self._allow_add_field = allow_add_field
+        self._channel_names = channel_names
         
         self.setWindowTitle(title)
         
         mainLayout = QVBoxLayout()
         
         gridLayout = QGridLayout()
+        self.gridLayout = gridLayout
         gridLayout.setHorizontalSpacing(5)
         gridLayout.setVerticalSpacing(10)
+        
+        scrollArea = QScrollArea()
+        scrollAreaContainer = QWidget()
+        scrollAreaContainer.setContentsMargins(0, 0, 0, 0)
+        scrollArea.setWidgetResizable(True)
+        scrollAreaContainer.setLayout(gridLayout)
+        scrollArea.setWidget(scrollAreaContainer)
+        self.scrollArea = scrollArea
         
         gridLayout.addWidget(
             QLabel('<b>Experiment paths</b>'), 0, 0, alignment=Qt.AlignCenter
         )
         gridLayout.addWidget(
-            QLabel(f'<b>{entry_header}</b>'), 0, 1, alignment=Qt.AlignCenter
+            QLabel(f'<b>{entry_header}</b>'), 0, 2, alignment=Qt.AlignCenter
         )
         
         module_name, attr = widget_name.split('.')
@@ -5809,60 +6046,97 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
         except KeyError as e:
             widgetFunc = globals()[attr]
         
-        if channel_names is None:
-            channel_names = ['']
+        depends_on_channels = channel_names is not None
+        if depends_on_channels:
+            allow_add_field = False
+        else:
+            channel_names = [[''] for _ in range(len(experiment_paths))]
         
+        if widgets_values is None:
+            widgets_values_are_multiple_entries = False
+        
+        self.expPathLabels = []
         self.widgets = {}
         row = 1
-        stretchCol = 1
-        for exp_path in experiment_paths:
+        for e, exp_path in enumerate(experiment_paths):
+            channels_exp = channel_names[e]
+            
+            if widgets_values_are_multiple_entries and not depends_on_channels:
+                channels_exp = ['']*len(widgets_values[e])
+                
             expPathLabel = widgets.ReadOnlyElidingLineEdit(transparent=True)
             expPathLabel.setToolTip(exp_path)
             expPathLabel.setText(exp_path)
             expPathLabel.setFrame(False)
-            rowSpan = len(channel_names)
+            self.expPathLabels.append(expPathLabel)
+            rowSpan = len(channels_exp)
             gridLayout.addWidget(
                 expPathLabel, row, 0, rowSpan, 1, alignment=Qt.AlignVCenter
             )
+            expPathLabelRow = row
             
-            widget_kwargs = {}
+            if allow_add_field:
+                addFieldButton = acdc_widgets.addPushButton()
+                addFieldButton.setToolTip('Add new entry')
+                addFieldButton.clicked.connect(self.addField)
+                gridLayout.addWidget(addFieldButton, row, 4)
+            else:
+                gridLayout.addWidget(QLabel(''), row, 4)
+            
+            widget_kwargs = [{} for _ in range(len(channels_exp))]
             if widgets_kwargs is not None:
-                widget_kwargs = widgets_kwargs[row]
+                widget_kwargs = widgets_kwargs[e]
+                if not widgets_values_are_multiple_entries:
+                    widget_kwargs = [
+                        widget_kwargs for _ in range(len(channels_exp))
+                    ]
+            
+            widget_value = [None]*len(channels_exp)
+            if widgets_values is not None:
+                widget_value = widgets_values[e]
+                if not widgets_values_are_multiple_entries:
+                    widget_value = [
+                        widget_value for _ in range(len(channels_exp))
+                    ]
             
             channelsLayout = QGridLayout()
-            for ch, channel in enumerate(channel_names):
-                col = 1
-                widgetLayout = QHBoxLayout()
-                widget = widgetFunc(**widget_kwargs)
-                
-                if selected_files is not None:
-                    endname = selected_files[row]
-                    filepath = acdc_load.search_filepath_from_endname(
-                        exp_path, endname
-                    )
-                    if filepath is not None:
-                        self.setValueLineEdit(widget, filepath)
-                
-                if widgets_values is not None:
-                    widget.setValue(widgets_values[row])
+            for ch, channel in enumerate(channels_exp):
+                if ch > 0 and allow_add_field:
+                    delFieldButton = acdc_widgets.delPushButton()
+                    delFieldButton.addFieldButton = addFieldButton
+                    self.gridLayout.addWidget(delFieldButton, row, 4)   
+                    delFieldButton.widgets = []
+                    delFieldButton.clicked.connect(self.removeField)
                     
+                widget_kwargs_ch = widget_kwargs[ch]
+                widget = widgetFunc(**widget_kwargs[ch])                
+                widget_value_ch = widget_value[ch]
+                if widget_value_ch is not None:
+                    widget.setValue(widget_value_ch)
+                
+                channel_text = ''
                 if channel:
-                    gridLayout.addWidget(
-                        QLabel(f'| {channel}: '), row, col, 
-                        alignment=Qt.AlignLeft
-                    )
-                    stretchCol = 2
-                    col += 1
+                    channel_text = f'| {channel}: '
+                
+                channelLabel = QLabel(channel_text)
+                gridLayout.addWidget(
+                    channelLabel, row, 1, alignment=Qt.AlignLeft
+                )
+                if ch > 0 and allow_add_field:
+                    delFieldButton.widgets.append(channelLabel)
                 
                 # lineEdit.setReadOnly(True)
-                gridLayout.addWidget(widget, row, col)
-                col += 1
-            
+                gridLayout.addWidget(widget, row, 2)
+
+                browseFileButtonKwargs = {}
                 if add_browse_button:
+                    browseFileButtonKwargs = {
+                        'ext': extensions, 
+                        'title': title, 
+                        'start_dir': exp_path, 
+                    }
                     browseFileButton = acdc_widgets.browseFileButton(
-                        ext=extensions, 
-                        title=title,
-                        start_dir=exp_path, 
+                        **browseFileButtonKwargs
                     )                    
                     browseFileButton.sigPathSelected.connect(
                         partial(
@@ -5871,27 +6145,191 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
                             parentExpPath=exp_path
                         )
                     )
-                    gridLayout.addWidget(browseFileButton, row, col)
+                    gridLayout.addWidget(browseFileButton, row, 3)
+                    if ch > 0 and allow_add_field:
+                        delFieldButton.widgets.append(browseFileButton)
+                else:
+                    emptyLabel = QLabel('')
+                    gridLayout.addWidget(emptyLabel, row, 3)
+                    if ch > 0 and allow_add_field:
+                        delFieldButton.widgets.append(emptyLabel)
                 
-                self.widgets[(exp_path, channel)] = widget
-                row += 1
+                if channel:
+                    key = (exp_path, channel)
+                else:
+                    key = (exp_path, row)
+                
+                self.widgets[key] = widget
+                if ch > 0 and allow_add_field:
+                    delFieldButton.key = key
+                
+                row += 1           
+            
+            if allow_add_field:
+                addFieldButton.row = row
+                addFieldButton.browseFileButtonKwargs = browseFileButtonKwargs
+                addFieldButton.widgetFunc = widgetFunc
+                addFieldButton.widget_kwargs = widget_kwargs_ch
+                addFieldButton.exp_path = exp_path
+                addFieldButton.expPathLabel = expPathLabel
+                addFieldButton.expPathLabelRow = expPathLabelRow
+                addFieldButton.expPathRowSpan = rowSpan
 
+        scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        
         gridLayout.setColumnStretch(0, 2)
-        if stretchCol == 2:
-            gridLayout.setColumnStretch(1, 0)
-        gridLayout.setColumnStretch(stretchCol, 1)
-        gridLayout.setColumnStretch(stretchCol+1, 0)
+        gridLayout.setColumnStretch(1, 0)
+        gridLayout.setColumnStretch(2, 1)
+        gridLayout.setColumnStretch(3, 0)
+        gridLayout.setColumnStretch(4, 0)
+        gridLayout.setRowStretch(0, 0)
         
         buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
         
         buttonsLayout.okButton.clicked.connect(self.ok_cb)
         buttonsLayout.cancelButton.clicked.connect(self.close)
         
-        mainLayout.addLayout(gridLayout)
+        mainLayout.addWidget(scrollArea)
         mainLayout.addSpacing(20)
         mainLayout.addLayout(buttonsLayout)
         
+        self.mainLayout = mainLayout
+        
         self.setLayout(mainLayout)
+    
+    def resizeEvent(self, event: QResizeEvent):        
+        self.isAnyLabelElided = False
+        longestLineWidth = 0
+        for lineEdit in self.expPathLabels:
+            if lineEdit.isTextElided():
+                self.isAnyLabelElided = True
+            width = lineEdit.width()
+            if width > longestLineWidth:
+                longestLineWidth = width
+                longestLineEdit = lineEdit
+        
+        columnStretch = 2 if self.isAnyLabelElided else 0
+        currentColStretch = self.gridLayout.columnStretch(0)
+        
+        oldWidth = event.oldSize().width()
+        width = event.size().width()
+        
+        if not self.isAnyLabelElided and width < oldWidth:
+            self.gridLayout.setColumnStretch(0, 2)
+            longestLineEdit.setMinimumWidth(5)
+            columnStretch = 2
+        
+        if columnStretch == currentColStretch:
+            return
+        
+        if not columnStretch:
+            longestLineEdit.setMinimumWidth(longestLineWidth+5)
+            longestLineEdit.setMaximumWidth(longestLineWidth+5)
+            self.gridLayout.setColumnStretch(0, 0)
+    
+    def addField(self):
+        self.prevScrollAreaHeight = int(
+            self.scrollArea.widget().sizeHint().height()
+            + self.scrollArea.horizontalScrollBar().sizeHint().height()
+        )
+        
+        addFieldButton = self.sender()
+        nextRow = addFieldButton.row
+        widget_kwargs = addFieldButton.widget_kwargs
+        widgetFunc = addFieldButton.widgetFunc
+        exp_path = addFieldButton.exp_path
+        
+        addFieldButton.expPathRowSpan += 1
+        rowSpan = addFieldButton.expPathRowSpan
+        self.gridLayout.addWidget(
+            addFieldButton.expPathLabel, 
+            addFieldButton.expPathLabelRow, 0, 
+            rowSpan, 1, 
+            alignment=Qt.AlignVCenter
+        ) 
+        
+        delFieldButton = acdc_widgets.delPushButton()
+        delFieldButton.addFieldButton = addFieldButton
+        self.gridLayout.addWidget(delFieldButton, nextRow, 4)   
+        delFieldButton.widgets = []
+        delFieldButton.clicked.connect(self.removeField)
+        
+        widget = widgetFunc(**widget_kwargs)
+        
+        emptyLabel = QLabel('')
+        self.gridLayout.addWidget(
+            emptyLabel, nextRow, 1, alignment=Qt.AlignLeft
+        )
+        delFieldButton.widgets.append(emptyLabel)
+        
+        # lineEdit.setReadOnly(True)
+        self.gridLayout.addWidget(widget, nextRow, 2)
+
+        browseFileButtonKwargs = {}
+        if self._add_browse_button:
+            browseFileButton = acdc_widgets.browseFileButton(
+                **addFieldButton.browseFileButtonKwargs
+            )                    
+            browseFileButton.sigPathSelected.connect(
+                partial(
+                    self.pathSelected, 
+                    lineEdit=widget, 
+                    parentExpPath=exp_path
+                )
+            )
+            self.gridLayout.addWidget(browseFileButton, nextRow, 3)
+            delFieldButton.widgets.append(browseFileButton)
+        else:
+            emptyLabel = QLabel('')
+            self.gridLayout.addWidget(emptyLabel, nextRow, 3)
+            delFieldButton.widgets.append(emptyLabel)
+        
+        self.widgets[(exp_path, nextRow)] = widget           
+        
+        delFieldButton.key = (exp_path, nextRow)
+        addFieldButton.row = nextRow + 1
+        
+        QTimer.singleShot(50, self.resizeUponFieldAddedOrRemoved)
+    
+    def removeField(self):
+        self.prevScrollAreaHeight = int(
+            self.scrollArea.widget().sizeHint().height()
+            + self.scrollArea.horizontalScrollBar().sizeHint().height()
+        )
+        
+        delFieldButton = self.sender()
+        for widget in delFieldButton.widgets:
+            self.gridLayout.removeWidget(widget)
+
+        widget = self.widgets[delFieldButton.key]
+        self.gridLayout.removeWidget(widget)
+        del self.widgets[delFieldButton.key]
+        
+        addFieldButton = delFieldButton.addFieldButton
+        addFieldButton.expPathRowSpan -= 1
+        rowSpan = addFieldButton.expPathRowSpan
+        self.gridLayout.addWidget(
+            addFieldButton.expPathLabel, 
+            addFieldButton.expPathLabelRow, 0, 
+            rowSpan, 1, 
+            alignment=Qt.AlignVCenter
+        ) 
+        
+        self.gridLayout.removeWidget(delFieldButton)
+        
+        addFieldButton.row -= 1
+        
+        QTimer.singleShot(50, self.resizeUponFieldAddedOrRemoved)
+    
+    def resizeUponFieldAddedOrRemoved(self):
+        scrollArea = self.scrollArea
+        height = int(
+            self.scrollArea.widget().sizeHint().height()
+            + scrollArea.horizontalScrollBar().sizeHint().height()
+        )
+        deltaHeight = height - self.prevScrollAreaHeight
+        newHeight = self.height() + deltaHeight
+        self.resize(self.width(), newHeight)
     
     def warnNotValidExpPathSelected(self, selectedExpPath, parentExpPath):
         txt = ("""
@@ -5915,18 +6353,6 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             path_to_browse=parentExpPath
         )
     
-    def setValueLineEdit(self, lineEdit, filePath):
-        filename = os.path.basename(filePath)
-        if os.path.dirname(filePath).endswith('spotMAX_output'):
-            lineEdit.setText(filename)
-            lineEdit.setToolTip('spotMAX_output')
-        else:
-            posData = acdc_load.loadData(filePath, '', QParent=self)
-            posData.getBasenameAndChNames()
-            endname = filename[len(posData.basename):]
-            lineEdit.setText(endname)
-            lineEdit.setToolTip('Images')
-    
     def pathSelected(self, filePath, lineEdit=None, parentExpPath=''):
         selectedExpPath = os.path.dirname(
             os.path.dirname(os.path.dirname(filePath))
@@ -5937,7 +6363,7 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             self.warnNotValidExpPathSelected(selectedExpPath, parentExpPath)
             return
         
-        self.setValueLineEdit(lineEdit, filePath)
+        lineEdit.setValue(filePath)
     
     def show(self, block=False):
         screenWidth = self.screen().size().width()
@@ -5948,11 +6374,16 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
     def ok_cb(self):
         self.cancel = False
         
-        self.selectedValues= {
-            exp_path:(widget.toolTip(), widget.value()) 
-            for (exp_path, channel), widget in self.widgets.items()
-        }
-        
+        self.selectedValues = {}
+        for (exp_path, channel), widget in self.widgets.items():
+            value = (widget.toolTip(), widget.value()) 
+            if self._channel_names is not None or self._allow_add_field:
+                if exp_path not in self.selectedValues:
+                    self.selectedValues[exp_path] = {}
+                self.selectedValues[exp_path][channel] = value
+            else:
+                self.selectedValues[exp_path] = value
+                
         self.close()
 
 def setupSpotmaxAiTraining(qparent=None):

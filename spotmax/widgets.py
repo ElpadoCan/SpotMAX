@@ -41,6 +41,7 @@ import pyqtgraph as pg
 
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
+from cellacdc import load as acdc_load
 from cellacdc._palettes import lineedit_invalid_entry_stylesheet
 from cellacdc import myutils as acdc_myutils
 
@@ -217,12 +218,15 @@ class IsFieldSetButton(acdc_widgets.PushButton):
         flat = kwargs.get('flat', True)
         self.setFlat(flat)
         self.setSelected(False)
+        self.setToolTip('This value/parameter is not set yet')
     
     def setSelected(self, selected):
         if selected:
             self.setIcon(QIcon(':greenTick.svg'))
+            self.setToolTip('This value/parameter is set')
         else:
             self.setIcon(QIcon(':orange_question_mark.svg'))
+            self.setToolTip('This value/parameter is not set yet')
 
 class AddAutoTunePointsButton(acdc_widgets.CrossCursorPointButton):
     sigToggled = Signal(object, bool)
@@ -1579,6 +1583,9 @@ class ReadOnlyElidingLineEdit(acdc_widgets.ElidingLineEdit):
             palette.setColor(QPalette.Base, Qt.transparent)
             self.setPalette(palette)
 
+    def isTextElided(self):
+        return QLineEdit.text(self).startswith(b'\xe2\x80\xa6'.decode())
+    
 class myQScrollBar(QScrollBar):
     sigActionTriggered = Signal(int)
 
@@ -3615,10 +3622,40 @@ class VoxelSizeWidget(QWidget):
 class LineEdit(QLineEdit):
     def __init__(self, *args, centered=True, **kwargs):
         super().__init__(*args, **kwargs)
-        self.setAlignment(Qt.AlignCenter)
+        if centered:
+            self.setAlignment(Qt.AlignCenter)
+    
+    def setValue(self, value):
+        super().setText(str(value))
     
     def value(self):
         return self.text()
+
+class EndnameLineEdit(LineEdit):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def setValue(self, value):
+        text = str(value)
+        folderpath = os.path.dirname(str(value))
+        is_images_folder = os.path.basename(folderpath) == 'Images'
+        is_spotmax_out_folder = os.path.basename(folderpath) == 'spotMAX_output'
+        if is_images_folder:
+            filepath = text
+            filename = os.path.basename(filepath)
+            posData = acdc_load.loadData(filepath, '')
+            posData.getBasenameAndChNames()
+            endname = filename[len(posData.basename):]
+            self.setText(endname)
+            self.setToolTip('Images')
+        elif is_spotmax_out_folder:
+            filepath = text
+            filename = os.path.basename(filepath)
+            self.setText(filename)
+            self.setToolTip('spotMAX_output')
+        else:
+            self.setText(text)
+        
 
 class SelectPosFoldernamesButton(acdc_widgets.editPushButton):
     def __init__(self, *args, exp_path='', **kwargs):
