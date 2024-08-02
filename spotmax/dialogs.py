@@ -4720,6 +4720,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
         paramsLayout.setColumnStretch(3, 0)
         
         buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
+        buttonsLayout.okButton.setText('Done, generate worflow file')
         
         buttonsLayout.okButton.clicked.connect(self.ok_cb)
         buttonsLayout.cancelButton.clicked.connect(self.close)
@@ -4756,7 +4757,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
             use_value_as_widgets_value=True,
             allow_spotmax_output=False, 
             widgets_values_are_multiple_entries=True,
-            allow_add_field=True
+            allow_add_field=True, 
+            rel_start_dir='Images'
         ))
         
         self.selectCoordsFilesButton.clicked.connect(partial(
@@ -4767,7 +4769,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
             allow_spotmax_output=True, 
             use_value_as_widgets_value=True,
             widgets_values_are_multiple_entries=True,
-            depends_on_channels=True
+            depends_on_channels=True, 
+            rel_start_dir='Position'
         ))
         
         self.selectMasksFilesButton.clicked.connect(partial(
@@ -4778,7 +4781,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
             allow_spotmax_output=False, 
             use_value_as_widgets_value=True,
             widgets_values_are_multiple_entries=True,
-            depends_on_channels=True
+            depends_on_channels=True, 
+            rel_start_dir='Images'
         ))
         
         self.selectSpotMaskSizeButton.clicked.connect(partial(
@@ -5523,6 +5527,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
             add_browse_button=True, use_value_as_widgets_value=False, 
             entry_header='File endname', depends_on_channels=False, 
             allow_add_field=False, widgets_values_are_multiple_entries=False,
+            rel_start_dir=None
         ):
         selectedPaths = self._validateSelectedPaths()
         if not selectedPaths:
@@ -5583,7 +5588,9 @@ class SetupUnetTrainingDialog(QBaseDialog):
             channel_names=channel_names, 
             allow_add_field=allow_add_field, 
             widgets_values_are_multiple_entries=are_values_multiple_entries, 
-            add_browse_button=add_browse_button
+            add_browse_button=add_browse_button, 
+            rel_start_dir=rel_start_dir, 
+            parent=self
         )
         win.exec_()
         if win.cancel:
@@ -6005,6 +6012,7 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             widgets_values_are_multiple_entries=False,
             entry_header='File endname',
             allow_add_field=False,
+            rel_start_dir=None,
             parent=None, 
         ):        
         self.cancel = True
@@ -6130,10 +6138,24 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
 
                 browseFileButtonKwargs = {}
                 if add_browse_button:
+                    start_dir = exp_path
+                    pos_foldernames = acdc_myutils.get_pos_foldernames(exp_path)
+                    if rel_start_dir == 'Position':
+                        start_dir = os.path.join(exp_path, pos_foldernames[0])
+                    elif rel_start_dir == 'Images':
+                        pos_path = os.path.join(exp_path, pos_foldernames[0])
+                        start_dir = os.path.join(pos_path, 'Images')
+                    elif rel_start_dir == 'spotMAX_output':
+                        pos_path = os.path.join(exp_path, pos_foldernames[0])
+                        start_dir = os.path.join(pos_path, 'spotMAX_output')
+                    
+                    if not os.path.exists(start_dir):
+                        start_dir = exp_path
+                    
                     browseFileButtonKwargs = {
                         'ext': extensions, 
                         'title': title, 
-                        'start_dir': exp_path, 
+                        'start_dir': start_dir, 
                     }
                     browseFileButton = acdc_widgets.browseFileButton(
                         **browseFileButtonKwargs
@@ -6235,6 +6257,15 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
         
         addFieldButton = self.sender()
         nextRow = addFieldButton.row
+        
+        # Move widgets one row down
+        for i in range(nextRow, self.gridLayout.rowCount()):
+            for j in range(self.gridLayout.columnCount()):
+                item = self.gridLayout.itemAtPosition(i, j)
+                if item is None:
+                    continue
+                self.gridLayout.addWidget(item.widget(), i+1, j)
+        
         widget_kwargs = addFieldButton.widget_kwargs
         widgetFunc = addFieldButton.widgetFunc
         exp_path = addFieldButton.exp_path

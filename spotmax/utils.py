@@ -1171,6 +1171,8 @@ def generate_dataset_training_workflow(
         'TRAIN': training_positions, 
         'VAL': val_positions
     }
+    pbar_total = len(training_positions) + len(val_positions)
+    pbar = tqdm(total=pbar_total, ncols=100, leave=False, position=1, unit='pos')
     for category, positions in positions_mapper.items():
         X_list = []
         y_list = []
@@ -1227,7 +1229,10 @@ def generate_dataset_training_workflow(
                 if visualize:
                     imshow(flat_2d_img_data, flat_2d_spots_masks)
                     import pdb; pdb.set_trace()
-            
+                
+                pbar.update()
+        pbar.close()
+        
         h5_filename = f'{os.path.basename(exp_path)}_{category}.h5'
         h5_filepath = os.path.join(datasets_folderpath, h5_filename)
         dset = h5py.File(h5_filepath, 'w')
@@ -1336,7 +1341,7 @@ def generate_unet_training_workflow_files(
     training_params = {}
     exp_paths = src_train_pos_paths.keys()
     
-    for exp_path in tqdm(exp_paths, ncols=100):
+    for exp_path in tqdm(exp_paths, ncols=100, unit='exp'):
         exp_path = exp_path.replace('\\', '/')
         exp_path_params = {}
         channel_names_exp = channel_names.get(exp_path)
