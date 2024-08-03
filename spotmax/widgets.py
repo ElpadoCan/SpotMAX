@@ -3632,30 +3632,34 @@ class LineEdit(QLineEdit):
         return self.text()
 
 class EndnameLineEdit(LineEdit):
+    sigValueChanged = Signal(object)
+    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
     
     def setValue(self, value):
-        text = str(value)
+        value_str = str(value)
         folderpath = os.path.dirname(str(value))
         is_images_folder = os.path.basename(folderpath) == 'Images'
         is_spotmax_out_folder = os.path.basename(folderpath) == 'spotMAX_output'
         if is_images_folder:
-            filepath = text
+            filepath = value_str
             filename = os.path.basename(filepath)
             posData = acdc_load.loadData(filepath, '')
             posData.getBasenameAndChNames()
             endname = filename[len(posData.basename):]
-            self.setText(endname)
+            text = endname
             self.setToolTip('Images')
         elif is_spotmax_out_folder:
-            filepath = text
+            filepath = value_str
             filename = os.path.basename(filepath)
-            self.setText(filename)
+            text = filename
             self.setToolTip('spotMAX_output')
         else:
-            self.setText(text)
-        
+            text = value_str
+            
+        self.setText(text)
+        self.sigValueChanged.emit(text)     
 
 class SelectPosFoldernamesButton(acdc_widgets.editPushButton):
     def __init__(self, *args, exp_path='', **kwargs):

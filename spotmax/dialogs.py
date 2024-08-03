@@ -4758,7 +4758,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
             allow_spotmax_output=False, 
             widgets_values_are_multiple_entries=True,
             allow_add_field=True, 
-            rel_start_dir='Images'
+            rel_start_dir='Images', 
+            enable_autofill=True
         ))
         
         self.selectCoordsFilesButton.clicked.connect(partial(
@@ -4782,7 +4783,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
             use_value_as_widgets_value=True,
             widgets_values_are_multiple_entries=True,
             depends_on_channels=True, 
-            rel_start_dir='Images'
+            rel_start_dir='Images',
+            enable_autofill=True
         ))
         
         self.selectSpotMaskSizeButton.clicked.connect(partial(
@@ -5527,7 +5529,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
             add_browse_button=True, use_value_as_widgets_value=False, 
             entry_header='File endname', depends_on_channels=False, 
             allow_add_field=False, widgets_values_are_multiple_entries=False,
-            rel_start_dir=None
+            rel_start_dir=None, enable_autofill=False
         ):
         selectedPaths = self._validateSelectedPaths()
         if not selectedPaths:
@@ -5590,6 +5592,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
             widgets_values_are_multiple_entries=are_values_multiple_entries, 
             add_browse_button=add_browse_button, 
             rel_start_dir=rel_start_dir, 
+            enable_autofill=enable_autofill,
             parent=self
         )
         win.exec_()
@@ -6013,6 +6016,7 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             entry_header='File endname',
             allow_add_field=False,
             rel_start_dir=None,
+            enable_autofill=False,
             parent=None, 
         ):        
         self.cancel = True
@@ -6022,10 +6026,21 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
         self._add_browse_button = add_browse_button
         self._allow_add_field = allow_add_field
         self._channel_names = channel_names
+        self._enable_autofill = enable_autofill
         
         self.setWindowTitle(title)
         
         mainLayout = QVBoxLayout()
+        
+        if self._enable_autofill:
+            autoFillLayout = QHBoxLayout()
+            autoFillToggle = acdc_widgets.Toggle()
+            autoFillToggle.setChecked(True)
+            autoFillLayout.addStretch(1)
+            autoFillLayout.addWidget(QLabel('Autofill'))
+            autoFillLayout.addWidget(autoFillToggle)
+            mainLayout.addLayout(autoFillLayout)
+            autoFillToggle.toggled.connect(self.autoFillToggled)
         
         gridLayout = QGridLayout()
         self.gridLayout = gridLayout
@@ -6116,8 +6131,11 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
                     delFieldButton.widgets = []
                     delFieldButton.clicked.connect(self.removeField)
                     
-                widget_kwargs_ch = widget_kwargs[ch]
-                widget = widgetFunc(**widget_kwargs[ch])                
+                widget_kwargs_ch = widget_kwargs[ch]                    
+                widget = widgetFunc(**widget_kwargs_ch)     
+                if self._enable_autofill:
+                    widget.sigValueChanged.connect(self.autoFill)
+                          
                 widget_value_ch = widget_value[ch]
                 if widget_value_ch is not None:
                     widget.setValue(widget_value_ch)
@@ -6249,6 +6267,33 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             longestLineEdit.setMaximumWidth(longestLineWidth+5)
             self.gridLayout.setColumnStretch(0, 0)
     
+    def autoFillToggled(self, enabled: bool):
+        if not enabled:
+            return
+        
+        for key, widget in self.widgets.items():
+            if not widget.value():
+                continue
+            
+            self.autoFill(widget.value())
+    
+    def autoFill(self, value):
+        for key, widget in self.widgets.items():
+            if widget.value():
+                continue
+            
+            exp_path, _ = key
+            filepath = acdc_load.search_filepath_from_endname(
+                exp_path, value
+            )
+            if filepath is None:
+                continue
+            
+            folderpath = os.path.dirname(filepath)
+            foldername = os.path.basename(folderpath)
+            widget.setText(value)
+            widget.setToolTip(foldername)
+    
     def addField(self):
         self.prevScrollAreaHeight = int(
             self.scrollArea.widget().sizeHint().height()
@@ -6286,6 +6331,8 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
         delFieldButton.clicked.connect(self.removeField)
         
         widget = widgetFunc(**widget_kwargs)
+        if self._enable_autofill:
+            widget.sigValueChanged.connect(self.autoFill)
         
         emptyLabel = QLabel('')
         self.gridLayout.addWidget(
