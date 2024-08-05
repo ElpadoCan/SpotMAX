@@ -1,4 +1,6 @@
+import sys
 import os
+import platform
 import datetime
 import re
 import pathlib
@@ -21,7 +23,7 @@ from qtpy import QtCore
 from qtpy.QtCore import Qt, Signal, QEventLoop, QPointF, QTimer
 from qtpy.QtGui import (
     QFont, QFontMetrics, QTextDocument, QPalette, QColor,
-    QIcon, QResizeEvent
+    QIcon, QResizeEvent, QPixmap
 )
 from qtpy.QtWidgets import (
     QDialog, QComboBox, QVBoxLayout, QHBoxLayout, QLabel, QApplication,
@@ -53,6 +55,8 @@ from . import last_selection_meas_filepath
 from . import palettes
 from . import prompts
 from . import rng
+from . import spotmax_path, icon_path
+from . import read_version
 
 LINEEDIT_INVALID_ENTRY_STYLESHEET = (
     acdc_palettes.lineedit_invalid_entry_stylesheet()
@@ -6568,7 +6572,65 @@ class AboutSpotMAXDialog(QBaseDialog):
         
         mainLayout = QVBoxLayout()
         
+        textLayout = QHBoxLayout()
+        
+        version = read_version()
+        release_date = acdc_myutils.get_date_from_version(
+            version, package='spotmax'
+        )
+        
+        py_ver = sys.version_info
+        python_version = f'{py_ver.major}.{py_ver.minor}.{py_ver.micro}'
+        
+        iconPixmap = QPixmap(icon_path)
+        h = 128
+        iconPixmap = iconPixmap.scaled(h,h, aspectRatioMode=Qt.KeepAspectRatio)
+        iconLabel = QLabel()
+        iconLabel.setPixmap(iconPixmap)
+        
+        titleLabel = QLabel()
+        txt = (f"""
+        <p style="font-size:20px; font-family:ubuntu">
+            <b>SpotMAX</b>
+            <span style="font-size:12pt; font-family:ubuntu">
+                (Multi-dimensional spot detection and quantification)
+            </span>
+        </p>
+        <p style="font-size:14px; font-family:ubuntu">
+            Version {version}<br><br>
+            Release date: {release_date}
+        </p>
+        <p style="font-size:13px; font-family:ubuntu">
+            Qt {QtCore.__version__}<br>
+            Python {python_version}<br>
+        </p>
+        <p style="font-size:13px; font-family:ubuntu">
+            Platform: {platform.platform()}<br>
+        </p>
+        """)
+
+        titleLabel.setText(txt)
+        
+        textLayout.addWidget(iconLabel, alignment=Qt.AlignTop)
+        textLayout.addWidget(QLabel(txt), alignment=Qt.AlignTop)
+        
         buttonsLayout = QHBoxLayout()
+        
+        buttonsLayout.addWidget(QLabel(
+            f'Installed in: <code>{spotmax_path}</code>'
+        ))
+        buttonsLayout.addStretch(1)
+        copyPathButton = acdc_widgets.copyPushButton('Copy path')
+        copyPathButton.setTextToCopy(spotmax_path)
+        buttonsLayout.addWidget(copyPathButton)
+        
+        browseButton = acdc_widgets.showInFileManagerButton(setDefaultText=True)
+        browseButton.setPathToBrowse(os.path.dirname(spotmax_path))
+        
+        buttonsLayout.addWidget(browseButton)
+        
+        mainLayout.addLayout(textLayout)
+        mainLayout.addLayout(buttonsLayout)
         
         self.setLayout(mainLayout)
         

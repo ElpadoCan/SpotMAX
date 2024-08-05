@@ -771,8 +771,6 @@ class spotMAX_Win(acdc_gui.guiWin):
             
             if removeActions:
                 self.settingsMenu.removeAction(action)
-        
-        
     
     def initGui(self):
         self.isAnalysisRunning = False
@@ -784,7 +782,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.lastLoadedIniFilepath = None
         
+        self.aboutSmaxAction = QAction("About SpotMAX", self)
+        self.helpMenu.addAction(self.aboutSmaxAction)
+        self.aboutSmaxAction.triggered.connect(self.showAboutSmax)
+        
         self._setWelcomeText()
+    
+    def showAboutSmax(self):
+        win = dialogs.AboutSpotMAXDialog(parent=self)
+        win.exec_()
     
     def parametersLoaded(self, ini_filepath):
         self.lastLoadedIniFilepath = ini_filepath
