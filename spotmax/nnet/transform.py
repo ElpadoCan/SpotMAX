@@ -165,7 +165,9 @@ def _get_crops_single(
     
     return cropped_imgs
     
-def _get_crops(images: np.ndarray, crops_shape=(256, 256)):
+def _get_crops(
+        images: np.ndarray, crops_shape=(256, 256), max_number_of_crops=-1
+    ):
     cropped_images = [
         cropped for img in images for cropped in _get_crops_single(img) 
     ]

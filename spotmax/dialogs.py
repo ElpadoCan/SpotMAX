@@ -6560,4 +6560,15 @@ def setupSpotmaxAiTraining(qparent=None):
     
     return True
     
-    
+class AboutSpotMAXDialog(QBaseDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.setWindowTitle('About SpotMAX')
+        
+        mainLayout = QVBoxLayout()
+        
+        buttonsLayout = QHBoxLayout()
+        
+        self.setLayout(mainLayout)
+        
