@@ -41,6 +41,7 @@ import pyqtgraph as pg
 
 from cellacdc import apps as acdc_apps
 from cellacdc import widgets as acdc_widgets
+from cellacdc import load as acdc_load
 from cellacdc._palettes import lineedit_invalid_entry_stylesheet
 from cellacdc import myutils as acdc_myutils
 
@@ -199,6 +200,33 @@ class AutoTuningButton(QPushButton):
             self.setText('  Start autotuning  ')
             self.setIcon(QIcon(':tune.svg'))
         self.sigToggled.emit(self, checked)
+
+class TrainSpotmaxAIButton(acdc_widgets.TrainPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setToolTip(
+            'Setup workflow to train spotMAX AI from ground-truth annotations'
+        )
+        self.clicked.connect(self.onClicked)
+    
+    def onClicked(self):
+        dialogs.setupSpotmaxAiTraining()
+
+class IsFieldSetButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        flat = kwargs.get('flat', True)
+        self.setFlat(flat)
+        self.setSelected(False)
+        self.setToolTip('This value/parameter is not set yet')
+    
+    def setSelected(self, selected):
+        if selected:
+            self.setIcon(QIcon(':greenTick.svg'))
+            self.setToolTip('This value/parameter is set')
+        else:
+            self.setIcon(QIcon(':orange_question_mark.svg'))
+            self.setToolTip('This value/parameter is not set yet')
 
 class AddAutoTunePointsButton(acdc_widgets.CrossCursorPointButton):
     sigToggled = Signal(object, bool)
@@ -792,11 +820,19 @@ class SpotPredictionMethodWidget(QWidget):
         self.configButton = acdc_widgets.setPushButton()
         self.configButton.setDisabled(True)
         
+        self.trainSmaxAiButton = TrainSpotmaxAIButton()
+        self.trainSmaxAiButton.setDisabled(True)
+        
         self.configButton.clicked.connect(self.promptConfigModel)
         self.combobox.currentTextChanged.connect(self.onTextChanged)
+
+        self.configButton.setToolTip(
+            'Set/view neural network model parameters'
+        )
         
         layout.addWidget(self.combobox)
         layout.addWidget(self.configButton)
+        layout.addWidget(self.trainSmaxAiButton)
         layout.setStretch(0, 1)
         layout.setStretch(1, 0)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -808,6 +844,8 @@ class SpotPredictionMethodWidget(QWidget):
         return self.value()
     
     def onTextChanged(self, text):
+        self.trainSmaxAiButton.setEnabled(text == 'spotMAX AI')
+        
         self.configButton.setDisabled(text == 'Thresholding')
         if not self.configButton.isEnabled():
             return
@@ -1536,10 +1574,18 @@ class FormLayout(QGridLayout):
         
 
 class ReadOnlyElidingLineEdit(acdc_widgets.ElidingLineEdit):
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, transparent=False):
         super().__init__(parent)
         self.setReadOnly(True)
+        if transparent:
+            self.setFrame(False)
+            palette = self.palette()
+            palette.setColor(QPalette.Base, Qt.transparent)
+            self.setPalette(palette)
 
+    def isTextElided(self):
+        return QLineEdit.text(self).startswith(b'\xe2\x80\xa6'.decode())
+    
 class myQScrollBar(QScrollBar):
     sigActionTriggered = Signal(int)
 
@@ -3470,3 +3516,219 @@ class DockWidget(QDockWidget):
         super().__init__(*args, **kwargs)
         
         self.installEventFilter(self)
+
+class VoxelSizeWidget(QWidget):
+    def __init__(self, parent=None, um_to_pixel=1.0, unit='pixel'):
+        super().__init__(parent)
+        
+        self.um_to_pixel = um_to_pixel
+        
+        try:
+            len(um_to_pixel)
+            self.um_to_pixel = np.array(um_to_pixel, dtype=float)
+        except Exception as err:
+            pass
+        
+        layout = QGridLayout()
+        
+        controlWidget = acdc_widgets.VectorLineEdit()
+        self.controlWidget = controlWidget
+        
+        displayLabel = QLabel('0.0')
+        displayLabel.setAlignment(Qt.AlignCenter)
+        self.displayLabel = displayLabel
+        
+        unitCombobox = QComboBox()
+        unitCombobox.addItems(['pixel', 'micrometre'])
+        self.unitCombobox = unitCombobox
+        
+        unitLabel = QLabel('micrometre')
+        
+        layout.addWidget(controlWidget, 0, 0)
+        layout.addWidget(unitCombobox, 0, 1, alignment=Qt.AlignLeft)
+        
+        layout.addWidget(displayLabel, 1, 0)
+        layout.addWidget(unitLabel, 1, 1, alignment=Qt.AlignLeft)
+        
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.controlWidget.valueChanged.connect(self.onValueChanged)
+        self.unitCombobox.currentTextChanged.connect(self.onValueChanged)
+        
+        self.setToolTip()
+        
+        self.setLayout(layout)
+    
+    def setValue(self, value):
+        self.controlWidget.setValue(value)
+    
+    def setToolTip(self):
+        unit = self.unitCombobox.currentText()
+        try:
+            len(self.um_to_pixel)
+            um_to_pixel = tuple(self.um_to_pixel)
+        except Exception as err:
+            um_to_pixel = self.um_to_pixel
+            
+        kwargs = {
+            'um_to_pixel': um_to_pixel, 
+            'unit': unit
+        }     
+        super().setToolTip(str(kwargs))   
+    
+    def onValueChanged(self, placeholder):
+        value = self.controlWidget.value()
+        
+        if self.unitCombobox.currentText() == 'pixel':
+            mult_factor = self.um_to_pixel
+            decimals = 4
+        else:
+            mult_factor = 1/self.um_to_pixel
+            decimals = 1
+        
+        self.setToolTip()
+        
+        try:
+            len(value)
+            value = np.round(np.array(value, dtype=float), decimals)
+            conv_value = value * mult_factor
+            text = str(tuple(conv_value))
+            self.displayLabel.setText(text)
+            return
+        except Exception as err:
+            pass
+        
+        try:
+            conv_value = round(value * mult_factor, decimals)
+            text = str(conv_value)
+            self.displayLabel.setText(text)
+            return
+        except Exception as err:
+            pass
+        
+        self.displayLabel.setText(html_func.span('ERROR', font_color='red'))
+    
+    def value(self):
+        if self.unitCombobox.currentText() == 'pixel':
+            try:
+                value = tuple(self.controlWidget.value())
+                return value
+            except Exception as err:
+                return self.controlWidget.value()
+        else:
+            return eval(self.displayLabel.text())
+        
+
+class LineEdit(QLineEdit):
+    def __init__(self, *args, centered=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        if centered:
+            self.setAlignment(Qt.AlignCenter)
+    
+    def setValue(self, value):
+        super().setText(str(value))
+    
+    def value(self):
+        return self.text()
+
+class EndnameLineEdit(LineEdit):
+    sigValueChanged = Signal(object)
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def setValue(self, value):
+        value_str = str(value)
+        folderpath = os.path.dirname(str(value))
+        is_images_folder = os.path.basename(folderpath) == 'Images'
+        is_spotmax_out_folder = os.path.basename(folderpath) == 'spotMAX_output'
+        if is_images_folder:
+            filepath = value_str
+            filename = os.path.basename(filepath)
+            posData = acdc_load.loadData(filepath, '')
+            posData.getBasenameAndChNames()
+            endname = filename[len(posData.basename):]
+            text = endname
+            self.setToolTip('Images')
+        elif is_spotmax_out_folder:
+            filepath = value_str
+            filename = os.path.basename(filepath)
+            text = filename
+            self.setToolTip('spotMAX_output')
+        else:
+            text = value_str
+            
+        self.setText(text)
+        self.sigValueChanged.emit(text)     
+
+class SelectPosFoldernamesButton(acdc_widgets.editPushButton):
+    def __init__(self, *args, exp_path='', **kwargs):
+        if not args:
+            args = ['Select/view Positions']
+            
+        super().__init__(*args, **kwargs)
+        
+        self._exp_path = exp_path
+        self._value = []
+        self.setToolTip()
+        
+        self.clicked.connect(self.selectPositions)
+    
+    def setToolTip(self):
+        super().setToolTip(str({'exp_path': self._exp_path}))
+    
+    def selectPositions(self):
+        pos_foldernames = acdc_myutils.get_pos_foldernames(self._exp_path)
+        win = acdc_widgets.QDialogListbox(
+            'Select Positions', 
+            'Select Positions', 
+            pos_foldernames,
+            parent=self, 
+            preSelectedItems=self.value()
+        )
+        win.exec_()
+        if win.cancel:
+            return
+        self.setValue(win.selectedItemsText)
+    
+    def setValue(self, value):
+        self._value = value
+    
+    def value(self):
+        return self._value
+
+class ArrowButtons(QWidget):
+    sigButtonClicked = Signal(str)
+    
+    def __init__(
+            self, order=('left', 'right', 'down', 'up'), 
+            orientation='horizontal',
+            tooltips=None,
+            parent=None
+        ):
+        super().__init__(parent)
+        
+        if orientation == 'horizontal':
+            layout = QHBoxLayout()
+        elif orientation == 'vertical':
+            layout = QVBoxLayout()
+        else:
+            raise ValueError(
+                'Only orientations allowd are "horizontal" and "vertical"'
+            )
+        
+        for d, direction in enumerate(order):
+            buttonName = f'arrow{direction.title()}PushButton'
+            button = getattr(acdc_widgets, buttonName)()
+            layout.addWidget(button)
+            button.clicked.connect(self.buttonClicked)
+            button.direction = direction
+            if tooltips is None:
+                continue
+            button.setToolTip(tooltips[d])
+        
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
+    
+    def buttonClicked(self):
+        self.sigButtonClicked.emit(self.sender().direction)

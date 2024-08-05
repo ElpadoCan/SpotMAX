@@ -553,7 +553,7 @@ def find_local_peaks(
     return valid_peaks_coords
 
 def add_custom_combined_measurements(df, logger_func=print, **features_exprs):
-    """_summary_
+    """Add custom combined measurement pandas.eval
 
     Parameters
     ----------

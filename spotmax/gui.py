@@ -45,7 +45,7 @@ from cellacdc import io as acdc_io
 from cellacdc.myutils import get_salute_string, determine_folder_type
 from cellacdc import qrc_resources
 from cellacdc import base_cca_dict
-from cellacdc import myutils as acdc_utils
+from cellacdc import myutils as acdc_myutils
 
 from . import qtworkers, io, printl, dialogs
 from . import logs_path, html_path, html_func
@@ -120,6 +120,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.initGui()
         self.createThreadPool()
         self.setMaxNumThreadsNumbaParam()
+        self.hideCellACDCtools()
     
     def setWindowIcon(self, icon=None):
         if icon is None:
@@ -751,7 +752,28 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.ax1.removeItem(self.highlightedRefChObjItem)
         except Exception as err:
             pass
+    
+    def hideCellACDCtools(self):
+        # self.measurementsMenu.setDisabled(False)
+        # self.setMeasurementsAction.setText('Set Cell-ACDC measurements...')
         
+        self.trackingMenu.menuAction().setVisible(False)
+        self.measurementsMenu.menuAction().setVisible(False)
+        self.segmentMenu.menuAction().setVisible(False)
+        
+        removeActions = False
+        for action in self.settingsMenu.actions():
+            if action.isSeparator():
+                removeActions = True
+                continue
+            if not removeActions:
+                continue
+            
+            if removeActions:
+                self.settingsMenu.removeAction(action)
+        
+        
+    
     def initGui(self):
         self.isAnalysisRunning = False
         
@@ -759,9 +781,6 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.newAction, self.manageVersionsAction, self.openFileAction
         )
         self.ax2.hide()
-        
-        self.measurementsMenu.setDisabled(False)
-        self.setMeasurementsAction.setText('Set Cell-ACDC measurements...')
         
         self.lastLoadedIniFilepath = None
         

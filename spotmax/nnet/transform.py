@@ -1,14 +1,18 @@
-from spotmax import filters, printl
 import numpy as np
+
 from skimage.transform import rescale
 from sklearn.preprocessing import MinMaxScaler
 from skimage.morphology import opening
+
+from .. import filters, printl, rng
 
 try:
     import numba
     from numba import njit
 except Exception as e:
     from .. import njit_replacement as njit
+
+
 
 # @njit
 def crop_single(img: np.ndarray, final_size: tuple) -> np.ndarray:
@@ -106,7 +110,9 @@ def _pad(images: np.ndarray, **kwargs) -> np.ndarray:
     pad_images = [pad_single(img, final_size, mode) for img in images]
     return np.asarray(pad_images)
 
-def _get_crops_single(img: np.ndarray, crops_shape=(256, 256)):
+def _get_crops_single(
+        img: np.ndarray, crops_shape=(256, 256), max_number_of_crops=-1
+    ):
     Y, X = img.shape
     Y_crop, X_crop = crops_shape
     if Y < Y_crop or X < X_crop:
@@ -131,6 +137,10 @@ def _get_crops_single(img: np.ndarray, crops_shape=(256, 256)):
     is_X_crop_left = X % X_crop > 0
     
     if not is_Y_crop_left and not is_X_crop_left:
+        if max_number_of_crops > 0 and len(cropped_imgs) > max_number_of_crops:
+            cropped_imgs = rng.choice(
+                cropped_imgs, max_number_of_crops, replace=False
+            )
         return cropped_imgs
     
     if is_Y_crop_left:
@@ -147,7 +157,12 @@ def _get_crops_single(img: np.ndarray, crops_shape=(256, 256)):
     
     if is_Y_crop_left and is_X_crop_left:
         cropped_imgs.append(img[-Y_crop:, -X_crop:])
-        
+    
+    if max_number_of_crops > 0 and len(cropped_imgs) > max_number_of_crops:
+        cropped_imgs = rng.choice(
+            cropped_imgs, max_number_of_crops, replace=False
+        )
+    
     return cropped_imgs
     
 def _get_crops(images: np.ndarray, crops_shape=(256, 256)):
@@ -202,15 +217,20 @@ def _rescale(images: np.ndarray, **kwargs) -> np.ndarray:
     anti_aliasing = kwargs.get("anti_aliasing", False)
     final_size = kwargs.get("final_size", None)
     crops_shape = kwargs.get("crops_shape", None)
+    max_number_of_crops = kwargs.get("max_number_of_crops", -1)
 
     # Rescale in 2D
-    scaled_images = [
-        rescale(
-            img, scale, anti_aliasing=anti_aliasing, 
-            preserve_range=True, order=order
-        ) 
-        for img in images
-    ]
+    if scale != 1:
+        scaled_images = [
+            rescale(
+                img, scale, anti_aliasing=anti_aliasing, 
+                preserve_range=True, order=order
+            ) 
+            for img in images
+        ]
+    else:
+        scaled_images = images
+        
     # Rescale in 3D
     #scaled_images = rescale(images, scale, anti_aliasing=anti_aliasing, preserve_range=True, order=order)
     processed_images = np.asarray(scaled_images)
@@ -219,7 +239,8 @@ def _rescale(images: np.ndarray, **kwargs) -> np.ndarray:
     
     if crops_shape is not None:
         processed_images = _get_crops(
-            processed_images, crops_shape=crops_shape
+            processed_images, crops_shape=crops_shape, 
+            max_number_of_crops=max_number_of_crops
         )
     
     return processed_images
@@ -465,6 +486,5 @@ def resample_to_multiple_batch_size(imgs: np.ndarray, batch_size=16):
     if missing_num_imgs == 0:
         return imgs
     
-    rng = np.random.default_rng(12)
     resampled_imgs = rng.choice(imgs, missing_num_imgs)
     return np.concatenate((imgs, resampled_imgs))

@@ -116,14 +116,19 @@ class NDModel(object):
         
         # Print operation and configuration of the model
         if config['verbose']:
-            print("########################################")
-            print("######## Model Configuration ###########")
-            print("########################################")
-            print(f"Model: {self.model.value}")
-            print(f"Operation: {self.operation.value}")
-            print(f"Configuration:")
-            pprint(config, sort_dicts=False)
-            print("########################################")
+            config_str = '\n'.join(
+                [f'{key}: {value}' for key, value in config.items()]
+            )
+            print(
+                "########################################\n"
+                "######## Model Configuration ###########\n"
+                "########################################\n"
+                f"Model: {self.model.value}\n"
+                f"Operation: {self.operation.value}\n"
+                f"Configuration:\n"
+                f"{config_str}\n"
+                "########################################"
+            )
         
         config['device'] = self.config['device']
         

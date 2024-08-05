@@ -667,6 +667,15 @@ def reshape_lab_image_to_3D(lab, image):
         lab = np.array([lab]*len(image))
     return lab, image
 
+def add_missing_axes_4D(img):
+    if img.ndim == 2:
+        img = img[np.newaxis]
+    
+    if img.ndim == 3:
+        img = img[np.newaxis]
+    
+    return img
+
 def reshape_spots_coords_to_3D(spots_coords):
     nrows, ncols = spots_coords.shape
     if ncols == 3:
@@ -753,6 +762,7 @@ def init_df_features(
         'y_local_expanded': local_peaks_coords_expanded[:,1],
         'x_local_expanded': local_peaks_coords_expanded[:,2],
     })
+    
     if 'spot_mask' in df_spots_coords.columns:
         spots_masks = (
             df_spots_coords.loc[[ID], 'spot_mask']).to_list()
