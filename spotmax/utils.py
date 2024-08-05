@@ -1094,6 +1094,14 @@ def _load_spots_masks_training_workflow(pos_path, masks_endname):
     masks_filepath = acdc_load.search_filepath_in_pos_path_from_endname(
             pos_path, masks_endname
     )
+    if masks_filepath is None:
+        print(
+            '[WARNING]: The following position does not have the '
+            f'{masks_endname} spots masks file. Skipping it. '
+            f'"{pos_path}"'
+        )
+        return 
+    
     spots_masks = acdc_load.load_image_file(masks_filepath)
     return spots_masks
 
@@ -1114,6 +1122,14 @@ def _generate_spots_masks_training_workflow(
         acdc_load.search_filepath_in_pos_path_from_endname(
             pos_path, spots_coords_endname
     ))
+    if spots_coords_filepath is None:
+        print(
+            '\n[WARNING]: The following position does not have the '
+            f'{spots_coords_endname} spots coords file. Skipping it. '
+            f'"{pos_path}"'
+        )
+        return 
+    
     df_spots = io.load_table_to_df(spots_coords_filepath)
     if img_data.ndim == 4:
         spots_masks = np.zeros(img_data.shape, dtype=bool)
@@ -1178,24 +1194,27 @@ def generate_dataset_training_workflow(
         y_list = []
         for pos_foldername in positions:
             pos_path = os.path.join(exp_path, pos_foldername)
-            for channel_name in channel_names_exp:
+            for ch, channel_name in enumerate(channel_names_exp):
                 channel_filepath = search_file_func(
                     pos_path, channel_name
                 )
                 img_data = acdc_load.load_image_file(channel_filepath)
                 
                 if masks_endnames is not None:
-                    masks_endname = masks_endnames[exp_path]
+                    masks_endname = masks_endnames[exp_path][ch]
                     spots_masks = _load_spots_masks_training_workflow(
                         pos_path, masks_endname
                     )
                 else:
                     spheroid_radii = spot_masks_size[exp_path]
-                    spots_coords_endname = spots_coords_endnames[exp_path]
+                    spots_coords_endname = spots_coords_endnames[exp_path][ch]
                     spots_masks = _generate_spots_masks_training_workflow(
                         pos_path, img_data, spheroid_radii, 
                         spots_coords_endname
                     )
+                
+                if spots_masks is None:
+                    continue
                 
                 Y, X = img_data.shape[-2:]
                 flat_2d_spots_masks = spots_masks.reshape(-1, Y, X)
@@ -1233,8 +1252,20 @@ def generate_dataset_training_workflow(
                 pbar.update()
         pbar.close()
         
-        h5_filename = f'{os.path.basename(exp_path)}_{category}.h5'
+        exp_path_parts = exp_path.replace('\\', '/').split('/')
+        ep = exp_path_parts
+        h5_filename = f'{ep[-3]}_{ep[-2]}_{ep[-1]}_{category}.h5'
         h5_filepath = os.path.join(datasets_folderpath, h5_filename)
+        i = 4
+        while os.path.exists(h5_filepath):
+            try:
+                h5_filename = f'{ep[-i]}_{h5_filename}'
+            except IndexError:
+                i = 1
+                h5_filename = f'{i:02d}_{h5_filename}'
+            h5_filepath = os.path.join(datasets_folderpath, h5_filename)
+            i += 1
+            
         dset = h5py.File(h5_filepath, 'w')
         dset['pixel_size'] = pixel_size
         dset['X'] = np.array(X_list)
@@ -1368,8 +1399,12 @@ def generate_unet_training_workflow_files(
             if spots_coords_endnames_exp is not None:
                 if isinstance(spots_coords_endnames_exp, str):
                     spots_coords_endnames_exp = [spots_coords_endnames_exp]
-                spots_coords_endnames_exp_str = '\n'.join(spots_coords_endnames_exp)
-                exp_path_params['spots_coords_endnames'] = spots_coords_endnames_exp
+                spots_coords_endnames_exp_str = '\n'.join(
+                    spots_coords_endnames_exp
+                )
+                exp_path_params['spots_coords_endnames'] = (
+                    spots_coords_endnames_exp_str
+                )
         
         if spot_masks_size is not None:
             spot_masks_size_exp = spot_masks_size.get(exp_path)

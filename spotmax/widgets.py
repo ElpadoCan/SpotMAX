@@ -3696,3 +3696,39 @@ class SelectPosFoldernamesButton(acdc_widgets.editPushButton):
     
     def value(self):
         return self._value
+
+class ArrowButtons(QWidget):
+    sigButtonClicked = Signal(str)
+    
+    def __init__(
+            self, order=('left', 'right', 'down', 'up'), 
+            orientation='horizontal',
+            tooltips=None,
+            parent=None
+        ):
+        super().__init__(parent)
+        
+        if orientation == 'horizontal':
+            layout = QHBoxLayout()
+        elif orientation == 'vertical':
+            layout = QVBoxLayout()
+        else:
+            raise ValueError(
+                'Only orientations allowd are "horizontal" and "vertical"'
+            )
+        
+        for d, direction in enumerate(order):
+            buttonName = f'arrow{direction.title()}PushButton'
+            button = getattr(acdc_widgets, buttonName)()
+            layout.addWidget(button)
+            button.clicked.connect(self.buttonClicked)
+            button.direction = direction
+            if tooltips is None:
+                continue
+            button.setToolTip(tooltips[d])
+        
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
+    
+    def buttonClicked(self):
+        self.sigButtonClicked.emit(self.sender().direction)

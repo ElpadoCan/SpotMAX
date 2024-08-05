@@ -3890,7 +3890,7 @@ class SelectFolderToAnalyse(QBaseDialog):
 
         delButton = acdc_widgets.delPushButton('Remove selected path(s)')
         browseButton = acdc_widgets.browseFileButton(
-            'Browse to add a path', openFolder=True, 
+            'Add folder...', openFolder=True, 
             start_dir=acdc_myutils.getMostRecentPath()
         )
         
@@ -4720,10 +4720,15 @@ class SetupUnetTrainingDialog(QBaseDialog):
         paramsLayout.setColumnStretch(3, 0)
         
         buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
-        buttonsLayout.okButton.setText('Done, generate worflow file')
+        buttonsLayout.okButton.setText('Done, generate worflow files')
         
         buttonsLayout.okButton.clicked.connect(self.ok_cb)
         buttonsLayout.cancelButton.clicked.connect(self.close)
+        
+        saveToWorkflowFileButton = acdc_widgets.savePushButton(
+            'Save to workflow file...'
+        )
+        buttonsLayout.insertWidget(3, saveToWorkflowFileButton)
         
         loadFromWorkflowFileButton = acdc_widgets.browseFileButton(
             'Load from workflow file...', 
@@ -4732,11 +4737,6 @@ class SetupUnetTrainingDialog(QBaseDialog):
             start_dir=acdc_myutils.getMostRecentPath(),
         )
         buttonsLayout.insertWidget(3, loadFromWorkflowFileButton)
-        
-        saveToWorkflowFileButton = acdc_widgets.savePushButton(
-            'Save to workflow file...'
-        )
-        buttonsLayout.insertWidget(3, saveToWorkflowFileButton)
         
         helpButton = acdc_widgets.helpPushButton('Help...')
         buttonsLayout.insertWidget(3, helpButton)
@@ -4771,7 +4771,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
             use_value_as_widgets_value=True,
             widgets_values_are_multiple_entries=True,
             depends_on_channels=True, 
-            rel_start_dir='Position'
+            rel_start_dir='Position', 
+            enable_autofill=True
         ))
         
         self.selectMasksFilesButton.clicked.connect(partial(
@@ -4794,7 +4795,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
             add_browse_button=False, 
             use_tooltip_as_widget_kwargs=True, 
             use_value_as_widgets_value=True, 
-            entry_header='Spot mask radius'
+            entry_header='Spot mask radius', 
+            add_apply_to_all_buttons=True
         ))
         
         self.selectedPixelSizesButton.clicked.connect(partial(
@@ -4891,6 +4893,11 @@ class SetupUnetTrainingDialog(QBaseDialog):
     def loadFromWorkflowFile(self, ini_filepath):
         cp = config.ConfigParser()
         cp.read(ini_filepath)
+        folderpath = os.path.dirname(ini_filepath)
+        self.folderPathWorflowWidget.setText(folderpath)
+        
+        filename = os.path.basename(ini_filepath)
+        self.workflowFilenameWidget.setText(filename[:-4])
         
         expPaths = []       
         for section in cp.sections():
@@ -5399,7 +5406,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
             the HDF database files.<br><br>
             It might take some time, depending on the amount of data to process.<br><br>
             Progress will be displayed in the terminal, while the GUI 
-            will be in a frozen state. 
+            will be in a frozen state.<br> 
             {html_func.to_admonition(important_text, admonition_type='important')}                         
         """)
         msg = acdc_widgets.myMessageBox(wrapText=False)
@@ -5529,7 +5536,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
             add_browse_button=True, use_value_as_widgets_value=False, 
             entry_header='File endname', depends_on_channels=False, 
             allow_add_field=False, widgets_values_are_multiple_entries=False,
-            rel_start_dir=None, enable_autofill=False
+            rel_start_dir=None, enable_autofill=False, 
+            add_apply_to_all_buttons=False
         ):
         selectedPaths = self._validateSelectedPaths()
         if not selectedPaths:
@@ -5568,9 +5576,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
                 widgets_values = []
                 for exp_path in expPaths:
                     values_mapper = selectedValuesMapper[exp_path]
-                    values_list = [
-                        eval(value[1]) for value in values_mapper.keys()
-                    ]
+                    values_list = list(values_mapper.keys())
                     widgets_values.append(values_list)
             elif selectedValuesMapper is not None:
                 widgets_values = [
@@ -5593,6 +5599,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
             add_browse_button=add_browse_button, 
             rel_start_dir=rel_start_dir, 
             enable_autofill=enable_autofill,
+            add_apply_to_all_buttons=add_apply_to_all_buttons,
             parent=self
         )
         win.exec_()
@@ -5757,8 +5764,16 @@ class SetupUnetTrainingDialog(QBaseDialog):
         if not os.path.exists(workflowFolderpath):
             self.warnWorflowFolderpathDoesNotExist()
             return ''
-    
-        if not os.listdir(workflowFolderpath):
+
+        ls_workflow_folder = os.listdir(workflowFolderpath)
+        is_empty = (
+            not ls_workflow_folder 
+            or (
+                len(ls_workflow_folder) == 1 
+                and ls_workflow_folder[0].endswith('.ini')
+            )
+        )
+        if not is_empty:
             self.warnWorflowFolderpathNotEmpty(workflowFolderpath)
             return ''
             
@@ -5913,9 +5928,9 @@ class SetupUnetTrainingDialog(QBaseDialog):
             selectedSpotsCoords = self._validateSelectedSpotsCoords(
                 selectedPaths, warn=warn
             )
-            if not selectedMasks and warn:
+            if not selectedSpotsCoords and warn:
                 return False
-        
+
         pixelSizes = self._validateSelectedPixelSizes(selectedPaths, warn=warn)
         if not pixelSizes and warn:
             return False
@@ -5944,13 +5959,12 @@ class SetupUnetTrainingDialog(QBaseDialog):
         
         proceed = True
         if warn:
-            proceed = self.warnDataPrepProcessStartsNow(workflowFilepath)
-            if not proceed:
+            cancel = self.warnDataPrepProcessStartsNow(workflowFilepath)
+            if cancel:
                 return False
         
         self.workflowFilepath = workflowFilepath
         # acdc_myutils.addToRecentPaths(workflowFolderpath)
-        
         try:
             print('Generating spotMAX AI training workflow files...')
             utils.generate_unet_training_workflow_files(
@@ -6017,6 +6031,7 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             allow_add_field=False,
             rel_start_dir=None,
             enable_autofill=False,
+            add_apply_to_all_buttons=False,
             parent=None, 
         ):        
         self.cancel = True
@@ -6027,6 +6042,8 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
         self._allow_add_field = allow_add_field
         self._channel_names = channel_names
         self._enable_autofill = enable_autofill
+        self._add_apply_to_all_buttons = add_apply_to_all_buttons
+        self._last_col = 5
         
         self.setWindowTitle(title)
         
@@ -6102,9 +6119,28 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
                 addFieldButton = acdc_widgets.addPushButton()
                 addFieldButton.setToolTip('Add new entry')
                 addFieldButton.clicked.connect(self.addField)
-                gridLayout.addWidget(addFieldButton, row, 4)
+                gridLayout.addWidget(addFieldButton, row, self._last_col)
             else:
-                gridLayout.addWidget(QLabel(''), row, 4)
+                gridLayout.addWidget(QLabel(''), row, self._last_col)
+            
+            if add_apply_to_all_buttons:
+                applyToAllButton = widgets.ArrowButtons(
+                    order=('down', 'up'), 
+                    tooltips=(
+                        'Apply value to all entries below', 
+                        'Apply value to all entries above'
+                    )
+                )
+                gridLayout.addWidget(applyToAllButton, row, self._last_col-1)
+                applyToAllButton.sigButtonClicked.connect(
+                    self.applyToOtherFields
+                )
+                applyToAllButton.index = row-1
+                delButtonWidget = applyToAllButton
+            else:
+                emptyLabel = QLabel('')
+                gridLayout.addWidget(emptyLabel, row, self._last_col-1)
+                delButtonWidget = emptyLabel
             
             widget_kwargs = [{} for _ in range(len(channels_exp))]
             if widgets_kwargs is not None:
@@ -6127,7 +6163,9 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
                 if ch > 0 and allow_add_field:
                     delFieldButton = acdc_widgets.delPushButton()
                     delFieldButton.addFieldButton = addFieldButton
-                    self.gridLayout.addWidget(delFieldButton, row, 4)   
+                    self.gridLayout.addWidget(
+                        delFieldButton, row, self._last_col
+                    )   
                     delFieldButton.widgets = []
                     delFieldButton.clicked.connect(self.removeField)
                     
@@ -6142,7 +6180,7 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
                 
                 channel_text = ''
                 if channel:
-                    channel_text = f'| {channel}: '
+                    channel_text = f'| <i>{channel}:</i> '
                 
                 channelLabel = QLabel(channel_text)
                 gridLayout.addWidget(
@@ -6222,6 +6260,7 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
         gridLayout.setColumnStretch(2, 1)
         gridLayout.setColumnStretch(3, 0)
         gridLayout.setColumnStretch(4, 0)
+        gridLayout.setColumnStretch(5, 0)
         gridLayout.setRowStretch(0, 0)
         
         buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
@@ -6326,7 +6365,7 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
         
         delFieldButton = acdc_widgets.delPushButton()
         delFieldButton.addFieldButton = addFieldButton
-        self.gridLayout.addWidget(delFieldButton, nextRow, 4)   
+        self.gridLayout.addWidget(delFieldButton, nextRow, self._last_col)   
         delFieldButton.widgets = []
         delFieldButton.clicked.connect(self.removeField)
         
@@ -6362,12 +6401,43 @@ class SelectInfoForEachExperimentDialog(QBaseDialog):
             self.gridLayout.addWidget(emptyLabel, nextRow, 3)
             delFieldButton.widgets.append(emptyLabel)
         
+        if self._add_apply_to_all_buttons:
+            applyToAllButton = widget.ArrowButtons(
+                order=('down', 'up')
+            )
+            self.gridLayout.addWidget(
+                applyToAllButton, nextRow, self._last_col-1
+            )
+            applyToAllButton.sigButtonClicked.connect(
+                self.applyToOtherFields
+            )
+            applyToAllButton.row = nextRow
+            delButtonWidget = applyToAllButton
+        else:
+            emptyLabel = QLabel('')
+            self.gridLayout.addWidget(emptyLabel, nextRow, self._last_col-1)
+            delButtonWidget = emptyLabel
+        delFieldButton.widgets.append(delButtonWidget)
+        
         self.widgets[(exp_path, nextRow)] = widget           
         
         delFieldButton.key = (exp_path, nextRow)
         addFieldButton.row = nextRow + 1
         
         QTimer.singleShot(50, self.resizeUponFieldAddedOrRemoved)
+    
+    def applyToOtherFields(self, direction):
+        index = self.sender().index
+        if direction == 'up':
+            index_range = range(index-1, -1, -1)
+        else:
+            index_range = range(index+1, len(self.widgets))
+        
+        widgets = list(self.widgets.values())
+        value = widgets[index].value()
+        for i in index_range:
+            widget = widgets[i]
+            widget.setValue(value)
     
     def removeField(self):
         self.prevScrollAreaHeight = int(
