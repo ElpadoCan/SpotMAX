@@ -1108,6 +1108,8 @@ def _load_spots_masks_training_workflow(pos_path, masks_endname):
 def _generate_spots_masks_training_workflow(
         pos_path, img_data, spheroid_radii, spots_coords_endname
     ):
+    df_spots = io.load_table_to_df(spots_coords_filepath)
+    
     if img_data.ndim == 2:
         img_data = img_data[np.newaxis]
         df_spots['z'] = 1
@@ -1130,7 +1132,6 @@ def _generate_spots_masks_training_workflow(
         )
         return 
     
-    df_spots = io.load_table_to_df(spots_coords_filepath)
     if img_data.ndim == 4:
         spots_masks = np.zeros(img_data.shape, dtype=bool)
         if 't' in df_spots.columns:
