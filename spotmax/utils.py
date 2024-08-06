@@ -1108,6 +1108,10 @@ def _load_spots_masks_training_workflow(pos_path, masks_endname):
 def _generate_spots_masks_training_workflow(
         pos_path, img_data, spheroid_radii, spots_coords_endname
     ):
+    spots_coords_filepath = (
+        acdc_load.search_filepath_in_pos_path_from_endname(
+            pos_path, spots_coords_endname
+    ))
     df_spots = io.load_table_to_df(spots_coords_filepath)
     
     if img_data.ndim == 2:
@@ -1120,10 +1124,6 @@ def _generate_spots_masks_training_workflow(
     except Exception as err:
         pass
             
-    spots_coords_filepath = (
-        acdc_load.search_filepath_in_pos_path_from_endname(
-            pos_path, spots_coords_endname
-    ))
     if spots_coords_filepath is None:
         print(
             '\n[WARNING]: The following position does not have the '
