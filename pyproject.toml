@@ -53,8 +53,6 @@ Homepage = "https://github.com/ElpadoCan/spotMAX"
 "Author contact" = "https://schmollerlab.com/francescopadovani"
 "Schmoller lab" = "https://schmollerlab.com/"
 
-
-
 [project.optional-dependencies]
 all = [
     "cellacdc",

@@ -14,7 +14,13 @@ import numpy as np
 import pathlib
 import re
 import h5py
-import yaml
+
+try:
+    import yaml
+except ModuleNotFoundError:
+    # Needed only with Unet and prev users do not need it
+    pass
+    
 from uuid import uuid4
 import configparser
 from urllib.parse import urlparse
