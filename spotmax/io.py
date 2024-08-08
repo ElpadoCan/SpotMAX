@@ -7,7 +7,7 @@ import datetime
 import time
 import copy
 from functools import partial
-from typing import List, Literal
+from typing import List, Literal, Union
 import json
 import traceback
 import cv2
@@ -698,6 +698,52 @@ def load_spots_table(spotmax_out_path, filename, filepath=None):
     elif filename.endswith('.h5'):
         df = _load_spots_table_h5(filepath)
     return df
+
+def load_spots_table_from_run_num(
+        spotmax_out_path: os.PathLike, 
+        run_num: int,
+        category: Literal['detected_spots', 'valid_spots', 'spotfit'], 
+        only_filepath=False
+    ) -> Union[pd.DataFrame, str]:
+    for file in os.listdir(spotmax_out_path):
+        if not file.startswith(f'{run_num}'):
+            continue
+        
+        if category not in file:
+            continue
+        
+        filepath = os.path.join(spotmax_out_path, file)
+        if only_filepath:
+            return filepath
+
+        return load_table_to_df(filepath)
+
+def get_ini_value_from_run_num(
+        spotmax_out_path: os.PathLike,
+        run_num: int,
+        section: str,
+        option: str,
+        getter='get'
+    ):
+    for file in os.listdir(spotmax_out_path):
+        if not file.startswith(f'{run_num}_analysis_parameters'):
+            continue
+        
+        cp = config.ConfigParser()
+        cp.read(os.path.join(spotmax_out_path, file))
+        getter_func = getattr(cp, getter)
+        return getter_func(section, option)
+
+def get_spots_channel_name_from_run_num(
+        spotmax_out_path: os.PathLike,
+        run_num: int
+    ) -> str:
+    section = 'File paths and channels'
+    option = 'Spots channel end name or path'
+    channel_name = get_ini_value_from_run_num(
+        spotmax_out_path, run_num, section, option
+    )
+    return channel_name            
 
 def load_table_to_df(filepath, index_col=None):
     if filepath.endswith('.csv'):
