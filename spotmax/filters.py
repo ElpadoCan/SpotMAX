@@ -103,7 +103,10 @@ def DoG_spots(
         raise TypeError(
             f'Sharpening filter input sigmas cannot be 0. `zyx_sigma1 = {sigma1}`'
         )
-        
+    
+    if image.ndim == 2:
+        sigma1 = sigma1[0]
+    
     blurred1 = gaussian(
         image, sigma1, use_gpu=use_gpu, logger_func=logger_func
     )
