@@ -38,7 +38,7 @@ def remove_hot_pixels(image, logger_func=print, progress=True):
         if progress:
             pbar.close()
     else:
-        filtered[z] = skimage.morphology.opening(img)
+        filtered[z] = skimage.morphology.opening(image)
     return filtered
 
 def gaussian(image, sigma, use_gpu=False, logger_func=print):
