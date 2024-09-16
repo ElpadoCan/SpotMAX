@@ -3609,7 +3609,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
 
     def __init__(
             self, df_spots_files, spotmax_out_path=None, parent=None, 
-            state=None, color_idx=0
+            state=None, color_idx=0, selected_file=None
         ):
         self.cancel = True
         self.loop = None
@@ -3625,9 +3625,14 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         row = 0
         h5fileCombobox = QComboBox()
         h5fileCombobox.addItems(df_spots_files)
+        
+        if selected_file is not None:
+            h5fileCombobox.setCurrentText(selected_file)
+        
         if state is not None:
             h5fileCombobox.setCurrentText(state['selected_file'])
             h5fileCombobox.setDisabled(True)
+        
         self.h5fileCombobox = h5fileCombobox
         body_txt = ("""
             Select which table you want to plot.
@@ -3930,15 +3935,40 @@ class SelectFolderToAnalyse(QBaseDialog):
         self.paths = self.pathsList()
         self.close()
     
+    def warnNoValidPathsFound(self, selected_path):
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph("""
+            The selected path (see below) <b>does not contain any valid folder.</b><br><br>
+            Please, make sure to select a Position folder, the Images folder 
+            inside a Position folder, or any folder containing a Position folder 
+            as a sub-directory.<br><br>
+            Thank you for your patience!<br><br>
+            Selected path:
+        """)
+        msg.warning(
+            self, 'Training workflow generated', txt, 
+            commands=(f'{selected_path}',),
+            path_to_browse=selected_path
+        )
+    
     def addFolderPath(self, path):
         acdc_myutils.addToRecentPaths(path)
         
-        if self.scanTree:
+        folder_type = acdc_myutils.determine_folder_type(path)     
+        is_pos_folder, is_images_folder, folder_path = folder_type 
+        if is_pos_folder:
+            paths = [path]
+        elif is_images_folder:
+            paths = [os.path.dirname(path)]
+        elif self.scanTree:
             pathScanner = io.expFolderScanner(path)
             pathScanner.getExpPaths(path)
             paths = pathScanner.expPaths
         else:
             paths = [path]
+        
+        if not paths:
+            self.warnNoValidPathsFound(path)
         
         for selectedPath in paths:
             if self.onlyExpPaths:

@@ -20,15 +20,15 @@ from . import _warnings
 from . import core
 
 def normalise_by_dist_transform_simple(
-        spot_slice_z, dist_transf, backgr_vals_z_spot
+        spot_slice_z, dist_transf, backgr_vals_z_spot, debug=False
     ):
     norm_spot_slice_z = spot_slice_z*dist_transf
-    backgr_median = np.median(backgr_vals_z_spot)
-    norm_spot_slice_z[norm_spot_slice_z<backgr_median] = backgr_median
+    backgr_mean = np.mean(backgr_vals_z_spot)
+    norm_spot_slice_z[norm_spot_slice_z<backgr_mean] = backgr_mean
     return norm_spot_slice_z
 
 def normalise_by_dist_transform_range(
-        spot_slice_z, dist_transf, backgr_vals_z_spot
+        spot_slice_z, dist_transf, backgr_vals_z_spot, debug=False
     ):
     """Normalise the distance transform based on the distance from expected 
     value. 
@@ -37,8 +37,8 @@ def normalise_by_dist_transform_range(
     should be corrected by the distance transform. On the other hand, if a 
     pixel is far but already at background level it doesn't need correction. 
 
-    We do not allow corrected values below background median, so these values 
-    are set to background median.
+    We do not allow corrected values below background mean, so these values 
+    are set to background mean.
 
     Parameters
     ----------
@@ -66,18 +66,21 @@ def normalise_by_dist_transform_range(
     >>> norm_spot_slice_z_range
     [0.51568652 0.5        1.85727514 0.7       ]
     """    
-    backgr_median = np.median(backgr_vals_z_spot)
-    expected_values = (1 + (dist_transf-dist_transf.min()))*backgr_median
+    backgr_val = np.mean(backgr_vals_z_spot)
+    min_dist_transf_nonzero = np.min(dist_transf[np.nonzero(dist_transf)])
+    expected_values = (1 + (dist_transf-min_dist_transf_nonzero))*backgr_val
     spot_slice_z_nonzero = spot_slice_z.copy()
     # Ensure that we don't divide by zeros
     spot_slice_z_nonzero[spot_slice_z==0] = 1E-15
     dist_from_expected_perc = (spot_slice_z-expected_values)/spot_slice_z_nonzero
     dist_transf_range = 1 - dist_transf
     dist_transf_correction = np.abs(dist_from_expected_perc*dist_transf_range)
-    dist_tranf_required = 1-np.sqrt(dist_transf_correction)
-    dist_tranf_required[dist_tranf_required<0] = 0
-    norm_spot_slice_z = spot_slice_z*dist_tranf_required
-    norm_spot_slice_z[norm_spot_slice_z<backgr_median] = backgr_median
+    dist_transf_required = 1-np.sqrt(dist_transf_correction)
+    dist_transf_required[dist_transf_required<0] = 0
+    norm_spot_slice_z = spot_slice_z*dist_transf_required
+    norm_spot_slice_z[norm_spot_slice_z<backgr_val] = backgr_val
+    if debug:
+        import pdb; pdb.set_trace()
     return norm_spot_slice_z
     
 

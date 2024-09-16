@@ -585,7 +585,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         msg = acdc_widgets.myMessageBox(wrapText=False)
         msg.warning(self, 'No valid files found', txt)
     
-    def addSpotsCoordinatesTriggered(self):
+    def addSpotsCoordinatesTriggered(self, checked=True, selected_file=None):
         posData = self.data[self.pos_i]
         if not os.path.exists(posData.spotmax_out_path):
             _warnings.warnSpotmaxOutFolderDoesNotExist(
@@ -599,8 +599,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not df_spots_files:
             self.warnNoSpotsFilesFound(posData.spotmax_out_path)
             return
+        
         self.spotsItems.setPosition(posData)
-        toolbutton = self.spotsItems.addLayer(df_spots_files)
+        toolbutton = self.spotsItems.addLayer(
+            df_spots_files, selected_file=selected_file
+        )
         for _posData in self.data:
             self.spotsItems.setPosition(_posData)
             self.spotsItems.loadSpotsTables()
@@ -849,7 +852,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.isAnalysisRunning = False
         self.setWindowState(self.stateBeforeStartingAnalysis)
         self.setDisabled(False)
-        ini_filepath, is_tempfile = args
+        ini_filepath, is_tempfile = args[:2]
         self.logger.info('Analysis finished')
         if is_tempfile:
             tempdir = os.path.dirname(ini_filepath)
@@ -906,7 +909,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             return
         
         if self.isDataLoaded:
-            self.askVisualizeResults()
+            runNumberLastAnalysis = args[2]
+            self.askVisualizeResults(runNumberLastAnalysis)
         else:
             self.instructHowToVisualizeResults()
     
@@ -925,7 +929,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         file_handler = utils.logger_file_handler(self.log_path, mode='a')
         self.logger.addHandler(file_handler)
     
-    def askVisualizeResults(self):        
+    def askVisualizeResults(self, runNumberLastAnalysis):        
         txt = html_func.paragraph(
             'Do you want to visualize the results in the GUI?'
         )
@@ -933,23 +937,36 @@ class spotMAX_Win(acdc_gui.guiWin):
         _, yesButton = msg.question(
             self, 'Visualize results?', txt, buttonsTexts=('No', 'Yes')
         )
-        if msg.clickedButton == yesButton:
-            if not self.isDataLoaded:
-                txt = html_func.paragraph("""
-            In order to visualize the results you need to <b>load some 
-            image data first</b>.<br><br>
+        if msg.clickedButton != yesButton:
+            return 
+        
+        if not self.isDataLoaded:
+            txt = html_func.paragraph("""
+        In order to visualize the results you need to <b>load some 
+        image data first</b>.<br><br>
+        
+        To do so, click on the <code>Open folder</code> button on the left of 
+        the top toolbar (Ctrl+O) and choose an experiment folder to load.<br><br>
+        
+        After loading the image data you can visualize the results by clicking 
+        on the <code>Visualize detected spots from a previous analysis</code> 
+        button on the left-side toolbar. 
+    """)
+            msg = acdc_widgets.myMessageBox(wrapText=True)
+            msg.warning(self, 'Data not loaded', txt)
+            return
+        
+        posData = self.data[self.pos_i]
+        sm_files = posData.getSpotmaxSingleSpotsfiles()
+        selected_file = None
+        for file in sm_files:
+            if file.startswith(f'{selected_file}_0_detect'):
+                selected_file = file
+                break
             
-            To do so, click on the <code>Open folder</code> button on the left of 
-            the top toolbar (Ctrl+O) and choose an experiment folder to load.<br><br>
-            
-            After loading the image data you can visualize the results by clicking 
-            on the <code>Visualize detected spots from a previous analysis</code> 
-            button on the left-side toolbar. 
-        """)
-                msg = acdc_widgets.myMessageBox(wrapText=True)
-                msg.warning(self, 'Data not loaded', txt)
-                return
-            self.addSpotsCoordinatesAction.trigger()
+        self.addSpotsCoordinatesAction.addSpotsCoordinatesTriggered(
+            selected_file=selected_file
+        )
         
     
     def gui_createActions(self):
@@ -3326,7 +3343,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         super().updateZproj(how)
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
         addAutoTunePointsButton = autoTuneTabWidget.addAutoTunePointsButton
-        addAutoTunePointsButton.setDisabled(how != 'single z-slice')            
+        addAutoTunePointsButton.setDisabled(how != 'single z-slice')  
+        addAutoTunePointsButton.setToolTip(
+            'Functionality disabled in projection mode.\n'
+            'Switch to "single z-slice" to activate it.'
+        )          
     
     def updateAllImages(self, *args, **kwargs):
         posData = self.data[self.pos_i]

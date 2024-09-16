@@ -2170,15 +2170,17 @@ class SpotsItems:
         self.currentPointSize = None
         self.loadedDfs = {}
 
-    def addLayer(self, df_spots_files: dict):
+    def addLayer(self, df_spots_files: dict, selected_file=None):
         all_df_spots_files = set()
         for files in df_spots_files.values():
             all_df_spots_files.update(files)
+            
         win = dialogs.SpotsItemPropertiesDialog(
             natsorted(all_df_spots_files), 
             spotmax_out_path=self.spotmax_out_path,
             parent=self.parent, 
-            color_idx=len(self.buttons)
+            color_idx=len(self.buttons), 
+            selected_file=selected_file
         )
         win.exec_()
         if win.cancel:

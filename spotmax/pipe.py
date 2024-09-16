@@ -1128,7 +1128,8 @@ def _compute_obj_spots_features(
             sharp_spot_slice_z_transf = (
                 transformations.normalise_spot_by_dist_transf(
                     sharp_spot_slice_z, dist_transf.max(axis=0),
-                    backgr_vals_z_spot, how='range'
+                    backgr_vals_z_spot, how='range', 
+                    debug=False # spot_id==32
             ))
 
         # Get spot intensities
@@ -1206,6 +1207,9 @@ def _compute_obj_spots_features(
             debug=debug, logger_warning_report=logger_warning_report,
             logger_func=logger_func
         )
+        
+        # if spot_id == 32:
+        #     import pdb; pdb.set_trace()
         
         features.add_spot_localization_metrics(
             df_obj_spots, spot_id, zyx_center, obj_centroid,

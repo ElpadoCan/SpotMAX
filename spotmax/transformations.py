@@ -789,15 +789,17 @@ def norm_distance_transform_edt(mask):
 
 def normalise_spot_by_dist_transf(
         spot_slice_z, dist_transf, backgr_vals_z_spots,
-        how='range'
-    ):
+        how='range', debug=False
+    ):        
     if how == 'range':
         norm_spot_slice_z = features.normalise_by_dist_transform_range(
-            spot_slice_z, dist_transf, backgr_vals_z_spots
+            spot_slice_z, dist_transf, backgr_vals_z_spots, 
+            debug=debug
         )
     elif how == 'simple':
         norm_spot_slice_z = features.normalise_by_dist_transform_simple(
-            spot_slice_z, dist_transf, backgr_vals_z_spots
+            spot_slice_z, dist_transf, backgr_vals_z_spots, 
+            debug=debug
         )
     else:
         norm_spot_slice_z = spot_slice_z
