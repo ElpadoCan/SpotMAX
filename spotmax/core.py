@@ -147,6 +147,18 @@ class _DataLoader:
         self.logger.info(f'Files present in "{images_path}":\n\n{files_format}')
         print('*'*100)
     
+    def _log_exec_time(self, t0, desc, additional_txt=''):
+        t1 = time.perf_counter()
+        print('\n')
+        print('='*100)
+        elpased_seconds = t1-t0
+        elapsed_delta = str(timedelta(seconds=elpased_seconds))
+        self.logger.info(
+            f'Execution time {desc} = {elapsed_delta} HH:mm:ss '
+            f'{additional_txt}'
+        )
+        print('='*100)
+    
     def _load_data_from_images_path(
             self, images_path: os.PathLike, 
             spots_ch_endname: str, 
@@ -672,7 +684,7 @@ class _ParamsParser(_DataLoader):
         SECTION = 'Configuration'
         if SECTION not in configPars.sections():
             configPars[SECTION] = {}
-
+        
         config_default_params = config._configuration_params()
         for anchor, options in config_default_params.items():
             arg_name = options['parser_arg']
@@ -5778,6 +5790,7 @@ class Kernel(_ParamsParser):
 
             NOTE: This dictionary is computed in the `set_abs_exp_paths` method.
         """      
+        t0 = time.perf_counter()
         desc = 'Experiments completed'
         pbar_exp = tqdm(total=len(exp_paths), ncols=100, desc=desc, position=0)  
         for exp_path, exp_info in exp_paths.items():
@@ -5811,7 +5824,7 @@ class Kernel(_ParamsParser):
                 self.logger.info(f'Analysing "...{os.sep}{rel_path}"...')
                 images_path = os.path.join(pos_path, 'Images')
                 self._current_pos_path = pos_path
-                t0 = time.perf_counter()
+                t0_pos = time.perf_counter()
                 result = self._run_from_images_path(
                     images_path, 
                     spots_ch_endname=spots_ch_endname, 
@@ -5846,19 +5859,14 @@ class Kernel(_ParamsParser):
                     verbose=verbose
                 )
                 pbar_pos.update()
-                t1 = time.perf_counter()
-                print('\n')
-                print('='*100)
-                elpased_seconds = t1-t0
-                elapsed_delta = str(timedelta(seconds=elpased_seconds))
-                self.logger.info(
-                    f'Execution time single Position = {elapsed_delta} HH:mm:ss '
-                    f'(Path: "{pos_path}")'
+                self._log_exec_time(
+                    t0_pos, 'single Position', 
+                    additional_txt=f'(Path: "{pos_path}")'
                 )
-                print('='*100)
             pbar_pos.close()
             pbar_exp.update()
         pbar_exp.close()
+        self._log_exec_time(t0_pos, 'entire analysis')
         self.logger.info('spotMAX analysis completed.')
     
     def _add_missing_cells_and_merge_with_df_agg(self, df_agg_src, df_agg_dst):
@@ -6038,6 +6046,10 @@ class Kernel(_ParamsParser):
         
         configPars = config.exp_paths_to_str(self._params, configPars)
         
+        configPars['Configuration']['Source parameters file'] = (
+            self.ini_params_file_path
+        )
+        
         with open(analysis_inputs_filepath, 'w', encoding="utf-8") as file:
             configPars.write(file)
         
@@ -6204,6 +6216,7 @@ class Kernel(_ParamsParser):
         if parser_args is not None:
             params_path = self.ini_params_file_path
             self.add_parser_args_to_params_ini_file(parser_args, params_path)
+        
         self._save_missing_params_to_ini(
             missing_params, self.ini_params_file_path
         )
