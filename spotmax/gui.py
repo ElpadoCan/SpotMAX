@@ -1978,8 +1978,6 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.logger.info('Computing spots segmentation cancelled.')
             return
         
-        
-        
         self.checkPreprocessAcrossTime()
         self.funcDescription = 'Spots location semantic segmentation'
         module_func = 'pipe.spots_semantic_segmentation'

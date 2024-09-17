@@ -92,7 +92,7 @@ class AnalysisWorker(QRunnable):
         subprocess.run(args)
         run_number = io.get_run_number_from_ini_filepath(self._ini_filepath)
         self.signals.finished.emit(
-            (self._ini_filepath, self._is_tempfile)
+            (self._ini_filepath, self._is_tempfile, run_number)
         )
 
 class ComputeAnalysisStepWorker(QRunnable):
