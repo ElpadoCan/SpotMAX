@@ -5790,7 +5790,6 @@ class Kernel(_ParamsParser):
 
             NOTE: This dictionary is computed in the `set_abs_exp_paths` method.
         """      
-        t0 = time.perf_counter()
         desc = 'Experiments completed'
         pbar_exp = tqdm(total=len(exp_paths), ncols=100, desc=desc, position=0)  
         for exp_path, exp_info in exp_paths.items():
@@ -5866,7 +5865,6 @@ class Kernel(_ParamsParser):
             pbar_pos.close()
             pbar_exp.update()
         pbar_exp.close()
-        self._log_exec_time(t0_pos, 'entire analysis')
         self.logger.info('spotMAX analysis completed.')
     
     def _add_missing_cells_and_merge_with_df_agg(self, df_agg_src, df_agg_dst):
@@ -6228,9 +6226,11 @@ class Kernel(_ParamsParser):
         configParams = self._params['Configuration']
         verbose = not configParams['reduceVerbosity']['loadedVal']
         self._datetime_started = datetime.now()
+        t0_analysis = time.perf_counter()
         self.is_batch_mode = True
         for exp_paths in self.exp_paths_list:
             self._run_exp_paths(exp_paths, verbose=verbose)
+        self._log_exec_time(t0_analysis, 'entire analysis')
         self.save_report()
         self.quit()
             
