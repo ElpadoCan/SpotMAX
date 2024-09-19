@@ -664,7 +664,7 @@ def _load_spots_table_h5(filepath):
             frame_i = int(re.findall(r'frame_(\d+)', key)[0])
             dfs.append(df)
             keys.append(frame_i)
-        df = pd.concat(dfs, keys=keys, names=['frame_i'])
+    df = pd.concat(dfs, keys=keys, names=['frame_i'])
     return df
 
 def disable_saving_masks_configparser(configparser):
