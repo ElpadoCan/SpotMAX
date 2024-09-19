@@ -167,7 +167,20 @@ Given :m:`P` the pixels intensities inside the spot, :m:`N` the background
 intensities, and :m:`\mathrm{std}` the standard deviation, spotMAX will compute 
 the following effect sizes:
 
-.. include:: _effect_size_formulas.rst
+* **Glass**: column name ``spot_vs_backgr_effect_size_glass``. 
+  Formula: 
+
+  .. include:: _effect_size_Glass_formula.rst
+
+* **Cohen**: column name ``spot_vs_backgr_effect_size_cohen``. 
+  Formula:
+
+  .. include:: _effect_size_Cohen_formula.rst
+
+* **Hedge**: column name ``spot_vs_backgr_effect_size_hedge``. 
+  Formula: 
+
+  .. include:: _effect_size_Hedge_formula.rst
 
 * **Glass (local)**: column name ``spot_vs_local_backgr_effect_size_glass``. 
   Glass's effect size where the **background intensities are obtained from the 
@@ -224,7 +237,20 @@ Given :m:`P` the pixels intensities inside the spot, :m:`R` the reference channe
 intensities, and :m:`std` the standard deviation, spotMAX will compute the following 
 effect sizes:
 
-.. include:: _effect_size_formulas.rst
+* **Glass**: column name ``spot_vs_ref_ch_effect_size_glass``. 
+  Formula: 
+
+  .. include:: _effect_size_Glass_formula.rst
+
+* **Cohen**: column name ``spot_vs_ref_ch_effect_size_cohen``. 
+  Formula:
+
+  .. include:: _effect_size_Cohen_formula.rst
+
+* **Hedge**: column name ``spot_vs_ref_ch_effect_size_hedge``. 
+  Formula: 
+
+  .. include:: _effect_size_Hedge_formula.rst
 
 Statistical test (vs. backgr.)
 ------------------------------

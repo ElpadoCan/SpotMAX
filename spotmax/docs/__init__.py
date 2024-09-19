@@ -230,6 +230,7 @@ def _parse_column_names(features_groups, rst_text):
                 
             key = f'{group}, {metric_name}'
             mapper[key] = column_name
+            
     return mapper
 
 def parse_aggr_features_column_names():
@@ -244,6 +245,7 @@ def single_spot_features_column_names():
         
     features_groups = parse_single_spot_features_groups()
     mapper = _parse_column_names(features_groups, rst_text)
+
     return mapper
 
 def ref_ch_features_column_names():

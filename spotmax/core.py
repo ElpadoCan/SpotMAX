@@ -4520,7 +4520,7 @@ class Kernel(_ParamsParser):
                     df_spots_coords.loc[mask, 'x_local'] = xx_local
                     
                 num_spots_ID_0 = len(df_spots_ID_0)
-                s = f'  * Object ID {obj.label} = {num_spots_ID_0}'
+                s = f'  * Closest object ID {obj.label} = {num_spots_ID_0}'
                 num_spots_objs_txts.append(s)
                 pbar.update()
                 continue

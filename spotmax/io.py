@@ -2419,14 +2419,16 @@ def save_df_spots_to_hdf(
     shutil.move(temp_filepath, dst_filepath)
     shutil.rmtree(temp_dirpath)
 
-def _save_concat_dfs_to_hdf(dfs, keys, dst_folderpath, filename):
+def _save_concat_dfs_to_hdf(
+        dfs, keys, dst_folderpath, filename, return_concat_df=False, 
+        names=get_run_number_from_ini_filepath
+    ):
     temp_dirpath = tempfile.mkdtemp()
     temp_filepath = os.path.join(temp_dirpath, filename)
     store_hdf = pd.HDFStore(temp_filepath, mode='w')
     for key, df in zip(keys, dfs):
         if not isinstance(key, str):
             # Convert iterable keys to single string
-            len(key)
             key = ';;'.join([str(k) for k in key])
             key = key.replace('\\', '/')
         df = acdc_load.pd_bool_to_int(df)
@@ -2436,7 +2438,13 @@ def _save_concat_dfs_to_hdf(dfs, keys, dst_folderpath, filename):
     dst_filepath = os.path.join(dst_folderpath, filename)
     shutil.move(temp_filepath, dst_filepath)
     shutil.rmtree(temp_dirpath)
-    return df
+    
+    if not return_concat_df:
+        return
+    
+    df_concat = pd.concat(dfs, keys=keys, names=names)
+    
+    return df_concat
 
 def _save_concat_dfs_to_csv(dfs, keys, dst_folderpath, filename, names=None):
     filepath = os.path.join(dst_folderpath, filename)
@@ -2450,18 +2458,23 @@ def _save_concat_dfs_to_excel(dfs, keys, dst_folderpath, filename, names=None):
     df.to_excel(filepath)
     return df
     
-def save_concat_dfs(dfs, keys, dst_folderpath, filename, ext, names=None):
+def save_concat_dfs(
+        dfs, keys, dst_folderpath, filename, ext, names=None, 
+        return_concat_df=False
+    ):
     if ext == '.h5':
         df = _save_concat_dfs_to_hdf(
-            dfs, keys, dst_folderpath, filename
+            dfs, keys, dst_folderpath, filename, 
+            return_concat_df=return_concat_df, 
+            names=names
         )
     elif ext == '.csv':
         df = _save_concat_dfs_to_csv(
-            dfs, keys, dst_folderpath, filename, names=names
+            dfs, keys, dst_folderpath, filename, names=names,
         )
     elif ext == '.xlsx':
         df = _save_concat_dfs_to_excel(
-            dfs, keys, dst_folderpath, filename, names=names
+            dfs, keys, dst_folderpath, filename, names=names, 
         )
     return df
 

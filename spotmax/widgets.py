@@ -668,6 +668,8 @@ class _GopFeaturesAndThresholdsButton(QPushButton):
             in col_names_mapper.items()
         }
         self.selectedFeaturesWindow.hide()
+        
+        printl(category, self.col_to_feature_mapper.get('spot_vs_backgr_effect_size_glass'))
     
     def setParent(self, parent):
         super().setParent(parent)

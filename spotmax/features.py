@@ -241,7 +241,7 @@ def single_spot_feature_names_to_col_names_mapper():
     return docs.single_spot_features_column_names()
 
 def feature_names_to_col_names_mapper(
-        category: Literal['spots', 'ref. channel objects']='spots'
+        category: Literal['spots', 'ref. channel objects'] = 'spots'
     ):
     if category == 'spots':
         return single_spot_feature_names_to_col_names_mapper()
