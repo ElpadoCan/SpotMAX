@@ -964,9 +964,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 selected_file = file
                 break
             
-        self.addSpotsCoordinatesAction.addSpotsCoordinatesTriggered(
-            selected_file=selected_file
-        )
+        self.addSpotsCoordinatesTriggered(selected_file=selected_file)
         
     
     def gui_createActions(self):
