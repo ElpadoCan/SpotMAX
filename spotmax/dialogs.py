@@ -375,13 +375,17 @@ class guiTabControl(QTabWidget):
         self.loadedFilename = ''
         self.lastEntry = None
         self.lastSavedIniFilePath = ''
+        self.posData = None
 
         self.parametersTab = QScrollArea(self)
         self.parametersTab.setWidgetResizable(True)
         self.parametersQGBox = ParamsGroupBox(
             parent=self.parametersTab, 
             debug=True,
-            logging_func=logging_func
+            logging_func=logging_func,
+        )
+        self.parametersQGBox.sigLoadMetadataFromAcdc.connect(
+            self.loadMetadataFromAcdc
         )
         self.parametersTab.setWidget(self.parametersQGBox)        
         
@@ -450,6 +454,9 @@ class guiTabControl(QTabWidget):
         self.setMeasurementsButton.clicked.connect(self.setMeasurementsClicked)
 
         self.addTab(containerWidget, 'Analysis parameters')
+    
+    def setLoadedPosData(self, posData: acdc_load.loadData):
+        self.posData = posData
     
     def addLeftClickButtons(self, buttonsGroup):
         buttonsGroup.addButton(
@@ -535,6 +542,124 @@ class guiTabControl(QTabWidget):
         msg.warning(self, 'Data not loaded', txt)
         self.sender().setChecked(False)
     
+    def loadAcdcMetadataDf(self, params, metadata_csv_filepath=None):
+        if metadata_csv_filepath is None:
+            if self.posData is None:
+                return None, None
+            
+            if not hasattr(self.posData, 'metadata_csv_path'):
+                return None, None
+            
+            if not os.path.exists(self.posData.metadata_csv_path):
+                return None, None
+
+            metadata_csv_filepath = self.posData.metadata_csv_path
+            
+        acdc_metadata_df = pd.read_csv(
+            metadata_csv_filepath, index_col='Description'
+        )
+        spots_ch_name = io.get_spots_channel_name_from_params(params)
+        anchors_mapper = config.ini_metadata_anchor_to_acdc_metadata_mapper(
+            acdc_metadata_df, spots_ch_name
+        )
+        return acdc_metadata_df, anchors_mapper
+    
+    def loadMetadataFromAcdc(self, metadata_csv_filepath):
+        params = self.parametersQGBox.params
+        acdc_metadata_df, anchors_mapper = self.loadAcdcMetadataDf(
+            params, metadata_csv_filepath=metadata_csv_filepath
+        )
+        if acdc_metadata_df is None:
+            return True
+        
+        section = 'METADATA'
+        anchorOptions = self.parametersQGBox.params[section]
+        for anchor, options in anchorOptions.items():
+            try:
+                acdc_desc, dtype = anchors_mapper[anchor]
+                acdc_value = dtype(acdc_metadata_df.at[acdc_desc, 'values'])
+            except Exception as err:
+                continue
+            
+            formWidget = options['formWidget']
+            valueSetter = params[section][anchor].get('valueSetter')
+            formWidget.setValue(acdc_value, valueSetter=valueSetter)
+        
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph("""
+            Metadata loaded!<br>
+        """)
+        msg.information(self, 'Metadata loaded', txt)
+    
+    def askDifferentValuesIniParamsAcdcMetadata(
+            self, ini_filepath, acdc_metadata_csv_filepath
+        ):
+        txt = html_func.paragraph("""
+            The metadata in the loaded parameters file is <b>different</b> 
+            from the metadata in the Cell-ACDC <code>metadata.csv</code> file!<br><br>
+            How do you want to <b>proceed?</b><br><br>
+            Loaded parameters file path:
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        
+        browseIniFile = acdc_widgets.showInFileManagerButton(
+            'Show loaded parameters file in File manager...'
+        )
+        
+        browseAcdcFile = acdc_widgets.showInFileManagerButton(
+            'Show Cell-ACDC metadata file in File manager...'
+        )
+        
+        noButton = acdc_widgets.noPushButton(
+            'Do not load metadata from the parameters file'
+        )
+        yesButton = acdc_widgets.noPushButton(
+            'Load metadata from the parameters file'
+        )
+        msg.warning(
+            self, 'Loaded metadata different from Cell-ACDC values!', txt,
+            buttonsTexts=(browseIniFile, browseAcdcFile, noButton, yesButton),
+            commands=(ini_filepath,), showDialog=False
+        )
+        browseIniFile.clicked.disconnect()
+        browseAcdcFile.clicked.disconnect()
+        
+        browseIniFile.setPathToBrowse(ini_filepath)
+        browseAcdcFile.setPathToBrowse(acdc_metadata_csv_filepath)
+        msg.exec_()
+        return msg.clickedButton == yesButton
+    
+    def checkLoadedMetadata(self, anchorOptions, params, ini_filepath):
+        acdc_metadata_df, anchors_mapper = self.loadAcdcMetadataDf(params)
+        if acdc_metadata_df is None:
+            return True
+        
+        asked_about_different_values = False
+        section = 'METADATA'
+        for anchor, options in anchorOptions.items():
+            try:
+                ini_value = params[section][anchor]['loadedVal']
+            except Exception as err:
+                continue
+            
+            try:
+                acdc_desc, dtype = anchors_mapper[anchor]
+                acdc_value = dtype(acdc_metadata_df.at[acdc_desc, 'values'])
+            except Exception as err:
+                continue
+            
+            if asked_about_different_values:
+                continue
+            
+            if ini_value != acdc_value:
+                proceed = self.askDifferentValuesIniParamsAcdcMetadata(
+                    ini_filepath, self.posData.metadata_csv_path
+                )
+                if not proceed:
+                    return False
+        
+        return True
+    
     def setValuesFromParams(self, params, ini_params_file_path):
         # Check if we need to add new widgets for sections with addFieldButton
         for section, section_options in params.items():
@@ -560,6 +685,14 @@ class guiTabControl(QTabWidget):
                 formWidget.addField()
         
         for section, anchorOptions in self.parametersQGBox.params.items():
+            if section == 'METADATA':
+                proceed = self.checkLoadedMetadata(
+                    anchorOptions, params, ini_params_file_path
+                )
+                if not proceed:
+                    print('Metadata loading cancelled.')
+                    continue
+            
             for anchor, options in anchorOptions.items():
                 formWidget = options['formWidget']
                 if anchor == 'folderPathsToAnalyse':
@@ -1774,6 +1907,7 @@ class AutoTuneTabWidget(QWidget):
 
 class ParamsGroupBox(QGroupBox):
     sigResolMultiplValueChanged = Signal(float)
+    sigLoadMetadataFromAcdc = Signal(str)
     
     def __init__(self, parent=None, debug=False, logging_func=print):
         super().__init__(parent)
@@ -1853,6 +1987,22 @@ class ParamsGroupBox(QGroupBox):
                     signal = getattr(formWidget.widget, action[0])
                     signal.connect(getattr(self, action[1]))
 
+            if section == 'METADATA':
+                loadMetadataFromAcdcButton = acdc_widgets.browseFileButton(
+                    'Load metadata from Cell-ACDC metadata.csv file...',
+                    title='Select Cell-ACDC metadata.csv file',
+                    ext={'CSV': ['.csv']},
+                    start_dir=acdc_myutils.getMostRecentPath()
+                )
+                loadMetadataFromAcdcButton.sigPathSelected.connect(
+                    self.loadMetadataFromAcdc
+                )
+                colSpan = formLayout.columnCount()
+                formLayout.addWidget(
+                    loadMetadataFromAcdcButton, row+1, 0, 1, colSpan, 
+                    alignment=Qt.AlignRight
+                )
+            
             groupBox.setLayout(formLayout)
             mainLayout.addWidget(groupBox)
 
@@ -1865,6 +2015,9 @@ class ParamsGroupBox(QGroupBox):
         self.setLayout(mainLayout)
         self.updateMinSpotSize()
         self.doSpotFitToggled(False)
+    
+    def loadMetadataFromAcdc(self, metadata_csv_filepath):
+        self.sigLoadMetadataFromAcdc.emit(metadata_csv_filepath)
     
     def addFieldToParams(self, formWidget):
         if formWidget.fieldIdx == 0:

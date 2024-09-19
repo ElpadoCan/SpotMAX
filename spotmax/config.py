@@ -833,6 +833,28 @@ def _metadata_params():
     }
     return metadata_params
 
+def ini_metadata_anchor_to_acdc_metadata_mapper(acdc_metadata_df, channel_name):
+    mapper = {
+        'SizeT': ('SizeT', int),
+        'SizeZ': ('SizeZ', int),
+        'pixelWidth': ('PhysicalSizeX', float),
+        'pixelHeight': ('PhysicalSizeY', float),
+        'voxelDepth': ('PhysicalSizeZ', float),
+        'numAperture': ('LensNA', float),
+        
+    }
+    try:
+        channel_idx = (
+            acdc_metadata_df[acdc_metadata_df['values'] == channel_name]
+            .index.to_list()[0]
+            .split('_')[1]
+        )
+        mapper['emWavelen'] = (f'channel_{channel_idx}_emWavelen', float)
+    except Exception as err:
+        pass
+    
+    return mapper
+
 def _pre_processing_params():
     pre_processing_params = {
         'aggregate': {

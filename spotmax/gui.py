@@ -1032,6 +1032,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.setRunNumbers()
         
+        self.computeDockWidget.widget().setLoadedPosData(posData)
+        
         self.setAnalysisParameters()
         self.connectParamsGroupBoxSignals()
         self.autoTuningAddItems()
@@ -3374,6 +3376,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.updateScrollbars()
         self.computeSegm()
         self.initTuneKernel()
+        self.computeDockWidget.widget().setLoadedPosData(posData)
 
     def show(self):
         super().show()

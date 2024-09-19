@@ -745,6 +745,14 @@ def get_spots_channel_name_from_run_num(
     )
     return channel_name            
 
+def get_spots_channel_name_from_params(params):
+    section = 'File paths and channels'
+    anchor = 'spotsEndName'
+    try:
+        return params[section][anchor]['loadedVal']
+    except Exception as err:
+        return ''
+
 def load_table_to_df(filepath, index_col=None):
     if filepath.endswith('.csv'):
         df = pd.read_csv(filepath, index_col=index_col)
