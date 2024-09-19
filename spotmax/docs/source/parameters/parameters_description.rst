@@ -615,7 +615,7 @@ Reference channel
   second sigma = ``1.0, 2.0``. In the GUI, you can visualize the result of the 
   filter.
 
-  :type: float or vector of (sigma_z, sigma_y, sigma_x)
+  :type: float or vector of (sigma_1, sigma_2, ..., sigma_n)
   :default: ``0.0``
 
 .. confval:: Ref. channel segmentation method
