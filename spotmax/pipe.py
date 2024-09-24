@@ -580,7 +580,7 @@ def reference_channel_quantify(
     df_agg : pd.DataFrame, optional
         Optional input DataFrame where to insert default features. The default 
         feautures are `ref_ch_num_fragments`, `ref_ch_vol_vox`, and 
-        `ref_ch_vol_fl`. Default is None
+        `ref_ch_vol_um3`. Default is None
     frame_i : int, optional
         Frame index in timelapse data. Default is 0
     vox_to_um3 : float, optional
@@ -599,7 +599,7 @@ def reference_channel_quantify(
         columns where 'Cell_ID' is the ID of the obejcts in `lab`.
         If input `df_agg` is not None, these columns will be added to it. 
         The default feautures are `ref_ch_num_fragments`, `ref_ch_vol_vox`, and 
-        `ref_ch_vol_fl`.
+        `ref_ch_vol_um3`.
     df_ref_ch : pandas.DataFrame
         DataFrame with index `('frame_i', 'Cell_ID', 'sub_obj_id')` and all the
         features columns. 'Cell_ID' is the ID of the obejcts in `lab`, and
@@ -661,9 +661,9 @@ def reference_channel_quantify(
         df_agg.at[(frame_i, ID), 'ref_ch_vol_vox'] = vol_voxels
         df_ref_ch['ref_ch_vol_vox'] = vol_voxels
         if vox_to_um3 is not None:
-            vol_fl = vol_voxels*vox_to_um3
-            df_agg.at[(frame_i, ID), 'ref_ch_vol_fl'] = vol_fl
-            df_ref_ch['ref_ch_vol_fl'] = vol_fl
+            vol_um3 = vol_voxels*vox_to_um3
+            df_agg.at[(frame_i, ID), 'ref_ch_vol_um3'] = vol_um3
+            df_ref_ch['ref_ch_vol_um3'] = vol_um3
         
         # Add background metrics
         bkgr_mask = np.logical_and(~ref_ch_mask_local, obj.image)
@@ -778,8 +778,8 @@ def reference_channel_quantify(
         df_ref_ch.loc[idx, 'ref_ch_vol_vox'] = ref_ch_vol_vox
         if vox_to_um3 is not None:
             vol_fl = ref_ch_vol_vox*vox_to_um3
-            df_agg.at[(frame_i, ID), 'ref_ch_vol_fl'] = vol_fl
-            df_ref_ch.loc[idx, 'ref_ch_vol_fl'] = vol_fl
+            df_agg.at[(frame_i, ID), 'ref_ch_vol_um3'] = vol_fl
+            df_ref_ch.loc[idx, 'ref_ch_vol_um3'] = vol_fl
         
         # Add background metrics
         bkgr_mask = np.logical_and(~ref_ch_mask_local, obj.image)

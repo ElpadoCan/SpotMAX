@@ -613,7 +613,7 @@ class guiTabControl(QTabWidget):
         noButton = acdc_widgets.noPushButton(
             'Do not load metadata from the parameters file'
         )
-        yesButton = acdc_widgets.yesPushButton(
+        yesButton = acdc_widgets.okPushButton(
             'Load metadata from the parameters file'
         )
         msg.warning(

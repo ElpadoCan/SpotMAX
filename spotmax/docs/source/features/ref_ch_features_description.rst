@@ -51,7 +51,7 @@ Morphological metrics - whole object
 ------------------------------------
 
 * **Volume (voxel)**: column name ``ref_ch_vol_vox``.
-* **Volume (fL)**: column name ``ref_ch_vol_fl``.
+* **Volume (fL)**: column name ``ref_ch_vol_um3``.
 * **Number of fragments**: column name ``ref_ch_num_fragments``.
 
 Intensity metrics - sub-object
