@@ -84,7 +84,7 @@ File paths and channels
   :type: string
   :required: True
 
-.. confval:: Spots channel end name or path
+.. confval:: Spots channel end name
 
   Last part of the file name or full path of the file containing the spots 
   channel data. The data can be a single 2D image, a 3D image (z-stack or 2D 
@@ -95,7 +95,7 @@ File paths and channels
   :type: string
   :default: ``''``
 
-.. confval:: Cells segmentation end name or path
+.. confval:: Cells segmentation end name
 
   Last part of the file name or full path of the file containing the masks of 
   the segmented obejcts (e.g., single cells). The data can be a single 2D image, 
@@ -113,7 +113,7 @@ File paths and channels
   :type: string
   :default: ``''``
 
-.. confval:: Reference channel end name or path
+.. confval:: Reference channel end name
 
   Last part of the file name or full path of the file containing the reference 
   channel data. The reference channel is an additional fluorescence channel 
@@ -130,7 +130,7 @@ File paths and channels
   :type: string
   :default: ``''``
 
-.. confval:: Spots channel segmentation end name or path
+.. confval:: Spots channel segmentation end name
 
   Last part of the file name or full path of the file containing the mask where 
   to search for spots. 
@@ -146,7 +146,7 @@ File paths and channels
   :type: string
   :default: ``''``
 
-.. confval:: Ref. channel segmentation end name or path
+.. confval:: Ref. channel segmentation end name
 
   Last part of the file name or full path of the file containing the 
   segmentation mask of the reference channel. 
@@ -155,7 +155,7 @@ File paths and channels
   :confval:`Ref. channel segmentation method` and 
   :confval:`Segment reference channel`.
   
-  See the parameter :confval:`Reference channel end name or path` for more 
+  See the parameter :confval:`Reference channel end name` for more 
   details about the reference channel. 
   
   Use this parameter if you already have the reference channel segmented with 
@@ -166,7 +166,7 @@ File paths and channels
   :type: string
   :default: ``''``
 
-.. confval:: Spots coordinates table end name or path
+.. confval:: Spots coordinates table end name
 
   Last part of the file name or full path of the file containing the columns 
   ``{'x', 'y', 'z'}`` with the coordinates of the spots to quantify. 
@@ -206,7 +206,7 @@ File paths and channels
   :type: string
   :default: ``''``
 
-.. confval:: Table with lineage info end name or path
+.. confval:: Table with lineage info end name
 
   Last part of the CSV file name or full path of the CSV file containing 
   parent-child relationship. The table must contain the following columns: 
@@ -456,7 +456,7 @@ Pre-processing
   objects to determine the threshold value. 
 
   The segmented objects are the one in the 
-  :confval:`Cells segmentation end name or path` file.
+  :confval:`Cells segmentation end name` file.
 
   This parameter is ignored when using a :confval:`Spots segmentation method` 
   or :confval:`Ref. channel segmentation method` different from 
@@ -515,7 +515,7 @@ Pre-processing
 .. confval:: Extend 3D input segm. objects in Z
    
   Number of repetitions below and above the bottom and top z-slice of the input 
-  segmentation objects (objects present in the :confval:`Cells segmentation end name or path`). 
+  segmentation objects (objects present in the :confval:`Cells segmentation end name`). 
 
   For example, if you provde the value ``(4, 6)``, spotMAX will extend the 
   objects in Z by repeating the bottom z-slice 4 times below and the top z-slice 
@@ -541,7 +541,7 @@ Reference channel
 .. confval:: Segment reference channel
 
   If ``True`` and a reference channel name is provided in the parameter 
-  :confval:`Reference channel end name or path`, spotMAX will segment the 
+  :confval:`Reference channel end name`, spotMAX will segment the 
   reference channel. The segmentation workflow is made of the following steps: 
 
   1. Gaussian filter (if :confval:`Ref. channel gaussian filter sigma` > 0)
@@ -588,7 +588,7 @@ Reference channel
 .. confval:: Keep external touching objects intact
 
   If ``True``, the masks that are partially external to the input objects 
-  (e.g., the single cells, see :confval:`Cells segmentation end name or path`) 
+  (e.g., the single cells, see :confval:`Cells segmentation end name`) 
   are maintained intact. 
 
   This is helpful when the reference channel structures can extend a 
@@ -709,7 +709,7 @@ Reference channel
   The file will be named with the pattern ``<basename>_run_num<run_number>_<ref_ch_name>_ref_ch_segm_mask_<text_to_append>.npz`` 
   where ``<basename>`` is the common part of all the file names in the Position 
   folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
-  the ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name or path` 
+  the ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name` 
   parameter, and ``<text_to_append>`` is the text provided at the 
   :confval:`Text to append at the end of the output files` 
   parameter.
@@ -726,7 +726,7 @@ Reference channel
   ``<basename>_run_num<run_number>_<ref_ch_name>_preprocessed_<text_to_append>.<ext>`` 
   where ``<basename>`` is the common part of all the file names in the Position 
   folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
-  the ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name or path` 
+  the ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name` 
   parameter, and ``<text_to_append>`` is the text provided at the 
   :confval:`Text to append at the end of the output files` 
   parameter.
@@ -1001,7 +1001,7 @@ Spots channel
   ``<basename>_run_num<run_number>_<spots_ch_name>_spots_segm_mask_<text_to_append>.npz`` 
   where ``<basename>`` is the common part of all the file names in the Position 
   folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
-  the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name or path` 
+  the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name` 
   parameter, and ``<text_to_append>`` is the text provided at the 
   :confval:`Text to append at the end of the output files` 
   parameter.
@@ -1025,7 +1025,7 @@ Spots channel
   ``<basename>_run_num<run_number>_<spots_ch_name>_preprocessed_<text_to_append>.<ext>`` 
   where ``<basename>`` is the common part of all the file names in the Position 
   folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
-  the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name or path` 
+  the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name` 
   parameter, and ``<text_to_append>`` is the text provided at the 
   :confval:`Text to append at the end of the output files` 
   parameter.
@@ -1040,7 +1040,7 @@ Spots channel
   :confval:`Spots segmentation method` are on the background. 
   
   The objects are the ones in the file provided by the 
-  :confval:`Cells segmentation end name or path`. 
+  :confval:`Cells segmentation end name`. 
 
   If ``False``, spotMAX will still detect spots in these objects, but it 
   will log a warning in the terminal, in the log file and in the final report. 

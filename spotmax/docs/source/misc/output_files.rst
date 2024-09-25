@@ -28,8 +28,8 @@ The naming pattern is the following::
 
 where ``<basename>`` is the common part of all the file names in the Position 
 folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
-the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name or path` 
-parameter, ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name or path` 
+the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name` 
+parameter, ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name` 
 parameter, and ``<appended_text>`` is the text provided at the 
 :confval:`Text to append at the end of the output files` 
 parameter.
@@ -130,8 +130,8 @@ The naming pattern is the following::
 
 where ``<basename>`` is the common part of all the file names in the Position 
 folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
-the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name or path` 
-parameter, ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name or path` 
+the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name` 
+parameter, ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name` 
 parameter, ``<appended_text>`` is the text provided at the 
 :confval:`Text to append at the end of the output files` 
 parameter, and ``<ext>`` is the extension of the input channel file.

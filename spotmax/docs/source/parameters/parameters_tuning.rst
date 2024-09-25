@@ -277,8 +277,8 @@ Some of the analysis steps within spotMAX can be replaced with results you
 obtain with other software. For example, you could segment the spots or the 
 reference channel with `ilastik`_, `CellProfiler`_, or `TrackMate`_ to cite a 
 few, save the results to a TIFF file and provide this to spotMAX at the 
-parameters :confval:`Spots channel segmentation end name or path` and 
-:confval:`Ref. channel segmentation end name or path`. If you do this, spotMAX 
+parameters :confval:`Spots channel segmentation end name` and 
+:confval:`Ref. channel segmentation end name`. If you do this, spotMAX 
 will not perform these steps and will instead use your external TIFF file. 
 
 Train spotMAX AI on your data

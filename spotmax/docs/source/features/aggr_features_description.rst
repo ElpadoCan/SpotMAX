@@ -6,7 +6,7 @@ Aggregated features description
 ===============================
 
 Description of all the features saved by spotMAX for each segmented object 
-(e.g., single cells, see :confval:`Cells segmentation end name or path` 
+(e.g., single cells, see :confval:`Cells segmentation end name` 
 parameter) and the corresponding column name. These are simple aggregations 
 like averaging and sum. 
 

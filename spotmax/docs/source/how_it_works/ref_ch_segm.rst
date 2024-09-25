@@ -13,7 +13,7 @@ filtering valid spots**.
 If you are not interested in spot detection, you can also just take advantage 
 of this module to segment your structure of interest. In this case, do 
 not provide any channel name for the parameter 
-:confval:`Spots channel end name or path`. 
+:confval:`Spots channel end name`. 
 
 Segmentation of the reference channel can be divided into two steps:
 
@@ -66,4 +66,4 @@ option.
     `Cell-ACDC`_. This is because spotMAX will consider the mother-object 
     as a single object while the bud is still attached to the mother (i.e., 
     before division is annotated). Make sure that you provide the annotations 
-    to spotMAX with the parameter :confval:`Table with lineage info end name or path`. 
+    to spotMAX with the parameter :confval:`Table with lineage info end name`. 

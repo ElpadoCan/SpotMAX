@@ -149,7 +149,7 @@ def spots_semantic_segmentation(
     lineage_table : pandas.DataFrame, optional
         Table containing parent-daughter relationships. Default is None
         For more details, see the parameter `Table with lineage info end name 
-        or path` at the following webpage: 
+       ` at the following webpage: 
         https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
     do_aggregate : bool, optional
         If True, perform segmentation on all the cells at once. Default is True
@@ -390,7 +390,7 @@ def reference_channel_semantic_segm(
     lineage_table : pandas.DataFrame, optional
         Table containing parent-daughter relationships. Default is None
         For more details, see the parameter `Table with lineage info end name 
-        or path` at the following webpage: 
+       ` at the following webpage: 
         https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
     do_aggregate : bool, optional
         If True, perform segmentation on all the cells at once. Default is True

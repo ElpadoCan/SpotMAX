@@ -30,9 +30,21 @@ class ConfigParser(configparser.ConfigParser):
         self.optionxform = str
     
     def read(self, filepath, encoding='utf-8'):
-        super().read(filepath, encoding=encoding)
+        super().read(filepath, encoding=encoding)        
         self._filename = os.path.basename(filepath)
         self._filepath = filepath
+        filepaths_section = 'File paths and channels'
+        if not self.has_section(filepaths_section):
+            return
+        
+        for option in self.options(filepaths_section):
+            if not option.endswith('end name or path'):
+                continue
+            
+            value = self.get(filepaths_section, option)
+            new_option = option.replace('end name or path', 'end name')
+            self[filepaths_section][new_option] = value
+            self.remove_option(filepaths_section, option)
 
     def filepath(self):
         return self._filepath
@@ -406,7 +418,7 @@ def _filepaths_params():
             'valueSetter': 'setText'
         },
         'spotsEndName': {
-            'desc': 'Spots channel end name or path',
+            'desc': 'Spots channel end name',
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,
@@ -420,7 +432,7 @@ def _filepaths_params():
             'valueSetter': 'setText'
         },
         'segmEndName': {
-            'desc': 'Cells segmentation end name or path',
+            'desc': 'Cells segmentation end name',
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,
@@ -434,7 +446,7 @@ def _filepaths_params():
             'valueSetter': 'setText'
         },
         'refChEndName': {
-            'desc': 'Reference channel end name or path',
+            'desc': 'Reference channel end name',
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,
@@ -447,7 +459,7 @@ def _filepaths_params():
             'dtype': str
         },
         'spotChSegmEndName': {
-            'desc': 'Spots channel segmentation end name or path',
+            'desc': 'Spots channel segmentation end name',
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,
@@ -460,7 +472,7 @@ def _filepaths_params():
             'dtype': str
         },
         'refChSegmEndName': {
-            'desc': 'Ref. channel segmentation end name or path',
+            'desc': 'Ref. channel segmentation end name',
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,
@@ -473,27 +485,28 @@ def _filepaths_params():
             'dtype': str
         },
         'inputDfSpotsEndname': {
-            'desc': 'Spots coordinates table end name or path',
+            'desc': 'Spots coordinates table end name',
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
-            'browseExtesions': ('.csv',),
+            'browseExtensions': {'Table': ['.csv', '.h5']},
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
             'dtype': str
         },
         'lineageTableEndName': {
-            'desc': 'Table with lineage info end name or path',
+            'desc': 'Table with lineage info end name',
             'initialVal': """""",
             'stretchWidget': True,
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': True,
+            'browseExtensions': {'CSV': ['.csv']},
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
@@ -520,7 +533,7 @@ def _filepaths_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'addBrowseButton': True,
+            'addBrowseButton': False,
             'addEditButton': False,
             'formWidgetFunc': 'widgets.CenteredAlphaNumericLineEdit',
             'actions': None,
@@ -533,7 +546,7 @@ def _filepaths_params():
             'addInfoButton': True,
             'addComputeButton': False,
             'addApplyButton': False,
-            'addBrowseButton': True,
+            'addBrowseButton': False,
             'addEditButton': False,
             'formWidgetFunc': 'widgets._dfSpotsFileExtensionsWidget',
             'actions': None,
@@ -1178,7 +1191,6 @@ def _spots_ch_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
-            'actions': None,
             'dtype': get_bool, 
             'actions': (
                 ('toggled', 'doSpotFitToggled'),

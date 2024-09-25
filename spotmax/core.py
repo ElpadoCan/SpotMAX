@@ -1594,7 +1594,7 @@ class _ParamsParser(_DataLoader):
     def _check_correlated_missing_ref_ch_params(self, missing_params):
         missing_ref_ch_msg = ''
         missing_params_desc = {param[1]:param[2] for param in missing_params}
-        if 'Reference channel end name or path' not in missing_params_desc:
+        if 'Reference channel end name' not in missing_params_desc:
             return missing_ref_ch_msg
         
         # Reference channel end name is missing, check that it is not required
@@ -1616,7 +1616,7 @@ class _ParamsParser(_DataLoader):
 
         missing_ref_ch_msg = (
             '[ERROR]: You requested to use the reference channel for the analysis '
-            'but the entry "Reference channel end name or path" is missing in the '
+            'but the entry "Reference channel end name" is missing in the '
             '.ini params file.\n\n'
             'If you do not need a reference channel, then set the following '
             'parameters in the parameters file:\n\n'
@@ -1625,46 +1625,49 @@ class _ParamsParser(_DataLoader):
         )
         return missing_ref_ch_msg
     
-    def _check_missing_exp_folder(self, missing_params):
+    def _check_missing_exp_folder_endnames(self, missing_params):
         missing_exp_folder_msg = ''
         missing_params_desc = {param[1]:param[2] for param in missing_params}
-        if 'Experiment folder path(s) to analyse' not in missing_params_desc:
+        
+        if 'Experiment folder path(s) to analyse' in missing_params_desc:
+            missing_exp_folder_msg = (
+                '[ERROR]: The parameter "Experiment folder path(s) to analyse" '
+                '"is not present in the '
+                f'.ini params file.{error_up_str}\n\n'
+            )
             return missing_exp_folder_msg
         
         # Experiment folder path is missing --> continue only if 
-        # either spots or reference channel are proper file paths
-        spots_ch_path = missing_params_desc.get(
-            'Spots channel end name or path', ''
-        )
-        ref_ch_path = missing_params_desc.get(
-            'Reference channel end name or path', ''
-        )
-        is_critical = not (
-            os.path.exists(spots_ch_path) or os.path.exists(ref_ch_path)
-        )   
-        if not is_critical:
+        # either spots or reference channel end names are provided
+        if 'Spots channel end name' not in missing_params_desc:
+            return missing_exp_folder_msg
+        
+        if 'Reference channel end name' not in missing_params_desc:
             return missing_exp_folder_msg
         
         missing_exp_folder_msg = (
             '[ERROR]: Neither the "Spots channel end name" nor the '
-            '"Reference channel end name or path" are present in the '
+            '"Reference channel end name" are present in the '
             f'.ini params file.{error_up_str}\n\n'
         )
         return missing_exp_folder_msg    
-
+    
     @exception_handler_cli
     def check_missing_params(self):
         missing_params = self._get_missing_params()
         if not missing_params:
             return True, missing_params
         
-        missing_exp_folder_msg = self._check_missing_exp_folder(missing_params)
+        missing_exp_folder_msg = self._check_missing_exp_folder_endnames(
+            missing_params
+        )
         missing_ref_ch_msg = self._check_correlated_missing_ref_ch_params(
             missing_params
         )
 
         is_missing_critical = (
-            missing_exp_folder_msg or missing_ref_ch_msg
+            missing_exp_folder_msg 
+            or missing_ref_ch_msg 
         )
 
         missing_params_str = [

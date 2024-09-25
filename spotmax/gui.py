@@ -878,7 +878,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         if errors:
             details = '\n\n'.join(errors)
             msg_kwargs['detailsText'] = details
-            txt.replace(
+            txt = txt.replace(
                 'spotMAX analysis finished!', 
                 'spotMAX analysis ended with ERRORS'
             )
@@ -1216,7 +1216,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         
         section = 'File paths and channels'
-        option = 'Reference channel end name or path'
+        option = 'Reference channel end name'
         ref_ch_name = cp[section][option]
         refChSegmEndName = self.spotsItems.getRefChannelSegmEndname(ref_ch_name)
         if refChSegmEndName:
@@ -1771,7 +1771,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         msg = acdc_widgets.myMessageBox(wrapText=False)
         txt = html_func.paragraph(f"""
             You requested <code>{requested}</code> channel for the spots 
-            image data (parameter `Spots channel end name or path`),<br>
+            image data (parameter `Spots channel end name`),<br>
             but you loaded the channel <code>{loaded}</code>.<br><br>
             How do you want to proceed?
         """)
@@ -1789,7 +1789,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         msg = acdc_widgets.myMessageBox(wrapText=False)
         txt = html_func.paragraph(f"""
             You did not provide <b>any channel name for the spots image data</b>, 
-            (parameter `Spots channel end name or path`).<br><br>
+            (parameter `Spots channel end name`).<br><br>
             How do you want to proceed?
         """)
         continueWithLoadedButton = acdc_widgets.okPushButton(
@@ -1805,7 +1805,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         msg = acdc_widgets.myMessageBox(wrapText=False)
         txt = html_func.paragraph(f"""
             You loaded the segmentation file ending with <code>{loaded},</code> 
-            but in the parameter `Cells segmentation end name or path`<br>
+            but in the parameter `Cells segmentation end name`<br>
             you requested the file <code>{requested}</code>.<br><br>
             How do you want to proceed?
         """)
@@ -1822,7 +1822,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         msg = acdc_widgets.myMessageBox(wrapText=False)
         txt = html_func.paragraph(f"""
             You loaded the lineage table ending with <code>{loaded},</code> 
-            but in the parameter `Table with lineage info end name or path`<br>
+            but in the parameter `Table with lineage info end name`<br>
             you requested the table name <code>{requested}</code>.<br><br>
             How do you want to proceed?
         """)
@@ -2190,7 +2190,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         spots_ch_endname = self.getSpotsChannelEndname()
         if not spots_ch_endname:
             raise ValueError(
-                '"Spots channel end name or path" parameter not provided.'
+                '"Spots channel end name" parameter not provided.'
             )
         
         self.progressWin = acdc_apps.QDialogWorkerProgress(
@@ -3271,12 +3271,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         if emWavelen == 0:
             emWavelen = 500
         
+        if self.user_ch_name:
+            spotsEndName = self.user_ch_name
+        else:
+            spotsEndName = posData.basename.split('_')[-1]
+        
         folderPathsToAnalyse = [_posData.pos_path for _posData in self.data]
         folderPathsToAnalyse = '\n'.join(folderPathsToAnalyse)
         loadedValues = {
             'File paths and channels': [
                 {'anchor': 'folderPathsToAnalyse', 'value': folderPathsToAnalyse},
-                {'anchor': 'spotsEndName', 'value': self.user_ch_name},
+                {'anchor': 'spotsEndName', 'value': spotsEndName},
                 {'anchor': 'segmEndName', 'value': segmEndName},
                 {'anchor': 'runNumber', 'value': runNum}
             ],

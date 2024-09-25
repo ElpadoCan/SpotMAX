@@ -116,10 +116,10 @@ File paths and channels
 ^^^^^^^^^^^^^^^^^^^^^^^
 
 Since we want to segment the mitochondrial network as a reference channel from 
-the ``mKate`` channel, we write 'mKate' in the :confval:`Reference channel end name or path` parameter. 
+the ``mKate`` channel, we write 'mKate' in the :confval:`Reference channel end name` parameter. 
 
 If we want to take advantage of the mother-bud (or sister cells) pairings we write 
-'acdc_output.csv' in the :confval:`Table with lineage info end name or path` parameter. 
+'acdc_output.csv' in the :confval:`Table with lineage info end name` parameter. 
 
 We can then decide on a :confval:`Run number` (in this case we leave it at 1), and, 
 optionally, we can append a text at the end of the output files, for example we 

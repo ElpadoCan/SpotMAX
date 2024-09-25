@@ -423,6 +423,11 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
                     params[section][anchor]['isSectionInConfig'] = True
                 
                 is_option_in_ini = configPars.has_option(section, option)
+                is_endname = option.endswith('end name')
+                if not is_option_in_ini and is_endname:
+                    # Check old option that had "or path" at the end
+                    option = f'{option} or path' 
+                                    
                 is_do_spotfit = option == 'Compute spots size (fit gaussian peak(s))'
                 
                 if not is_option_in_ini and is_do_spotfit:
@@ -739,7 +744,7 @@ def get_spots_channel_name_from_run_num(
         run_num: int
     ) -> str:
     section = 'File paths and channels'
-    option = 'Spots channel end name or path'
+    option = 'Spots channel end name'
     channel_name = get_ini_value_from_run_num(
         spotmax_out_path, run_num, section, option
     )
@@ -1001,7 +1006,7 @@ class expFolderScanner:
 
         Parameters
         ----------
-        path : str or Path
+        path : str or os.PathLike
             Path to check if it contains Position folders.
         signals : attribute of QObject subclass or None.
             If not None it is used to emit signals and communicate with
@@ -2285,7 +2290,7 @@ def add_spots_coordinates_endname_to_configparser(
         configparser, spots_coordinates_endname: str
     ):
     section = 'File paths and channels'
-    option = 'Spots coordinates table end name or path'
+    option = 'Spots coordinates table end name'
     configparser[section][option] = spots_coordinates_endname
     return configparser
 
@@ -2315,7 +2320,7 @@ def add_ref_ch_segm_endname_to_configparser(
         configparser, ref_ch_segm_endname: str
     ):
     section = 'File paths and channels'
-    option = 'Ref. channel segmentation end name or path'
+    option = 'Ref. channel segmentation end name'
     configparser[section][option] = ref_ch_segm_endname
     
     section = 'Reference channel'

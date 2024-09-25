@@ -1150,6 +1150,7 @@ class formWidget(QWidget):
             stretchFactors=None,
             disableComputeButtons=False,
             isFolderBrowse=False,
+            browseExtensions=None,
             key='',
             parent=None,
             valueSetter=None,
@@ -1169,6 +1170,7 @@ class formWidget(QWidget):
         self.infoHtmlText = infoHtmlText
         self.stretchFactors = stretchFactors
         self.useEditableLabel = useEditableLabel
+        self.browseExtensions = browseExtensions
 
         if widget is not None:
             widget.setParent(self)
@@ -1437,6 +1439,24 @@ class formWidget(QWidget):
         except AttributeError as e:
             pass
 
+    def getQtOpenFileNameExtensions(self):
+        if self.browseExtensions is None:
+            return
+        
+        s = ''
+        s_li = []
+        for name, extensions in self.browseExtensions.items():
+            _s = ''
+            if isinstance(extensions, str):
+                extensions = [extensions]
+            for ext in extensions:
+                _s = f'{_s}*{ext} '
+            s_li.append(f'{name} {_s.strip()}')
+
+        fileTypes = ';;'.join(s_li)
+        fileTypes = f'{fileTypes};;All Files (*)'
+        return fileTypes
+    
     def browseButtonClicked(self):
         if self.isFolderBrowse:
             folderpath = QFileDialog.getExistingDirectory(
@@ -1446,13 +1466,21 @@ class formWidget(QWidget):
                 return
             self.widget.setText(folderpath)
         else:
+            fileTypes = self.getQtOpenFileNameExtensions()
             file_path = getOpenImageFileName(
-                parent=self, mostRecentPath=acdc_myutils.getMostRecentPath()
+                parent=self, 
+                mostRecentPath=acdc_myutils.getMostRecentPath(), 
+                fileTypes=fileTypes
             )
             if not file_path:
                 return
 
-            self.widget.setText(file_path)
+            if self.labelLeft.text().endswith('end name'):
+                value = acdc_load.get_endname_from_filepath(file_path)
+            else:
+                value = file_path
+            
+            self.widget.setText(value)
         self.sigBrowseButtonClicked.emit(self)
     
     def editButtonClicked(self):
@@ -1858,12 +1886,15 @@ class Gaussian3SigmasLineEdit(acdc_widgets.VectorLineEdit):
         self.setValidator(QRegularExpressionValidator(regExp))
         self.setAlignment(Qt.AlignCenter)
 
-def getOpenImageFileName(parent=None, mostRecentPath=''):
+def getOpenImageFileName(parent=None, mostRecentPath='', fileTypes=None):
+    if fileTypes is None:
+        fileTypes = (
+            "Images/Videos (*.npy *.npz *.h5, *.png *.tif *.tiff *.jpg *.jpeg "
+            "*.mov *.avi *.mp4)"
+            ";;All Files (*)"
+        )
     file_path = QFileDialog.getOpenFileName(
-        parent, 'Select image file', mostRecentPath,
-        "Images/Videos (*.npy *.npz *.h5, *.png *.tif *.tiff *.jpg *.jpeg "
-        "*.mov *.avi *.mp4)"
-        ";;All Files (*)"
+        parent, 'Select image file', mostRecentPath, fileTypes
     )[0]
     return file_path
 
@@ -2409,7 +2440,7 @@ class SpotsItems:
         )
         analysisSegmEndname = (
             cp_params['File paths and channels']
-            ['Cells segmentation end name or path']
+            ['Cells segmentation end name']
         )
         analysisSegmEndname = analysisSegmEndname.split('.npy')[0]
         analysisSegmEndname = analysisSegmEndname.split('.npz')[0]
@@ -2651,7 +2682,8 @@ def ParamFormWidget(
         addWarningButton=param.get('addWarningButton', False),
         addApplyButton=param.get('addApplyButton', False),
         addBrowseButton=param.get('addBrowseButton', False),
-        isFolderBrowse=param.get('addBrowseButton', False),
+        isFolderBrowse=param.get('isFolderBrowse', False),
+        browseExtensions=param.get('browseExtensions'),
         addAutoButton=param.get('addAutoButton', False),
         addEditButton=param.get('addEditButton', False),
         stretchFactors=param.get('stretchFactors'),
