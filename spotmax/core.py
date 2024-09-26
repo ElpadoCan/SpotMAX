@@ -267,9 +267,31 @@ class _DataLoader:
         if not df_spots_coords_in_endname:
             return data
         
-        if os.path.exists(df_spots_coords_in_endname):
+        valid_files_images_path = [
+            file for file in utils.listdir(images_path) 
+            if file.endswith(df_spots_coords_in_endname)
+        ]
+        if len(valid_files_images_path) > 1:
+            from . import _warnings
+            _warnings.log_files_in_folder(
+                images_path, logger_func=self.logger.info
+            )
+            valid_files_str = '\n'.join(
+                [f'* {file}' for file in valid_files_images_path]
+            )
+            raise TypeError(
+                f'Multiple files ending with `{df_spots_coords_in_endname}` '
+                'found in the Images path:\n\n'
+                f'{valid_files_str}\n\n'
+                'Please, make sure that only one file ends with '
+                f'`{df_spots_coords_in_endname}` in the following path:\n\n'
+                f'{images_path}'
+            )
+        
+        if len(valid_files_images_path) == 1:
+            df_filename = valid_files_images_path[0]
             df_spots_in = io.load_table_to_df(
-                df_spots_coords_in_endname
+                os.path.join(images_path, df_filename)
             )
             df_spots_in['z'] = df_spots_in['z'].astype(int)
             df_spots_in['y'] = df_spots_in['y'].astype(int)
@@ -277,17 +299,60 @@ class _DataLoader:
             data['df_spots_coords_in'] = df_spots_in
             return data
         
-        for file in utils.listdir(images_path):
-            if file.endswith(df_spots_coords_in_endname):
-                df_spots_in = io.load_table_to_df(
-                    os.path.join(images_path, file)
-                )
-                df_spots_in['z'] = df_spots_in['z'].astype(int)
-                df_spots_in['y'] = df_spots_in['y'].astype(int)
-                df_spots_in['x'] = df_spots_in['x'].astype(int)
-                data['df_spots_coords_in'] = df_spots_in
-                
-        return data
+        pos_path = os.path.dirname(images_path)
+        spotmax_out_path = os.path.join(pos_path, 'spotMAX_output')
+        if not os.path.exists(spotmax_out_path):
+            from . import _warnings
+            _warnings.log_files_in_folder(
+                images_path, logger_func=self.logger.info
+            )
+            raise TypeError(
+                'The file for the `Spots coordindate table end name` ending with '
+                f'{df_spots_coords_in_endname} was not found in the Images folder.'
+            )
+        
+        
+        valid_files_smax_out_path = [
+            file for file in utils.listdir(spotmax_out_path) 
+            if file.endswith(df_spots_coords_in_endname)
+        ]
+        if len(valid_files_smax_out_path) > 1:
+            valid_files_str = '\n'.join(
+                [f'* {file}' for file in valid_files_smax_out_path]
+            )
+            raise TypeError(
+                f'Multiple files ending with `{df_spots_coords_in_endname}` '
+                'found in the Images path:\n\n'
+                f'{valid_files_str}\n\n'
+                'Please, make sure that only one file ends with '
+                f'`{df_spots_coords_in_endname}` in the following path:\n\n'
+                f'{spotmax_out_path}'
+            )
+        
+        if len(valid_files_smax_out_path) == 1:
+            df_filename = valid_files_smax_out_path[0]
+            df_spots_in = io.load_table_to_df(
+                os.path.join(spotmax_out_path, df_filename)
+            )
+            df_spots_in['z'] = df_spots_in['z'].astype(int)
+            df_spots_in['y'] = df_spots_in['y'].astype(int)
+            df_spots_in['x'] = df_spots_in['x'].astype(int)
+            data['df_spots_coords_in'] = df_spots_in
+            return data
+
+        from . import _warnings
+        _warnings.log_files_in_folder(
+            images_path, logger_func=self.logger.info
+        )
+        _warnings.log_files_in_folder(
+            spotmax_out_path, logger_func=self.logger.info
+        )
+        
+        raise TypeError(
+            'The file for the `Spots coordindate table end name` ending with '
+            f'{df_spots_coords_in_endname} was not found neither in the Images '
+            'folder neither in the spotMAX_output folder.'
+        )
     
     def _reshape_data(self, data, metadata: dict):
         SizeZ = metadata['SizeZ']

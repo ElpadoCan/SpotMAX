@@ -1,6 +1,6 @@
 import os
 
-from . import html_func
+from . import html_func, utils
 
 def warn_background_value_is_zero(logger_func, logger_warning_report=None):
     text = (
@@ -44,3 +44,15 @@ def warnNeuralNetNotInitialized(qparent=None, model_type='SpotMAX AI'):
     
     msg = widgets.myMessageBox(wrapText=False)
     msg.warning(qparent, 'Model parameters not initialized', txt)
+
+def log_files_in_folder(folderpath: os.PathLike, logger_func=print):
+    files = utils.listdir(folderpath)
+    files_str = '\n'.join([f'* {file}' for file in files])
+    head_sep = '-'*100
+    foot_sep = '='*100
+    logger_func(
+        f'{head_sep}\n'
+        f'Files found in the folder "{folderpath}":\n\n'
+        f'{files_str}\n'
+        f'{foot_sep}\n'
+    )
