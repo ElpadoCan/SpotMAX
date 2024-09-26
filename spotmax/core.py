@@ -4114,7 +4114,7 @@ class Kernel(_ParamsParser):
             threshold_func = getattr(skimage.filters, threshold_method)
         else:
             threshold_func = threshold_method
-        
+
         result = pipe.reference_channel_semantic_segm(
             ref_ch_img, 
             lab=lab,

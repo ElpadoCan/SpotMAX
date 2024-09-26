@@ -1,3 +1,5 @@
+import traceback
+
 from tqdm import tqdm
 
 import numpy as np
@@ -258,6 +260,9 @@ def local_semantic_segmentation(
     if bioimageio_model is not None:
         threshold_funcs['bioimageio_model'] = None
     
+    if zyx_tolerance is None:
+        zyx_tolerance = (1, 1, 1)
+    
     slicer = transformations.SliceImageFromSegmObject(
         lab, lineage_table=lineage_table, zyx_tolerance=zyx_tolerance
     )
@@ -288,6 +293,7 @@ def local_semantic_segmentation(
                         # Skip buds since they are aggregated with mother
                         continue
                 except Exception as err:
+                    printl(traceback.format_exc())
                     import pdb; pdb.set_trace()
             
             spots_img_obj, lab_mask_lab, merged_obj_slice, bud_ID = (
