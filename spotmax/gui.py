@@ -666,6 +666,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         spotsParams = ParamsGroupBox.params[section]
         return spotsParams[anchor]['widget'].currentText() == 'BioImage.IO model'
     
+    def isSpotiflowRequested(
+            self, section='Spots channel', anchor='spotPredictionMethod'
+        ):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params[section]
+        return spotsParams[anchor]['widget'].currentText() == 'Spotiflow'
+    
     def isPreprocessAcrossExpRequired(self):
         if not self.isNeuralNetworkRequested():
             return False
@@ -2002,6 +2009,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         section = 'Spots channel'
         kwargs = self.addBioImageIOModelKwargs(kwargs, section, anchor)
         
+        kwargs = self.addSpotiflowModelKwargs(kwargs)
+        
         kwargs = {**kwargs, **kwargsToAdd}
         
         self.logNnetParams(kwargs.get('nnet_params'))
@@ -2104,7 +2113,24 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs['bioimageio_model'] = self.getBioImageIOModel(section, anchor)
         kwargs['bioimageio_params'] = self.getBioImageIOParams(section, anchor)
         
-        threshold_func = self.getRefChThresholdMethod()
+        if section == 'Reference channel':
+            threshold_func = self.getRefChThresholdMethod()
+        else:
+            threshold_func = self.getSpotsThresholdMethod()
+            
+        kwargs['thresholding_method'] = threshold_func
+        kwargs['do_try_all_thresholds'] = False
+        
+        return kwargs
+
+    def addSpotiflowModelKwargs(self, kwargs):
+        if not self.isSpotiflowRequested():
+            return kwargs
+        
+        kwargs['spotiflow_model'] = self.getSpotiflowModel()
+        kwargs['spotiflow_params'] = self.getSpotiflowParams()
+        
+        threshold_func = self.getSpotsThresholdMethod()
         kwargs['thresholding_method'] = threshold_func
         kwargs['do_try_all_thresholds'] = False
         
@@ -2741,6 +2767,22 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         return spotPredictionMethodWidget.bioImageIOModel   
     
+    @exception_handler
+    def getSpotiflowModel(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        if spotPredictionMethodWidget.SpotiflowModel is None:
+            raise ValueError(
+                'Neural network parameters were not initialized. Before trying '
+                'to use it, you need to initialize the model\'s parameters by '
+                'clicking on the settings button on the right of the selection '
+                'box at the "Spots segmentation method" parameter.'
+            )
+        
+        return spotPredictionMethodWidget.SpotiflowModel
+    
     def getSpotsThresholdMethod(self):
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         spotsParams = ParamsGroupBox.params['Spots channel']
@@ -2799,6 +2841,20 @@ class spotMAX_Win(acdc_gui.guiWin):
             return 
         
         return spotPredictionMethodWidget.nnetParams  
+    
+    @exception_handler
+    def getSpotiflowParams(self):
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        spotsParams = ParamsGroupBox.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        if spotPredictionMethodWidget.SpotiflowModel is None:
+            _warnings.warnNeuralNetNotInitialized(
+                qparent=self, model_type='Spotiflow'
+            )
+            return 
+        
+        return spotPredictionMethodWidget.SpotiflowParams 
     
     @exception_handler
     def getBioImageIOParams(

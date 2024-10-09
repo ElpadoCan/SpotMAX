@@ -9,6 +9,7 @@ import webbrowser
 
 from functools import partial
 
+import math
 import numpy as np
 import pandas as pd
 
@@ -809,12 +810,14 @@ class SpotPredictionMethodWidget(QWidget):
         self.nnetModel = None
         self.bioImageIOModel = None
         self.bioImageIOParams = None
+        self.SpotiflowParams = None
+        self.SpotiflowModel = None
         
         layout = QHBoxLayout()
         self.setLayout(layout)
         
         self.combobox = myQComboBox()
-        items = ['Thresholding', 'spotMAX AI', 'BioImage.IO model']
+        items = ['Thresholding', 'spotMAX AI', 'BioImage.IO model', 'Spotiflow']
         self.combobox.addItems(items)
         
         self.configButton = acdc_widgets.setPushButton()
@@ -889,6 +892,13 @@ class SpotPredictionMethodWidget(QWidget):
         if self.nnetParams is None:
             self.nnetParams = { 'init': {}, 'segment': {}}
         self.nnetParams['init']['PhysicalSizeX'] = pixelWidth
+    
+    def setExpectedYXSpotRadius(self, spot_yx_radius_pixel):
+        if self.SpotiflowParams is None:
+            self.SpotiflowParams = { 'init': {}, 'segment': {}}
+        self.SpotiflowParams['segment']['expected_spot_radius'] = (
+            math.ceil(spot_yx_radius_pixel)
+        )
     
     def setDefaultRemoveHotPixels(self, remove_hot_pixels):
         if self.nnetParams is None:
@@ -966,7 +976,7 @@ class SpotPredictionMethodWidget(QWidget):
             'init': win.init_kwargs, 'segment': win.model_kwargs
         }
         self.configButton.confirmAction()
-        self.log('Model initialized' )
+        self.log('SpotMAX AI initialized' )
     
     def _promptConfigBioImageIOModel(self):
         from spotmax.BioImageIO import model
@@ -1004,11 +1014,49 @@ class SpotPredictionMethodWidget(QWidget):
         self.configButton.confirmAction()
         self.log('Model initialized' )
     
+    def _promptConfigSpotiflowModel(self):
+        from spotmax.Spotiflow import spotiflow_smax_model as model
+        init_params, segment_params = acdc_myutils.getModelArgSpec(model)
+        url = model.url_help()
+        win = acdc_apps.QDialogModelParams(
+            init_params,
+            segment_params,
+            'Spotiflow', 
+            parent=self,
+            url=url, 
+            initLastParams=True, 
+            posData=self.posData,
+            df_metadata=self.metadata_df,
+            force_postprocess_2D=False,
+            is_tracker=True,
+            model_module=model
+        )
+        if self.SpotiflowParams is not None:
+            win.setValuesFromParams(
+                self.SpotiflowParams['init'], self.SpotiflowParams['segment']
+            )
+        win.exec_()
+        if win.cancel:
+            return
+        
+        self.log(
+            'Initializing Spotiflow '
+            '(GUI will be unresponsive, no panic)...'
+        )
+        self.SpotiflowModel = model.Model(**win.init_kwargs)
+        self.SpotiflowParams = {
+            'init': win.init_kwargs, 'segment': win.model_kwargs
+        }
+        self.configButton.confirmAction()
+        self.log('Spotiflow initialized' )
+    
     def promptConfigModel(self):
         if self.value() == 'spotMAX AI':
             self._promptConfigNeuralNet()
         elif self.value() == 'BioImage.IO model':
             self._promptConfigBioImageIOModel()
+        elif self.value() == 'Spotiflow':
+            self._promptConfigSpotiflowModel()
     
     def nnet_params_to_ini_sections(self):
         if self.nnetParams is None:
@@ -1041,6 +1089,23 @@ class SpotPredictionMethodWidget(QWidget):
             for key, value in self.bioImageIOParams['segment'].items()
         }
         return init_model_params, segment_model_params
+
+    def spotiflow_model_params_to_ini_sections(self):
+        if self.SpotiflowParams is None:
+            return
+
+        if self.value() != 'Spotiflow':
+            return 
+        
+        init_model_params = {
+            key:str(value) 
+            for key, value in self.SpotiflowParams['init'].items()
+        }
+        segment_model_params = {
+            key:str(value) 
+            for key, value in self.SpotiflowParams['segment'].items()
+        }
+        return init_model_params, segment_model_params
     
     def nnet_params_from_ini_sections(self, ini_params):
         from spotmax.nnet.model import get_model_params_from_ini_params
@@ -1062,6 +1127,18 @@ class SpotPredictionMethodWidget(QWidget):
         
         self.bioImageIOParams = bioImageIOParams
         return self.bioImageIOParams['init'], self.bioImageIOParams['segment']
+    
+    def spotiflow_params_from_ini_sections(self, ini_params):
+        from spotmax.Spotiflow.spotiflow_smax_model import (
+            get_model_params_from_ini_params
+        )
+        SpotiflowParams = get_model_params_from_ini_params(
+            ini_params, use_default_for_missing=True
+        )
+        if SpotiflowParams is None:
+            return
+        
+        self.SpotiflowParams = SpotiflowParams
 
 class SpotMinSizeLabels(QWidget):
     def __init__(self):

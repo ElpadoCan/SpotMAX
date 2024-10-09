@@ -721,6 +721,7 @@ class guiTabControl(QTabWidget):
         spotPredMethodWidget = spotsParams['spotPredictionMethod']['widget']
         spotPredMethodWidget.nnet_params_from_ini_sections(params)
         spotPredMethodWidget.bioimageio_params_from_ini_sections(params)
+        spotPredMethodWidget.spotiflow_params_from_ini_sections(params)
     
     def validateIniFile(self, filePath):
         params = config.getDefaultParams()
@@ -2188,6 +2189,12 @@ class ParamsGroupBox(QGroupBox):
             formWidget.sigWarningButtonClicked.connect(
                 self.warnSpotSizeMightBeTooLow
             )
+        
+        spot_yx_radius_pixel = zyxMinSize_pxl[-1]
+        spotsParams = self.params['Spots channel']
+        anchor = 'spotPredictionMethod'
+        spotPredictionMethodWidget = spotsParams[anchor]['widget']
+        spotPredictionMethodWidget.setExpectedYXSpotRadius(spot_yx_radius_pixel)
     
     def warnSpotSizeMightBeTooLow(self, formWidget):
         spotMinSizeLabels = formWidget.widget.pixelLabel.text()
@@ -2259,15 +2266,28 @@ class ParamsGroupBox(QGroupBox):
         bioimageio_model_params = (
             widget.bioimageio_model_params_to_ini_sections()
         )
-        if nnet_params is None and bioimageio_model_params is None:
+        spotiflow_model_params = (
+            widget.spotiflow_model_params_to_ini_sections()
+        )
+        is_dl_model = (
+            nnet_params is not None 
+            or bioimageio_model_params is not None
+            or spotiflow_model_params is not None
+        )
+        if not is_dl_model:
             return ini_params
 
-        if bioimageio_model_params is None:
+        if nnet_params is not None:
             section_id_name = 'neural_network'
-        else:
+            model_params = nnet_params
+        elif bioimageio_model_params is not None:
             section_id_name = 'bioimageio_model'
+            model_params = bioimageio_model_params
+        elif spotiflow_model_params is not None:
+            section_id_name = 'spotiflow'
+            model_params = spotiflow_model_params
         
-        init_model_params, segment_model_params = nnet_params
+        init_model_params, segment_model_params = model_params
         SECTION = f'{section_id_name}.init.{channel}'
         for key, value in init_model_params.items():
             if SECTION not in ini_params:

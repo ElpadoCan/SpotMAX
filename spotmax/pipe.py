@@ -106,6 +106,8 @@ def spots_semantic_segmentation(
         return_nnet_prediction=False,
         bioimageio_model=None,
         bioimageio_params=None,
+        spotiflow_model=None,
+        spotiflow_params=None,
         do_preprocess=True,
         do_try_all_thresholds=True,
         return_only_segm=False,
@@ -195,8 +197,14 @@ def spots_semantic_segmentation(
         If not None, the output will include the key 'bioimageio_model' with the 
         result of the segmentation using the BioImage.IO model. 
         Default is None
-    bioimageio_params : _type_, optional
+    bioimageio_params : dict with 'segment' key, optional
         Parameters used in the segment method of the bioimageio_model. 
+        Default is None
+    spotiflow_model : Cell-ACDC implementation of Spotiflow, optional
+        If not None, the output will include the key 'spotiflow_model' with the 
+        result of the segmentation using Spotiflow. Default is None
+    spotiflow_params : dict with 'segment' key, optional
+        Parameters used in the `segment` method of the spotiflow_model. 
         Default is None
     do_preprocess : bool, optional
         If True, pre-process image before segmentation using the filters 
