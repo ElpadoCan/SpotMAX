@@ -2486,6 +2486,18 @@ class spotMAX_Win(acdc_gui.guiWin):
                 result['bioimageio_model'],
             ] 
             max_ncols = 3
+        elif 'spotiflow' in result:
+            selected_threshold_method = self.getSpotsThresholdMethod()
+            titles = [
+                'Input image', f'{selected_threshold_method}', 
+                'Spotiflow'
+            ]
+            prediction_images = [
+                result['input_image'], 
+                result['custom'], 
+                result['spotiflow'],
+            ] 
+            max_ncols = 3
         else:
             titles = list(result.keys())
             titles[0] = 'Input image'
