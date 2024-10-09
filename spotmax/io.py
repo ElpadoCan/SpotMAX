@@ -584,7 +584,7 @@ def sort_config_parser_ini(cp, params):
             option = param['desc']
             value = cp[section].get(option)
             if value is None:
-                value = params[section][anchor]['loadedVal']
+                value = str(params[section][anchor]['loadedVal'])
             sorted_cp[section][option] = value
     
     # Add sections that were not in default params
