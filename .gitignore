@@ -17,11 +17,13 @@ spotmax/_nnet
 spotmax/_deprecated
 spotmax/_old_gui.py
 spotmax/mytests/*
+spotmax/_deprecated_qrc_resources_spotmax.py
 spotmax/spotmax_v1_paramWin.png
 spotmax/spotmax_v2_parameters.png
 spotmax/nnet/models/deprecated_pytorch3dunet
 spotmax/docs/source/tutorials/data
 spotmax/docs/source/images/home_carousel/svgs
+spotmax/resources/_deprecated_icons
 examples/notebooks/bioimageio_models
 deprecated
 cuda-keyring_1.1-1_all.deb

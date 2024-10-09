@@ -960,6 +960,9 @@ class _ParamsParser(_DataLoader):
         self.bioimageio_model_ref_ch, self.bioimageio_params_ref_ch = (
             self.check_init_neural_network('BioImage.IO model', 'ref')
         )
+        self.spotiflow_model, self.spotiflow_params = (
+            self.check_init_neural_network('Spotiflow', 'spots')
+        )
         
         proceed = self.check_contradicting_params()
         if not proceed:
@@ -4689,6 +4692,8 @@ class Kernel(_ParamsParser):
                 nnet_input_data=aggr_transf_spots_nnet_img,
                 bioimageio_model=self.bioimageio_model,
                 bioimageio_params=self.bioimageio_params,
+                spotiflow_model=self.spotiflow_model,
+                spotiflow_params=self.spotiflow_params,
                 do_preprocess=False,
                 do_try_all_thresholds=False,
                 keep_input_shape=True,

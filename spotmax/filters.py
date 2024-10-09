@@ -245,6 +245,9 @@ def local_semantic_segmentation(
         bioimageio_model=None,
         bioimageio_params=None,
         bioimageio_input_image=None,
+        spotiflow_model=None,
+        spotiflow_params=None,
+        spotiflow_input_image=None,
         min_mask_size=1
     ):
     # Get prediction mask by thresholding objects separately
@@ -259,6 +262,10 @@ def local_semantic_segmentation(
     # Add bioimage io key if required
     if bioimageio_model is not None:
         threshold_funcs['bioimageio_model'] = None
+    
+    # Add bioimage io key if required
+    if spotiflow_model is not None:
+        threshold_funcs['spotiflow'] = None
     
     if zyx_tolerance is None:
         zyx_tolerance = (1, 1, 1)
@@ -309,6 +316,10 @@ def local_semantic_segmentation(
                 input_img, _, _, _ = (
                     slicer.slice(bioimageio_input_image, obj)
                 )
+            elif method == 'spotiflow':
+                input_img, _, _, _ = (
+                    slicer.slice(spotiflow_input_image, obj)
+                )
             else:
                 input_img = spots_img_obj
             
@@ -333,6 +344,10 @@ def local_semantic_segmentation(
             elif method == 'bioimageio_model':
                 predict_mask_merged = bioimageio_model.segment(
                     input_img, **bioimageio_params['segment']
+                )
+            elif method == 'spotiflow':
+                predict_mask_merged = spotiflow_model.segment(
+                    input_img, **spotiflow_params['segment']
                 )
             else:
                 # Threshold
@@ -400,6 +415,9 @@ def global_semantic_segmentation(
         bioimageio_model=None,
         bioimageio_params=None,
         bioimageio_input_image=None,
+        spotiflow_model=None,
+        spotiflow_params=None,
+        spotiflow_input_image=None,
         min_mask_size=1
     ):    
     if image.ndim not in (2, 3):
@@ -419,16 +437,22 @@ def global_semantic_segmentation(
         aggr_img = image
         aggregated_lab = lab
         aggr_transf_spots_nnet_img = nnet_input_data
+        aggr_transf_spots_bioimageio_img = bioimageio_input_image
+        aggr_transf_spotiflow_img = spotiflow_input_image
     else:
+        additional_imgs_to_aggr = (
+            nnet_input_data, bioimageio_input_image, spotiflow_input_image
+        )
         aggregated = transformations.aggregate_objs(
             image, lab, lineage_table=lineage_table, 
             zyx_tolerance=zyx_tolerance,
-            additional_imgs_to_aggr=[nnet_input_data, bioimageio_input_image], 
+            additional_imgs_to_aggr=additional_imgs_to_aggr, 
             return_x_slice_idxs=True 
         )
         aggr_img, aggregated_lab, aggr_imgs, x_slice_idxs = aggregated
         aggr_transf_spots_nnet_img = aggr_imgs[0]
         aggr_transf_spots_bioimageio_img = aggr_imgs[1]
+        aggr_transf_spotiflow_img = aggr_imgs[2]
     
     if ridge_filter_sigmas:
         aggr_img = ridge(aggr_img, ridge_filter_sigmas)
@@ -476,8 +500,19 @@ def global_semantic_segmentation(
         bioimageio_labels = bioimageio_model.segment(
             aggr_transf_spots_bioimageio_img, **bioimageio_params['segment']
         )
-        bioimageio_labels = filter_labels_by_size(nnet_labels, min_mask_size)
+        bioimageio_labels = filter_labels_by_size(
+            bioimageio_labels, min_mask_size
+        )
         result['bioimageio_model'] = bioimageio_labels
+    
+    if spotiflow_model is not None:
+        spotiflow_labels = spotiflow_model.segment(
+            aggr_transf_spotiflow_img, **spotiflow_params['segment']
+        )
+        spotiflow_labels = filter_labels_by_size(
+            spotiflow_labels, min_mask_size
+        )
+        result['spotiflow'] = spotiflow_labels
     
     if keep_input_shape:
         reindexed_result = {}

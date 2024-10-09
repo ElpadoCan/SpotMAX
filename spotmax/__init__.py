@@ -112,7 +112,6 @@ except ModuleNotFoundError:
     GUI_INSTALLED = False
 
 spotmax_path = os.path.dirname(os.path.abspath(__file__))
-qrc_resources_path = os.path.join(spotmax_path, 'qrc_resources_spotmax.py')
 resources_folderpath = os.path.join(spotmax_path, 'resources')
 
 import inspect

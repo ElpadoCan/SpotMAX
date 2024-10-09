@@ -201,7 +201,7 @@ def spots_semantic_segmentation(
         Parameters used in the segment method of the bioimageio_model. 
         Default is None
     spotiflow_model : Cell-ACDC implementation of Spotiflow, optional
-        If not None, the output will include the key 'spotiflow_model' with the 
+        If not None, the output will include the key 'spotiflow' with the 
         result of the segmentation using Spotiflow. Default is None
     spotiflow_params : dict with 'segment' key, optional
         Parameters used in the `segment` method of the spotiflow_model. 
@@ -257,6 +257,10 @@ def spots_semantic_segmentation(
         
         If bioimageio_model is not None, the output dictionary will include the 
         'bioimageio_model' key with value the result of running the bioimageio_model
+        requested. 
+        
+        If spotiflow_model is not None, the output dictionary will include the 
+        'spotiflow' key with value the result of running the spotiflow_model
         requested. 
         
         The output dictionary will also include the key 'input_image' with value 
@@ -321,6 +325,9 @@ def spots_semantic_segmentation(
             bioimageio_model=bioimageio_model,
             bioimageio_params=bioimageio_params,
             bioimageio_input_image=raw_image,
+            spotiflow_model=spotiflow_model,
+            spotiflow_params=spotiflow_params,
+            spotiflow_input_image=raw_image,
             min_mask_size=min_spot_mask_size
         )
     else:
@@ -341,6 +348,9 @@ def spots_semantic_segmentation(
             bioimageio_model=bioimageio_model,
             bioimageio_params=bioimageio_params,
             bioimageio_input_image=raw_image,
+            spotiflow_model=spotiflow_model,
+            spotiflow_params=spotiflow_params,
+            spotiflow_input_image=raw_image,
             min_mask_size=min_spot_mask_size
         )
     

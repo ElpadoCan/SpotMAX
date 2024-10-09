@@ -542,18 +542,20 @@ class guiTabControl(QTabWidget):
         msg.warning(self, 'Data not loaded', txt)
         self.sender().setChecked(False)
     
-    def loadAcdcMetadataDf(self, params, metadata_csv_filepath=None):
-        if metadata_csv_filepath is None:
-            if self.posData is None:
-                return None, None
-            
-            if not hasattr(self.posData, 'metadata_csv_path'):
-                return None, None
-            
-            if not os.path.exists(self.posData.metadata_csv_path):
-                return None, None
-
+    def loadAcdcMetadataDf(self, params):
+        if self.posData is None:
+            metadata_csv_filepath = acdc_load.askOpenCsvFile(
+                title='Select Cell-ACDC _metadata.csv file'
+            )
+        elif not hasattr(self.posData, 'metadata_csv_path'):
+            return None, None
+        elif not os.path.exists(self.posData.metadata_csv_path):
+            return None, None
+        else:
             metadata_csv_filepath = self.posData.metadata_csv_path
+            
+        if metadata_csv_filepath is None or not metadata_csv_filepath:
+            return None, None
             
         acdc_metadata_df = pd.read_csv(
             metadata_csv_filepath, index_col='Description'
@@ -564,11 +566,9 @@ class guiTabControl(QTabWidget):
         )
         return acdc_metadata_df, anchors_mapper
     
-    def loadMetadataFromAcdc(self, metadata_csv_filepath):
+    def loadMetadataFromAcdc(self):
         params = self.parametersQGBox.params
-        acdc_metadata_df, anchors_mapper = self.loadAcdcMetadataDf(
-            params, metadata_csv_filepath=metadata_csv_filepath
-        )
+        acdc_metadata_df, anchors_mapper = self.loadAcdcMetadataDf(params)
         if acdc_metadata_df is None:
             return True
         
@@ -1909,7 +1909,7 @@ class AutoTuneTabWidget(QWidget):
 
 class ParamsGroupBox(QGroupBox):
     sigResolMultiplValueChanged = Signal(float)
-    sigLoadMetadataFromAcdc = Signal(str)
+    sigLoadMetadataFromAcdc = Signal()
     
     def __init__(self, parent=None, debug=False, logging_func=print):
         super().__init__(parent)
@@ -1990,13 +1990,19 @@ class ParamsGroupBox(QGroupBox):
                     signal.connect(getattr(self, action[1]))
 
             if section == 'METADATA':
-                loadMetadataFromAcdcButton = acdc_widgets.browseFileButton(
-                    'Load metadata from Cell-ACDC metadata.csv file...',
-                    title='Select Cell-ACDC metadata.csv file',
-                    ext={'CSV': ['.csv']},
-                    start_dir=acdc_myutils.getMostRecentPath()
+                # loadMetadataFromAcdcButton = acdc_widgets.browseFileButton(
+                #     'Load metadata from Cell-ACDC metadata.csv file...',
+                #     title='Select Cell-ACDC metadata.csv file',
+                #     ext={'CSV': ['.csv']},
+                #     start_dir=acdc_myutils.getMostRecentPath()
+                # )
+                # loadMetadataFromAcdcButton.sigPathSelected.connect(
+                #     self.loadMetadataFromAcdc
+                # )
+                loadMetadataFromAcdcButton = acdc_widgets.LoadPushButton(
+                    'Load metadata from Cell-ACDC metadata.csv file'
                 )
-                loadMetadataFromAcdcButton.sigPathSelected.connect(
+                loadMetadataFromAcdcButton.clicked.connect(
                     self.loadMetadataFromAcdc
                 )
                 colSpan = formLayout.columnCount()
@@ -2018,8 +2024,8 @@ class ParamsGroupBox(QGroupBox):
         self.updateMinSpotSize()
         self.doSpotFitToggled(False)
     
-    def loadMetadataFromAcdc(self, metadata_csv_filepath):
-        self.sigLoadMetadataFromAcdc.emit(metadata_csv_filepath)
+    def loadMetadataFromAcdc(self):
+        self.sigLoadMetadataFromAcdc.emit()
     
     def addFieldToParams(self, formWidget):
         if formWidget.fieldIdx == 0:
