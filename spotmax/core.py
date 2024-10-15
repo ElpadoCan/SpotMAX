@@ -6120,6 +6120,12 @@ class Kernel(_ParamsParser):
         configPars['Configuration']['Source parameters file'] = (
             self.ini_params_file_path
         )
+        configPars['Configuration']['Analysis started on'] = (
+            self._datetime_started.strftime(r'%Y-%m-%d at %H:%M:%S')
+        )
+        configPars['Configuration']['Analysis ended on'] = (
+            datetime.now().strftime(r'%Y-%m-%d at %H:%M:%S')
+        )
         
         with open(analysis_inputs_filepath, 'w', encoding="utf-8") as file:
             configPars.write(file)
