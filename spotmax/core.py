@@ -5896,6 +5896,7 @@ class Kernel(_ParamsParser):
                 self.logger.info(f'Analysing "...{os.sep}{rel_path}"...')
                 images_path = os.path.join(pos_path, 'Images')
                 self._current_pos_path = pos_path
+                pos_analysis_started_datetime = datetime.now()
                 t0_pos = time.perf_counter()
                 result = self._run_from_images_path(
                     images_path, 
@@ -5928,7 +5929,8 @@ class Kernel(_ParamsParser):
                     text_to_append=text_to_append, 
                     df_spots_file_ext=df_spots_file_ext, 
                     df_spots_coords_in_endname=df_spots_coords_in_endname,
-                    verbose=verbose
+                    verbose=verbose,
+                    pos_analysis_started_datetime=pos_analysis_started_datetime
                 )
                 pbar_pos.update()
                 self._log_exec_time(
@@ -6089,7 +6091,8 @@ class Kernel(_ParamsParser):
 
     def _copy_ini_params_to_spotmax_out(
             self, spotmax_out_path, run_number, text_to_append, 
-            df_spots_coords_in_endname
+            df_spots_coords_in_endname, 
+            pos_analysis_started_datetime=None
         ):
         input_endname = df_spots_coords_in_endname
         if not input_endname:
@@ -6120,9 +6123,15 @@ class Kernel(_ParamsParser):
         configPars['Configuration']['Source parameters file'] = (
             self.ini_params_file_path
         )
+        
         configPars['Configuration']['Analysis started on'] = (
             self._datetime_started.strftime(r'%Y-%m-%d at %H:%M:%S')
         )
+        
+        if pos_analysis_started_datetime is not None:
+            configPars['Configuration']['Analysis of this position started on'] = (
+                pos_analysis_started_datetime.strftime(r'%Y-%m-%d at %H:%M:%S')
+            )
         configPars['Configuration']['Analysis ended on'] = (
             datetime.now().strftime(r'%Y-%m-%d at %H:%M:%S')
         )
@@ -6191,7 +6200,8 @@ class Kernel(_ParamsParser):
             text_to_append='', 
             df_spots_file_ext='.h5', 
             df_spots_coords_in_endname=None,
-            verbose=True
+            verbose=True,
+            pos_analysis_started_datetime=None
         ):
         if not df_spots_file_ext.startswith('.'):
             df_spots_file_ext = f'.{df_spots_file_ext}'
@@ -6215,7 +6225,8 @@ class Kernel(_ParamsParser):
         
         analysis_params_out_filepath = self._copy_ini_params_to_spotmax_out(
             spotmax_out_path, run_number, text_to_append, 
-            df_spots_coords_in_endname
+            df_spots_coords_in_endname, 
+            pos_analysis_started_datetime=pos_analysis_started_datetime
         )
         
         for key, filename in dfs_filenames.items():
