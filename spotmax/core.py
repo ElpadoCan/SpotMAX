@@ -790,11 +790,18 @@ class _ParamsParser(_DataLoader):
         if SECTION not in configPars.sections():
             return parser_args
         
+        folderpaths_anchors = ('pathToLog', 'pathToReport')
         config_default_params = config._configuration_params()
         for anchor, options in config_default_params.items():
             option = configPars.get(SECTION, options['desc'], fallback='')                        
             dtype_converter = options['dtype']
             value = dtype_converter(option)
+            
+            if anchor in folderpaths_anchors:
+                value = io.get_abspath(
+                    value, src_folderpath=os.path.dirname(params_path)
+                )
+                
             parser_args[options['parser_arg']] = value
             
             if anchor == 'raiseOnCritical':
@@ -823,7 +830,7 @@ class _ParamsParser(_DataLoader):
         
         disable_final_report = parser_args['disable_final_report']
         report_folderpath = parser_args['report_folderpath']
-
+        
         if not disable_final_report:
             report_filepath = self._check_report_filepath(
                 report_folderpath, params_path, force_default=force_default,
@@ -1882,12 +1889,14 @@ class _ParamsParser(_DataLoader):
             anchor_params = 'spotPredictionMethod'
             channel_section = 'Spots channel'
             subsection = 'spots'
+            threshold_func_anchor = 'spotThresholdFunc'
         else:
             anchor_filepaths = 'refChSegmEndName'
             anchor_params = 'refChSegmentationMethod'
             channel_section = 'Reference channel'
             subsection = 'ref_ch'
-            
+            threshold_func_anchor = 'refChThresholdFunc'
+        
         SECTION = 'File paths and channels'
         ANCHOR = anchor_filepaths
         section_params = self._params[SECTION]
@@ -1907,6 +1916,8 @@ class _ParamsParser(_DataLoader):
             model_module = 'spotmax.nnet.model'
         elif network_type == 'BioImage.IO model':
             model_module = 'spotmax.BioImageIO.model'
+        elif network_type == 'Spotiflow':
+            model_module = 'spotmax.Spotiflow.spotiflow_smax_model'
         
         try:
             self.logger.info('-'*100)                
@@ -1920,6 +1931,9 @@ class _ParamsParser(_DataLoader):
                 self._raise_model_params_section_missing_ini(network_type)
             model_class = model.Model(**model_params['init'])
             model_params['segment']['verbose'] = False
+            # Set threshold func to None to not perform it since we use AI
+            channel_params = self._params[channel_section]
+            channel_params[threshold_func_anchor]['loadedVal'] = None
         except Exception as err:
             self.logger.exception(traceback.format_exc())
             raise err
@@ -1965,7 +1979,7 @@ class _ParamsParser(_DataLoader):
                     value = option['initialVal']
                 else:
                     value = to_dtype(value)
-            self._params[SECTION][anchor_name]['loadedVal'] = value
+            self._params[SECTION][anchor_name]['loadedVal'] = value            
     
     def cast_loaded_values_dtypes(self):
         for section_name in list(self._params.keys()):
@@ -4659,13 +4673,18 @@ class Kernel(_ParamsParser):
             sharp_spots_img, lab, 
             lineage_table=lineage_table, 
             zyx_tolerance=self.metadata['deltaTolerance'],
-            additional_imgs_to_aggr=[spots_ch_segm_mask, transf_spots_nnet_img],
+            additional_imgs_to_aggr=[
+                spots_ch_segm_mask, 
+                transf_spots_nnet_img,
+                raw_spots_img
+            ],
             debug=self.debug, 
             return_x_slice_idxs=True
         )
         aggr_spots_img, aggregated_lab, aggr_imgs, x_slice_idxs = aggregated
         aggr_spots_ch_segm_mask = aggr_imgs[0]
         aggr_transf_spots_nnet_img = aggr_imgs[1]
+        aggr_raw_spots_img = aggr_imgs[2]
         aggr_nnet_pred_map = None
         
         labels = None
@@ -4700,7 +4719,7 @@ class Kernel(_ParamsParser):
                 return_only_segm=True,
                 pre_aggregated=True,
                 x_slice_idxs=x_slice_idxs,
-                raw_image=raw_spots_img,
+                raw_image=aggr_raw_spots_img,
                 min_spot_mask_size=min_spot_mask_size
             )
             try:

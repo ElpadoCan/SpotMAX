@@ -191,7 +191,7 @@ def get_model_params_from_ini_params(
         if not any([section in ini_params for section in sections]):
             return 
     
-    import spotmax.nnet.model as model_module
+    import spotmax.Spotiflow.spotiflow_smax_model as model_module
     params = io.nnet_params_from_ini_params(
         ini_params, sections, model_module, 
         use_default_for_missing=use_default_for_missing

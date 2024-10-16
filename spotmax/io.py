@@ -559,7 +559,8 @@ def save_nnet_pred_map(
 def add_neural_network_params(params, configPars):
     sections = [
         'neural_network.init', 'neural_network.segment',
-        'bioimageio_model.init', 'bioimageio_model.segment'
+        'bioimageio_model.init', 'bioimageio_model.segment',
+        'spotiflow.init', 'spotiflow.segment'
     ]
     sub_sections = ['spots', 'ref']
     for section in sections:

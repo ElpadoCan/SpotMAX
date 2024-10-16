@@ -210,7 +210,7 @@ def _get_threshold_funcs(threshold_func=None, try_all=True):
 
 def _get_semantic_segm_output(
         result, return_only_output_mask, nnet_model, return_nnet_prediction, 
-        bioimageio_model
+        bioimageio_model, spotiflow_model
     ):
     if not return_only_output_mask:
         return result
@@ -219,6 +219,8 @@ def _get_semantic_segm_output(
         segm_out = result['neural_network']
     elif bioimageio_model is not None:
         segm_out = result['bioimageio_model']
+    elif spotiflow_model is not None:
+        segm_out = result['spotiflow']
     else:
         segm_out = result['custom']
     
@@ -546,7 +548,7 @@ def global_semantic_segmentation(
     # result = {key:np.squeeze(img) for key, img in result.items()}
     out = _get_semantic_segm_output(
         result, return_only_output_mask, nnet_model, return_nnet_prediction, 
-        bioimageio_model
+        bioimageio_model, spotiflow_model
     )
     return out
 

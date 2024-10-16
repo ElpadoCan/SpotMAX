@@ -542,8 +542,8 @@ class guiTabControl(QTabWidget):
         msg.warning(self, 'Data not loaded', txt)
         self.sender().setChecked(False)
     
-    def loadAcdcMetadataDf(self, params):
-        if self.posData is None:
+    def loadAcdcMetadataDf(self, params, askLoad=True):
+        if self.posData is None and askLoad:
             metadata_csv_filepath = acdc_load.askOpenCsvFile(
                 title='Select Cell-ACDC _metadata.csv file'
             )
@@ -630,7 +630,9 @@ class guiTabControl(QTabWidget):
         return msg.clickedButton == yesButton
     
     def checkLoadedMetadata(self, anchorOptions, params, ini_filepath):
-        acdc_metadata_df, anchors_mapper = self.loadAcdcMetadataDf(params)
+        acdc_metadata_df, anchors_mapper = self.loadAcdcMetadataDf(
+            params, askLoad=False
+        )
         if acdc_metadata_df is None:
             return True
         

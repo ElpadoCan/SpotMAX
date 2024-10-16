@@ -318,14 +318,6 @@ def get_exp_paths(exp_paths, ini_folderpath=''):
     
     return exp_paths
 
-def get_log_folderpath(folder_path):
-    # User can provide the home path as '~'
-    log_path = folder_path.replace(r'%userprofile%', '~')
-    log_path = io.to_system_path(log_path)
-    log_path = os.path.expanduser(log_path)
-    log_path = io.get_abspath(log_path)
-    return log_path
-
 def parse_log_folderpath(log_path):
     log_path = io.get_abspath(log_path)
     try:
@@ -569,7 +561,7 @@ def _configuration_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
-            'dtype': get_log_folderpath, 
+            'dtype': str, 
             'parser': parse_log_folderpath,
             'parser_arg': 'log_folderpath'
         },
@@ -585,7 +577,7 @@ def _configuration_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
-            'dtype': io.get_abspath,
+            'dtype': str,
             'parser_arg': 'report_folderpath'
         },
         'reportFilename': {
