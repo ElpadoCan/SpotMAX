@@ -6163,7 +6163,11 @@ class Kernel(_ParamsParser):
                     )
     
     def _get_dfs_to_save(self, dfs, df_spots_coords_in_endname, text_to_append):
-        # Check if df_spots was a input --> add to dfs
+        return dfs, text_to_append, DFs_FILENAMES
+    
+        # Deprecated code --> it was used to save only the last step of spotmax 
+        # tables and it would overwrite the input df_spots_coords_in_endname
+        # Check if df_spots was an input --> add to dfs
         input_endname = df_spots_coords_in_endname
         if not input_endname:
             return dfs, text_to_append, DFs_FILENAMES
@@ -6187,6 +6191,7 @@ class Kernel(_ParamsParser):
         
         dfs = {key: df_to_save, key_agg: df_aggr_to_save}
         dfs_filenames = {key: input_endname}
+        
         return dfs, '', dfs_filenames
     
     def save_dfs_and_spots_masks(
@@ -6214,6 +6219,8 @@ class Kernel(_ParamsParser):
             text_to_append = f'_{text_to_append}'
         
         if not df_spots_coords_in_endname:
+            # Remove existing run number files in case they have a different
+            # text to append at the end but same run number
             self._remove_existing_run_numbers_files(
                 run_number, spotmax_out_path
             )

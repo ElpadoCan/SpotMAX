@@ -327,12 +327,15 @@ def add_distribution_metrics(
     spot_center_intens_col = f'spot_center_{bkgr_id}intensity' 
     spot_center_intens = df.at[idx, spot_center_intens_col]
     spot_bkgr_ratio_col = f'spot_center_{bkgr_id}intens_to_backgr_median_ratio' 
-    if bkgr_value == 0 and iter_idx == 0:
-        _warnings.warn_background_value_is_zero(
-            logger_func, logger_warning_report=logger_warning_report
-        )
+    if bkgr_value == 0:
+        if iter_idx == 0:
+            _warnings.warn_background_value_is_zero(
+                logger_func, logger_warning_report=logger_warning_report
+            )
+        spot_bkgr_ratio_value = np.nan
+    else:
+        spot_bkgr_ratio_value = spot_center_intens/bkgr_value
         
-    spot_bkgr_ratio_value = spot_center_intens/bkgr_value
     df.at[idx, spot_bkgr_ratio_col] = spot_bkgr_ratio_value
     
     mean_corr_z = mean_foregr_value - bkgr_value_z
@@ -343,11 +346,13 @@ def add_distribution_metrics(
         f'spot_center_{bkgr_id}intens_to_backgr_z_slice_median_ratio'
     ) 
     if bkgr_value_z == 0:
-        _warnings.warn_background_value_is_zero(
-            logger_func, logger_warning_report=logger_warning_report
-        )
-        
-    spot_bkgr_z_ratio_value = spot_center_intens/bkgr_value_z
+        if iter_idx == 0:
+            _warnings.warn_background_value_is_zero(
+                logger_func, logger_warning_report=logger_warning_report
+            )
+        spot_bkgr_z_ratio_value = np.nan
+    else:
+        spot_bkgr_z_ratio_value = spot_center_intens/bkgr_value_z
     df.at[idx, spot_bkgr_z_ratio_col] = spot_bkgr_z_ratio_value
     
     sum_corr = mean_corr*volume
@@ -700,5 +705,10 @@ def kurtosis_from_hist(bin_centers, counts):
     total = np.sum(counts)
     mean = np.sum(counts * bin_centers) / total
     variance = np.sum(counts * (bin_centers - mean)**2) / total
-    kurtosis = np.sum(counts * (bin_centers - mean)**4) / (variance**2 * total)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        kurtosis = (
+            np.sum(counts * (bin_centers - mean)**4) 
+            / (variance**2 * total)
+        )
     return kurtosis
