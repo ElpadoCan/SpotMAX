@@ -11,7 +11,7 @@ Segmentation and processed image data will be saved in each
 ``Position_n/Images`` folder.
 
 Tabular data will be saved in each Position folder in a sub-folder called 
-``spotMAX_output``.
+``SpotMAX_output``.
 
 Segmentation data
 -----------------
@@ -37,7 +37,7 @@ parameter.
 Tables
 ------
 
-In the ``spotMAX_output`` folder you will find the following set of tables::
+In the ``SpotMAX_output`` folder you will find the following set of tables::
 
     <run_number>_0_detected_spots_<appended_text>.<ext>
     <run_number>_0_detected_spots_<appended_text>_aggregated.csv
@@ -98,14 +98,14 @@ concatenate multiple Positions and multiple experiments results into a
 single table. 
 
 To do so, run Cell-ACDC and in the small launcher window go to the menu 
-on the top menu bar ``Utilies --> Concatenate --> Concatenate spotMAX output tables...``. 
+on the top menu bar ``Utilies --> Concatenate --> Concatenate SpotMAX output tables...``. 
 
 Select as many experiment and Position folders as you need and, optionally, 
 select if you need to copy cell cycle annotations from the Cell-ACDC output 
 file. 
 
 The multiple Positions final table will be saved in each experiment folder 
-selected in a folder called ``spotMAX_multipos_output``. The table will have 
+selected in a folder called ``SpotMAX_multipos_output``. The table will have 
 an additional column called ``Position_n`` that indicates from which Position 
 the data on each comes from. 
 

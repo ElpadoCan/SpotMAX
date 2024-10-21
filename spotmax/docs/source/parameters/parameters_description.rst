@@ -3,12 +3,12 @@
 .. _Create data structure: https://cell-acdc.readthedocs.io/en/latest/getting-started.html#creating-data-structures
 .. _Cell-ACDC user manual: https://github.com/SchmollerLab/Cell_ACDC/blob/main/UserManual/Cell-ACDC_User_Manual.pdf
 .. _Cell-ACDC: https://github.com/SchmollerLab/Cell_ACDC
-.. _notebooks folder: https://github.com/ElpadoCan/spotMAX/tree/main/examples/notebooks
+.. _notebooks folder: https://github.com/ElpadoCan/SpotMAX/tree/main/examples/notebooks
 .. _Sato filter: https://scikit-image.org/docs/stable/api/skimage.filters.html#skimage.filters.sato
 .. _filters section: https://scikit-image.org/docs/stable/api/skimage.filters.html#
-.. _GitHub page: https://github.com/ElpadoCan/spotMAX
+.. _GitHub page: https://github.com/ElpadoCan/SpotMAX
 .. _BioImage Model Zoo: https://bioimage.io/#/
-.. _INI configuration file templates: https://github.com/ElpadoCan/spotMAX/tree/main/examples/ini_config_files_template
+.. _INI configuration file templates: https://github.com/ElpadoCan/SpotMAX/tree/main/examples/ini_config_files_template
 .. _pandas.eval: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.eval.html
 .. _open: https://docs.python.org/3/library/functions.html#open
 .. _pandas.read_hdf: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_hdf.html
@@ -30,7 +30,7 @@
 Description of the parameters
 =============================
 
-Description of all the parameters required to run spotMAX. The paramters can be 
+Description of all the parameters required to run SpotMAX. The paramters can be 
 set in the GUI and saved to a INI configuration file or edited directly 
 in a INI template file. See `INI configuration file templates`_.
 
@@ -104,7 +104,7 @@ File paths and channels
   The segmentation data must have the same YX shape of the spots channel data. 
   However, when working with time-lapse data, it can have less time-points. 
   Additionally, with z-stack data, the segmentation data can be 2D. In this 
-  case, spotMAX will stack the 2D segmentation masks into 3D data with 
+  case, SpotMAX will stack the 2D segmentation masks into 3D data with 
   the same number of z-slices of the spots channel data. Same applied when 
   working with 3D z-stacks over time. 
   
@@ -118,7 +118,7 @@ File paths and channels
   Last part of the file name or full path of the file containing the reference 
   channel data. The reference channel is an additional fluorescence channel 
   that can aid with spot detection. For example, if the spots are located on a 
-  specific sub-cellular structure, you can let spotMAX segment the reference 
+  specific sub-cellular structure, you can let SpotMAX segment the reference 
   channel and keep only those spots found on the reference channel. 
   
   Example of reference channels are the nucleus, or the mitochondrial network. 
@@ -135,7 +135,7 @@ File paths and channels
   Last part of the file name or full path of the file containing the mask where 
   to search for spots. 
   
-  If you use this parameter, spotMAX will ignore the 
+  If you use this parameter, SpotMAX will ignore the 
   :confval:`Spots segmentation method` and will move directly to spot detection.
 
   Use this parameter if you already have the spots segmented with an external 
@@ -151,7 +151,7 @@ File paths and channels
   Last part of the file name or full path of the file containing the 
   segmentation mask of the reference channel. 
   
-  If you use this parameter, spotMAX will ignore the parameters 
+  If you use this parameter, SpotMAX will ignore the parameters 
   :confval:`Ref. channel segmentation method` and 
   :confval:`Segment reference channel`.
   
@@ -179,7 +179,7 @@ File paths and channels
   `pandas.read_hdf`_ ``(filepath, key='frame_0')``). 
 
   The output table with the quantified features will be saved in the 
-  spotMAX_output folder (see the section :ref:`output-files`) with the same 
+  SpotMAX_output folder (see the section :ref:`output-files`) with the same 
   filename (or end name) of this parameter.
 
   This table can also be the same from a previous analysis where you simply 
@@ -188,16 +188,16 @@ File paths and channels
 
   If you need to quantify the features of the spots no matter if the spots are 
   considered valid or not, add a column called ``'do_not_drop'`` with the value 
-  ``1`` at each row of the spot that must not be removed by spotMAX filters.
+  ``1`` at each row of the spot that must not be removed by SpotMAX filters.
   
   Use this parameter if you already have a table with spots coordinates 
-  generated outside of spotMAX.
+  generated outside of SpotMAX.
 
   .. tip:: 
 
-    In the spotMAX GUI, you can edit the results of a previous analysis, 
+    In the SpotMAX GUI, you can edit the results of a previous analysis, 
     including adding new spots. To compute the features of these manually added 
-    spots, spotMAX will save the new table in each Position folder and it will 
+    spots, SpotMAX will save the new table in each Position folder and it will 
     be used in this parameter. See the section :ref:`inspect-results-tab`, for 
     more details on how to manually edit the results.
 
@@ -245,7 +245,7 @@ File paths and channels
 
 .. confval:: Run number
 
-  An integer that will be prepended to spotMAX output files that allows you to 
+  An integer that will be prepended to SpotMAX output files that allows you to 
   identify a specific analysis run. You can have as many runs as you want. 
   Useful when trying out different parameters and you want to compare the 
   results of the different runs. 
@@ -262,7 +262,7 @@ File paths and channels
 
 .. confval:: Text to append at the end of the output files
 
-  A text to append at the end of the spotMAX output files. In conjuction with 
+  A text to append at the end of the SpotMAX output files. In conjuction with 
   :confval:`Run number`, this parameter can be used to identify the output 
   files from a specific analysis run. 
 
@@ -435,7 +435,7 @@ Pre-processing
 
 .. confval:: Aggregate cells prior analysis
 
-  If ``True``, spotMAX will aggregate all the segmented objects together before 
+  If ``True``, SpotMAX will aggregate all the segmented objects together before 
   running the spot detection of the reference channel segmentation. 
   Activate this option if some of the objects do not have any spot. 
   Deactivate it if you have a large variation in signal's intensity across 
@@ -452,7 +452,7 @@ Pre-processing
 
 .. confval:: Threshold only inside segmented objects
 
-  If ``True``, spotMAX will use only the intensities from inside the segmented 
+  If ``True``, SpotMAX will use only the intensities from inside the segmented 
   objects to determine the threshold value. 
 
   The segmented objects are the one in the 
@@ -473,7 +473,7 @@ Pre-processing
 
 .. confval:: Remove hot pixels
 
-  If ``True``, spotMAX will run a morphological opening operation on the intensity 
+  If ``True``, SpotMAX will run a morphological opening operation on the intensity 
   image. This will result in the removal of single bright pixels.
 
   :type: boolean
@@ -481,7 +481,7 @@ Pre-processing
 
 .. confval:: Initial gaussian filter sigma
 
-  If greater than 0, spotMAX will apply a Gaussian blur before detection. 
+  If greater than 0, SpotMAX will apply a Gaussian blur before detection. 
   This is usually beneficial. Note that you can provide a single sigma value 
   or one for each axis (separated by a comma). 
 
@@ -490,7 +490,7 @@ Pre-processing
 
 .. confval:: Sharpen spots signal prior detection
 
-  If ``True``, spotMAX will apply a Difference of Gaussians (DoG) filter that 
+  If ``True``, SpotMAX will apply a Difference of Gaussians (DoG) filter that 
   result in enhancing the spots. This is usually beneficial. 
   
   A DoG filter works by subtracting two blurred versions of the image. 
@@ -517,7 +517,7 @@ Pre-processing
   Number of repetitions below and above the bottom and top z-slice of the input 
   segmentation objects (objects present in the :confval:`Cells segmentation end name`). 
 
-  For example, if you provde the value ``(4, 6)``, spotMAX will extend the 
+  For example, if you provde the value ``(4, 6)``, SpotMAX will extend the 
   objects in Z by repeating the bottom z-slice 4 times below and the top z-slice 
   6 times above. 
 
@@ -541,7 +541,7 @@ Reference channel
 .. confval:: Segment reference channel
 
   If ``True`` and a reference channel name is provided in the parameter 
-  :confval:`Reference channel end name`, spotMAX will segment the 
+  :confval:`Reference channel end name`, SpotMAX will segment the 
   reference channel. The segmentation workflow is made of the following steps: 
 
   1. Gaussian filter (if :confval:`Ref. channel gaussian filter sigma` > 0)
@@ -599,7 +599,7 @@ Reference channel
 
 .. confval:: Ref. channel gaussian filter sigma
 
-  If greater than 0, spotMAX will appy a gaussian filter to the reference 
+  If greater than 0, SpotMAX will appy a gaussian filter to the reference 
   channel before segmenting it. Note that you can provide a single sigma value 
   or one for each axis (separated by a comma). 
 
@@ -608,7 +608,7 @@ Reference channel
 
 .. confval:: Sigmas used to enhance network-like structures
 
-  If greater than 0, spotMAX will apply a ridge filter (more specifically, the 
+  If greater than 0, SpotMAX will apply a ridge filter (more specifically, the 
   `Sato filter`_) that will enhance network-like structures. This parameter 
   will require some experimentation, but a good starting value is a single 
   sigma =  ``1.0``. If the reference channel mask should be smoother you can add a 
@@ -689,10 +689,10 @@ Reference channel
 
 .. confval:: Save reference channel features
 
-  If ``True``, spotMAX will save an additional file with tabular data containing 
+  If ``True``, SpotMAX will save an additional file with tabular data containing 
   features based on the reference channel masks and intensities. 
 
-  The file will be saved in the ``spotMAX_output`` folder with the the name's 
+  The file will be saved in the ``SpotMAX_output`` folder with the the name's 
   pattern ``<run_number>_3_ref_channel_features_<text_to_append>.csv``, where 
   ``<run_number>`` is the run number defined at :confval:`Run number`, and 
   ``<text_to_append>`` is the text provided at the 
@@ -704,7 +704,7 @@ Reference channel
 
 .. confval:: Save reference channel segmentation masks
 
-  If ``True``, spotMAX will save the segmentation masks of the reference channel in 
+  If ``True``, SpotMAX will save the segmentation masks of the reference channel in 
   the same folder where the reference channel's data is located. 
   The file will be named with the pattern ``<basename>_run_num<run_number>_<ref_ch_name>_ref_ch_segm_mask_<text_to_append>.npz`` 
   where ``<basename>`` is the common part of all the file names in the Position 
@@ -719,8 +719,8 @@ Reference channel
 
 .. confval:: Save pre-processed reference channel image
 
-  If ``True``, spotMAX will save the pre-processed reference channel's signal 
-  image. This is the image used by spotMAX to segment the reference channel.
+  If ``True``, SpotMAX will save the pre-processed reference channel's signal 
+  image. This is the image used by SpotMAX to segment the reference channel.
   
   The file will be named with the pattern 
   ``<basename>_run_num<run_number>_<ref_ch_name>_preprocessed_<text_to_append>.<ext>`` 
@@ -742,9 +742,9 @@ Spots channel
 .. confval:: Spots segmentation method
 
   Method used to segment the spots. This can be either ``Thresholding``, 
-  ``spotMAX AI``, or ``BioImage.IO model``.
+  ``SpotMAX AI``, or ``BioImage.IO model``.
 
-  If you choose ``spotMAX AI`` you will need to setup additional parameters for 
+  If you choose ``SpotMAX AI`` you will need to setup additional parameters for 
   the model. In the GUI you can do so by clicking on the cog button just 
   beside the method selector. For more details about the AI parameters see 
   this section :ref:`ai_params`. 
@@ -756,10 +756,10 @@ Spots channel
   the path to the downloaded zip file of the chosen model. You can choose any 
   of the models available on the `BioImage Model Zoo`_ webpage.
 
-  During the segmentation step spotMAX will generate a binary mask from the 
+  During the segmentation step SpotMAX will generate a binary mask from the 
   spots' intensity image with potential areas where to detect spots. 
   
-  After this step, spotMAX  will separate the spots by detecting local peaks 
+  After this step, SpotMAX  will separate the spots by detecting local peaks 
   or labelling the prediction mask (separate by connected component labelling) 
   depending on the :confval:`Spots detection method` parameter. 
   
@@ -785,7 +785,7 @@ Spots channel
 .. confval:: Spot detection threshold function
 
   Automatic thresholding algorithm to use in case the :confval:`Spots segmentation method`  
-  is ``Thresholding``. If instead it is ``spotMAX AI`` or ``BioImage.IO model`` 
+  is ``Thresholding``. If instead it is ``SpotMAX AI`` or ``BioImage.IO model`` 
   here you can select which thresholding algorithm to compare to the neural 
   network output.
   
@@ -831,9 +831,9 @@ Spots channel
   ``spot_vs_ref_ch_ttest_tstat`` features (see :ref:`stat-test-vs-ref-ch`) 
   for details about these features). The thresholds, are written as ``min, max`` 
   after the feature name. Therefore, with the line ``spot_vs_ref_ch_ttest_pvalue, None, 0.025`` 
-  spotMAX will keep only those spots whose p-value of the t-test against the 
+  SpotMAX will keep only those spots whose p-value of the t-test against the 
   reference channel is below 0.025. Equally, with the ``spot_vs_ref_ch_ttest_tstat, 0.0, None`` 
-  spotMAX will keep only those spots whose t-statistic of the t-test against the 
+  SpotMAX will keep only those spots whose t-statistic of the t-test against the 
   reference channel is above 0.0. Using this syntax, you can filter using an 
   arbitrary number of single-spot features described in the :ref:`single-spot-features` 
   section.
@@ -883,7 +883,7 @@ Spots channel
 
 .. confval:: Optimise detection for high spot density
 
-  If ``True``, spotMAX will normalise the intensities within each single spot mask 
+  If ``True``, SpotMAX will normalise the intensities within each single spot mask 
   by the euclidean distance transform of the spheroid mask. 
   
   More specifically, the further away from the center a pixel is, the more its 
@@ -900,14 +900,14 @@ Spots channel
 
 .. confval:: Compute spots size (fit gaussian peak(s))
 
-  If ``True``, spotMAX will fit a 3D gaussian curve to the spots intensities. 
+  If ``True``, SpotMAX will fit a 3D gaussian curve to the spots intensities. 
   This will result in more features being computed. These features are 
   described in the :ref:`spotfit-features` section. To determine which 
   pixels should be given as input to the fitting procedure for each spot, 
-  spotMAX will first perform a step called spotSIZE.
+  SpotMAX will first perform a step called spotSIZE.
   
   Starting from a spot mask that is half the size of the minimum spot size, 
-  spotMAX will grow the masks by one voxel size in each direction. 
+  SpotMAX will grow the masks by one voxel size in each direction. 
   At each iteration, the mean of the intensities on the surface of the newly 
   added pixels is computed. If the mean is below a limit, the spot mask 
   stops growing. 
@@ -942,7 +942,7 @@ Spots channel
 
 .. confval:: After spotFIT, drop spots that are too close
 
-  If ``True``, spotMAX will drop spots that are too close using the new spots 
+  If ``True``, SpotMAX will drop spots that are too close using the new spots 
   centers determined during the spotFIT step (fitting gaussian peaks). 
 
   If two or more peaks are within the same ellipsoid with radii equal to 
@@ -964,7 +964,7 @@ Spots channel
 .. confval:: Merge spots pairs where single peak fits better
 
   If ``True``, for every pair of peaks on the same spot mask (determined by the 
-  :confval:`Spots segmentation method`) spotMAX will fit two Gaussian peaks 
+  :confval:`Spots segmentation method`) SpotMAX will fit two Gaussian peaks 
   and a single one. If the single one has lower root mean squared error 
   (i.e., better fit) or the two peaks merge together the dimmer peak is dropped.
 
@@ -994,7 +994,7 @@ Spots channel
 
 .. confval:: Save spots segmentation masks
 
-  If ``True``, spotMAX will save the segmentation masks of the spots in the same 
+  If ``True``, SpotMAX will save the segmentation masks of the spots in the same 
   folder where the spots's data is located. 
   
   The file will be named with the pattern 
@@ -1018,8 +1018,8 @@ Spots channel
 
 .. confval:: Save pre-processed spots image
 
-  If ``True``, spotMAX will save the pre-processed spots' signal image. This is 
-  the image used by spotMAX as input for spot detection.
+  If ``True``, SpotMAX will save the pre-processed spots' signal image. This is 
+  the image used by SpotMAX as input for spot detection.
   
   The file will be named with the pattern 
   ``<basename>_run_num<run_number>_<spots_ch_name>_preprocessed_<text_to_append>.<ext>`` 
@@ -1035,14 +1035,14 @@ Spots channel
 
 .. confval:: Skip objects where segmentation failed
 
-  If ``True``, spotMAX will skip those objects (e.g., the single cells) where 
+  If ``True``, SpotMAX will skip those objects (e.g., the single cells) where 
   more than 25% of the spots masks determined by 
   :confval:`Spots segmentation method` are on the background. 
   
   The objects are the ones in the file provided by the 
   :confval:`Cells segmentation end name`. 
 
-  If ``False``, spotMAX will still detect spots in these objects, but it 
+  If ``False``, SpotMAX will still detect spots in these objects, but it 
   will log a warning in the terminal, in the log file and in the final report. 
 
   When you segment the spots in a cell that is particularly dark or you 
@@ -1355,7 +1355,7 @@ Configuration
 
 .. confval:: Use default values for missing parameters
 
-  If ``True``, spotMAX will not pause waiting for the user to choose what to do 
+  If ``True``, SpotMAX will not pause waiting for the user to choose what to do 
   with missing parameters. 
   
   It will continue the analysis with default values. Disable this only when you 
@@ -1367,7 +1367,7 @@ Configuration
 
 .. confval:: Stop analysis on critical error
 
-  If ``False``, spotMAX will log the error and will continue the analysis of the 
+  If ``False``, SpotMAX will log the error and will continue the analysis of the 
   next folder without stopping.
 
   :type: boolean
@@ -1375,7 +1375,7 @@ Configuration
 
 .. confval:: Use CUDA-compatible GPU
 
-  If ``True`` and CUDA libraries are installed, spotMAX can run some of the 
+  If ``True`` and CUDA libraries are installed, SpotMAX can run some of the 
   analysis steps on the GPU, significantly increasing overall analysis speed.
 
   :type: boolean

@@ -1,4 +1,4 @@
-.. _GNU General Public License v3.0: https://github.com/ElpadoCan/spotMAX/blob/main/LICENSE
+.. _GNU General Public License v3.0: https://github.com/ElpadoCan/SpotMAX/blob/main/LICENSE
 .. _Contributing Guide: https://spotmax.readthedocs.io/en/latest/misc/contributing.html
 .. _installation guide: https://spotmax.readthedocs.io/en/latest/install/index.html
 .. _PyPI: https://pypi.org/project/spotmax/
@@ -10,7 +10,7 @@
 
 .. |spotmaxlogo| image:: spotmax/docs/source/_static/logo.png
    :width: 64
-   :target: https://github.com/ElpadoCan/spotMAX/tree/main/spotmax/resources
+   :target: https://github.com/ElpadoCan/SpotMAX/tree/main/spotmax/resources
 
 |spotmaxlogo| Welcome to SpotMAX!
 =================================
@@ -59,7 +59,7 @@ Resources
 Citation
 --------
 
-If you use spotMAX in your work, please cire the following publication:
+If you use SpotMAX in your work, please cire the following publication:
 
    Padovani, F., Čavka, I., Neves, A. R. R., López, C. P., Al-Refaie, N., 
    Bolcato, L., Chatzitheodoridou, D., Chadha, Y., Su, X.A., Lengefeld, J., 

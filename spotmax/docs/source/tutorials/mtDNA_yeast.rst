@@ -1,5 +1,5 @@
 .. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
-.. _GitHub: https://github.com/ElpadoCan/spotMAX/issues
+.. _GitHub: https://github.com/ElpadoCan/SpotMAX/issues
 .. _BioImage Model Zoo: https://bioimage.io/#/
 .. _mNeonGreen: https://www.fpbase.org/protein/mneongreen/
 .. _seel-2023: https://www.nature.com/articles/s41594-023-01091-8
@@ -72,7 +72,7 @@ The ``phase_contr`` channel is the channel we used to segment the single cells w
 The ``mNeon`` channel is the channel where we want to detect the spots. 
 
 The ``mKate`` channel is the labelling of the mitochondrial network and we can 
-use it in spotMAX as the reference channel (more details below). 
+use it in SpotMAX as the reference channel (more details below). 
 
 .. figure:: ../images/tutorials_mtDNA_mito_yeast_figure.svg
     :align: center
@@ -84,7 +84,7 @@ use it in spotMAX as the reference channel (more details below).
 
 .. tip:: 
 
-    spotMAX can take advantage of mother-bud (or sister cells) relationships. To 
+    SpotMAX can take advantage of mother-bud (or sister cells) relationships. To 
     annotate the relationship use the `Cell-ACDC`_ software. These annotations 
     are saved in the file ending with ``acdc_output.csv``. 
 
@@ -199,7 +199,7 @@ This is because we want to keep only those spots that are significantly brighter
 than the ``mKate`` signal in the same area. However, we cannot compare absolute 
 intensities between ``mNeon`` and ``mKate`` because they are two different 
 fluorophores. Therefore, we need to normalize the two signals before comparing 
-them. To do so, spotMAX will divide the mean of the signal within each spot 
+them. To do so, SpotMAX will divide the mean of the signal within each spot 
 (using the minimum spot size determined in the `metadata_mtdna_yeast_tutorial`_ 
 section) by the background median. To determine the background, we want to take 
 the median of the pixels that are outside of the spots, but inside of the 
@@ -242,17 +242,17 @@ Spots channel
 
 We are almost done, since this is the last section that we will setup. 
 
-For the :confval:`Spots segmentation method` we know that 'spotMAX AI' works 
+For the :confval:`Spots segmentation method` we know that 'SpotMAX AI' works 
 well in this case, but feel free to experiment with 'Thresholding' (which is much faster 
 than the neural networks) and with any of the models available at the `BioImage Model Zoo`_.
 
 .. note:: 
 
-    If this is the first time you are using the 'spotMAX AI' method, spotMAX will 
+    If this is the first time you are using the 'SpotMAX AI' method, SpotMAX will 
     need to install some libraries. Keep an eye on the terminal during this 
     time and check that installation is successful.
 
-After selecting 'spotMAX AI' you will need to configure the parameters of the 
+After selecting 'SpotMAX AI' you will need to configure the parameters of the 
 model. To do so, click on the |cog| cog button beside the parameter. If you 
 want more information about the parameters of the AI see this section 
 :ref:`ai_params`. For this dataset, we know that the following parameters 
@@ -263,12 +263,12 @@ work well:
 * **Preprocess across timepoints**: False
 * **Gaussian filter sigma**: 0.0
 * **Remove hot pixels**: False
-* **Config yaml filepath**: spotMAX_v2/spotmax/nnet/config.yaml
+* **Config yaml filepath**: SpotMAX_v2/spotmax/nnet/config.yaml
 * **PhysicalSizeX**: 0.0672498 (same as in the `metadata_mtdna_yeast_tutorial`_)
 * **Resolution multiplier yx**: 1.0 
   
 Next, we can ignore :confval:`Spot detection threshold function` because we 
-are using the 'spotMAX AI' method.
+are using the 'SpotMAX AI' method.
 
 Now, as we said at the beginning, we want to keep only those spots that are 
 significantly higher than the reference channel in the same place. To do so, 
@@ -319,7 +319,7 @@ and we choose 'Yes'. This way we can load them back into the GUI any time we
 want by clicking on the |load-folder| ``Load parameters from previous analysis...`` 
 button on the top-left of the tab. 
 
-Next, spotMAX will ask us whether we want to select the measurements to save and 
+Next, SpotMAX will ask us whether we want to select the measurements to save and 
 we say 'No, save all the measurements'. 
 
 Then we choose a filename for the parameters file and the folder where to save 
@@ -332,7 +332,7 @@ terminal we will get asked some last questions about parameters that we did
 not selected and we simply confirm that we want to use the default ones. 
 
 The analysis will now run and the output files will be saved in the 
-same folder of the dataset in a new folder called ``spotMAX_output``. For details 
+same folder of the dataset in a new folder called ``SpotMAX_output``. For details 
 about the output files see this section :ref:`output-files`. 
 
 

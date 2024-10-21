@@ -49,7 +49,7 @@ file = "README.rst"
 content-type = "text/x-rst"
 
 [project.urls]
-Homepage = "https://github.com/ElpadoCan/spotMAX"
+Homepage = "https://github.com/ElpadoCan/SpotMAX"
 "Author contact" = "https://schmollerlab.com/francescopadovani"
 "Schmoller lab" = "https://schmollerlab.com/"
 

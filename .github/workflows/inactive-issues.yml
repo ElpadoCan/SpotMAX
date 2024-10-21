@@ -21,7 +21,7 @@ jobs:
           stale-pr-label: ":sleeping: Inactive"
           remove-stale-when-updated: true
           stale-issue-message: >
-            Hi there, I'm the spotMAX bot :wave:. 
+            Hi there, I'm the SpotMAX bot :wave:. 
             This issue had no activity for more than 180 days. 
             For now, we have marked it as "inactive" until there is some
             new activity. If this issue was not solved yet, unfortunately 

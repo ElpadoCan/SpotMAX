@@ -1,5 +1,5 @@
 .. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
-.. _Environments: https://github.com/ElpadoCan/spotMAX/tree/main/envs
+.. _Environments: https://github.com/ElpadoCan/SpotMAX/tree/main/envs
 .. _pyenv: https://github.com/pyenv/pyenv
 .. _Install Miniconda: https://docs.anaconda.com/free/miniconda/#quick-command-line-install
 .. _Install PyTorch: https://pytorch.org/get-started/locally/
@@ -15,14 +15,14 @@ Install on HPC cluster
 ----------------------
 
 HPC cluster often do not have a desktop environment, meaning that you need to 
-install the headless version of spotMAX. 
+install the headless version of SpotMAX. 
 
 Since most of the HPC clusters run on some Linux-based OS, we recommend using 
 ``conda`` not only to manage the environments, but also to install the 
 dependencies. 
 
 That means installing all the dependencies **first** and then install `Cell-ACDC`_ 
-and spotMAX **without dependencies**. 
+and SpotMAX **without dependencies**. 
 
 In the `Environments`_ folder, you will find the following files:
 
@@ -30,15 +30,15 @@ In the `Environments`_ folder, you will find the following files:
 * ``requirements_headless.txt`` to install dependencies with ``pip``. Note that 
   ``pip`` can also be used within a ``conda`` environment.
 
-Follow these steps to install spotMAX headless:
+Follow these steps to install SpotMAX headless:
 
 1. **Copy environment file(s)**
    
    Copy the files above on a folder on the cluster or download them automatically 
    from the terminal with the following commands::
 
-    curl -O https://github.com/ElpadoCan/spotMAX/blob/main/envs/conda_env_headless.yml
-    curl -O https://github.com/ElpadoCan/spotMAX/blob/main/envs/requirements_headless.txt
+    curl -O https://github.com/ElpadoCan/SpotMAX/blob/main/envs/conda_env_headless.yml
+    curl -O https://github.com/ElpadoCan/SpotMAX/blob/main/envs/requirements_headless.txt
 
 2. **Install the package manager**
    
@@ -78,17 +78,17 @@ Follow these steps to install spotMAX headless:
 
 4. **Install additional dependencies from pip**:
    
-   Some of spotMAX dependencies are available only from ``pip`` which means 
+   Some of SpotMAX dependencies are available only from ``pip`` which means 
    you need to install them manually with the following commands::
 
     pip install --no-deps "git+https://github.com/SchmollerLab/Cell_ACDC.git"
     pip install "git+https://github.com/ElpadoCan/pytorch3dunet.git"
 
-5. **Install spotMAX from pip**:
+5. **Install SpotMAX from pip**:
    
-   Install spotMAX with the following command::
+   Install SpotMAX with the following command::
 
-    pip install "git+https://github.com/ElpadoCan/spotMAX.git"
+    pip install "git+https://github.com/ElpadoCan/SpotMAX.git"
 
 6. **Install PyTorch** (optional):
 
@@ -102,11 +102,11 @@ Follow these steps to install spotMAX headless:
    
    .. note:: 
 
-      PyTorch is needed only if you plan to use the spotMAX AI method for spot 
+      PyTorch is needed only if you plan to use the SpotMAX AI method for spot 
       segmentation. See the parameter :confval:`Spots segmentation method` for 
       more details.
 
-7. **Download spotMAX AI model weights** (optional):
+7. **Download SpotMAX AI model weights** (optional):
    
    Download the model weights from here `3D model`_ and 
    here `2D model`_ to these paths::

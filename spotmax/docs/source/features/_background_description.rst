@@ -1,6 +1,6 @@
 Without a reference channel, the background is determined as the pixels outside 
 of the spots and inside the segmented object (e.g., the single cell). 
-To determine if a pixel is inside or outside of the spot, spotMAX will 
+To determine if a pixel is inside or outside of the spot, SpotMAX will 
 construct a mask for the spots using spheroids centered on each detected 
 spot with size given by the values you provide in the 
 ``METADATA`` section of the INI parameters file. 

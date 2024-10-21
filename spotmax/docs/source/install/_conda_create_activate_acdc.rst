@@ -61,6 +61,6 @@
    
         python -m pip install --upgrade pip
     
-    While we could use conda to install packages, spotMAX is not available 
+    While we could use conda to install packages, SpotMAX is not available 
     on conda yet, hence we will use ``pip``. 
     Pip the default package manager for Python. Here we are updating pip itself.

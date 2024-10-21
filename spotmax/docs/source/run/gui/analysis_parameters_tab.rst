@@ -1,7 +1,7 @@
 .. |compute| image:: ../../images/compute.png
     :width: 20
 
-.. _GitHub: https://github.com/ElpadoCan/spotMAX/issues
+.. _GitHub: https://github.com/ElpadoCan/SpotMAX/issues
 
 .. _analysis-parameters-tab:
 
@@ -52,7 +52,7 @@ to keep a spot.
 
 For example, let's say you want to filter by Signal-to-Noise Ratio (SNR) of the spots. 
 The feature that quantifies the SNR is the :ref:`Effect size (vs. backgr.)`. Since 
-spotMAX computes three different types of effect sizes, in this example we will use 
+SpotMAX computes three different types of effect sizes, in this example we will use 
 the Glass' effect size. 
 
 We want to keep only spots that have an Glass's effect size greater than 0.8. Therefore, 

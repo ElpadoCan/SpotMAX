@@ -13,7 +13,7 @@ Install latest version
         
         pip install --upgrade "git+https://github.com/SchmollerLab/Cell_ACDC.git"
     
-    We need to install Cell-ACDC latest version because spotMAX heavily relies 
+    We need to install Cell-ACDC latest version because SpotMAX heavily relies 
     on Cell-ACDC and it is very likely that it needs the latest version.
 
     .. important::
@@ -24,11 +24,11 @@ Install latest version
         you can restart from here, but **remember to activate the** ``acdc`` 
         **environment first** with the command ``conda activate acdc``.
 
-8.  **Install spotMAX** from the GitHub repository with the following command:
+8.  **Install SpotMAX** from the GitHub repository with the following command:
    
     .. code-block:: 
         
-        pip install "git+https://github.com/ElpadoCan/spotMAX.git"
+        pip install "git+https://github.com/ElpadoCan/SpotMAX.git"
     
     .. tip:: 
 
@@ -38,13 +38,13 @@ Install latest version
 
         .. code-block::
 
-            pip install --upgrade "git+https://github.com/ElpadoCan/spotMAX.git"
+            pip install --upgrade "git+https://github.com/ElpadoCan/SpotMAX.git"
         
-    This tells pip to install spotMAX directly from the GitHub repo.
+    This tells pip to install SpotMAX directly from the GitHub repo.
 
 9.  **Install the GUI libraries**:
 
-    If you plan to use the spotMAX GUI and you never used Cell-ACDC before, 
+    If you plan to use the SpotMAX GUI and you never used Cell-ACDC before, 
     run the command ``acdc``. Remember to **always activate** the ``acdc`` 
     environment with the command ``conda activate acdc`` every time you 
     open a new terminal before starting Cell-ACDC.
@@ -59,11 +59,11 @@ Install latest version
 
 .. include:: _install_numba.rst
 
-Updating to the latest version of spotMAX 
+Updating to the latest version of SpotMAX 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To update to the latest version of spotMAX, open the terminal, activate the 
+To update to the latest version of SpotMAX, open the terminal, activate the 
 ``acdc`` environment with the command ``conda activate acdc`` and the run the 
 follwing command::
         
-    pip install --upgrade "git+https://github.com/ElpadoCan/spotMAX.git"
+    pip install --upgrade "git+https://github.com/ElpadoCan/SpotMAX.git"

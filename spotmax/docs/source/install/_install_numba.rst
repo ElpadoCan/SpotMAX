@@ -4,7 +4,7 @@ Optional: install Numba
 SpotMAX can take advantage of multiple CPU cores using the package ``numba``. 
 For more details, see the `Numba documentation <https://numba.readthedocs.io/en/stable/index.html>`_. 
 
-This typically increases execution speed. **After installing spotMAX**, consider 
+This typically increases execution speed. **After installing SpotMAX**, consider 
 installing ``numba`` with the following command:
 
 .. tabs::

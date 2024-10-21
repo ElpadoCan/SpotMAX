@@ -1,5 +1,5 @@
 name: Report a bug
-description: Report an error, problem or unexpected behavior in spotMAX.
+description: Report an error, problem or unexpected behavior in SpotMAX.
 title: "<Comprehensive title summarizing the bug>"
 labels: [":bug: Bug"]
 
@@ -53,10 +53,10 @@ body:
     attributes:
       label: "Version information:"
       description: |
-        After activating the environment where you have spotMAX installed, 
+        After activating the environment where you have SpotMAX installed, 
         run the following command and paste the output
         ```shell
-        python -c "import sys; print(sys.version); import platform; print(platform.platform()); import cellacdc; print(f'Cell-ACDC version: {cellacdc.__version__}'); import spotmax; print(f'spotMAX version: {spotmax.__version__}')"
+        python -c "import sys; print(sys.version); import platform; print(platform.platform()); import cellacdc; print(f'Cell-ACDC version: {cellacdc.__version__}'); import spotmax; print(f'SpotMAX version: {spotmax.__version__}')"
         ```
       placeholder: |
         Version information...

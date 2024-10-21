@@ -38,5 +38,5 @@ on the dimmer valid spots and view what is their Glass' effect size.
 
 Finally, the :confval:`Spot detection threshold function` and the 
 minimum and maximum values of the selected filtering features can be automatically 
-tuned by spotMAX. To do so, click on the "Start autotuning" button on the top-right 
+tuned by SpotMAX. To do so, click on the "Start autotuning" button on the top-right 
 of the tab. 

@@ -1,9 +1,9 @@
 .. _how-to-run:
 
-How to run spotMAX
+How to run SpotMAX
 ==================
 
-You can run spotMAX in multiple ways:
+You can run SpotMAX in multiple ways:
 
 .. toctree:: 
     :maxdepth: 1

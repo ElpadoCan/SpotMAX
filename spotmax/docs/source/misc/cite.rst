@@ -1,2 +1,2 @@
-Citing spotMAX
+Citing SpotMAX
 ==============

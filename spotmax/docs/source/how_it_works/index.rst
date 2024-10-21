@@ -1,16 +1,16 @@
 .. _how_it_works:
 
-How spotMAX works
+How SpotMAX works
 =================
 
 SpotMAX has a **highly modular architecture** where each module can be run 
 **indipendently or sequentially**. 
 
 You can also skip some of these modules or you can **provide their result** 
-generated outside of spotMAX with a separate software. 
+generated outside of SpotMAX with a separate software. 
 
 For example, you can provide the reference channel segmentation 
-mask generated with Cellpose, skip its segmentation within spotMAX and use 
+mask generated with Cellpose, skip its segmentation within SpotMAX and use 
 it to filter valid spots (e.g., by keeping only spots that are on the reference 
 channel mask).
 
@@ -19,7 +19,7 @@ filter valid spots based on their relative intensities to the reference channel.
 
 .. note:: 
 
-    In this section we describe how spotMAX works not how to run it or adjust 
+    In this section we describe how SpotMAX works not how to run it or adjust 
     the parameters. For that, see the two sections :ref:`how-to-run` and 
     :ref:`params-desc`. 
 

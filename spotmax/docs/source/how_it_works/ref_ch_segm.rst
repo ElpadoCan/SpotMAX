@@ -44,7 +44,7 @@ thresholding or any of the models available on the `BioImage.IO Model Zoo`_.
 For more details about the available methods for automatic thresholding see 
 this guide `Thresholding (scikit-image)`. 
 
-One crucial aspect of spotMAX is that you can apply the segmentation model 
+One crucial aspect of SpotMAX is that you can apply the segmentation model 
 on each input segmented object (e.g., the single cells, a.k.a. "Local") or on
 all the objects in the image (a.k.a. "Aggregated"). See the parameter 
 :confval:`Aggregate cells prior analysis` to know how to toggle these two modes. 
@@ -63,7 +63,7 @@ option.
     If you are working with the *S. cerevisiase* model organism, most of the 
     times small buds do not have any structure. However, the "Local" will  
     still work if you annotate mother-bud relationship using our other software 
-    `Cell-ACDC`_. This is because spotMAX will consider the mother-object 
+    `Cell-ACDC`_. This is because SpotMAX will consider the mother-object 
     as a single object while the bud is still attached to the mother (i.e., 
     before division is annotated). Make sure that you provide the annotations 
-    to spotMAX with the parameter :confval:`Table with lineage info end name`. 
+    to SpotMAX with the parameter :confval:`Table with lineage info end name`. 

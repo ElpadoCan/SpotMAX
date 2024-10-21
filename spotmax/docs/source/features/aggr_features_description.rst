@@ -5,7 +5,7 @@
 Aggregated features description
 ===============================
 
-Description of all the features saved by spotMAX for each segmented object 
+Description of all the features saved by SpotMAX for each segmented object 
 (e.g., single cells, see :confval:`Cells segmentation end name` 
 parameter) and the corresponding column name. These are simple aggregations 
 like averaging and sum. 
@@ -58,7 +58,7 @@ Segmented objects size (e.g., single cells)
   major axis. Next, it is divided into slices perpendicular to the major axis, 
   each slice with width equal to 1 pixel. 
   Assuming rotational symmetry of each 
-  slice around its middle axis parallel to the mask's major axis, spotMAX computes 
+  slice around its middle axis parallel to the mask's major axis, SpotMAX computes 
   the volume of the resulting cylinder. Finally, the volumes of each cylinder 
   are summed to obtain the total volume.
 * **Estimated 3D volume from 2D mask (fl)**: column name ``cell_vol_fl``. 

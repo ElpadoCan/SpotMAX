@@ -3,7 +3,7 @@
 Reference channel features description
 ======================================
 
-Description of all the features saved by spotMAX for each segmented object 
+Description of all the features saved by SpotMAX for each segmented object 
 (e.g., single cells, see :confval:`Cells segmentation end name` 
 parameter) based on the reference channel segmentation masks (see the 
 :confval:`Segment reference channel` parameter). 

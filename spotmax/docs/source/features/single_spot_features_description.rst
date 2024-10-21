@@ -5,7 +5,7 @@
 Single-spot features description
 ================================
 
-Description of all the features saved by spotMAX for each single spot and the 
+Description of all the features saved by SpotMAX for each single spot and the 
 corresponding column name.
 
 .. contents::
@@ -164,7 +164,7 @@ a large effect. However, make sure that you explore your data before deciding
 on a threshold to filter out false positives.
 
 Given :m:`P` the pixels intensities inside the spot, :m:`N` the background 
-intensities, and :m:`\mathrm{std}` the standard deviation, spotMAX will compute 
+intensities, and :m:`\mathrm{std}` the standard deviation, SpotMAX will compute 
 the following effect sizes:
 
 * **Glass**: column name ``spot_vs_backgr_effect_size_glass``. 
@@ -207,7 +207,7 @@ Here, the ``vs. ref. ch.`` means that the reference channel's intensities
 inside the spots mask (see below) is the negative sample, i.e., the Noise part 
 in the SNR. 
 
-To determine if a pixel is inside or outside of the spot, spotMAX will construct 
+To determine if a pixel is inside or outside of the spot, SpotMAX will construct 
 a mask for the spots using spheroids centered on each detected spot with size 
 given by the values you provide in the ``METADATA`` section of the INI parameters 
 file.
@@ -221,7 +221,7 @@ file.
 Since we cannot compare the intensities of two different channels without any 
 normalization (since they are often different stains or fluorophores and they 
 are excited at different light intensities). Before computing the effect size, 
-spotMAX will normalize each channel individually by dividing with the median of 
+SpotMAX will normalize each channel individually by dividing with the median of 
 the background pixels' intensities. See the `Effect size (vs. backgr.)`_ section  
 for more information about how the background mask is determined.
 
@@ -234,7 +234,7 @@ of the spots by loading the file ``0_detected_spots`` (see the section
 of the GUI.
 
 Given :m:`P` the pixels intensities inside the spot, :m:`R` the reference channel  
-intensities, and :m:`std` the standard deviation, spotMAX will compute the following 
+intensities, and :m:`std` the standard deviation, SpotMAX will compute the following 
 effect sizes:
 
 * **Glass**: column name ``spot_vs_ref_ch_effect_size_glass``. 

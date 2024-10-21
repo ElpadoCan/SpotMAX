@@ -7,17 +7,17 @@ Install stable version
 
 .. include:: _conda_create_activate_acdc.rst
 
-7.  **Install spotMAX** with the following command:
+7.  **Install SpotMAX** with the following command:
    
     .. code-block:: 
         
         pip install "spotmax"
         
-    This tells pip to install spotMAX.
+    This tells pip to install SpotMAX.
 
 8.  **Install the GUI libraries**:
 
-    If you plan to use the spotMAX GUI and you never used Cell-ACDC before, 
+    If you plan to use the SpotMAX GUI and you never used Cell-ACDC before, 
     run the command ``acdc``. Remember to **always activate** the ``acdc`` 
     environment with the command ``conda activate acdc`` every time you 
     open a new terminal before starting Cell-ACDC.
@@ -32,10 +32,10 @@ Install stable version
 
 .. include:: _install_numba.rst
 
-Updating to the latest stable version of spotMAX 
+Updating to the latest stable version of SpotMAX 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To update to the latest version of spotMAX, open the terminal, activate the 
+To update to the latest version of SpotMAX, open the terminal, activate the 
 ``acdc`` environment with the command ``conda activate acdc`` and the run the 
 follwing command::
         

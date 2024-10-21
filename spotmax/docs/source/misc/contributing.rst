@@ -1,6 +1,6 @@
-.. _GitHub page: https://github.com/ElpadoCan/spotMAX
+.. _GitHub page: https://github.com/ElpadoCan/SpotMAX
 
-.. _GitHub: https://github.com/ElpadoCan/spotMAX/issues
+.. _GitHub: https://github.com/ElpadoCan/SpotMAX/issues
 
 .. _Anaconda: https://www.anaconda.com/download
 
@@ -24,7 +24,7 @@ Another way is to contribute to the software development process. Typically, thi
 is done through the process of Pull Requests (PRs) on GitHub. 
 
 A PR is a request to include in the base repository your new code. When you write 
-new code for spotMAX, you will do this on your personal fork of the project. 
+new code for SpotMAX, you will do this on your personal fork of the project. 
 A fork is like a copy of the original code. This way you can test the new code 
 on your fork and when you are happy with it you open a PR where you describe your 
 contribution and you request that your code is merged with the base code. 
@@ -41,7 +41,7 @@ Setup development environment
 
     .. code-block::
 
-        git clone https://github.com/your-username/spotMAX
+        git clone https://github.com/your-username/SpotMAX
     
     Make sure to replace ``your-username`` with your GitHub username in the 
     command above. 
@@ -50,13 +50,13 @@ Setup development environment
 
     .. code-block::
 
-        cd spotMAX
+        cd SpotMAX
 
-4. **Set the upstream remote repository to the base ``spotMAX`` repository**:
+4. **Set the upstream remote repository to the base ``SpotMAX`` repository**:
 
     .. code-block::
 
-        git remote add upstream https://github.com/ElpadoCan/spotMAX
+        git remote add upstream https://github.com/ElpadoCan/SpotMAX
 
     This command allows you to be able to pull the latest version from the base 
     repository before pushing your changes. It is important that you work 
@@ -84,8 +84,8 @@ Setup development environment
              python -m venv <path-to-env>
              source <path-to-env>/bin/activate
 
-6. **Install the forked spotMAX in developer mode**:
-    Make sure to be in the ``spotMAX`` folder in the terminal before running the 
+6. **Install the forked SpotMAX in developer mode**:
+    Make sure to be in the ``SpotMAX`` folder in the terminal before running the 
     following command:
 
     .. code-block::
@@ -94,7 +94,7 @@ Setup development environment
     
     .. note::
 
-        If you are planning to contribute to the GUI, make sure to run spotMAX 
+        If you are planning to contribute to the GUI, make sure to run SpotMAX 
         at least once and let it install the required GUI libraries. 
 
 Develop your contribution
@@ -115,7 +115,7 @@ These are the steps:
 
     .. code-block:: 
 
-        cd spotMAX
+        cd SpotMAX
         git checkout main
         git pull upstream main
 

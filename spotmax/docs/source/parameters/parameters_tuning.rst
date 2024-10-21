@@ -4,7 +4,7 @@
 
 .. _TrackMate: https://imagej.net/plugins/trackmate/
 
-.. _GitHub: https://github.com/ElpadoCan/spotMAX/issues
+.. _GitHub: https://github.com/ElpadoCan/SpotMAX/issues
 
 .. |compute| image:: ../images/compute.png
     :width: 20
@@ -35,7 +35,7 @@ Let's start with problem number 1.
 Too many spots detected
 -----------------------
 
-While there could be many reasons why spotMAX is detecting too many spots, we 
+While there could be many reasons why SpotMAX is detecting too many spots, we 
 can identify these main issues:
 
 1. Oversegmentation of the spots channel
@@ -67,7 +67,7 @@ Better pre-processing
 
 * **Increase smoothing**: try to increase :confval:`Initial gaussian filter sigma` 
   parameter since it might help removing noise, hence reducing the area where 
-  spotMAX will look for spots. Try values like 1.0, 2.0, or even 3.0 and beyond.
+  SpotMAX will look for spots. Try values like 1.0, 2.0, or even 3.0 and beyond.
 
 * **Activate or deactivate sharpening**: try activating/deactivating  
   :confval:`Sharpen spots signal prior detection` parameter
@@ -75,7 +75,7 @@ Better pre-processing
 * **Activate aggreation**: if you have multiple objects (e.g., cells) try 
   activating :confval:`Aggregate cells prior analysis` parameter. This could 
   help because thresholding on all the cells at once can help reducing the 
-  segmented areas where spotMAX will look for spots.
+  segmented areas where SpotMAX will look for spots.
 
 .. _better-spots-segm:
 
@@ -103,7 +103,7 @@ Ineffective filtering with features
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Once you tried all of the above, it might be time to look into filtering valid 
-spots using the features calculated by spotMAX. You can set these at the 
+spots using the features calculated by SpotMAX. You can set these at the 
 :confval:`Features and thresholds for filtering true spots` parameter. 
 
 To better understand which feature to use, read their description in the 
@@ -153,7 +153,7 @@ correctly by testing with the |compute| compute button beside the
 Too few spots detected
 ----------------------
 
-The reasons why spotMAX does not detect all the true positives are essentially 
+The reasons why SpotMAX does not detect all the true positives are essentially 
 opposite to why it detects too many spots (explained above) and they are the 
 followning:
 
@@ -266,30 +266,30 @@ If you tried many combinations of parameters and nothing seem to work there are
 three options:
 
 1. **Use external software for some of the analysis steps**
-2. **Train spotMAX AI** on your data
+2. **Train SpotMAX AI** on your data
 3. **Submit your case with some sample data**
 
 
 Use external software for some of the analysis steps
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Some of the analysis steps within spotMAX can be replaced with results you 
+Some of the analysis steps within SpotMAX can be replaced with results you 
 obtain with other software. For example, you could segment the spots or the 
 reference channel with `ilastik`_, `CellProfiler`_, or `TrackMate`_ to cite a 
-few, save the results to a TIFF file and provide this to spotMAX at the 
+few, save the results to a TIFF file and provide this to SpotMAX at the 
 parameters :confval:`Spots channel segmentation end name` and 
-:confval:`Ref. channel segmentation end name`. If you do this, spotMAX 
+:confval:`Ref. channel segmentation end name`. If you do this, SpotMAX 
 will not perform these steps and will instead use your external TIFF file. 
 
-Train spotMAX AI on your data
+Train SpotMAX AI on your data
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you have some experience with Python (and ideally access to a GPU) you can 
-easily train the spotMAX neural network on your data. Few manually annotated 
+easily train the SpotMAX neural network on your data. Few manually annotated 
 images could actually make a big difference. 
 
 See this repository for instructions on how to train the model on your data: 
-`spotMAX AI <https://github.com/ElpadoCan/spotMAX-Unet>`_. 
+`SpotMAX AI <https://github.com/ElpadoCan/SpotMAX-Unet>`_. 
 
 
 Submit your case with some sample data

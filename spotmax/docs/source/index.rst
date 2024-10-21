@@ -1,12 +1,12 @@
 .. |spotmaxlogo| image:: _static/logo.png
    :width: 64
-   :target: https://github.com/ElpadoCan/spotMAX/tree/main/spotmax/resources
+   :target: https://github.com/ElpadoCan/SpotMAX/tree/main/spotmax/resources
 
 .. |githublogo| image:: images/github_logo.png
    :width: 32
-   :target: https://github.com/ElpadoCan/spotMAX
+   :target: https://github.com/ElpadoCan/SpotMAX
 
-.. _GitHub: https://github.com/ElpadoCan/spotMAX
+.. _GitHub: https://github.com/ElpadoCan/SpotMAX
 
 |spotmaxlogo| Welcome to SpotMAX!
 =================================

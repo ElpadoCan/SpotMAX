@@ -1,5 +1,5 @@
 name: Informal request/question
-description: Ask a question or post a comment about spotMAX.
+description: Ask a question or post a comment about SpotMAX.
 title: "<Title of your question/comment>"
 labels: [":question: Help/question"]
 
@@ -16,7 +16,7 @@ body:
     attributes:
       label: "Description:"
       description: >
-        Ask any question or write any comment about spotMAX. Thanks!
+        Ask any question or write any comment about SpotMAX. Thanks!
         If you had an error, please upload the log file here too. 
         You can find the log file from the menu on the top menubar 
         called `Help --> Show log files...`

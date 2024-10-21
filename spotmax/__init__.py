@@ -168,7 +168,7 @@ is_mac = sys.platform == 'darwin'
 is_win = sys.platform.startswith("win")
 is_win64 = (is_win and (os.environ["PROCESSOR_ARCHITECTURE"] == "AMD64"))
 
-issues_url = 'https://github.com/ElpadoCan/spotMAX/issues'
+issues_url = 'https://github.com/ElpadoCan/SpotMAX/issues'
 
 help_text = (
     'Welcome to spotMAX!\n\n'

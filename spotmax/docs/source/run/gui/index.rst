@@ -2,16 +2,16 @@
 
 .. _how-to-run-gui:
 
-Run spotMAX from the GUI
+Run SpotMAX from the GUI
 ========================
 
 SpotMAX GUI is based on the `Cell-ACDC`_ GUI and it can be launched from the 
 Cell-ACDC launcher. If SpotMAX and Cell-ACDC are correctly installed, run the 
-command ``acdc`` to open the launcher. From the launcher, you can open spotMAX 
-GUI by clicking on ``4. Launch spotMAX...`` button, as shown in the screenshot below.
+command ``acdc`` to open the launcher. From the launcher, you can open SpotMAX 
+GUI by clicking on ``4. Launch SpotMAX...`` button, as shown in the screenshot below.
 
 .. figure:: ../../images/1_launch_spotmax_from_acdc.png
-    :alt: Launching spotMAX from Cell-ACDC
+    :alt: Launching SpotMAX from Cell-ACDC
     :width: 300
     :align: center
 

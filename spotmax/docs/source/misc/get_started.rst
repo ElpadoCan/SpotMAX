@@ -22,7 +22,7 @@ clicking on the compute button beside each "testable" parameter.
 
 .. tip:: 
 
-    Before running spotMAX you probably want to segment the objects where 
+    Before running SpotMAX you probably want to segment the objects where 
     you want to detect spots (e.g., the single cells). To do this you can use 
     our other software called `Cell-ACDC`_
 
@@ -44,7 +44,7 @@ in headless mode (without the GUI).
 Recommended workflow
 --------------------
 
-While there are multiple ways to run spotMAX (see the section :ref:`how-to-run`) 
+While there are multiple ways to run SpotMAX (see the section :ref:`how-to-run`) 
 and we certainly encourage you to experiment with the different modules, here 
 we want to outline a **recommended workflow**. 
 
@@ -61,10 +61,10 @@ software called `Cell-ACDC`_, therefore we recommend starting from there.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In the second step you should segment the objects of interest (e.g., the single 
-cells). This is done outside of spotMAX and, again, we recommend using our
+cells). This is done outside of SpotMAX and, again, we recommend using our
 other software called `Cell-ACDC`_. 
 
-This step is **very important** to allow spotMAX to ignore the background when 
+This step is **very important** to allow SpotMAX to ignore the background when 
 detecting the spots. 
 
 .. tip:: 
@@ -85,7 +85,7 @@ detecting the spots.
 3. Select optimal parameters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Open the spotMAX GUI and load one or more Positions. Go through each one of the 
+Open the SpotMAX GUI and load one or more Positions. Go through each one of the 
 parameters and make sure you understand their meaning. Here you find a detailed 
 description :ref:`params-desc`. 
 
@@ -93,7 +93,7 @@ description :ref:`params-desc`.
 
     We are constantly improving this documentation and we would like to write a FAQ section. 
     If you want to help out, **feel free to submit the questions you have** on our 
-    `GitHub page <https://github.com/ElpadoCan/spotMAX/issues>`_.
+    `GitHub page <https://github.com/ElpadoCan/SpotMAX/issues>`_.
 
 Experiment with different parameters and check intermediate results by clicking 
 on the |compute| compute button beside each testable parameter. Here you can 
@@ -117,5 +117,5 @@ If you are not happy with the results go back to step 3 and try changing the
 parameters. If you are **struggling with finding good parameters**, feel free to 
 send us a sample image with a description of what you tried so far. Please, 
 include the log file of your best analysis run. You can send us the data 
-on our `GitHub page <https://github.com/ElpadoCan/spotMAX/issues>`_ or 
+on our `GitHub page <https://github.com/ElpadoCan/SpotMAX/issues>`_ or 
 at my :email:`elpado6872@gmail.com`. 

@@ -13,7 +13,7 @@ If you want to try out experimental features (and, if you have time, maybe repor
    
     .. code-block:: 
     
-        git clone https://github.com/ElpadoCan/spotMAX.git
+        git clone https://github.com/ElpadoCan/SpotMAX.git
 
     .. important::
     
@@ -23,28 +23,28 @@ If you want to try out experimental features (and, if you have time, maybe repor
         you can restart from here, but **remember to activate the** ``acdc`` 
         **environment first** with the command ``conda activate acdc``.
 
-8. **Navigate to the spotMAX folder** with the following command:
+8. **Navigate to the SpotMAX folder** with the following command:
    
     .. code-block:: 
    
-        cd spotMAX
+        cd SpotMAX
 
     The command ``cd`` stands for "change directory" and it allows you to move 
     between directories in the terminal. 
 
-9.  **Install spotMAX** with the following command:
+9.  **Install SpotMAX** with the following command:
    
     .. code-block:: 
    
         pip install -e "."
 
     The ``.`` at the end of the command means that you want to install from 
-    the current folder in the terminal. This must be the ``spotMAX`` folder 
+    the current folder in the terminal. This must be the ``SpotMAX`` folder 
     that you cloned before. 
 
 10. **Install the GUI libraries**:
 
-    If you plan to use the spotMAX GUI and you never used Cell-ACDC before, 
+    If you plan to use the SpotMAX GUI and you never used Cell-ACDC before, 
     run the command ``acdc``. Remember to **always activate** the ``acdc`` 
     environment with the command ``conda activate acdc`` every time you 
     open a new terminal before starting Cell-ACDC.
@@ -59,10 +59,10 @@ If you want to try out experimental features (and, if you have time, maybe repor
 
 .. include:: _install_numba.rst
 
-Updating spotMAX installed from source
+Updating SpotMAX installed from source
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To update spotMAX installed from source, open a terminal window, navigate to the 
-spotMAX folder with the command ``cd spotMAX`` and run ``git pull``.
+To update SpotMAX installed from source, open a terminal window, navigate to the 
+SpotMAX folder with the command ``cd SpotMAX`` and run ``git pull``.
 
 Since you installed with the ``-e`` flag, pulling with ``git`` is enough.
