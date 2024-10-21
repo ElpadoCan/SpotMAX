@@ -46,7 +46,7 @@ dynamic = [
 
 [project.readme]
 file = "README.rst"
-content-type = "text/markdown"
+content-type = "text/x-rst"
 
 [project.urls]
 Homepage = "https://github.com/ElpadoCan/spotMAX"
