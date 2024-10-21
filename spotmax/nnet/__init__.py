@@ -14,7 +14,7 @@ def install_and_download():
 
     check_install_package(
         'pytorch3dunet', 
-        pypi_name='git+https://github.com/ElpadoCan/pytorch3dunet.git',
+        pypi_name='pytorch3dunet-spotmax', # 'git+https://github.com/ElpadoCan/pytorch3dunet.git',
         is_cli=is_cli,
         caller_name='spotMAX'
     )

@@ -59,7 +59,7 @@ all = [
     "numba",
     "torch",
     "pyyaml",
-    "pytorch3dunet @ git+https://github.com/ElpadoCan/pytorch3dunet.git",
+    "pytorch3dunet-spotmax",
     "wandb"
 ]
 

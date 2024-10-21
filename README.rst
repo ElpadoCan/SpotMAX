@@ -1,6 +1,6 @@
 .. _GNU General Public License v3.0: https://github.com/ElpadoCan/spotMAX/blob/main/LICENSE
-.. _Contributing Guide: blabla
-.. _installation guide: blabla
+.. _Contributing Guide: https://spotmax.readthedocs.io/en/latest/misc/contributing.html
+.. _installation guide: https://spotmax.readthedocs.io/en/latest/install/index.html
 .. _PyPI: https://pypi.org/project/spotmax/
 .. _Documentation: https://spotmax.readthedocs.io/en/latest
 .. _Examples (notebooks, parameters files, etc.): https://github.com/SchmollerLab/SpotMAX/tree/main/examples
