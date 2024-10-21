@@ -45,7 +45,7 @@ dynamic = [
 ]
 
 [project.readme]
-file = "README.md"
+file = "README.rst"
 content-type = "text/markdown"
 
 [project.urls]
