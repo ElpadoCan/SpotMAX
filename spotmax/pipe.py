@@ -143,16 +143,16 @@ def spots_semantic_segmentation(
         Default is False.
         For more details, see the parameter `Sharpen spots signal prior 
         detection` at the following webpage: 
-        https://spotmax.readthedocs.io/parameters_description.html#pre-processing
+        https://spotmax.readthedocs.io/en/latest/parameters/parameters_description.html#confval-Sharpen-spots-signal-prior-detection
     do_remove_hot_pixels : bool, optional
         If True, apply a grayscale morphological opening filter before 
         segmenting. Opening can remove small bright spots (i.e. “salt”, or 
         "hot pixels") and connect small dark cracks. Default is False
     lineage_table : pandas.DataFrame, optional
         Table containing parent-daughter relationships. Default is None
-        For more details, see the parameter `Table with lineage info end name 
-       ` at the following webpage: 
-        https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
+        For more details, see the parameter `Table with lineage info end name` 
+        at the following webpage: 
+        https://spotmax.readthedocs.io/en/latest/parameters/parameters_description.html#confval-Table-with-lineage-info-end-name
     do_aggregate : bool, optional
         If True, perform segmentation on all the cells at once. Default is True
     thresh_only_inside_objs_intens : bool, optional
@@ -407,9 +407,9 @@ def reference_channel_semantic_segm(
         "hot pixels") and connect small dark cracks. Default is False
     lineage_table : pandas.DataFrame, optional
         Table containing parent-daughter relationships. Default is None
-        For more details, see the parameter `Table with lineage info end name 
-       ` at the following webpage: 
-        https://spotmax.readthedocs.io/parameters_description.html#file-paths-and-channels
+        For more details, see the parameter `Table with lineage info end name` 
+        at the following webpage: 
+        https://spotmax.readthedocs.io/en/latest/parameters/parameters_description.html#confval-Table-with-lineage-info-end-name
     do_aggregate : bool, optional
         If True, perform segmentation on all the cells at once. Default is True
     use_gpu : bool, optional
@@ -1313,7 +1313,7 @@ def spot_detection(
         Method used to detect the peaks. Default is 'peak_local_max'
         For more details, see the parameter `Spots detection method` at the 
         following webpage: 
-        https://spotmax.readthedocs.io/parameters_description.html#spots-channel
+        https://spotmax.readthedocs.io/en/latest/parameters/parameters_description.html#confval-Spots-detection-method
     spot_footprint : numpy.ndarray of bools, optional
         If not None, only one peak is searched in the footprint at every point 
         in the image. Default is None

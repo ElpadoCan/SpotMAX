@@ -2,6 +2,9 @@
 .. _Contributing Guide: blabla
 .. _installation guide: blabla
 .. _PyPI: https://pypi.org/project/spotmax/
+.. _Documentation: https://spotmax.readthedocs.io/en/latest
+.. _Examples (notebooks, parameters files, etc.): https://github.com/SchmollerLab/SpotMAX/tree/main/examples
+
 
 
 .. |spotmaxlogo| image:: spotmax/docs/source/_static/logo.png
@@ -41,10 +44,11 @@ See here for the `installation guide`_
 Resources
 ---------
 
-- Documentation
-- Example notebooks
+- `Documentation`_
+- `Examples (notebooks, parameters files, etc.)`_
+- Pre-print
 - X/Twitter thread
-- Publication
+- Publication (working on it 🚀)
 
 Citation
 --------
@@ -52,8 +56,10 @@ Citation
 If you use spotMAX in your work, please cire the following publication:
 
    Padovani, F., Čavka, I., Neves, A. R. R., López, C. P., Al-Refaie, N., 
-   Bolcato, L., Chatzitheodoridou, D., Chadha, Y., Lengefeld, J., 
-   Cabianca D. S., Köhler, S., Schmoller, K. M. 
+   Bolcato, L., Chatzitheodoridou, D., Chadha, Y., Su, X.A., Lengefeld, J., 
+   Cabianca D. S., Köhler, S., Schmoller, K. M. *SpotMAX: a generalist 
+   framework for multi-dimensional automatic spot detection and quantification*,
+   bioRxiv (2024) doi:
 
 Contact
 -------

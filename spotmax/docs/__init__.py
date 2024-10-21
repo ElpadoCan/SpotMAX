@@ -41,7 +41,7 @@ params_desc_rst_filepath = os.path.join(
 params_desc_rst_filepath = f'{params_desc_rst_filepath}.rst'
 
 # Urls
-readthedocs_url = 'https://spotmax.readthedocs.io'
+readthedocs_url = 'https://spotmax.readthedocs.io/en/latest'
 single_spot_features_desc_url = (
     f'{readthedocs_url}/{single_spot_features_relpath}.html'
 )
