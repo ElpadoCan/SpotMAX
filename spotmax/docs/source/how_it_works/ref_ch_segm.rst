@@ -13,7 +13,8 @@ filtering valid spots**.
 If you are not interested in spot detection, you can also just take advantage 
 of this module to segment your structure of interest. In this case, do 
 not provide any channel name for the parameter 
-:confval:`Spots channel end name`. 
+:confval:`Spots channel end name`. This will end the analysis after segmenting 
+the reference channel and it will not proceed with the rest of the spot analysis.
 
 Segmentation of the reference channel can be divided into two steps:
 

@@ -28,6 +28,6 @@ filter valid spots based on their relative intensities to the reference channel.
     :numbered:
 
     ref_ch_segm
-    spot_detect
     spot_pred
+    spot_detect
     spot_quant
