@@ -4,7 +4,8 @@
 .. _PyPI: https://pypi.org/project/spotmax/
 .. _Documentation: https://spotmax.readthedocs.io/en/latest
 .. _Examples (notebooks, parameters files, etc.): https://github.com/SchmollerLab/SpotMAX/tree/main/examples
-
+.. _Francesco Padovani: https://www.linkedin.com/in/francesco-padovani/
+.. _Cell-ACDC: https://github.com/SchmollerLab/Cell_ACDC
 
 
 .. |spotmaxlogo| image:: spotmax/docs/source/_static/logo.png
@@ -13,6 +14,9 @@
 
 |spotmaxlogo| Welcome to SpotMAX!
 =================================
+
+*Written by* `Francesco Padovani`_ *(creator of* `Cell-ACDC`_ *) with feedback 
+from* **tons of people**,  *see list of authors here* `Citation`_. 
 
 A generalist framework for multi-dimensional automatic spot detection and quantification
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -50,6 +54,8 @@ Resources
 - X/Twitter thread
 - Publication (working on it 🚀)
 
+.. _Citation:
+
 Citation
 --------
 
@@ -71,7 +77,7 @@ on how to improve the user experience!
 Contributing
 ------------
 
-At Cell-ACDC we encourage contributions to the code! Please read our 
+At SpotMAX we encourage contributions to the code! Please read our 
 `Contributing Guide`_ 
 to get started.
 
