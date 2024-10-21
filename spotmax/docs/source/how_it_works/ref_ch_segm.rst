@@ -61,7 +61,7 @@ option.
 .. note:: 
 
     If you are working with the *S. cerevisiase* model organism, most of the 
-    times small buds do not have any structure. However, the "Local" mode might 
+    times small buds do not have any structure. However, the "Local" will  
     still work if you annotate mother-bud relationship using our other software 
     `Cell-ACDC`_. This is because spotMAX will consider the mother-object 
     as a single object while the bud is still attached to the mother (i.e., 
