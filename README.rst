@@ -16,7 +16,7 @@
 =================================
 
 Written by `Francesco Padovani`_ (creator of `Cell-ACDC`_) with feedback 
-from **tons of people**,  see list of authors here :ref:`citation`. 
+from **tons of people**,  see list of authors here `citation`_. 
 
 A generalist framework for multi-dimensional automatic spot detection and quantification
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
