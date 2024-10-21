@@ -11,8 +11,8 @@
 |spotmaxlogo| Welcome to SpotMAX!
 =================================
 
-Fluorescence microscopy data analysis in Python
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+A generalist framework for multi-dimensional automatic spot detection and quantification
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 If you need to **analyse fluorescence microscopy data** you are probably in the 
 right place.
