@@ -6,7 +6,7 @@
 .. _Examples (notebooks, parameters files, etc.): https://github.com/SchmollerLab/SpotMAX/tree/main/examples
 .. _Francesco Padovani: https://www.linkedin.com/in/francesco-padovani/
 .. _Cell-ACDC: https://github.com/SchmollerLab/Cell_ACDC
-.. _Pre-print: https://www.biorxiv.org/content/10.1101/2024.10.22.619610v1
+.. _Preprint: https://www.biorxiv.org/content/10.1101/2024.10.22.619610v1
 
 
 .. |spotmaxlogo| image:: spotmax/docs/source/_static/logo.png
