@@ -70,7 +70,7 @@ If you use SpotMAX in your work, please cite the following preprint:
    framework for multi-dimensional automatic spot detection and quantification*,
    bioRxiv (2024) doi: 10.1101/2024.10.22.619610
 
-**IMPORTANT**! If you use Spotiflow or any of the models available to BioImage.IO model zoo make sure to cite those too, here are the links:
+**IMPORTANT**! If you use Spotiflow or any of the models available at the BioImage.IO Model Zoo make sure to cite those too, here are the links:
 
 - `Spotiflow`_
 - `BioImage.IO`_ Model Zoo
