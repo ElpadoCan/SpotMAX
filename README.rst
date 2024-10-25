@@ -62,13 +62,13 @@ Resources
 Citation
 --------
 
-If you use SpotMAX in your work, please cire the following publication:
+If you use SpotMAX in your work, please cite the following preprint:
 
    Padovani, F., Čavka, I., Neves, A. R. R., López, C. P., Al-Refaie, N., 
    Bolcato, L., Chatzitheodoridou, D., Chadha, Y., Su, X.A., Lengefeld, J., 
    Cabianca D. S., Köhler, S., Schmoller, K. M. *SpotMAX: a generalist 
    framework for multi-dimensional automatic spot detection and quantification*,
-   bioRxiv (2024) doi: 
+   bioRxiv (2024) doi: 10.1101/2024.10.22.619610
 
 **IMPORTANT**! If you use Spotiflow or any of the models available to BioImage.IO model zoo make sure to cite those too, here are the links:
 
