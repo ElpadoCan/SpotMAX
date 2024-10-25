@@ -60,7 +60,7 @@ Resources
 Citation
 --------
 
-If you use SpotMAX in your work, please cire the following publication:
+If you use SpotMAX in your work, please cite the following publication:
 
    Padovani, F., Čavka, I., Neves, A. R. R., López, C. P., Al-Refaie, N., 
    Bolcato, L., Chatzitheodoridou, D., Chadha, Y., Su, X.A., Lengefeld, J., 
