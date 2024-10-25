@@ -72,8 +72,6 @@ from* **tons of people**,  *see list of authors here* `Citation`_.
 |build_macos_pyqt6| |py_version| |pypi_version| |downloads_month| |license|
 |repo_size| |doi| |docs|
 
-|
-
 A generalist framework for multi-dimensional automatic spot detection and quantification
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
