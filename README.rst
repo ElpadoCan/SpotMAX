@@ -10,6 +10,53 @@
 .. _Spotiflow: https://www.biorxiv.org/content/10.1101/2024.02.01.578426v2
 .. _BioImage.IO: https://www.biorxiv.org/content/10.1101/2022.06.07.495102v1
 
+.. |build_win_pyqt5| image:: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-windows_pyqt5.yml/badge.svg
+   :target: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-windows_pyqt5.yml
+   :alt: Build Status (Windows PyQt5)
+
+.. |build_ubuntu_pyqt5| image:: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-ubuntu_pyqt5.yml/badge.svg
+   :target: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-ubuntu_pyqt5.yml
+   :alt: Build Status (Ubuntu PyQt5)
+
+.. |build_macos_pyqt5| image:: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-macos_pyqt5.yml/badge.svg
+   :target: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-macos_pyqt5.yml
+   :alt: Build Status (macOS PyQt5)
+
+.. |build_win_pyqt6| image:: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-windows_pyqt6.yml/badge.svg
+   :target: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-windows_pyqt6.yml
+   :alt: Build Status (Windows PyQt6)
+
+.. |build_macos_pyqt6| image:: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-macos_pyqt6.yml/badge.svg
+   :target: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-macos_pyqt6.yml
+   :alt: Build Status (macOS PyQt6)
+
+.. |py_version| image:: https://img.shields.io/pypi/pyversions/spotmax
+   :target: https://www.python.org/downloads/
+   :alt: Python Version
+
+.. |pypi_version| image:: https://img.shields.io/pypi/v/spotmax?color=red
+   :target: https://pypi.org/project/cellacdc/
+   :alt: PyPi Version
+
+.. |downloads_month| image:: https://static.pepy.tech/badge/spotmax/month
+   :target: https://pepy.tech/project/cellacdc
+   :alt: Downloads per month
+
+.. |license| image:: https://img.shields.io/badge/license-BSD%203--Clause-brightgreen
+   :target: https://github.com/ElPadoCan/SpotMAX/blob/main/LICENSE
+   :alt: License
+
+.. |repo_size| image:: https://img.shields.io/github/repo-size/ElPadoCan/SpotMAX
+   :target: https://github.com/ElPadoCan/SpotMAX
+   :alt: Repository Size
+
+.. |doi| image:: https://img.shields.io/badge/DOI-10.1101%5C2024.10.22.619610-informational
+   :target: https://www.biorxiv.org/content/10.1101/2024.10.22.619610v1
+   :alt: DOI
+
+.. |docs| image:: https://readthedocs.org/projects/spotmax/badge/?version=latest
+    :target: https://spotmax.readthedocs.io/en/latest/
+    :alt: Documentation Status
 
 .. |spotmaxlogo| image:: spotmax/docs/source/_static/logo.png
    :width: 64
@@ -20,6 +67,12 @@
 
 *Written by* `Francesco Padovani`_ *(creator of* `Cell-ACDC`_ *) with feedback 
 from* **tons of people**,  *see list of authors here* `Citation`_. 
+
+|build_win_pyqt5| |build_ubuntu_pyqt5| |build_macos_pyqt5| |build_win_pyqt6|
+|build_macos_pyqt6| |py_version| |pypi_version| |downloads_month| |license|
+|repo_size| |doi| |docs|
+
+|
 
 A generalist framework for multi-dimensional automatic spot detection and quantification
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
