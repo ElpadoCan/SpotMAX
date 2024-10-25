@@ -7,6 +7,8 @@
 .. _Francesco Padovani: https://www.linkedin.com/in/francesco-padovani/
 .. _Cell-ACDC: https://github.com/SchmollerLab/Cell_ACDC
 .. _Preprint: https://www.biorxiv.org/content/10.1101/2024.10.22.619610v1
+.. _Spotiflow: https://www.biorxiv.org/content/10.1101/2024.02.01.578426v2
+.. _BioImage.IO: https://www.biorxiv.org/content/10.1101/2022.06.07.495102v1
 
 
 .. |spotmaxlogo| image:: spotmax/docs/source/_static/logo.png
@@ -66,7 +68,12 @@ If you use SpotMAX in your work, please cire the following publication:
    Bolcato, L., Chatzitheodoridou, D., Chadha, Y., Su, X.A., Lengefeld, J., 
    Cabianca D. S., Köhler, S., Schmoller, K. M. *SpotMAX: a generalist 
    framework for multi-dimensional automatic spot detection and quantification*,
-   bioRxiv (2024) doi:
+   bioRxiv (2024) doi: 
+
+**IMPORTANT**! If you use Spotiflow or any of the models available to BioImage.IO model zoo make sure to cite those too, here are the links:
+
+- `Spotiflow`_
+- `BioImage.IO`_ Model Zoo
 
 Contact
 -------
