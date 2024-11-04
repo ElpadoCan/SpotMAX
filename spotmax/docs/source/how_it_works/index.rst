@@ -4,7 +4,7 @@ How SpotMAX works
 =================
 
 SpotMAX has a **highly modular architecture** where each module can be run 
-**indipendently or sequentially**. 
+**independently or sequentially**. 
 
 You can also skip some of these modules or you can **provide their result** 
 generated outside of SpotMAX with a separate software. 
