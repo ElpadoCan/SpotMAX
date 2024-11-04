@@ -9,6 +9,7 @@
 .. _Preprint: https://www.biorxiv.org/content/10.1101/2024.10.22.619610v1
 .. _Spotiflow: https://www.biorxiv.org/content/10.1101/2024.02.01.578426v2
 .. _BioImage.IO: https://www.biorxiv.org/content/10.1101/2022.06.07.495102v1
+.. _thread: https://x.com/frank_pado/status/1849739617735426438
 
 .. |build_win_pyqt5| image:: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-windows_pyqt5.yml/badge.svg
    :target: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-windows_pyqt5.yml
@@ -105,7 +106,7 @@ Resources
 - `Documentation`_
 - `Examples (notebooks, parameters files, etc.)`_
 - `Preprint`_
-- X/Twitter thread
+- X/Twitter `thread`_
 - Publication (working on it 🚀)
 
 .. _Citation:

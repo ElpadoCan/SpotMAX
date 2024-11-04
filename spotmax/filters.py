@@ -391,7 +391,7 @@ def local_semantic_segmentation(
     
     out = _get_semantic_segm_output(
         result, return_only_output_mask, nnet_model, return_nnet_prediction, 
-        bioimageio_model
+        bioimageio_model, spotiflow_model
     )
     return out
 
