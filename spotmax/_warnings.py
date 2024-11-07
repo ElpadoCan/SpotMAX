@@ -31,6 +31,20 @@ def warnSpotmaxOutFolderDoesNotExist(spotmax_out_path, qparent=None):
         path_to_browse=os.path.dirname(spotmax_out_path)
     )
 
+def warnSpotsDetectedOutsideCells(segm_endname, qparent=None):
+    from cellacdc import widgets
+    
+    txt = html_func.paragraph(f"""
+        WARNING: Some spots were detected <b>outside of the segmented 
+        objects</b> (see segm. file `{segm_endname}`).<br><br>
+        To make sure these spots are detected deactivate the 
+        following parameter:<br><br>
+        <code>Skip objects where segmentation failed = False</code> 
+    """)
+    
+    msg = widgets.myMessageBox(wrapText=False)
+    msg.warning(qparent, 'Spots detected outside objects', txt)
+
 def warnNeuralNetNotInitialized(qparent=None, model_type='SpotMAX AI'):
     from cellacdc import widgets
     

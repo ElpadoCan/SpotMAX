@@ -779,6 +779,7 @@ def validate_spots_labels(spot_labels, lab):
             continue
         
         invalid_IDs.append(spot_obj.label)
+    
     return invalid_IDs
 
 def remove_object_IDs(lab, IDs):

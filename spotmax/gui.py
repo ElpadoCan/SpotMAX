@@ -2550,11 +2550,12 @@ class spotMAX_Win(acdc_gui.guiWin):
         kwargs['return_spots_mask'] = True
         kwargs['spots_segmantic_segm'] = segmSpotsMask
         kwargs['spot_footprint'] = self.getSpotFootprint()
+        kwargs['validate'] = True
         
         self.startComputeAnalysisStepWorker(*args, **kwargs)
     
     def _displaySpotDetectionResult(self, result, image):
-        df_coords, spots_masks = result
+        df_coords, spots_masks, valid = result
         df_spots_objs = df_coords.copy()
         df_spots_objs['spot_mask'] = spots_masks
         spots_lab = transformations.from_df_spots_objs_to_spots_lab(
@@ -2576,12 +2577,25 @@ class spotMAX_Win(acdc_gui.guiWin):
             spots_lab = spots_lab[np.newaxis]
         
         from cellacdc.plot import imshow
-        imshow(
+        self.spotDetectPreviewWin = imshow(
             image, 
             spots_lab, 
             axis_titles=['Detect image', 'Spots masks'],
             # annotate_labels_idxs=[1],
-            points_coords_df=df_coords
+            points_coords_df=df_coords,
+            block=False
+        )
+        
+        if valid:
+            return
+        
+        ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
+        
+        filePathParams = ParamsGroupBox.params['File paths and channels']
+        segmEndNameWidget = filePathParams['segmEndName']['widget']
+        segmEndName = segmEndNameWidget.text()
+        _warnings.warnSpotsDetectedOutsideCells(
+            segmEndName, qparent=self.spotDetectPreviewWin
         )
     
     def _displaySpotFootprint(self, spot_footprint, image):

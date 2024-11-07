@@ -4643,7 +4643,8 @@ class Kernel(_ParamsParser):
         )
         if skip_invalid:
             warn_text = (
-                f'{warn_text} These objects will be skipped as requested'
+                f'{warn_text}These objects will be skipped as requested '
+                '(see parameter `Skip objects where segmentation failed`)'
             )
         else:
             warn_text = (

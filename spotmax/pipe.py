@@ -1298,6 +1298,7 @@ def spot_detection(
         lab=None,
         return_df=False,
         logger_func=None,
+        validate=False,
         debug=False
     ):
     """Detect spots and return their coordinates
@@ -1339,6 +1340,9 @@ def spot_detection(
     logger_func : callable, optional
         If not None, this is the function used to print or log process information. 
         Default is None
+    validate : bool, optional
+        If True, it checks if there are spots detected outside of segmented objects  
+        and returns an addtional False if that happens
 
     Returns
     -------
@@ -1425,9 +1429,21 @@ def spot_detection(
         df_coords = transformations.from_spots_coords_arr_to_df(
             spots_coords, lab
         )
-        return df_coords, spots_masks
+        out = df_coords, spots_masks
     else:
-        return spots_coords, spots_masks
+        out = spots_coords, spots_masks
+    
+    if validate:
+        out = (*out, True)
+    
+    if lab is None:
+        return out
+    
+    if np.all(lab[tuple(spots_coords.transpose())]):
+        return out
+    
+    return (*out[:-1], False)
+    
 
 def _replace_None_with_empty_dfs(dfs_spots_gop):
     """Replace Nones in `dfs_spots_gop` with empty DataFrames
