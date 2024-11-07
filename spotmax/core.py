@@ -1861,8 +1861,13 @@ class _ParamsParser(_DataLoader):
         ) 
         
     def _ask_loaded_ref_ch_segm_and_segm_ref_ch(self):
-        default_option = 'Do not segment the ref. channel'
-        options = ('Do not load the ref. ch. segm. data', default_option)
+        default_option = (
+            'Do not segment the ref. channel, use the loaded segm. data'
+        )
+        options = (
+            'Do not load the ref. ch. segm. data, let SpotMAX segment it', 
+            default_option
+        )
         question = 'What do you want to do'
         txt = (
             '[WARNING]: You requested to load the ref. channel segmentation data '

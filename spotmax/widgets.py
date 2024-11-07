@@ -1688,6 +1688,12 @@ class ReadOnlyElidingLineEdit(acdc_widgets.ElidingLineEdit):
             palette.setColor(QPalette.Base, Qt.transparent)
             self.setPalette(palette)
 
+    def setInvalidEntry(self, invalid):
+        if invalid:
+            self.setStyleSheet(LINEEDIT_INVALID_ENTRY_STYLESHEET)
+        else:
+            self.setStyleSheet('')
+    
     def isTextElided(self):
         return QLineEdit.text(self).startswith(b'\xe2\x80\xa6'.decode())
     

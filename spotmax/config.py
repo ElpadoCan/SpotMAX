@@ -401,6 +401,7 @@ def _filepaths_params():
             'addComputeButton': False,
             'addApplyButton': False,
             'addBrowseButton': False,
+            'addWarningButton': True,
             'addEditButton': True,
             'editSlot': 'addFoldersToAnalyse',
             'formWidgetFunc': 'widgets.ReadOnlyElidingLineEdit',

@@ -718,6 +718,7 @@ class guiTabControl(QTabWidget):
                         params[section][anchor]['desc']
                     )
         
+        self.parametersQGBox.validatePaths()
         self.parametersQGBox.updateMinSpotSize()
         spotsParams = self.parametersQGBox.params['Spots channel']
         spotPredMethodWidget = spotsParams['spotPredictionMethod']['widget']
@@ -2067,9 +2068,61 @@ class ParamsGroupBox(QGroupBox):
         if win.cancel:
             return
         selectedPathsList = win.paths
+        
+        self.validatePaths(selectedPathsList, formWidget)        
         selectedPaths = '\n'.join(selectedPathsList)
         formWidget.widget.setText(selectedPaths)
     
+    def validatePaths(self, selectedPathsList=None, formWidget=None):
+        if formWidget is None:
+            section = 'File paths and channels'
+            anchor = 'folderPathsToAnalyse'
+            formWidget = self.params[section][anchor]['formWidget']
+        
+        if selectedPathsList is None:
+            selectedPathsList = formWidget.widget.text().split('\n')
+        
+        warningButton = formWidget.warningButton
+        warningButton.hide()
+        formWidget.widget.setInvalidEntry(False)
+        
+        notExistingPaths = [
+            path for path in selectedPathsList if not os.path.exists(path)
+        ]
+        if not notExistingPaths:
+            return
+
+        formWidget.widget.setInvalidEntry(True)
+        warningButton.show()
+        try:
+            formWidget.sigWarningButtonClicked.disconnect()
+        except Exception as err:
+            pass
+        formWidget.sigWarningButtonClicked.connect(
+            partial(
+                self.warnExpPathsNotExisting, 
+                notExistingPaths=notExistingPaths
+            )
+        )
+    
+    def warnExpPathsNotExisting(self, notExistingPaths=None):
+        if notExistingPaths is None:
+            return
+        
+        txt = html_func.paragraph(f"""
+            One or more selected <b>experiment paths do not exist</b>!<br><br>
+            See below for more details.
+        """)
+        notExistingPathsStr = '\n'.join(notExistingPaths)
+        detailsText = (f"""
+            Not existing paths:\n\n{notExistingPathsStr}
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(
+            self, 'Experiment path(s) not existing', txt,
+            detailsText=detailsText
+        )
+            
     def _getCallbackFunction(self, callbackFuncPath):
         moduleName, functionName = callbackFuncPath.split('.')
         module = globals()[moduleName]
