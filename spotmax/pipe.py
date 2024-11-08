@@ -1510,7 +1510,7 @@ def _init_df_spots_IDs_0(
             obj_closest_ID, delta_tol, lab
         )
         _, _, crop_obj_start_closest_ID = expanded_obj_closest_ID
-        df_spots_IDs_0, _ = transformations.init_df_features(
+        df_spots_IDs_0, _, _ = transformations.init_df_features(
             df_spots_closest_ID, obj_closest_ID, crop_obj_start_closest_ID, 
             spots_zyx_radii_pxl, ID=0, tot_num_spots=len(df_spots_coords)
         )
@@ -1766,7 +1766,7 @@ def spots_calc_features_and_filter(
         result = transformations.init_df_features(
             df_spots_coords, obj, crop_obj_start, spots_zyx_radii_pxl
         )
-        df_obj_spots_det, expanded_obj_coords = result
+        df_obj_spots_det, expanded_obj_coords, do_increment_spot_id = result
             
         if df_obj_spots_det is None:
             filtered_spots_info[obj.label]['start_num_spots'] = 0
@@ -1775,7 +1775,9 @@ def spots_calc_features_and_filter(
             continue
         
         # Increment spot_id with previous object
-        df_obj_spots_det['spot_id'] += last_spot_id
+        if do_increment_spot_id:
+            df_obj_spots_det['spot_id'] += last_spot_id
+            
         df_obj_spots_det = df_obj_spots_det.set_index('spot_id').sort_index()
         
         if use_spots_segm_masks:

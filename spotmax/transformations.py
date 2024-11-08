@@ -727,6 +727,7 @@ def init_df_features(
         df_spots_coords, obj, crop_obj_start, spots_zyx_radii, ID=None, 
         tot_num_spots=None
     ):
+    do_increment_spot_id = True
     if ID is None:
         ID = obj.label
         
@@ -744,7 +745,11 @@ def init_df_features(
     spots_masks = None
     num_spots_detected = len(global_peaks_coords)
     
-    if ID == 0 and tot_num_spots is not None:
+    df_spots_coords_ID = df_spots_coords.loc[[ID]]
+    if 'spot_id' in df_spots_coords_ID.columns:
+        spot_ids = df_spots_coords_ID['spot_id']
+        do_increment_spot_id = False
+    elif ID == 0 and tot_num_spots is not None:
         # For spot ids on cell ID 0 start from last number
         spot_ids = np.arange(tot_num_spots, tot_num_spots+num_spots_detected)
     else:
@@ -780,7 +785,7 @@ def init_df_features(
     
     df_features[ZYX_RESOL_COLS] = spots_zyx_radii
 
-    return df_features, local_peaks_coords_expanded
+    return df_features, local_peaks_coords_expanded, do_increment_spot_id
 
 def norm_distance_transform_edt(mask):
     edt = scipy.ndimage.distance_transform_edt(mask)

@@ -4473,6 +4473,7 @@ class Kernel(_ParamsParser):
             custom_combined_measurements=custom_combined_measurements,
             verbose=verbose,
         )
+        
         # if df_spots_det is not None:
         #     dfs_segm_obj = self._add_aggregated_spots_features(
         #         df_spots_det, df_spots_gop, df_agg
