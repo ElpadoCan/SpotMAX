@@ -53,6 +53,12 @@ def cli_parser():
     )
     
     ap.add_argument(
+        '-v', '--version',
+        action='store_true',
+        help=('Version and installation location')
+    )
+    
+    ap.add_argument(
         '-l', '--log_filepath',
         default='',
         type=str,
@@ -100,6 +106,26 @@ def run():
     PARAMS_PATH = parser_args['params']
     DEBUG = parser_args['debug']
     RUN_CLI = parser_args['cli']
+    DISPLAY_VERSION = parser_args['version']
+    
+    if DISPLAY_VERSION:
+        import platform
+        from spotmax import read_version
+        from cellacdc.myutils import get_date_from_version
+        version = read_version()
+        release_date = get_date_from_version(
+            version, package='spotmax'
+        )
+        py_ver = sys.version_info
+        python_version = f'{py_ver.major}.{py_ver.minor}.{py_ver.micro}'
+        print('='*100)
+        print(f'SpotMAX version {version}')
+        print(f'Released on: {release_date}')
+        print(f'Installed in "{spotmax_path}"')
+        print(f'Python {python_version}')
+        print(f'Platform: {platform.platform()}')
+        print('='*100)
+        return
 
     if RUN_CLI and not PARAMS_PATH:
         error_msg = (

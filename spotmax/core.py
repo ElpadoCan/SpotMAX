@@ -351,7 +351,8 @@ class _DataLoader:
         raise TypeError(
             'The file for the `Spots coordindate table end name` ending with '
             f'{df_spots_coords_in_endname} was not found neither in the Images '
-            'folder neither in the spotMAX_output folder.'
+            'folder neither in the spotMAX_output folder.\n\n'
+            f'Position folder: "{pos_path}"'
         )
     
     def _reshape_data(self, data, metadata: dict):

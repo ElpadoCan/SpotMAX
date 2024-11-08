@@ -732,7 +732,7 @@ def init_df_features(
         ID = obj.label
         
     if obj.label not in df_spots_coords.index:
-        return None, []
+        return None, [], do_increment_spot_id
     
     local_peaks_coords = (
         df_spots_coords.loc[[ID], ZYX_LOCAL_COLS]
