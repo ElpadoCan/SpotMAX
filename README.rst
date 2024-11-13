@@ -106,6 +106,7 @@ Resources
 - `Documentation`_
 - `Examples (notebooks, parameters files, etc.)`_
 - `Preprint`_
+- `Image.sc Forum <https://forum.image.sc/tag/spotmax>` to ask **any question**. Make sure to tag the Topic with the tag ``spotmax``. 
 - X/Twitter `thread`_
 - Publication (working on it 🚀)
 
@@ -130,9 +131,10 @@ If you use SpotMAX in your work, please cite the following preprint:
 Contact
 -------
 
-**Do not hesitate to contact us** here on GitHub (by opening an issue)
-or directly at the email elpado6872@gmail.com for any problem and/or feedback
-on how to improve the user experience!
+**Do not hesitate to contact us** on the `Image.sc Forum <https://forum.image.sc/tag/spotmax>` 
+(make sure to tag the Topic with the tag ``spotmax``), here on GitHub 
+(by opening an issue), or directly at the email :email:`elpado6872@gmail.com`  
+for any problem and/or feedback on how to improve the user experience!
 
 Contributing
 ------------
