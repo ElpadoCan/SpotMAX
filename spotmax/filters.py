@@ -366,10 +366,35 @@ def local_semantic_segmentation(
                     predict_mask_merged, obj_mask_lab
                 )
             
+            if bud_ID > 0:
+                # Split object into mother and bud 
+                predict_lab_merged = np.zeros(
+                    predict_mask_merged.shape, dtype=int
+                )
+                moth_mask = obj_mask_lab == obj.label
+                predict_moth_mask = np.zeros_like(predict_mask_merged)
+                predict_moth_mask[moth_mask] = predict_mask_merged[moth_mask]
+                
+                # Label sub-objects in the mother and add them to labels
+                predict_moth_lab = skimage.measure.label(predict_moth_mask)
+                predict_lab_merged[moth_mask] = predict_moth_lab[moth_mask]
+                
+                # Label sub-objects in the bud and add them to labels
+                bud_mask = obj_mask_lab == bud_ID
+                predict_bud_mask = np.zeros_like(predict_mask_merged)
+                predict_bud_mask[bud_mask] = predict_mask_merged[bud_mask]
+                
+                predict_bud_lab = skimage.measure.label(predict_bud_mask)
+                predict_moth_rp = skimage.measure.regionprops(predict_moth_lab)
+                max_sub_id_moth = max([obj.label for obj in predict_moth_rp])
+                predict_bud_lab[predict_bud_mask] += max_sub_id_moth
+                predict_lab_merged[bud_mask] = predict_bud_lab[bud_mask]
+            else:
+                predict_lab_merged = skimage.measure.label(predict_mask_merged)
+            
             # Assign ID to sub-objets in predict_mask_merged depending on 
             # the most common ID they lie on
             local_labels = labels[merged_obj_slice]
-            predict_lab_merged = skimage.measure.label(predict_mask_merged)
             predict_rp = skimage.measure.regionprops(predict_lab_merged)
             for sub_obj in predict_rp:
                 if sub_obj.area < min_mask_size:

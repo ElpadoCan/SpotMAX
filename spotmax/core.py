@@ -4227,7 +4227,7 @@ class Kernel(_ParamsParser):
             ref_ch_segm = result[segm_key]
         else:
             ref_ch_segm = result
-
+        
         df_agg, df_ref_ch, ref_ch_segm = pipe.reference_channel_quantify(
             ref_ch_segm,
             ref_ch_img,
