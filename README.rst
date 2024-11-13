@@ -131,7 +131,7 @@ If you use SpotMAX in your work, please cite the following preprint:
 Contact
 -------
 
-**Do not hesitate to contact us** on the `Image.sc Forum <https://forum.image.sc/tag/spotmax>` 
+**Do not hesitate to contact us** on the `Image.sc Forum <https://forum.image.sc/tag/spotmax>`_ 
 (make sure to tag the Topic with the tag ``spotmax``), here on GitHub 
 (by opening an issue), or directly at the email :email:`elpado6872@gmail.com`  
 for any problem and/or feedback on how to improve the user experience!
