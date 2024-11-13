@@ -36,7 +36,7 @@
    :alt: Python Version
 
 .. |pypi_version| image:: https://img.shields.io/pypi/v/spotmax?color=red
-   :target: https://pypi.org/project/cellacdc/
+   :target: https://pypi.org/project/spotmax/
    :alt: PyPi Version
 
 .. |downloads_month| image:: https://static.pepy.tech/badge/spotmax/month
