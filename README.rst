@@ -106,7 +106,7 @@ Resources
 - `Documentation`_
 - `Examples (notebooks, parameters files, etc.)`_
 - `Preprint`_
-- `Image.sc Forum <https://forum.image.sc/tag/spotmax>` to ask **any question**. Make sure to tag the Topic with the tag ``spotmax``. 
+- `Image.sc Forum <https://forum.image.sc/tag/spotmax>`_ to ask **any question**. Make sure to tag the Topic with the tag ``spotmax``. 
 - X/Twitter `thread`_
 - Publication (working on it 🚀)
 
