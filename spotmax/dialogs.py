@@ -4104,7 +4104,8 @@ class SelectFolderToAnalyse(QBaseDialog):
         mainLayout = QVBoxLayout()
         
         instructionsText = html_func.paragraph(
-            'Click on <code>Browse</code> button to <b>add</b> as many <b>paths</b> '
+            'Drag and drop folders or click on <code>Browse</code> button to '
+            '<b>add</b> as many <b>paths</b> '
             'as needed.<br>', font_size='14px'
         )
         instructionsLabel = QLabel(instructionsText)
@@ -4158,6 +4159,11 @@ class SelectFolderToAnalyse(QBaseDialog):
         
         font = config.font()
         self.setFont(font)
+    
+    def dropEvent(self, event):
+        event.setDropAction(Qt.CopyAction)
+        dropped_path = event.mimeData().urls()[0].toLocalFile()
+        printl(dropped_path)
     
     def pathsList(self):
         return [

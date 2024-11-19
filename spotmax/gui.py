@@ -152,6 +152,32 @@ class spotMAX_Win(acdc_gui.guiWin):
             pass
         super().keyPressEvent(event)
     
+    def dragEnterEvent(self, event):
+        dragged_path = event.mimeData().urls()[0].toLocalFile()
+        if os.path.isdir(dragged_path):
+            exp_path = dragged_path
+            basename = os.path.basename(dragged_path)
+            if basename.find('Position_')!=-1 or basename=='Images':
+                event.acceptProposedAction()
+            else:
+                event.ignore()
+        else:
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        event.setDropAction(Qt.CopyAction)
+        dropped_path = event.mimeData().urls()[0].toLocalFile()
+        self.logger.info(f'Dragged and dropped path "{dropped_path}"')
+        basename = os.path.basename(dropped_path)
+        if os.path.isdir(dropped_path):
+            exp_path = dropped_path
+            self.openFolder(exp_path=exp_path)
+        elif dropped_path.endswith('.ini'):
+            guiTabControl = self.computeDockWidget.widget()
+            guiTabControl.loadPreviousParams(dropped_path)
+        else:
+            self.openFile(file_path=dropped_path)
+    
     def gui_setCursor(self, modifiers, event):
         cursorsInfo = super().gui_setCursor(modifiers, event)
         noModifier = modifiers == Qt.NoModifier
