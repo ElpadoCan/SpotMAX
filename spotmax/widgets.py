@@ -332,6 +332,7 @@ class FeatureSelectorButton(QPushButton):
         self._isFeatureSet = False
         self.setFlat(False)
         self.setText(self._initText)
+        self.setToolTip('')
     
     def setFeatureText(self, text):
         self.setText(text)

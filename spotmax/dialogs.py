@@ -4157,13 +4157,22 @@ class SelectFolderToAnalyse(QBaseDialog):
         
         self.setLayout(mainLayout)
         
+        self.setAcceptDrops(True)
+        
         font = config.font()
         self.setFont(font)
     
+    def dragEnterEvent(self, event):
+        event.acceptProposedAction()
+    
     def dropEvent(self, event):
         event.setDropAction(Qt.CopyAction)
-        dropped_path = event.mimeData().urls()[0].toLocalFile()
-        printl(dropped_path)
+        for url in event.mimeData().urls():
+            dropped_path = url.toLocalFile()
+            if os.path.isfile(dropped_path):
+                dropped_path = os.path.dirname(dropped_path)
+            
+            QTimer.singleShot(50, partial(self.addFolderPath, dropped_path))
     
     def pathsList(self):
         return [
