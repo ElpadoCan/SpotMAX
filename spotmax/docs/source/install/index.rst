@@ -13,6 +13,8 @@
 How to install SpotMAX
 ======================
 
+Typical install time: 10 minutes.
+
 Here you will find a detailed guide on how to install SpotMAX. In general, 
 you should be fine with installing the stable version, however, SpotMAX 
 development is still quite rapid and if you want to try out the latest 
