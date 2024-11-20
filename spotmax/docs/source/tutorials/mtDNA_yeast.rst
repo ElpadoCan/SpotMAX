@@ -25,6 +25,8 @@
 Count single mitochondrial DNA nucleoids and quantify mitochondrial network volume
 ==================================================================================
 
+Expected run time for this demo: few minutes.
+
 In this tutorial we will count the number of mitochondrial DNA nucleoids and we 
 will segment the mitochondrial network in 3D as a reference channel. 
 

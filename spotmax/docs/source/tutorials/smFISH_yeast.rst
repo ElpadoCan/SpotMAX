@@ -20,6 +20,8 @@
 Single-molecule Fluorescence In Situ Hybridization (smFISH)
 ===========================================================
 
+Expected run time for this demo: few minutes.
+
 Single-molecule Fluorescence In Situ Hybridization (smFISH) is a technique used 
 to visualize individual RNA molecules of specific gene.
 
