@@ -2446,7 +2446,7 @@ def _save_concat_dfs_to_hdf(
             key = ';;'.join([str(k) for k in key])
             key = key.replace('\\', '/')
         df = acdc_load.pd_bool_to_int(df)
-        key = re.sub(r'[^a-zA-Z0-9]', "_", key)
+        key = re.sub(r'[^a-zA-Z0-9_]', "_", key)
         store_hdf.append(key, df)
     store_hdf.close()
     dst_filepath = os.path.join(dst_folderpath, filename)
