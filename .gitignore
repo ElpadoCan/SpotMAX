@@ -18,6 +18,7 @@ spotmax/_nnet
 spotmax/_deprecated
 spotmax/_old_gui.py
 spotmax/mytests/*
+spotmax/BioImageIO/SpotMAX_UNet_2D/unet_best.pth
 spotmax/BioImageIO/example_models
 # spotmax/BioImageIO/SpotMAX_UNet_2D
 # spotmax/BioImageIO/SpotMAX_UNet_3D
