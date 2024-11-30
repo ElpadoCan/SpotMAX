@@ -31,15 +31,24 @@ class Unet3DModel(BaseModel):
         device = torch.device(device_str)
 
         # Set the device in the config
-        self.config['device'] = device
+        self.config['device'] = device      
+        
+        self.model = None
+        try:
+            model = get_model(self.config['model'])
+            model_path = os.path.expanduser(self.config['model_path'])
+            utils.load_checkpoint(model_path, model)      
+            self.model = model
+        except Exception as err:
+            pass
 
     def train(
-        self,
-        X_train,
-        y_train,
-        X_val,
-        y_val
-    ):
+            self,
+            X_train,
+            y_train,
+            X_val,
+            y_val
+        ):
         """Train the model."""
 
         # Adding the data to the config, so we can use them in the trainer
@@ -56,10 +65,13 @@ class Unet3DModel(BaseModel):
     def predict(self, images: np.ndarray) -> np.ndarray:
         """Predict the model."""
 
-        # Read the model trained
-        model = get_model(self.config['model'])
-        model_path = os.path.expanduser(self.config['model_path'])
-        utils.load_checkpoint(model_path, model)
+        if self.model is None:
+            # Read the model trained
+            model = get_model(self.config['model'])
+            model_path = os.path.expanduser(self.config['model_path'])
+            utils.load_checkpoint(model_path, model)
+        else:
+            model = self.model
 
         # Moving the model to the GPU
         model = model.to(self.config['device'])

@@ -122,7 +122,7 @@ import numpy as np
 
 rng = np.random.default_rng(seed=6490)
 
-spotMAX_path = os.path.dirname(spotmax_path)
+SpotMAX_path = os.path.dirname(spotmax_path)
 html_path = os.path.join(spotmax_path, 'html_files')
 
 home_path = pathlib.Path.home()
@@ -141,7 +141,7 @@ last_used_ini_text_filepath = os.path.join(
 last_cli_log_file_path = os.path.join(
     spotmax_appdata_path, 'last_cli_log_file_path.txt'
 )
-data_path = os.path.join(spotMAX_path, 'data')
+data_path = os.path.join(SpotMAX_path, 'data')
 
 logs_path = os.path.join(spotmax_appdata_path, 'logs')
 if not os.path.exists(logs_path):

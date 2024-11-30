@@ -1,0 +1,2 @@
+filename,frame_i,z_slice_used_dataPrep,which_z_proj,z_slice_used_gui,which_z_proj_gui,resegmented_in_gui,is_from_dataPrep
+ASY15-1_60nM-12_s12_mNeon,0,21,single z-slice,21,max z-projection,False,False
