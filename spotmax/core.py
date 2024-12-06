@@ -75,6 +75,9 @@ CHANNELS_KEYS = (
     'spots_ch', 'ref_ch', 'ref_ch_segm', 'spots_ch_segm', 'segm',
     'transformed_spots_ch'
 )
+SEGM_KEYS = (
+    'segm', 'ref_ch_segm', 'spots_ch_segm'
+)
 
 class _DataLoader:
     def __init__(self, debug=False, log=print):
@@ -247,17 +250,25 @@ class _DataLoader:
             # Use entire image as segm_data  
             segm_data = np.ones(data_shape, dtype=np.uint8)
             data['segm'] = segm_data
-        elif data['segm'].ndim < len(data_shape):
+
+        for segm_key in SEGM_KEYS:
+            segm_data = data.get(segm_key)
+            if segm_data is None:
+                continue
+            
+            if segm_data.ndim == len(data_shape):
+                continue
+            
             # Stack the 2D segm into z-slices
             if len(data_shape) == 4:
                 # Timelapse data, stack on second axis (T, Z, Y, X)
                 SizeZ = data_shape[1]
-                data['segm'] = np.stack([data['segm']]*SizeZ, axis=1)
+                data[segm_key] = np.stack([segm_data]*SizeZ, axis=1)
                 data['is_segm_3D'] = False
             else:
                 # Snapshot data, stack on first axis (Z, Y, X)
                 SizeZ = data_shape[0]
-                data['segm'] = np.stack([data['segm']]*SizeZ, axis=0)
+                data[segm_key] = np.stack([segm_data]*SizeZ, axis=0)
                 data['is_segm_3D'] = False
         return data
     
