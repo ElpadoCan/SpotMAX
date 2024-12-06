@@ -898,7 +898,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         ff = r'%d %b %Y, %H:%M:%S'
         txt = (
             'spotMAX analysis finished!\n\n'
-            f'    * Started on: {self._analysis_finished_datetime.strftime(ff)}\n'
+            f'    * Started on: {self._analysis_started_datetime.strftime(ff)}\n'
             f'    * Ended on: {self._analysis_finished_datetime.strftime(ff)}\n'
             f'    * Total execution time = {delta_sec} H:mm:ss\n'
         )
