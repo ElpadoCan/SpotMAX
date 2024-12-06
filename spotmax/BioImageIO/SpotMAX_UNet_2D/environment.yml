@@ -1,0 +1,12 @@
+name: spotmax_biio
+channels:
+  - conda-forge
+  - fastai
+dependencies:
+  - python=3.11
+  - pip:
+    - opencv-python-headless
+    - cellacdc
+    - spotmax
+    - pytorch3dunet-spotmax
+    - pyyaml
