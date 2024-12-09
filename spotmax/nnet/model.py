@@ -1,21 +1,27 @@
 import os
-import numpy as np
-import skimage
 
+from typing import Iterable, List
+
+import numpy as np
+
+import torch.nn as nn
+
+import skimage
 import skimage.measure
 import skimage.transform
 
 from cellacdc.types import Vector
 
-from .. import io, printl
-from . import install_and_download
-from . import config_yaml_path
+from spotmax import io, printl
+from spotmax.nnet import install_and_download, config_yaml_path
 
 def install_and_import_modules():
     install_and_download()
-    from . import transform
-    from .models.nd_model import Data, Operation, NDModel, Models
-    return transform, Data, Operation, NDModel, Models
+    from spotmax.nnet import transform
+    from spotmax.nnet.models.nd_model import (
+        Data, Operation, NDModel, Models, models
+    )
+    return transform, Data, Operation, NDModel, Models, models
 
 def read_default_config():
     import yaml
@@ -59,8 +65,9 @@ class CustomSignals:
                 argwidget.widget.setValue(thresh_val)
                 break
 
-class Model:
-    """SpotMAX neural network model for semantic segmentation
+class Model(nn.Module):
+    """SpotMAX neural network model for semantic segmentation. This is 
+    also a PyTorch model with a forward method
     """
     def __init__(
             self, 
@@ -117,14 +124,19 @@ class Model:
             each 
         verbose : bool, optional
             If True, print information text to the terminal. Default is True
-        """        
+        """       
+        nn.Module.__init__(self)
+        
+        self.init_inference_params()
+         
         modules = install_and_import_modules()
-        transform, Data, Operation, NDModel, Models =  modules            
+        transform, Data, Operation, NDModel, Models, models =  modules            
         self.transform = transform
         self.Data = Data
         self.Operation = Operation
         self.NDModel = NDModel
         self.Models = Models
+        self.models = models
         
         config_yaml_filepath = config_yaml_filepath.replace('\\', '/')
         if config_yaml_filepath == 'spotmax/nnet/config.yaml':
@@ -187,14 +199,21 @@ class Model:
             device = 'cpu'
         return device
     
-    def _init_model(self, model_type):
+    def _get_model_class(self, model_type=None):
+        if model_type is None:
+            model_type = self.model_type
+        
         if model_type == '2D':
-            MODEL = self.Models.UNET2D
+            model_class = self.Models.UNET2D
         else:
-            MODEL = self.Models.UNET3D
+            model_class = self.Models.UNET3D
+        return model_class
+    
+    def _init_model(self, model_type):
+        model_class = self._get_model_class(model_type=model_type)
         model = self.NDModel(
             operation=self.Operation.PREDICT,
-            model=MODEL,
+            model=model_class,
             config=self._config
         )
         return model
@@ -268,12 +287,59 @@ class Model:
             cropped = cropped[:, :, :-x1]
         return cropped
     
+    def init_inference_params(
+            self, 
+            threshold_value=0.9,
+            label_components=False,
+        ):
+        """Initialize additional parameters used by the `forward` method
+
+        Parameters
+        ----------
+        threshold_value : float, optional
+            Threshold value used to convert probability output to binary. 
+            Increase or decrease this value to detect less or more spots, 
+            respectively. Default is 0.9
+        label_components : bool, optional
+            If True, the binary mask will be labelled with `skimage.measure.label`. 
+            This will separate the connected components into objects with an 
+            integer ID. Default is False
+        """        
+        self._threshold_value = threshold_value
+        self._label_components = label_components
+    
+    def load_state_dict(self, state_dict_to_load):
+        model_instance = self.model._init_model_instance(verbose=False)
+        if self.model_type == '2D':
+            model_instance.initialize_network()
+            state_dict = model_instance.net.load_state_dict(
+                state_dict_to_load
+            )
+        else:
+            state_dict = model_instance.load_state_dict(state_dict_to_load)
+        return state_dict
+    
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        if x.ndim != 4:
+            raise TypeError(
+                'Input images for the forward method must be an array of '
+                '(N, Z, Y, X) shape where N is the number of individual images'
+            )
+        out = np.zeros(x.shape, dtype=bool)
+        for n, img in enumerate(x):
+            lab = self.segment(
+                np.squeeze(img), 
+                threshold_value=self._threshold_value,
+                label_components=False
+            )
+            out[n] = lab
+        return out
+    
     def segment(
             self, image,
             threshold_value=0.9,
             label_components=False,
             return_pred: NotParam=False,
-            verbose: NotParam=False
         ):
         """Run inference and return the segmentation result
 
@@ -293,8 +359,15 @@ class Model:
         Returns
         -------
         (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray of ints or bools
-            Prediction mask with the same shape as the input image.
+            Segmentation mask with the same shape as the input image. If 
+            `label_components` is `True`, the boolean masked is labelled 
+            with `skimage.measure.label` before being returned.
         """        
+        self.init_inference_params(
+            threshold_value=threshold_value, 
+            label_components=label_components,
+        )
+        
         orig_yx_shape = image.shape[-2:]
         if not self._batch_preprocess:
             image = self.preprocess(image[np.newaxis])[0]

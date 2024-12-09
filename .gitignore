@@ -21,6 +21,12 @@ spotmax/BioImageIO/SpotMAX_UNet_2D/Input_sample_Positions
 spotmax/_deprecated
 spotmax/_old_gui.py
 spotmax/mytests/*
+spotmax/BioImageIO/SpotMAX_UNet_2D/unet_best.pth
+spotmax/BioImageIO/example_models
+spotmax/BioImageIO/SpotMAX_UNet_2D/Input_sample_Positions
+spotmax/BioImageIO/SpotMAX_UNet_2D/SpotMAX_AI_2D.zip
+# spotmax/BioImageIO/SpotMAX_UNet_2D
+# spotmax/BioImageIO/SpotMAX_UNet_3D
 spotmax/_deprecated_qrc_resources_spotmax.py
 spotmax/spotmax_v1_paramWin.png
 spotmax/spotmax_v2_parameters.png

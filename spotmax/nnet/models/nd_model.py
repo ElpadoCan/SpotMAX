@@ -91,28 +91,16 @@ class NDModel(object):
         self.model = model
         self.config = config
 
-    def __call__(self, data:Data, verbose=True):
-        """Call the model and perform the operation.
-
-        Args:
-            data (Data): The data to use. If the operation is train, the data should contain validation data.
-
-        Returns:
-            None or Tuple: If the operation is train, return None.
-            If the operation is predict, return the prediction and the threshold.
-        """
-
-        # Check inputs depedning on the operation
-        # data.check_dimensions()
-        check_valid_operation(self.operation, self.model, data)
-
-        # Config of the 3D model has an extra dimension
+    def _init_model_instance(self, verbose=None):
         if self.model == Models.UNET2D:
             config = self.config[self.model.value]
         else:
             config = self.config[self.model.value][self.operation.value]
 
-        config['verbose'] = self.config.get('verbose', True)
+        if verbose is None:
+            verbose = self.config.get('verbose', True)
+            
+        config['verbose'] = verbose
         
         # Print operation and configuration of the model
         if config['verbose']:
@@ -134,6 +122,26 @@ class NDModel(object):
         
         # Instanciate the model using the config
         model_instance = models[self.model](config)
+        
+        return model_instance
+    
+    def __call__(self, data:Data, verbose=True):
+        """Call the model and perform the operation.
+
+        Args:
+            data (Data): The data to use. If the operation is train, the data should contain validation data.
+
+        Returns:
+            None or Tuple: If the operation is train, return None.
+            If the operation is predict, return the prediction and the threshold.
+        """
+
+        # Check inputs depedning on the operation
+        # data.check_dimensions()
+        check_valid_operation(self.operation, self.model, data)
+        
+        # Instanciate the model using the config
+        model_instance = self._init_model_instance()
 
         # Train or predict
         if self.operation == Operation.TRAIN:

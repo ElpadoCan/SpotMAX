@@ -21,7 +21,8 @@ class Model:
             the downloaded zip file.
             
             For more information and to visualize the available models 
-            visit the BioImage.IO website at the followng link `bioimage.io <https://bioimage.io/#/>`_.
+            visit the BioImage.IO website at the followng link 
+            `bioimage.io <https://bioimage.io/#/>`_.
         """       
         install()
         import bioimageio.core

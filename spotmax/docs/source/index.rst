@@ -8,11 +8,15 @@
 
 .. _GitHub: https://github.com/ElpadoCan/SpotMAX
 
+.. _Francesco Padovani: https://www.linkedin.com/in/francesco-padovani/
+
 |spotmaxlogo| Welcome to SpotMAX!
 =================================
 
-Fluorescence microscopy data analysis in Python
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Multi-dimensional microscopy data analysis
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Written in Python 3 by* `Francesco Padovani`_
 
 |githublogo| Source code on `GitHub`_
 
@@ -89,6 +93,9 @@ fluorescence channels (and combinations thereof).
 
    </figure>
 
+Contents
+========
+
 .. toctree::
    :maxdepth: 2
 
@@ -101,6 +108,7 @@ fluorescence channels (and combinations thereof).
    misc/output_files
    run/gui/inspect_results_tab
    tutorials/index
+   misc/publications
    misc/contributing
    api/api
    misc/cite

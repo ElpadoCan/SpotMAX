@@ -109,6 +109,7 @@ Resources
 - `Image.sc Forum <https://forum.image.sc/tag/spotmax>`_ to ask **any question**. Make sure to tag the Topic with the tag ``spotmax``. 
 - X/Twitter `thread`_
 - Publication (working on it 🚀)
+- `Scientific publications where SpotMAX was used <https://spotmax.readthedocs.io/en/latest/misc/publications.html>`__
 
 .. _Citation:
 
@@ -121,7 +122,7 @@ If you use SpotMAX in your work, please cite the following preprint:
    Bolcato, L., Chatzitheodoridou, D., Chadha, Y., Su, X.A., Lengefeld, J., 
    Cabianca D. S., Köhler, S., Schmoller, K. M. *SpotMAX: a generalist 
    framework for multi-dimensional automatic spot detection and quantification*,
-   bioRxiv (2024) doi: 10.1101/2024.10.22.619610
+   **bioRxiv** (2024) DOI: [10.1101/2024.10.22.619610](https://doi.org/10.1101/2024.10.22.619610)
 
 **IMPORTANT**! If you use Spotiflow or any of the models available at the BioImage.IO Model Zoo make sure to cite those too, here are the links:
 
