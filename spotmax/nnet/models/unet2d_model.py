@@ -103,12 +103,12 @@ class Unet2DModel(BaseModel):
         ).to(self.device)
 
     def train(
-        self,
-        X_train,
-        y_train,
-        X_val,
-        y_val
-    ):
+            self,
+            X_train,
+            y_train,
+            X_val,
+            y_val
+        ):
         """Train the 2D U-Net model.
 
         Args:

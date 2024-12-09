@@ -18,10 +18,8 @@ from spotmax.nnet import install_and_download, config_yaml_path
 def install_and_import_modules():
     install_and_download()
     from spotmax.nnet import transform
-    from spotmax.nnet.models.nd_model import (
-        Data, Operation, NDModel, Models, models
-    )
-    return transform, Data, Operation, NDModel, Models, models
+    from spotmax.nnet.models.nd_model import Data, Operation, NDModel, Models
+    return transform, Data, Operation, NDModel, Models
 
 def read_default_config():
     import yaml
@@ -130,13 +128,12 @@ class Model(nn.Module):
         self.init_inference_params()
          
         modules = install_and_import_modules()
-        transform, Data, Operation, NDModel, Models, models =  modules            
+        transform, Data, Operation, NDModel, Models =  modules            
         self.transform = transform
         self.Data = Data
         self.Operation = Operation
         self.NDModel = NDModel
         self.Models = Models
-        self.models = models
         
         config_yaml_filepath = config_yaml_filepath.replace('\\', '/')
         if config_yaml_filepath == 'spotmax/nnet/config.yaml':
@@ -199,21 +196,14 @@ class Model(nn.Module):
             device = 'cpu'
         return device
     
-    def _get_model_class(self, model_type=None):
-        if model_type is None:
-            model_type = self.model_type
-        
-        if model_type == '2D':
-            model_class = self.Models.UNET2D
-        else:
-            model_class = self.Models.UNET3D
-        return model_class
-    
     def _init_model(self, model_type):
-        model_class = self._get_model_class(model_type=model_type)
+        if model_type == '2D':
+            MODEL = self.Models.UNET2D
+        else:
+            MODEL = self.Models.UNET3D
         model = self.NDModel(
             operation=self.Operation.PREDICT,
-            model=model_class,
+            model=MODEL,
             config=self._config
         )
         return model
@@ -309,14 +299,17 @@ class Model(nn.Module):
         self._label_components = label_components
     
     def load_state_dict(self, state_dict_to_load):
-        model_instance = self.model._init_model_instance(verbose=False)
         if self.model_type == '2D':
-            model_instance.initialize_network()
-            state_dict = model_instance.net.load_state_dict(
+            state_dict = self.model.model.net.load_state_dict(
                 state_dict_to_load
             )
         else:
-            state_dict = model_instance.load_state_dict(state_dict_to_load)
+            if self.model.model is None:
+                from spotmax.nnet.models.unet3D.unet3d.model import get_model
+                model = get_model(self.model.config['model'])
+            else:
+                model = self.model.model
+            model = model.load_state_dict(state_dict_to_load)
         return state_dict
     
     def forward(self, x: np.ndarray) -> np.ndarray:

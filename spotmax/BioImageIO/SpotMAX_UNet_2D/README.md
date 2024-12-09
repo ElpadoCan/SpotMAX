@@ -8,6 +8,9 @@ The model is a U-Net 2D trained on images containing fluorescent diffraction-lim
 globular-like structures (spots). Given a single channel input image it generates 
 a boolean mask of the spot areas. 
 
+The input image can be either 2D or a 3D z-stack. For 3D images, the model will 
+run slice-by-slice.
+
 If you need further processing of the spots (spot center detection, validation, 
 and quantification), please refer to SpotMAX [documentation](https://spotmax.readthedocs.io/en/latest/). 
 

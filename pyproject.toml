@@ -60,7 +60,13 @@ all = [
     "torch",
     "pyyaml",
     "pytorch3dunet-spotmax",
-    "wandb"
+    "wandb",
+    "bioimageio.core", 
+    "bioimageio.spec"
+]
+biio = [
+    "bioimageio.core", 
+    "bioimageio.spec"
 ]
 
 [project.scripts]
