@@ -10,7 +10,7 @@ def informationSpotmaxAnalysisStart(ini_filepath, qparent=None):
     ini_filepath = ini_filepath.replace('\\', os.sep)
     ini_filepath = ini_filepath.replace('/', os.sep)
     txt = html_func.paragraph(f"""
-        spotMAX analysis will now <b>run in the terminal</b>. All progress 
+        SpotMAX analysis will now <b>run in the terminal</b>. All progress 
         will be displayed there.<br><br>
         Make sure to <b>keep an eye on the terminal</b> since it might require 
         your attention.<br><br>
@@ -48,7 +48,7 @@ def askUseSavedRefChMask(refChSegmEndName, qparent=None):
     txt = html_func.paragraph("""
         SpotMAX detected that the reference channel masks were saved as part of 
         the loaded analysis.<br><br>
-        When computing the spots features of the edited redults, spotMAX can 
+        When computing the spots features of the edited redults, SpotMAX can 
         <b>load the saved masks</b><br>
         instead of segmenting the reference channel again 
         (hence <b>saving computation time</b>).<br><br>

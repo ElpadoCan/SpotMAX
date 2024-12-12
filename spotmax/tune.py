@@ -287,7 +287,7 @@ class TuneKernel:
         command = f'spotmax, -p, {self.ini_filepath()}'
         # command = r'python, spotmax\test.py'
         command_format = command.replace(',', '')
-        logger_func(f'spotMAX analysis started with command `{command_format}`')
+        logger_func(f'SpotMAX analysis started with command `{command_format}`')
         args = [sys.executable, _process.__file__, '-c', command]
         subprocess.run(args)
     

@@ -964,7 +964,7 @@ def _compute_obj_spots_features(
     logger_func : callable, optional
         Function used to print or log process information. Default is print
     logger_warning_report : callable, optional
-        Additional function used by the spotMAX cli Kernel to log 
+        Additional function used by the SpotMAX cli Kernel to log 
         warnings in the report file. Default is print
     debug : bool, optional
         If True, displays intermediate results. Requires GUI libraries. 
@@ -1653,7 +1653,7 @@ def spots_calc_features_and_filter(
     logger_func : callable, optional
         Function used to print or log process information. Default is print
     logger_warning_report : callable, optional
-        Additional function used by the spotMAX cli Kernel to log 
+        Additional function used by the SpotMAX cli Kernel to log 
         warnings in the report file. Default is print
 
     Returns
@@ -2036,7 +2036,7 @@ def spotfit(
         More details here: 
         https://pandas.pydata.org/docs/reference/api/pandas.eval.html
     max_number_pairs_check_merge : int, optional
-        If `spots_masks_check_merge` is not None, spotMAX will test  
+        If `spots_masks_check_merge` is not None, SpotMAX will test  
         `max_number_pairs_check_merge` number of pairs to check if 
         they require merging. The pairs are determined from all those peaks 
         that lie on the same spot mask and are within `spots_zyx_radii_pxl` 

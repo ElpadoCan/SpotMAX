@@ -206,7 +206,7 @@ class TrainSpotmaxAIButton(acdc_widgets.TrainPushButton):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setToolTip(
-            'Setup workflow to train spotMAX AI from ground-truth annotations'
+            'Setup workflow to train SpotMAX AI from ground-truth annotations'
         )
         self.clicked.connect(self.onClicked)
     

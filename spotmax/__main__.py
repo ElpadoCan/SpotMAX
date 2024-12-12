@@ -20,7 +20,7 @@ if spotmax_installation_path != site_packages:
         except Exception as err:
             print(err)
             print(
-                '[ERROR]: Previous spotMAX installation detected. '
+                '[ERROR]: Previous SpotMAX installation detected. '
                 f'Please, manually delete this folder and re-start the software '
                 f'"{spotmax_path_pypi}". '
                 'Thank you for you patience!'
@@ -40,7 +40,7 @@ from spotmax import help_text, GUI_INSTALLED
 
 def cli_parser():
     ap = argparse.ArgumentParser(
-        prog='spotMAX', description=help_text, 
+        prog='SpotMAX', description=help_text, 
         formatter_class=argparse.RawTextHelpFormatter
     )
 
@@ -74,7 +74,7 @@ def cli_parser():
         '-c', '--cli',
         action='store_true',
         help=(
-            'Flag to run spotMAX in the command line.'
+            'Flag to run SpotMAX in the command line.'
             'Not required if you pass the `--params` argument.'
         )
     )
@@ -129,7 +129,7 @@ def run():
 
     if RUN_CLI and not PARAMS_PATH:
         error_msg = (
-            '[ERROR]: To run spotMAX from the command line you need to '
+            '[ERROR]: To run SpotMAX from the command line you need to '
             'provide a path to the "_analysis_inputs.ini" or '
             '"_analysis_inputs.csv" file. To run the GUI use the command '
             f'`spotmax -g`{error_up_str}'

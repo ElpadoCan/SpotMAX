@@ -1297,7 +1297,7 @@ def generate_unet_training_workflow_files(
         visualize: bool=False, 
         do_not_generate_datasets=False,
     ):
-    """Generate training workflow files to train spotMAX AI model. 
+    """Generate training workflow files to train SpotMAX AI model. 
 
     Parameters
     ----------

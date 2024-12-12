@@ -29,7 +29,7 @@ def notDocumentedYetText():
 
 def dataStructInfoText():
     return ("""
-<i>NOTE</i>: spotMAX requires the data arranged with a <b>specific data structure</b>.<br><br>
+<i>NOTE</i>: SpotMAX requires the data arranged with a <b>specific data structure</b>.<br><br>
 Please, check out our user manual on how to create this structure.<br><br>
 Briefly, you need to place the files into a folder called <code>Images</code> 
 which is inside a Position folder, e.g. <code>Position_1/Images</code>.<br><br>
@@ -67,7 +67,7 @@ def paramsInfoText():
         '<b>segmentation masks of '
         'the objects of interest</b>. Typically the objects are the <b>cells '
         'or the nuclei</b>, but it can be any object.<br><br>'
-        'While this is optional, <b>it improves accuracy</b>, because spotMAX will '
+        'While this is optional, <b>it improves accuracy</b>, because SpotMAX will '
         'detect only the spots that are inside the segmented objects.<br><br>'
         'It needs to be a 2D or 3D (z-stack) array, eventually with '
         'an additional dimension for frames over time.<br>'
@@ -157,9 +157,9 @@ def paramsInfoText():
         '0.8-1 \u00b5m.<br><br>'
         'This parameter will be used as the <b>radius in Z-direction of the '
         'expected volume</b> of the spots.<br><br>'
-        '<b>Increase</b> this parameter if spotMAX detects multiple spots within '
+        '<b>Increase</b> this parameter if SpotMAX detects multiple spots within '
         'a single spot.<br><br>'
-        '<b>Decrease</b> this parameter if spotMAX detects fewer spots '
+        '<b>Decrease</b> this parameter if SpotMAX detects fewer spots '
         'than expected.'
     ),
     'yxResolLimitMultiplier': (
@@ -170,9 +170,9 @@ def paramsInfoText():
         f'volume.<br><br>'
         'The final volume is displayed on the '
         f'{href_tags["spotMinSizeLabels"]} labels.<br><br>'
-        '<b>Increase</b> this parameter if spotMAX detects multiple spots within '
+        '<b>Increase</b> this parameter if SpotMAX detects multiple spots within '
         'a single spot.<br><br>'
-        '<b>Decrease</b> this parameter if spotMAX detects fewer spots '
+        '<b>Decrease</b> this parameter if SpotMAX detects fewer spots '
         'than expected.'
     ),
     'spotMinSizeLabels': (
@@ -194,7 +194,7 @@ def paramsInfoText():
         f'and <code>NA</code> is the {href_tags["numAperture"]}.'
     ),
     'aggregate': (
-        'If you chose to aggreate the objects, spotMAX will first create '
+        'If you chose to aggreate the objects, SpotMAX will first create '
         'an image with the spots <b>signal from each '
         'bounding box stacked next to each other</b>.<br><br>'
         'The segmentation mask can be loaded from the '
@@ -219,7 +219,7 @@ def paramsInfoText():
         'Choose whether to apply a <b>sharpening filter</b> to improve the signal '
         'to noise ratio.<br><br>'
         'We recommend applying this filter, however, you can try to '
-        'deactivate it if spotMAX detects more spots than expected.<br><br>'
+        'deactivate it if SpotMAX detects more spots than expected.<br><br>'
         'The filtered image is the result of the <b>subtraction</b> between '
         'the <b>raw image</b> and a <b>blurred image</b>. The blurred image '
         'is obtained with a gaussian filter with one sigma for each dimension '
@@ -229,7 +229,7 @@ def paramsInfoText():
     'segmRefCh': (
         'Choose whether to <b>automatically segment</b> the reference '
         'channel signal.<br><br>'
-        'Once segmented spotMAX can remove spots that are outside of the '
+        'Once segmented SpotMAX can remove spots that are outside of the '
         'reference channel mask (only if you also activate '
         f'{href_tags["keepPeaksInsideRef"]} parameter)'
 
@@ -240,7 +240,7 @@ def paramsInfoText():
         f'(see {href_tags["refChSegmEndName"]}) '
         'or you load AND segment the reference channel '
         f'(see {href_tags["segmRefCh"]}) '
-        'spotMAX will then <b>remove the spots that are detected outside '
+        'SpotMAX will then <b>remove the spots that are detected outside '
         'of the reference channel mask</b>.'
     ),
     'bkgrMaskOutsideRef': (

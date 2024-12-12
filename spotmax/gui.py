@@ -109,7 +109,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         super().__init__(app, **kwargs)
 
         self._version = kwargs.get('version')
-        self._appName = 'spotMAX'
+        self._appName = 'SpotMAX'
         self._executed = executed
     
     def run(self, module='spotmax_gui', logs_path=logs_path):
@@ -386,7 +386,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.gui_createParamsDockWidget()
     
     def gui_createParamsDockWidget(self):
-        self.computeDockWidget = widgets.DockWidget('spotMAX Tab Control', self)
+        self.computeDockWidget = widgets.DockWidget('SpotMAX Tab Control', self)
         guiTabControl = dialogs.guiTabControl(
             parent=self.computeDockWidget, logging_func=self.logger.info
         )
@@ -736,7 +736,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             It looks like you want to remove a spot that was detected 
             outside of the segmented objects.<br><br>
             While you can of course do that, these spots were already removed 
-            by spotMAX in the tables called <code>1_valid_spots</code> and 
+            by SpotMAX in the tables called <code>1_valid_spots</code> and 
             <code>0_detected_spots</code>.<br><br>
             You probably <b>want to edit the results in those tables</b>.<br><br>
             Anyway, do you want to continue editing the loaded spots?
@@ -856,7 +856,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.stateBeforeStartingAnalysis = self.windowState()
         self.setWindowState(Qt.WindowMinimized)
         self.setDisabled(True)
-        self.logger.info('Starting spotMAX analysis...')
+        self.logger.info('Starting SpotMAX analysis...')
         self._analysis_started_datetime = datetime.datetime.now()
         self.funcDescription = 'starting analysis process'
         
@@ -897,7 +897,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         delta_sec = str(delta).split('.')[0]
         ff = r'%d %b %Y, %H:%M:%S'
         txt = (
-            'spotMAX analysis finished!\n\n'
+            'SpotMAX analysis finished!\n\n'
             f'    * Started on: {self._analysis_started_datetime.strftime(ff)}\n'
             f'    * Ended on: {self._analysis_finished_datetime.strftime(ff)}\n'
             f'    * Total execution time = {delta_sec} H:mm:ss\n'
@@ -912,8 +912,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             details = '\n\n'.join(errors)
             msg_kwargs['detailsText'] = details
             txt = txt.replace(
-                'spotMAX analysis finished!', 
-                'spotMAX analysis ended with ERRORS'
+                'SpotMAX analysis finished!', 
+                'SpotMAX analysis ended with ERRORS'
             )
             txt = (
                 f'{txt}\n'
@@ -930,7 +930,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         txt = re.sub('`(.+)`', r'<code>\1</code>', txt)
         msg = acdc_widgets.myMessageBox()
         
-        msg_args = (self, 'spotMAX analysis finished', txt)
+        msg_args = (self, 'SpotMAX analysis finished', txt)
         getattr(msg, msg_func)(*msg_args, **msg_kwargs)
         return msg_func == 'information'
     
@@ -1019,7 +1019,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         super().gui_createToolBars()
 
         # self.addToolBarBreak(Qt.LeftToolBarArea)
-        self.spotmaxToolbar = QToolBar("spotMAX toolbar", self)
+        self.spotmaxToolbar = QToolBar("SpotMAX toolbar", self)
         self.spotmaxToolbar.setContextMenuPolicy(Qt.PreventContextMenu)
         self.addToolBar(Qt.LeftToolBarArea, self.spotmaxToolbar)
         self.spotmaxToolbar.addAction(self.addSpotsCoordinatesAction)
@@ -1055,7 +1055,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.logFilesInSpotmaxOutPath(posData.spotmax_out_path)
         
-        self.setWindowTitle(f'spotMAX - GUI - "{posData.exp_path}"')
+        self.setWindowTitle(f'SpotMAX - GUI - "{posData.exp_path}"')
         self.spotmaxToolbar.setVisible(True)
         self.computeDockWidget.widget().initState(True)
         
@@ -2489,9 +2489,9 @@ class spotMAX_Win(acdc_gui.guiWin):
             selected_threshold_method = self.getSpotsThresholdMethod()
             titles = [
                 'Input image', 
-                'spotMAX AI prediction map',
+                'SpotMAX AI prediction map',
                 f'{selected_threshold_method}', 
-                'spotMAX AI'
+                'SpotMAX AI'
             ]
             prediction_images = [
                 result['input_image'], 
@@ -3510,7 +3510,7 @@ class spotMAX_Win(acdc_gui.guiWin):
             self, 'Analysis still running!', txt,
             buttonsTexts=(
                 'No, do not close', 
-                'Yes, stop analysis and close spotMAX'
+                'Yes, stop analysis and close SpotMAX'
             )
         )
         return msg.clickedButton == yesButton

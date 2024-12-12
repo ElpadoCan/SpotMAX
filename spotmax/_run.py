@@ -34,7 +34,7 @@ def run_gui(debug=False, app=None, mainWin=None, launcherSlot=None):
     win.logger.info('Lauching application...')
     welcome_text = (
         '**********************************************\n'
-        f'Welcome to spotMAX v{version}!\n'
+        f'Welcome to SpotMAX v{version}!\n'
         '**********************************************\n'
         '----------------------------------------------\n'
         'NOTE: If application is not visible, it is probably minimized '

@@ -2262,7 +2262,7 @@ class ParamsGroupBox(QGroupBox):
         txt = html_func.paragraph(f"""
             One or more radii of the <code>{formWidget.text()}</code> are 
             <b>less than 2 pixels</b>.<br><br>
-            This means that spotMAX can detect spots that are 1 pixel away 
+            This means that SpotMAX can detect spots that are 1 pixel away 
             along the dimension that is less than 2 pixels.<br><br>
             We recommend <b>increasing the radii to at least 3 pixels</b>.<br><br>
             Current <code>{formWidget.text()} = {spotMinSizeLabels}</code>
@@ -4116,7 +4116,7 @@ class SelectFolderToAnalyse(QBaseDialog):
             'or an <b>experiment folder</b> (containing Position_n folders),<br>'
             'or any folder that contains <b>multiple experiment folders</b>.<br><br>'
             
-            'In the last case, spotMAX will automatically scan the entire tree of '
+            'In the last case, SpotMAX will automatically scan the entire tree of '
             'sub-directories<br>'
             'and will add all experiments having the right folder structure.<br>',
             font_size='12px'
@@ -4250,7 +4250,7 @@ class SetMeasurementsDialog(QBaseDialog):
         
         super().__init__(parent=parent)
         
-        self.setWindowTitle('Set spotMAX measurements to save')
+        self.setWindowTitle('Set SpotMAX measurements to save')
         
         self.tabScrollbar = QScrollArea()
         self.tabWidget = QTabWidget()
@@ -5408,8 +5408,8 @@ class SetupUnetTrainingDialog(QBaseDialog):
     def showHelp(self):
         title = 'Setup training worflow help'
         txt = ("""
-        On this dialog you can setup the <b>parameters to train your own spotMAX AI model</b>.<br><br>
-        The training can be done from spot masks that you generated with spotMAX or Cell-ACDC,<br> 
+        On this dialog you can setup the <b>parameters to train your own SpotMAX AI model</b>.<br><br>
+        The training can be done from spot masks that you generated with SpotMAX or Cell-ACDC,<br> 
         or from a table of spot coordindates.<br><br>
         
         Note that this table must contain the columns <code>x, y</code>, with <code>z</code> for z-stack data,<br>
@@ -5417,7 +5417,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
         
         Once you set all the parameters, these will be saved to a configuration file.<br><br>
         
-        Alongside the configuration file, spotMAX will also save the spot channel images<br>
+        Alongside the configuration file, SpotMAX will also save the spot channel images<br>
         and the ground-truth spot masks to HDF database files (.h5), one for each unique<br>
         experiment folder.<br><br>
         
@@ -5548,13 +5548,13 @@ class SetupUnetTrainingDialog(QBaseDialog):
             'corresponding parameters'
         )
         txt = (f"""
-            To increase the model generalization power, spotMAX will 
+            To increase the model generalization power, SpotMAX will 
             expand the training dataset with augmented images.<br><br>
             
             Data augmentation is the process of generating new images from 
             the existing ones.<br><br>
             
-            For each image, spotMAX will generate an additional 3 images by 
+            For each image, SpotMAX will generate an additional 3 images by 
             applying a Difference of Gaussians filter (DoG) and two Gaussian 
             filters.<br><br>
             
@@ -5570,7 +5570,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
     def showCropBkgrInfo(self):
         title = 'Crop background info'
         txt = ("""
-            If active, spotMAX will crop the images around the spots masks.<br><br>
+            If active, SpotMAX will crop the images around the spots masks.<br><br>
             Use the <code>Crop background tolerance</code> parameter to control 
             how many pixels of the background (away from the spots masks) to keep 
             in the image.<br><br>
@@ -6250,7 +6250,7 @@ class SetupUnetTrainingDialog(QBaseDialog):
         self.workflowFilepath = workflowFilepath
         # acdc_myutils.addToRecentPaths(workflowFolderpath)
         try:
-            print('Generating spotMAX AI training workflow files...')
+            print('Generating SpotMAX AI training workflow files...')
             utils.generate_unet_training_workflow_files(
                 selectedTrainPos, 
                 selectedValPos,
@@ -6829,7 +6829,7 @@ def setupSpotmaxAiTraining(qparent=None):
     msg = acdc_widgets.myMessageBox(wrapText=False)
     txt = html_func.paragraph("""
         Done! Training workflow <b>generated successfully</b>.<br><br>
-        To run the worflow and train the spotMAX AI model, run the command 
+        To run the worflow and train the SpotMAX AI model, run the command 
         <code>spotmax -t "path to workflow" file</code>.<br><br>
         You can also copy/move the workflow folder wherever you like 
         and run the command with the new file path.<br><br>

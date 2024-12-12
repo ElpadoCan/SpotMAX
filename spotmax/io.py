@@ -295,7 +295,7 @@ def save_image_data(filepath, img_data):
         skimage.io.imsave(filepath, img_data)
 
 def readStoredParamsCSV(csv_path, params):
-    """Read old format of analysis_inputs.csv file from spotMAX v1"""
+    """Read old format of analysis_inputs.csv file from SpotMAX v1"""
     old_csv_options_to_anchors = {
         # 'Calculate ref. channel network length?':
         #     ('Reference channel', 'calcRefChNetLen'),
@@ -529,7 +529,7 @@ def save_nnet_pred_map(
     ):
     if verbose:
         logger_func(
-            f'Saving spotMAX AI prediction map from channel "{ch_endname}"...'
+            f'Saving SpotMAX AI prediction map from channel "{ch_endname}"...'
         )
     
     if not basename.endswith('_'):
@@ -552,7 +552,7 @@ def save_nnet_pred_map(
     
     if verbose:
         logger_func(
-            f'spotMAX AI prediction map from channel "{ch_endname}" saved to '
+            f'SpotMAX AI prediction map from channel "{ch_endname}" saved to '
             f'"{out_filepath}"...'
         )
 
@@ -2253,7 +2253,7 @@ def _raise_EOFerror(logger=print):
     logger('*'*100)
     logger(
         '[ERROR]: The terminal cannot get inputs. See Warning above. '
-        'To force the default options, run spotMAX with the "-f" flag, i.e. '
+        'To force the default options, run SpotMAX with the "-f" flag, i.e. '
         f'`spotmax -f`.{error_up_str}'
     )
     exit()
@@ -2279,7 +2279,7 @@ def get_user_input(
             if answer_txt is not None:
                 logger(f'Selected option: "{answer_txt}"')
             else:
-                logger(f'Closing spotMAX...')
+                logger(f'Closing SpotMAX...')
             logger('*'*100)
         except EOFError:
             answer_txt = None
@@ -2677,23 +2677,23 @@ def download_unet_models():
     
     unet2D_filepath = os.path.join(unet2D_checkpoint_path, unet2D_filename)
     if not os.path.exists(unet2D_filepath):
-        print('Downloading spotMAX U-Net 2D model...')
+        print('Downloading SpotMAX U-Net 2D model...')
         os.makedirs(unet2D_checkpoint_path, exist_ok=True)
         acdc_myutils.download_url(
             unet2D_url, unet2D_filepath, 
             file_size=unet2D_filesize_bytes, 
-            desc='spotMAX U-Net 2D', 
+            desc='SpotMAX U-Net 2D', 
             verbose=False
         )
     
     unet3D_filepath = os.path.join(unet3D_checkpoint_path, unet3D_filename)
     if not os.path.exists(unet3D_filepath):
-        print('Downloading spotMAX U-Net 3D model...')
+        print('Downloading SpotMAX U-Net 3D model...')
         os.makedirs(unet3D_checkpoint_path, exist_ok=True)
         acdc_myutils.download_url(
             unet3D_url, unet3D_filepath, 
             file_size=unet3D_filesize_bytes, 
-            desc='spotMAX U-Net 3D', 
+            desc='SpotMAX U-Net 3D', 
             verbose=False
         )
 

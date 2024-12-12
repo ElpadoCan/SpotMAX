@@ -62,7 +62,7 @@ html_logo = "_static/logo.png"
 html_context = {
     'display_github': True, # Integrate GitHub
     'github_user': 'ElpadoCan', 
-    'github_repo': 'spotMAX',
+    'github_repo': 'SpotMAX',
     'github_version': 'main',
     'conf_py_path': '/spotmax/docs',
 }

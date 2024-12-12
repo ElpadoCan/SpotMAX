@@ -120,7 +120,7 @@ class Model(nn.Module):
             installed. Default is False
         save_prediction_map : bool, optional
             If True, the model will return the prediction map and if the model 
-            is used as part of spotMAX analysis, the map will be saved in 
+            is used as part of SpotMAX analysis, the map will be saved in 
             each 
         verbose : bool, optional
             If True, print information text to the terminal. Default is True
@@ -273,7 +273,7 @@ class Model(nn.Module):
         raise TypeError(
             f'Input image has data type {image.dtype}. The only supported types '
             'are float64, float32, and float16. Did you forget to pre-process '
-            'your images? You can let spotMAX taking care of that by setting '
+            'your images? You can let SpotMAX taking care of that by setting '
             'both `preprocess_across_experiment=False` and '
             '`preprocess_across_timepoints=False` when you initialize the model.'
         )

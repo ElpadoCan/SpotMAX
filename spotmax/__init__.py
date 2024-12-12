@@ -26,7 +26,7 @@ def _warn_ask_install_package(commands: Iterable[str], note_txt=''):
     
     message_on_exit = (
         '[WARNING]: Execution aborted. Run the following commands before '
-        f'running spotMAX again:\n\n{commands_txt}\n'
+        f'running SpotMAX again:\n\n{commands_txt}\n'
     )
     msg_on_invalid = (
         '$answer is not a valid answer. '
@@ -171,7 +171,7 @@ is_win64 = (is_win and (os.environ["PROCESSOR_ARCHITECTURE"] == "AMD64"))
 issues_url = 'https://github.com/ElpadoCan/SpotMAX/issues'
 
 help_text = (
-    'Welcome to spotMAX!\n\n'
+    'Welcome to SpotMAX!\n\n'
     'You can run spotmax both as a GUI or in the command line.\n'
     'To run the GUI type `spotmax`. To run the command line type `spotmax -p <path_to_params_file>`.\n'
     'The `<path_to_params_file>` can either be a CSV or INI file.\n'

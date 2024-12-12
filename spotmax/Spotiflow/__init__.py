@@ -6,5 +6,5 @@ def install():
     check_install_package(
         'spotiflow', 
         is_cli=is_cli,
-        caller_name='spotMAX'
+        caller_name='SpotMAX'
     )

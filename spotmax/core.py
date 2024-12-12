@@ -622,7 +622,7 @@ class _ParamsParser(_DataLoader):
             default_option, 'Save report to..', 'Do not save report'
         )
         info_txt = (
-            'spotMAX can save a final report with a summary of warnings '
+            'SpotMAX can save a final report with a summary of warnings '
             'and errors raised during the analysis.\n\n'
             f'Default report path: "{report_filepath_option}"'
         )
@@ -718,11 +718,11 @@ class _ParamsParser(_DataLoader):
             return int(default_option)
         options = [str(n) for n in range(1,max_num_threads+1)]
         info_txt = (
-            'spotMAX can perform some of the analysis steps considerably faster '
+            'SpotMAX can perform some of the analysis steps considerably faster '
             'through parallelisation across the available CPU threads.\n'
             'However, you might want to limit the amount of resources used.'
         )
-        question = 'How many threads should spotMAX use'
+        question = 'How many threads should SpotMAX use'
         num_threads = io.get_user_input(
             question, options=options, info_txt=info_txt, 
             logger=self.logger.info, default_option=default_option
@@ -735,7 +735,7 @@ class _ParamsParser(_DataLoader):
 
     def _check_raise_on_critical(self, force_default=False):
         info_txt = (
-            'spotMAX default behaviour is to NOT stop the analysis process '
+            'SpotMAX default behaviour is to NOT stop the analysis process '
             'if a critical error is raised, but to continue with the analysis '
             'of the next folder.'
         )
@@ -850,7 +850,7 @@ class _ParamsParser(_DataLoader):
             )
             if report_filepath is None:
                 self.logger.info(
-                    'spotMAX execution stopped by the user. '
+                    'SpotMAX execution stopped by the user. '
                     'Report filepath was not provided.'
                 )
                 self.quit()
@@ -860,7 +860,7 @@ class _ParamsParser(_DataLoader):
             )
             if report_filepath is None:
                 self.logger.info(
-                    'spotMAX execution stopped by the user. '
+                    'SpotMAX execution stopped by the user. '
                     'Report filepath was not provided.'
                 )
                 self.quit()
@@ -878,7 +878,7 @@ class _ParamsParser(_DataLoader):
             )
             if num_threads is None:
                 self.logger.info(
-                    'spotMAX execution stopped by the user. '
+                    'SpotMAX execution stopped by the user. '
                     'Number of threads was not provided.'
                 )
                 self.quit()
@@ -901,7 +901,7 @@ class _ParamsParser(_DataLoader):
             )
             if raise_on_critical is None:
                 self.logger.info(
-                    'spotMAX execution stopped by the user. '
+                    'SpotMAX execution stopped by the user. '
                     '"Raise of critical" parameter was not provided.'
                 )
                 self.quit()
@@ -998,7 +998,7 @@ class _ParamsParser(_DataLoader):
         default_option = 'Append number to the end'
         question = 'What do you want to do'
         txt = (
-            f'[WARNING]: spotMAX would like to save the parameters in the file '
+            f'[WARNING]: SpotMAX would like to save the parameters in the file '
             f'"{filename}" (see full path below). '
             'However, this file already exists.\n\n'
             f'File path: "{ini_filepath}"'
@@ -1043,7 +1043,7 @@ class _ParamsParser(_DataLoader):
             )
             if run_number is None:
                 self.logger.info(
-                    'spotMAX stopped by the user. Run number was not provided.'
+                    'SpotMAX stopped by the user. Run number was not provided.'
                 )
                 self.quit()
         elif user_run_number is None:
@@ -1062,7 +1062,7 @@ class _ParamsParser(_DataLoader):
                 )
                 if run_number is None:
                     self.logger.info(
-                        'spotMAX stopped by the user.'
+                        'SpotMAX stopped by the user.'
                         'Run number was not provided.'
                     )
                     self.quit()
@@ -1082,7 +1082,7 @@ class _ParamsParser(_DataLoader):
                     )
                     if user_run_number is None:
                         self.logger.info(
-                            'spotMAX stopped by the user.'
+                            'SpotMAX stopped by the user.'
                             'Run number was not provided.'
                         )
                         self.quit()
@@ -1186,7 +1186,7 @@ class _ParamsParser(_DataLoader):
             f'{error_up_str}'
         )
         self.logger.info(err_msg)
-        self.logger.info('spotMAX aborted due to ERROR. See above more details.')
+        self.logger.info('SpotMAX aborted due to ERROR. See above more details.')
         self.quit()
     
     @exception_handler_cli
@@ -1526,7 +1526,7 @@ class _ParamsParser(_DataLoader):
         if self.is_cli:
             print('*'*100)
             self.logger.info(
-                'spotMAX execution aborted because some metadata are missing. '
+                'SpotMAX execution aborted because some metadata are missing. '
                 'See details above.'
             )
             self.quit()
@@ -1780,7 +1780,7 @@ class _ParamsParser(_DataLoader):
             if self.is_cli:
                 print('*'*100)
                 self.logger.info(
-                    'spotMAX execution aborted because some parameters are missing. '
+                    'SpotMAX execution aborted because some parameters are missing. '
                     'See details above.'
                 )
                 self.quit()
@@ -1798,7 +1798,7 @@ class _ParamsParser(_DataLoader):
             )
             if not proceed:
                 self.logger.info(
-                    'spotMAX execution stopped by the user. '
+                    'SpotMAX execution stopped by the user. '
                     'Some parameters are missing'
                 )
                 self.quit()
@@ -1830,7 +1830,7 @@ class _ParamsParser(_DataLoader):
         )
         if answer is None:
             self.logger.info(
-                'spotMAX stopped by the user. '
+                'SpotMAX stopped by the user. '
                 'Save ref. ch. features and/or masks not selected.'
             )
             self.quit()
@@ -2027,7 +2027,7 @@ class _ParamsParser(_DataLoader):
                     f'{exp_path}{error_up_str}'
                 )
                 self.logger.info(txt)
-                self.logger.info('spotMAX aborted due to ERROR. See above more details.')
+                self.logger.info('SpotMAX aborted due to ERROR. See above more details.')
                 return False
             if not os.path.isdir(exp_path):
                 self.logger.info('='*100)
@@ -2036,7 +2036,7 @@ class _ParamsParser(_DataLoader):
                     f'{exp_path}{error_up_str}'
                 )
                 self.logger.info(txt)
-                self.logger.info('spotMAX aborted due to ERROR. See above more details.')
+                self.logger.info('SpotMAX aborted due to ERROR. See above more details.')
                 return False
         return True
 
@@ -5008,7 +5008,7 @@ class Kernel(_ParamsParser):
             f'Available features are:\n\n{format_colums}{error_up_str}'
         )
         self.logger.info(txt)
-        self.logger.info('spotMAX aborted due to ERROR. See above more details.')
+        self.logger.info('SpotMAX aborted due to ERROR. See above more details.')
         self.quit()
     
     def _add_segm_obj_features_from_labels(
@@ -5111,7 +5111,7 @@ class Kernel(_ParamsParser):
         
         datetime_stopped = datetime.now()
         exec_time = datetime_stopped - self._report["datetime_started"]
-        title = 'spotMAX analysis report'
+        title = 'SpotMAX analysis report'
         _line_title = '*'*len(title)
         title = f'{_line_title}\n{title}\n{_line_title}'
         report_formatted = (
@@ -5888,7 +5888,7 @@ class Kernel(_ParamsParser):
     
     @exception_handler_cli
     def _run_exp_paths(self, exp_paths, verbose=True):
-        """Run spotMAX analysis from a dictionary of Cell-ACDC style experiment 
+        """Run SpotMAX analysis from a dictionary of Cell-ACDC style experiment 
         paths
 
         Parameters
@@ -5978,7 +5978,7 @@ class Kernel(_ParamsParser):
             pbar_pos.close()
             pbar_exp.update()
         pbar_exp.close()
-        self.logger.info('spotMAX analysis completed.')
+        self.logger.info('SpotMAX analysis completed.')
     
     def _add_missing_cells_and_merge_with_df_agg(self, df_agg_src, df_agg_dst):
         """Add reference channel and cell cycle annotations columns from 
@@ -6324,7 +6324,7 @@ class Kernel(_ParamsParser):
         
         print('='*100)
         self.logger.info(
-            f'Running spotMAX v{version} with Cell-ACDC v{acdc_version}')
+            f'Running SpotMAX v{version} with Cell-ACDC v{acdc_version}')
         print('='*100)
         
         self.logger.info(f'Analysis parameters file: "{params_path}"')
@@ -6379,7 +6379,7 @@ class Kernel(_ParamsParser):
             print('-'*100)
             self.logger.info(f'[ERROR]: {error}{error_up_str}')
             err_msg = (
-                'spotMAX aborted due to **error**. '
+                'SpotMAX aborted due to **error**. '
                 'More details above or in the following log file:\n\n'
                 f'{self.log_path}\n\n'
                 'If you cannot solve it, you can report this error by opening '
@@ -6413,7 +6413,7 @@ class Kernel(_ParamsParser):
             self.logger.info(txt)
         else:
             self.logger.info(
-                'spotMAX command-line interface closed. '
+                'SpotMAX command-line interface closed. '
                 f'{utils.get_salute_string()}'
             )
         self.logger.info('='*100)
