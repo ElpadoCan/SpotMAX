@@ -77,7 +77,7 @@ model.init_inference_params(
 
 # Run inference
 print('Running inference...')
-output_sample_mask = model.forward(input_sample)
+output_sample_mask = model.forward(input_sample).astype(np.uint8)
 
 # Visualize result
 imshow(np.squeeze(input_sample), np.squeeze(output_sample_mask))

@@ -32,8 +32,12 @@ def save_checkpoint(state, is_best, checkpoint_dir):
         shutil.copyfile(last_file_path, best_file_path)
 
 
-def load_checkpoint(checkpoint_path, model, optimizer=None,
-                    model_key='model_state_dict', optimizer_key='optimizer_state_dict'):
+def load_checkpoint(
+        checkpoint_path, model, 
+        optimizer=None,
+        model_key='model_state_dict', 
+        optimizer_key='optimizer_state_dict'
+    ):
     """Loads model and training parameters from a given checkpoint_path
     If optimizer is provided, loads optimizer's state_dict of as well.
 

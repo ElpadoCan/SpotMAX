@@ -18,13 +18,13 @@ spotmax/_nnet
 spotmax/BioImageIO/SpotMAX_UNet_2D/unet_best.pth
 spotmax/BioImageIO/example_models
 spotmax/BioImageIO/SpotMAX_UNet_2D/Input_sample_Positions
+spotmax/BioImageIO/SpotMAX_UNet_2D/SpotMAX_AI_2D.zip
+spotmax/BioImageIO/SpotMAX_UNet_3D/Input_sample_Positions
+spotmax/BioImageIO/SpotMAX_UNet_3D/SpotMAX_AI_3D.zip
+spotmax/BioImageIO/SpotMAX_UNet_3D/best_checkpoint.pytorch
 spotmax/_deprecated
 spotmax/_old_gui.py
 spotmax/mytests/*
-spotmax/BioImageIO/SpotMAX_UNet_2D/unet_best.pth
-spotmax/BioImageIO/example_models
-spotmax/BioImageIO/SpotMAX_UNet_2D/Input_sample_Positions
-spotmax/BioImageIO/SpotMAX_UNet_2D/SpotMAX_AI_2D.zip
 # spotmax/BioImageIO/SpotMAX_UNet_2D
 # spotmax/BioImageIO/SpotMAX_UNet_3D
 spotmax/_deprecated_qrc_resources_spotmax.py

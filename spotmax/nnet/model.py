@@ -126,8 +126,6 @@ class Model(nn.Module):
             If True, print information text to the terminal. Default is True
         """       
         nn.Module.__init__(self)
-        
-        self.init_inference_params()
          
         modules = install_and_import_modules()
         transform, Data, Operation, NDModel, Models, models =  modules            
@@ -156,6 +154,8 @@ class Model(nn.Module):
         )
         self._save_prediction_map = save_prediction_map
         self.model_type = model_type
+        
+        self.init_inference_params()
         self.model = self._init_model(model_type)
     
     def _load_config(self, config_yaml_filepath):
@@ -304,19 +304,24 @@ class Model(nn.Module):
             If True, the binary mask will be labelled with `skimage.measure.label`. 
             This will separate the connected components into objects with an 
             integer ID. Default is False
-        """        
-        self._threshold_value = threshold_value
+        """      
+        if self.model_type == '2D': 
+            self._threshold_value = 0.9
+        else:
+            self._threshold_value = 0.7
         self._label_components = label_components
     
-    def load_state_dict(self, state_dict_to_load):
+    def load_state_dict(self, state):
         model_instance = self.model._init_model_instance(verbose=False)
         if self.model_type == '2D':
             model_instance.initialize_network()
             state_dict = model_instance.net.load_state_dict(
-                state_dict_to_load
+                state
             )
         else:
-            state_dict = model_instance.load_state_dict(state_dict_to_load)
+            from spotmax.nnet.models.unet3D.unet3d.model import get_model
+            model = get_model(model_instance.config['model'])
+            state_dict = model.load_state_dict(state['model_state_dict'])
         return state_dict
     
     def forward(self, x: np.ndarray) -> np.ndarray:
