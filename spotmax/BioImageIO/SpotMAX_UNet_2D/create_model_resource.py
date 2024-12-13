@@ -5,6 +5,7 @@ import torch
 
 from bioimageio.spec.model.v0_5 import (
     Author,
+    Maintainer,
     AxisId,
     BatchAxis,
     ChannelAxis,
@@ -40,6 +41,7 @@ from spotmax import spotmax_path
 
 
 """Model Input"""
+print('Loading model input...')
 model_folder_root = Path(spotmax_path) / 'BioImageIO' / 'SpotMAX_UNet_2D'
 input_sample_path = model_folder_root / 'input_sample.npy'
 input_sample = np.load(str(input_sample_path))
@@ -72,6 +74,7 @@ input_descr = InputTensorDescr(
 )
 
 """Model Output"""
+print('Loading model output...')
 output_sample_path = model_folder_root / 'output_sample_mask.npy'
 output_sample = np.load(str(output_sample_path))
 Z, Y, X = output_sample.shape[-3:]
@@ -97,6 +100,7 @@ output_descr = OutputTensorDescr(
 )
 
 """Model Architecture"""
+print('Generating model architecture...')
 model_py_path = Path(spotmax_path) / 'nnet' / 'model.py'
 
 pytorch_version = Version(torch.__version__)
@@ -122,11 +126,11 @@ print(model_py_path)
 import pdb; pdb.set_trace()
 
 """Create model description"""
+print('Creating model description...')
 model_descr = ModelDescr(
-  name='SpotMAX-AI',
+  name='SpotMAX-AI 2D',
   description=(
-    'U-Net 2D trained on images containing diffraction-limited fluorescent '
-    'spots. The model is trained to return a boolean mask of spot areas.'
+    'SpotMAX - 2D fluorescence spot segmentation'
   ),
   covers=[model_folder_root / 'cover.png'],
   authors=[
@@ -137,6 +141,15 @@ model_descr = ModelDescr(
         github_user='ElpadoCan',
         orcid=OrcidId('0000-0003-2540-8240')
       )
+  ],
+  maintainers=[
+    Maintainer(
+      name='Francesco Padovani',
+      affiliation='Helmholtz Munich',
+      email='padovaf@tcd.ie',
+      github_user='ElpadoCan',
+      orcid=OrcidId('0000-0003-2540-8240')
+    )
   ],
   cite=[
     CiteEntry(
@@ -181,10 +194,12 @@ model_descr = ModelDescr(
 import pdb; pdb.set_trace()
 
 """Test the model"""
+print('Testing the model...')
 from bioimageio.core import test_model
 
 validation_summary = test_model(model_descr)
 print(validation_summary.display())
+
 answer = input('Do you want to proceed to package the model in a zip file? ([y]/n): ')
 if answer.lower() == 'n':
     exit('Execution stopped. Zip archive for the model resource not created.')
