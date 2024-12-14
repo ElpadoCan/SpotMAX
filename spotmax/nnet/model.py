@@ -77,6 +77,7 @@ class Model(nn.Module):
             gaussian_filter_sigma: Vector=0.0,
             remove_hot_pixels=False,
             config_yaml_filepath: os.PathLike='spotmax/nnet/config.yaml',
+            threshold_value=0.0,
             PhysicalSizeX: float=0.073,
             resolution_multiplier_yx: float=1.0,
             use_gpu=False,
@@ -106,6 +107,11 @@ class Model(nn.Module):
         config_yaml_filepath : os.PathLike, optional
             Path to the YAML configuration file of the model. 
             Pre-trained default is /spotmax/nnet/config.yaml
+        threshold_value : float, optional
+            Threshold value used to convert probability output to binary. 
+            Increase or decrease this value to detect less or more spots, 
+            respectively. Pass 0.0 to use default values of 0.9 for 2D 
+            model and 0.7 for 3D model. Default is 0.0
         PhysicalSizeX : float, optional
             Pixel width in µm/pixel. This value is used to rescale the image 
             to the size of the training images. The pixel size of the training 
@@ -153,6 +159,7 @@ class Model(nn.Module):
             preprocess_across_experiment or preprocess_across_timepoints
         )
         self._save_prediction_map = save_prediction_map
+        self.threshold_value = threshold_value
         self.model_type = model_type
         
         self.init_inference_params()
@@ -289,28 +296,27 @@ class Model(nn.Module):
     
     def init_inference_params(
             self, 
-            threshold_value=0.9,
             label_components=False,
         ):
         """Initialize additional parameters used by the `forward` method
 
         Parameters
         ----------
-        threshold_value : float, optional
-            Threshold value used to convert probability output to binary. 
-            Increase or decrease this value to detect less or more spots, 
-            respectively. Default is 0.9
         label_components : bool, optional
             If True, the binary mask will be labelled with `skimage.measure.label`. 
             This will separate the connected components into objects with an 
             integer ID. Default is False
         """      
+        self._label_components = label_components
+        if self.threshold_value > 0:
+            self._threshold_value = self.threshold_value
+            return
+        
         if self.model_type == '2D': 
             self._threshold_value = 0.9
         else:
             self._threshold_value = 0.7
-        self._label_components = label_components
-    
+        
     def load_state_dict(self, state):
         model_instance = self.model._init_model_instance(verbose=False)
         if self.model_type == '2D':
@@ -324,7 +330,7 @@ class Model(nn.Module):
             state_dict = model.load_state_dict(state['model_state_dict'])
         return state_dict
     
-    def forward(self, x: np.ndarray) -> np.ndarray:
+    def forward(self, x: np.ndarray) -> np.ndarray[bool]:
         if x.ndim != 4:
             raise TypeError(
                 'Input images for the forward method must be an array of '
@@ -342,7 +348,6 @@ class Model(nn.Module):
     
     def segment(
             self, image,
-            threshold_value=0.9,
             label_components=False,
             return_pred: NotParam=False,
         ):
@@ -352,10 +357,6 @@ class Model(nn.Module):
         ----------
         image : (Y, X) numpy.ndarray or (Z, Y, X) numpy.ndarray of floats in the range (-1, 1)
             Input 2D or 3D image.
-        threshold_value : float, optional
-            Threshold value used to convert probability output to binary. 
-            Increase or decrease this value to detect less or more spots, 
-            respectively. Default is 0.9
         label_components : bool, optional
             If True, the binary mask will be labelled with `skimage.measure.label`. 
             This will separate the connected components into objects with an 
@@ -369,7 +370,6 @@ class Model(nn.Module):
             with `skimage.measure.label` before being returned.
         """        
         self.init_inference_params(
-            threshold_value=threshold_value, 
             label_components=label_components,
         )
         
@@ -398,7 +398,7 @@ class Model(nn.Module):
         if pad_width is not None:
             prediction = self.remove_padding(pad_width, prediction)
         
-        thresh = prediction > threshold_value
+        thresh = prediction > self._threshold_value
         thresh = self.resize_to_orig_shape(thresh, orig_yx_shape)
         
         if label_components:

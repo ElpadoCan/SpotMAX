@@ -88,6 +88,7 @@ def load_model_descr():
 def test_model():
     model_descr = load_model_descr()
     validation_summary = bioimageio.core.test_model(model_descr)
+    print(validation_summary.display())
 
 def main():
     model_descr = load_model_descr()

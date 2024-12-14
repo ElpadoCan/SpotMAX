@@ -1,15 +1,22 @@
+from typing import Tuple
+
 import numpy as np
 
 import skimage.measure
 
 from .. import io
+from ..types import NotParam
 
 from . import install
 
 class Model:
     """SpotMAX implementation of any BioImage.IO model
     """    
-    def __init__(self, model_doi_url_or_zip_path=''):
+    def __init__(
+            self, 
+            model_doi_url_or_zip_path='',
+            logger_func: NotParam=print
+        ):
         """Initialize Bioimage.io Model class
 
         Parameters
@@ -26,18 +33,26 @@ class Model:
         """       
         install()
         import bioimageio.core
-        import xarray as xr
         
-        self.bioimageio_core = bioimageio.core
-        self.xr = xr
-        
-        self.model_resource = bioimageio.core.load_model_description(
+        self.logger_func = logger_func
+        self.model_description = bioimageio.core.load_model_description(
             model_doi_url_or_zip_path
         )
-        # self.prediction_pipeline = self.bioimageio_core.create_prediction_pipeline(
-        #     self.model_resource, devices=None, weight_format=None
-        # )
-        self.dims = tuple(self.model_resource.inputs[0].axes)
+        self.kwargs = self.get_kwargs()
+        self.pprediction_pipeline = bioimageio.core.create_prediction_pipeline(
+            self.self.model_descriptioniption
+        )
+    
+    def get_kwargs(self):
+        try:
+            kwargs = (
+                self.model_description.weights.pytorch_state_dict
+                .architecture.kwargs
+            )
+        except Exception as err:
+            kwargs = {} 
+        
+        return kwargs
     
     def _test_model(self):
         """
@@ -53,33 +68,70 @@ class Model:
         self.logger_func(validation_summary.display())
         return validation_summary
     
-    def reshape_to_required_shape(self, img):
-        for axis in self.dims:
-            if axis == 'y':
+    def create_input_sample(self, image: np.ndarray):
+        import bioimageio.core
+        from bioimageio.spec.model.v0_5 import TensorId
+        
+        image = np.squeeze(image)
+        axes = self.model_description.inputs[0].axes
+        space_axis_ids = {'z', 'y', 'x'}
+        output_index = []
+        for axis in axes:
+            if axis.id == 'z' and image.ndim == 2:
+                image = image[np.newaxis]
+                output_index.append(0)
+        
+        for axis in axes:
+            if axis.id in space_axis_ids:
                 continue
-            if axis == 'z':
-                continue
-            if axis == 'x':
-                continue
-            img = img[np.newaxis]
-        return img
+            
+            image = image[np.newaxis]
+            output_index.append(0)
+        
+        dims = [axis.id for axis in axes]
+        input_tensor = bioimageio.core.Tensor(
+            array=image, 
+            dims=dims
+        )
+        
+        input_ids = bioimageio.core.digest_spec.get_member_ids(
+            self.model_description.inputs
+        )
+        
+        sample = bioimageio.core.Sample(
+            members={
+                TensorId(input_ids[0]): input_tensor
+            }, 
+            stat={}, 
+            id='inputs'
+        )
+
+        return sample, tuple(output_index)
+    
+    def get_prediction_mask(
+            self,
+            prediction_output, 
+            reshape_output_index: Tuple[int],
+            output_index: int=0
+        ):
+        members = prediction_output.members
+        out_ids = list(members.keys())
+        out_id = out_ids[output_index]
+        prediction_arr = np.array(members[out_id])[reshape_output_index]
+        prediction_mask = prediction_arr.astype(bool)
+        return prediction_mask
     
     def segment(
             self, image, 
-            threshold_value=0.5,
             output_index=0, 
             label_components=False
         ):
-        """_summary_
+        """Run model prediction and return masks
 
         Parameters
         ----------
         image : 3D (Z, Y, X) or 2D (Y, X) np.ndarray
             3D z-stack or 2D input image as a numpy array
-        threshold_value : float, optional
-            Threshold value in the range 0-1 to convert the prediction output 
-            of the model to a binary image. 
-            Increasing this value might help removing artefacts. By default 0.5
         output_index : int, optional
             Some BioImage.IO models returns multiple outputs. Check the documentation 
             of the specific model to understand which output could be more 
@@ -102,44 +154,23 @@ class Model:
         See also
         --------
         `skimage.measure.label <https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.label>`__
-        """        
+        """
+        sample, reshape_output_index = self.create_input_sample(image)
         
-        # Build slice object to get the correct output index
-        output_index_loc = self.dims.index('c')
-        output_index_slice = [slice(None) for _ in range(len(self.dims))]
-        output_index_slice[output_index_loc] = output_index
-        output_index_slice = tuple(output_index_slice)
+        prediction_output = (
+            self.prediction_pipeline.predict_sample_without_blocking(
+                sample
+            )
+        )
         
-        input_image = image
-        if image.ndim == 2:
-            # Add axis for z-slices
-            input_image = image[np.newaxis]        
-        
-        if 'z' in self.dims:
-            # Add fake axis because we want to predict on 3D since the model 
-            # is 3D capable ('z' is in self.dims) --> input_image must be 4D
-            input_image = input_image[np.newaxis]
-        
-        thresholded = np.zeros(input_image.shape, dtype=bool)
-        
-        for i, img in enumerate(input_image):
-            img = self.reshape_to_required_shape(img)
-            input_xarray = self.xr.DataArray(img, dims=self.dims)
-            prediction_xarray = self.bioimageio_core.prediction.predict(
-                self.prediction_pipeline, input_xarray
-            )[0]
-            
-            prediction = prediction_xarray.to_numpy()[output_index_slice]
-            
-            prediction = np.squeeze(prediction)
-            thresholded[i] = prediction > threshold_value
-        
-        thresholded = np.squeeze(thresholded)
+        prediction_mask = self.get_prediction_mask(
+            prediction_output, reshape_output_index, output_index
+        )
         
         if label_components:
-            return skimage.measure.label(thresholded)
+            return skimage.measure.label(prediction_mask)
         else:
-            return thresholded
+            return prediction_mask
 
 def get_model_params_from_ini_params(
         ini_params, use_default_for_missing=False, subsection='spots'
