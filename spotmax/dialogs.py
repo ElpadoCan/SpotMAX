@@ -6975,6 +6975,9 @@ class QDialogBioimageIOModelParams(acdc_apps.QDialogModelParams):
             
         super().ok_cb()
     
+    def setValuesFromParams(self, init_kwargs, segment_kwargs, model_kwargs):
+        ...
+    
     def kwargsToArgspecs(self, kwargs):
         argSpecs = []
         for key, value in kwargs.items():

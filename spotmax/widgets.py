@@ -985,31 +985,6 @@ class SpotPredictionMethodWidget(QWidget):
         )
         if self.bioImageIOParams is not None:
             win.setValuesFromParams(
-                self.bioImageIOParams['init'], self.bioImageIOParams['segment']
-            )
-        win.exec_()
-        if win.cancel:
-            return
-        
-        
-        from spotmax.BioImageIO import model
-        init_params, segment_params = acdc_myutils.getModelArgSpec(model)
-        url = model.url_help()
-        win = acdc_apps.QDialogModelParams(
-            init_params,
-            segment_params,
-            'BioImageIO model', 
-            parent=self,
-            url=url, 
-            initLastParams=True, 
-            posData=self.posData,
-            df_metadata=self.metadata_df,
-            force_postprocess_2D=False,
-            is_tracker=True,
-            model_module=model
-        )
-        if self.bioImageIOParams is not None:
-            win.setValuesFromParams(
                 self.bioImageIOParams['init'], 
                 self.bioImageIOParams['segment'],
                 self.bioImageIOParams['kwargs'],
@@ -1106,7 +1081,11 @@ class SpotPredictionMethodWidget(QWidget):
             key:str(value) 
             for key, value in self.bioImageIOParams['segment'].items()
         }
-        return init_model_params, segment_model_params
+        kwargs_model_params = {
+            key:str(value) 
+            for key, value in self.bioImageIOParams['kwargs'].items()
+        }
+        return init_model_params, segment_model_params, kwargs_model_params
 
     def spotiflow_model_params_to_ini_sections(self):
         if self.SpotiflowParams is None:
@@ -1144,7 +1123,10 @@ class SpotPredictionMethodWidget(QWidget):
             return
         
         self.bioImageIOParams = bioImageIOParams
-        return self.bioImageIOParams['init'], self.bioImageIOParams['segment']
+        init_params = self.bioImageIOParams['init']
+        segment_params = self.bioImageIOParams['segment']
+        kwargs = self.bioImageIOParams['kwargs']
+        return init_params, segment_params, kwargs
     
     def spotiflow_params_from_ini_sections(self, ini_params):
         from spotmax.Spotiflow.spotiflow_smax_model import (
