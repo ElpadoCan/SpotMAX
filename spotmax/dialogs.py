@@ -6913,4 +6913,80 @@ class AboutSpotMAXDialog(QBaseDialog):
         mainLayout.addLayout(buttonsLayout)
         
         self.setLayout(mainLayout)
+
+class QDialogBioimageIOModelParams(acdc_apps.QDialogModelParams):
+    def __init__(self, posData=None, df_metadata=None, parent=None):
+        from spotmax.BioImageIO import model
+        init_params, segment_params = acdc_myutils.getModelArgSpec(model)
+        url = model.url_help()
+        
+        super().__init__(
+            init_params,
+            segment_params,
+            'BioImageIO model', 
+            url=url, 
+            initLastParams=True, 
+            posData=posData,
+            df_metadata=df_metadata,
+            force_postprocess_2D=False,
+            is_tracker=True,
+            model_module=model, 
+            parent=parent
+        )
+        
+        modelSourceArgWidget = self.init_argsWidgets[0]
+        modelSourceArgWidget.widget.editingFinished.connect(
+            self.onModelSelected
+        )
+        
+        self.additionalWidgetsAdded = False
+        self.onModelSelected()
+    
+    def onModelSelected(self):
+        from spotmax.BioImageIO import model
+        init_kwargs = self.argsWidgets_to_kwargs(self.init_argsWidgets)
+        try:
+            bioImageIOModel = model.Model(**init_kwargs)
+            additionalKwargs = bioImageIOModel.kwargs
+            additionalArgspecs = self.kwargsToArgspecs(additionalKwargs)
+            additionalInitGroupBox, self.additionalInitArgsWidgets = (
+                self.createGroupParams(
+                    additionalArgspecs, 
+                    'Additional initialization parameters'
+                )
+            )
+            scrollAreaLayout = self.scrollArea.widget().layout()
+            if self.additionalWidgetsAdded:
+                scrollAreaLayout.removeWidget(1)
+            scrollAreaLayout.insertWidget(1, additionalInitGroupBox)
+            self.additionalWidgetsAdded = True
+        except Exception as err:
+            self.additionalWidgetsAdded = False
+            printl(err)
+            return
+    
+    def ok_cb(self):
+        try:
+            self.additionalKwargs = self.argsWidgets_to_kwargs(
+                self.additionalInitArgsWidgets
+            )
+        except Exception as err:
+            self.additionalKwargs = None
+            
+        super().ok_cb()
+    
+    def kwargsToArgspecs(self, kwargs):
+        argSpecs = []
+        for key, value in kwargs.items():
+            argspec = acdc_myutils.ArgSpec(
+                name=key, 
+                default=value, 
+                type=type(value),
+                desc='Additional BioImageIO model parameter', 
+                docstring=None
+            )
+            argSpecs.append(argspec)
+        return argSpecs
+        
+        
         

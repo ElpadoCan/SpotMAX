@@ -14,18 +14,17 @@ class Model:
     """    
     def __init__(
             self, 
-            model_doi_url_or_zip_path='',
+            model_doi_url_rdf_or_zip_path='',
             logger_func: NotParam=print
         ):
         """Initialize Bioimage.io Model class
 
         Parameters
         ----------
-        model_doi_url_or_zip_path : str, optional
+        model_doi_url_rdf_or_zip_path : str, optional
             Bioimage.io models can be lodaded using different representation.
             You can either provide the DOI of the model, the URL, or download it
-            yourself (select "Ilastik" weight format) and provide the path to 
-            the downloaded zip file.
+            yourself and provide the path to the downloaded zip file.
             
             For more information and to visualize the available models 
             visit the BioImage.IO website at the followng link 
@@ -36,12 +35,18 @@ class Model:
         
         self.logger_func = logger_func
         self.model_description = bioimageio.core.load_model_description(
-            model_doi_url_or_zip_path
+            model_doi_url_rdf_or_zip_path
         )
         self.kwargs = self.get_kwargs()
         self.pprediction_pipeline = bioimageio.core.create_prediction_pipeline(
-            self.self.model_descriptioniption
+            self.model_description
         )
+    
+    def set_kwargs(self, kwargs):
+        architecture_yaml = (
+            self.model_description.weights.pytorch_state_dict.architecture
+        )
+        architecture_yaml.kwargs = kwargs
     
     def get_kwargs(self):
         try:

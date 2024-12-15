@@ -948,7 +948,7 @@ class SpotPredictionMethodWidget(QWidget):
         win = acdc_apps.QDialogModelParams(
             init_params,
             segment_params,
-            'spotMAX-UNet', 
+            'SpotMAX AI', 
             parent=self,
             url=url, 
             initLastParams=True, 
@@ -980,6 +980,18 @@ class SpotPredictionMethodWidget(QWidget):
         self.log('SpotMAX AI initialized' )
     
     def _promptConfigBioImageIOModel(self):
+        win = dialogs.QDialogBioimageIOModelParams(
+            self.posData, self.metadata_df, parent=self
+        )
+        if self.bioImageIOParams is not None:
+            win.setValuesFromParams(
+                self.bioImageIOParams['init'], self.bioImageIOParams['segment']
+            )
+        win.exec_()
+        if win.cancel:
+            return
+        
+        
         from spotmax.BioImageIO import model
         init_params, segment_params = acdc_myutils.getModelArgSpec(model)
         url = model.url_help()
@@ -998,7 +1010,9 @@ class SpotPredictionMethodWidget(QWidget):
         )
         if self.bioImageIOParams is not None:
             win.setValuesFromParams(
-                self.bioImageIOParams['init'], self.bioImageIOParams['segment']
+                self.bioImageIOParams['init'], 
+                self.bioImageIOParams['segment'],
+                self.bioImageIOParams['kwargs'],
             )
         win.exec_()
         if win.cancel:
@@ -1009,8 +1023,11 @@ class SpotPredictionMethodWidget(QWidget):
             '(GUI will be unresponsive, no panic)...'
         )
         self.bioImageIOModel = model.Model(**win.init_kwargs)
+        self.bioImageIOModel.set_kwargs(win.additionalKwargs)
         self.bioImageIOParams = {
-            'init': win.init_kwargs, 'segment': win.model_kwargs
+            'init': win.init_kwargs, 
+            'segment': win.model_kwargs,
+            'kwargs': win.additionalKwargs
         }
         self.configButton.confirmAction()
         self.log('Model initialized' )
