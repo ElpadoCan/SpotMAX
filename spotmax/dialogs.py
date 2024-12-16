@@ -2338,17 +2338,20 @@ class ParamsGroupBox(QGroupBox):
         if not is_dl_model:
             return ini_params
 
+        kwargs_model = None
         if nnet_params is not None:
             section_id_name = 'neural_network'
             model_params = nnet_params
+            init_model_params, segment_model_params = model_params
         elif bioimageio_model_params is not None:
             section_id_name = 'bioimageio_model'
             model_params = bioimageio_model_params
+            init_model_params, segment_model_params, kwargs_model = model_params
         elif spotiflow_model_params is not None:
             section_id_name = 'spotiflow'
             model_params = spotiflow_model_params
-        
-        init_model_params, segment_model_params = model_params
+            init_model_params, segment_model_params = model_params
+            
         SECTION = f'{section_id_name}.init.{channel}'
         for key, value in init_model_params.items():
             if SECTION not in ini_params:
@@ -2364,6 +2367,16 @@ class ParamsGroupBox(QGroupBox):
             ini_params[SECTION][key] = {
                 'desc': key, 'loadedVal': value, 'isParam': True
             }
+        
+        if kwargs_model is not None:
+            SECTION = f'{section_id_name}.kwargs.{channel}'
+            for key, value in kwargs_model.items():
+                if SECTION not in ini_params:
+                    ini_params[SECTION] = {}
+                ini_params[SECTION][key] = {
+                    'desc': key, 'loadedVal': value, 'isParam': True
+                }
+        
         return ini_params
     
     def saveSelectedMeasurements(self, configPars, ini_filepath):
@@ -6929,22 +6942,46 @@ class QDialogBioimageIOModelParams(acdc_apps.QDialogModelParams):
             posData=posData,
             df_metadata=df_metadata,
             force_postprocess_2D=False,
-            is_tracker=True,
+            addPostProcessParams=False,
+            addPreProcessParams=False,
             model_module=model, 
             parent=parent
         )
         
+        initGroupboxLayout = (
+            self.scrollArea.widget().layout().itemAt(0).widget().layout()
+        )
+        reloadButton = acdc_widgets.reloadPushButton()
+        reloadButton.setToolTip(
+            'Load model-specific additional parameters.'
+        )
+        initGroupboxLayout.addWidget(reloadButton, 0, 4)
+        reloadButton.clicked.connect(self.onModelSelected)
+        self.reloadButton = reloadButton
+        self.reloadButton.blinker = utils.widgetBlinker(reloadButton)
+        
         modelSourceArgWidget = self.init_argsWidgets[0]
         modelSourceArgWidget.widget.editingFinished.connect(
-            self.onModelSelected
+            self.blinkReloadButton
         )
         
         self.additionalWidgetsAdded = False
-        self.onModelSelected()
+        self.deltaHeight = 0
+        # self.onModelSelected(resize=False)
     
-    def onModelSelected(self):
-        from spotmax.BioImageIO import model
+    def blinkReloadButton(self):
         init_kwargs = self.argsWidgets_to_kwargs(self.init_argsWidgets)
+        if not init_kwargs['model_doi_url_rdf_or_zip_path']:
+            return
+        
+        self.reloadButton.blinker.start()
+    
+    def onModelSelected(self, checked=False, resize=True):
+        init_kwargs = self.argsWidgets_to_kwargs(self.init_argsWidgets)
+        if not init_kwargs['model_doi_url_rdf_or_zip_path']:
+            return
+        
+        from spotmax.BioImageIO import model
         try:
             bioImageIOModel = model.Model(**init_kwargs)
             additionalKwargs = bioImageIOModel.kwargs
@@ -6960,12 +6997,23 @@ class QDialogBioimageIOModelParams(acdc_apps.QDialogModelParams):
                 scrollAreaLayout.removeWidget(1)
             scrollAreaLayout.insertWidget(1, additionalInitGroupBox)
             self.additionalWidgetsAdded = True
+            if not resize:
+                return
+            
+            QTimer.singleShot(100, self._resizeHeight)
         except Exception as err:
             self.additionalWidgetsAdded = False
             printl(err)
             return
     
-    def ok_cb(self):
+    def _resizeHeight(self):
+        newDeltaHeight = (
+            self.scrollArea.minimumHeightNoScrollbar() + 70 - self.deltaHeight
+        )
+        self.resize(self.width(), newDeltaHeight)
+        self.deltaHeight = newDeltaHeight
+    
+    def ok_cb(self, checked=False):
         try:
             self.additionalKwargs = self.argsWidgets_to_kwargs(
                 self.additionalInitArgsWidgets
@@ -6973,10 +7021,25 @@ class QDialogBioimageIOModelParams(acdc_apps.QDialogModelParams):
         except Exception as err:
             self.additionalKwargs = None
             
-        super().ok_cb()
+        super().ok_cb(checked)
     
     def setValuesFromParams(self, init_kwargs, segment_kwargs, model_kwargs):
-        ...
+        super().__init__(init_kwargs, segment_kwargs)
+        if not self.additionalWidgetsAdded:
+            return
+        
+        for argWidget in self.additionalInitArgsWidgets:
+            val = model_kwargs.get(argWidget.name)
+            widget = argWidget.widget
+            if val is None:
+                continue
+            casters = [lambda x: x, int, float, str, bool]
+            for caster in casters:
+                try:
+                    argWidget.valueSetter(widget, caster(val))
+                    break
+                except Exception as e:
+                    continue
     
     def kwargsToArgspecs(self, kwargs):
         argSpecs = []

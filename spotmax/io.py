@@ -2733,7 +2733,7 @@ def nnet_params_from_ini_params(
         ini_params, sections, model_module, use_default_for_missing=False
     ):
     argSpecs = acdc_myutils.getModelArgSpec(model_module)
-    params = {'init': {}, 'segment': {}}
+    params = {section.split('.')[1]: {} for section in sections}
     
     for s, section in enumerate(sections):
         if section not in ini_params:

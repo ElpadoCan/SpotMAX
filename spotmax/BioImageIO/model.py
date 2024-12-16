@@ -38,11 +38,17 @@ class Model:
             model_doi_url_rdf_or_zip_path
         )
         self.kwargs = self.get_kwargs()
-        self.pprediction_pipeline = bioimageio.core.create_prediction_pipeline(
+        self.prediction_pipeline = bioimageio.core.create_prediction_pipeline(
             self.model_description
         )
     
     def set_kwargs(self, kwargs):
+        if not kwargs:
+            return
+        
+        if kwargs is None:
+            return
+        
         architecture_yaml = (
             self.model_description.weights.pytorch_state_dict.architecture
         )
@@ -186,6 +192,8 @@ def get_model_params_from_ini_params(
     ]
     if not any([section in ini_params for section in sections]):
         return 
+    
+    sections.append(f'bioimageio_model.kwargs.{subsection}')
     
     import spotmax.BioImageIO.model as model_module
     params = io.nnet_params_from_ini_params(

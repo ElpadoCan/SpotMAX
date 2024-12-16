@@ -955,7 +955,8 @@ class SpotPredictionMethodWidget(QWidget):
             posData=self.posData,
             df_metadata=self.metadata_df,
             force_postprocess_2D=False,
-            is_tracker=True,
+            addPostProcessParams=False,
+            addPreProcessParams=False,
             model_module=model
         )
         if self.nnetParams is not None:
@@ -980,6 +981,7 @@ class SpotPredictionMethodWidget(QWidget):
         self.log('SpotMAX AI initialized' )
     
     def _promptConfigBioImageIOModel(self):
+        from spotmax.BioImageIO import model
         win = dialogs.QDialogBioimageIOModelParams(
             self.posData, self.metadata_df, parent=self
         )
@@ -1021,7 +1023,8 @@ class SpotPredictionMethodWidget(QWidget):
             posData=self.posData,
             df_metadata=self.metadata_df,
             force_postprocess_2D=False,
-            is_tracker=True,
+            addPostProcessParams=False,
+            addPreProcessParams=False,
             model_module=model
         )
         if self.SpotiflowParams is not None:
