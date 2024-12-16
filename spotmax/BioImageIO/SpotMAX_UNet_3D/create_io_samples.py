@@ -71,11 +71,8 @@ def main():
         resolution_multiplier_yx=1, 
         use_gpu=True, 
         save_prediction_map=False, 
-        verbose=True
-    )
-    model.init_inference_params(
         threshold_value=0.7, 
-        label_components=False
+        verbose=True
     )
 
     # Run inference

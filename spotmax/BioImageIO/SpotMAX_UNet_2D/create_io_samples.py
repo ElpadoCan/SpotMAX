@@ -68,6 +68,7 @@ def main():
         remove_hot_pixels=False,
         config_yaml_filepath='./config.yaml', 
         PhysicalSizeX=0.06725,
+        threshold_value=0.7, 
         resolution_multiplier_yx=1, 
         use_gpu=True, 
         save_prediction_map=False, 

@@ -346,7 +346,6 @@ class Model(nn.Module):
         for n, img in enumerate(x):
             lab = self.segment(
                 np.squeeze(img), 
-                threshold_value=self._threshold_value,
                 label_components=False
             )
             out[n] = lab
