@@ -1,0 +1,140 @@
+base_pixel_size_nm: 73
+unet2D:
+  model:
+    name: UNet2D
+    n_channels: 1
+    n_classes: 2
+    bilinear: True
+    model_dir: ~/spotmax_appdata/unet_checkpoints/checkpoints/unet2D
+    best_model_path: ~/spotmax_appdata/unet_checkpoints/unet2D/unet_best.pth
+    training_path: ~/spotmax_appdata/unet_checkpoints/unet2D/training/
+
+  trainer:
+    batch_size: 16
+    epochs: 1
+    learning_rate: 0.001
+    save_checkpoint: True
+    amp: False
+    wandb_mode: disabled
+
+  default_params:
+    threshold_value: 0.9
+
+unet3D:
+  train:
+    model:
+      name: UNet3D
+      in_channels: 1
+      out_channels: 1
+      layer_order: bcr
+      f_maps: [32, 64, 128, 256]
+      num_groups: 1
+      final_sigmoid: true
+      is_segmentation: true
+
+    trainer:
+      checkpoint_dir: ~/spotmax_appdata/unet_checkpoints/unet3D/training
+      resume: null
+      pre_trained: null
+      validate_after_iters: 100
+      log_after_iters: 25
+      max_num_epochs: 1
+      max_num_iterations: 20000
+      eval_score_higher_is_better: True
+      wandb_mode: disabled
+
+    loss:
+      name: DiceLoss
+      skip_last_target: false
+
+    optimizer:
+      learning_rate: 0.001
+      weight_decay: 0.00001
+
+    eval_metric:
+      name: DiceCoefficient
+
+    lr_scheduler:
+      name: ReduceLROnPlateau
+      mode: max
+      factor: 0.05
+      patience: 8
+
+    loaders:
+      dataset: NumpyDataset
+      batch_size: 4
+      num_workers: 8
+      weight_internal_path: null
+      train:
+
+        slice_builder:
+          name: FilterSliceBuilder
+          patch_shape: [30, 250, 250]
+          stride_shape: [20, 100, 100]
+          threshold: 0.0
+          slack_acceptance: 0.01
+
+        transformer:
+          raw:
+            - name: ToTensor
+              expand_dims: true
+          label:
+            - name: BlobsToMask
+              append_label: false
+              boundary: false
+            - name: ToTensor
+              expand_dims: false
+
+      val:
+
+        slice_builder:
+          name: FilterSliceBuilder
+          patch_shape: [30, 250, 250]
+          stride_shape: [20, 100, 100]
+          threshold: 0.0
+          slack_acceptance: 1
+
+        transformer:
+          raw:
+            - name: ToTensor
+              expand_dims: true
+          label:
+            - name: BlobsToMask
+              append_label: false
+              boundary: false
+            - name: ToTensor
+              expand_dims: false
+
+  predict:
+    model_path: ~/spotmax_appdata/unet_checkpoints/unet3D/normal_30_250_250_20_100_100/best_checkpoint.pytorch
+    #model_path: ~/spotmax_appdata/unet_checkpoints/unet3D/training/best_checkpoint.pytorch
+
+    model:
+      name: UNet3D
+      in_channels: 1
+      out_channels: 1
+      layer_order: bcr
+      f_maps: [32, 64, 128, 256]
+      num_groups: 1
+      final_sigmoid: true
+      is_segmentation: true
+
+    predictor:
+      name: 'NumpyPredictor'
+
+    loaders:
+      batch_size: 4
+      mirror_padding: [16, 32, 32]
+      num_workers: 8
+      test:
+        slice_builder:
+          name: SliceBuilder
+          patch_shape: [30, 250, 250]
+          stride_shape: [20, 100, 100]
+        transformer:
+            raw:
+              - name: ToTensor
+                expand_dims: true
+    
+  default_params:
+    threshold_value: 0.7

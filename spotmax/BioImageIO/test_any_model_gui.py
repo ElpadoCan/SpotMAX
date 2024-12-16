@@ -18,7 +18,7 @@ def main():
     
     image_filepath, _ = qtpy.compat.getopenfilename(
         basedir=acdc_myutils.getMostRecentPath(),
-        filters=('Images (*.tif *.npz *.npy);;All Files (*)')
+        filters=('Images (*.tif *.npz *.npy);;All Files (*.)')
     )
     image = io.load_image_data(image_filepath, to_float=True)
     

@@ -50,7 +50,7 @@ print(Z, Y, X, input_sample.dtype)
 import pdb; pdb.set_trace()
 
 input_descr = InputTensorDescr(
-    id=TensorId('mNeon'),
+    id=TensorId('spots'),
     axes=[
         BatchAxis(),
         SpaceInputAxis(
@@ -70,7 +70,7 @@ input_descr = InputTensorDescr(
     ],
     test_tensor=FileDescr(source=input_sample_path),
     # sample_tensor=FileDescr(source=input_sample_path),
-    data=IntervalOrRatioDataDescr(type='uint8'),
+    data=IntervalOrRatioDataDescr(type='float32'),
 )
 
 """Model Output"""
@@ -114,7 +114,7 @@ pytorch_architecture = ArchitectureFromFileDescr(
         preprocess_across_timepoints=False,
         gaussian_filter_sigma=0,
         remove_hot_pixels=True,
-        config_yaml_filepath='spotmax/nnet/config.yaml', 
+        config_yaml_filepath='./config.yaml', 
         PhysicalSizeX=0.06725,
         resolution_multiplier_yx=1, 
         use_gpu=True, 
@@ -189,7 +189,10 @@ model_descr = ModelDescr(
           )
       ),
   ),
-  attachments=[FileDescr(source=model_folder_root / 'model_usage.py')],
+  attachments=[
+    FileDescr(source=model_folder_root / 'model_usage.py'),
+    FileDescr(source=model_folder_root / 'config.yaml'),
+  ],
 )
 import pdb; pdb.set_trace()
 

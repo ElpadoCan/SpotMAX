@@ -145,6 +145,12 @@ class Model(nn.Module):
         config_yaml_filepath = config_yaml_filepath.replace('\\', '/')
         if config_yaml_filepath == 'spotmax/nnet/config.yaml':
             config_yaml_filepath = config_yaml_path
+        else:
+            from spotmax.io import get_abspath
+            model_py_path = os.path.dirname(os.path.abspath(__file__))
+            config_yaml_filepath = get_abspath(
+                config_yaml_filepath, src_folderpath=model_py_path
+            )
         
         self._config = self._load_config(config_yaml_filepath)
         self._config['verbose'] = verbose
