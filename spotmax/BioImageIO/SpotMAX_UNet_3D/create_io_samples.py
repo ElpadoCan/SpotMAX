@@ -4,9 +4,10 @@ import numpy as np
 
 from cellacdc.plot import imshow
 from cellacdc.load import (
-    load_image_data_from_channel, load_segm_file, load_metadata_df
+    get_filename_from_channel, load_segm_file, load_metadata_df
 )
 
+from spotmax import io
 from spotmax.nnet.model import Model
 from spotmax.transformations import crop_from_segm_data_info
 
@@ -27,7 +28,8 @@ def main():
     if SizeT > 1:
         raise TypeError('Timelapse data not supported yet.')
 
-    image = load_image_data_from_channel(sample_images_path, channel_name)
+    image_filepath = get_filename_from_channel(sample_images_path, channel_name)
+    image = io.load_image_data(image_filepath, to_float=True).astype(np.float32)
     if end_name_segm_file is not None:
         print('Loading segmentation file...')
         segm_data = load_segm_file(
@@ -64,7 +66,7 @@ def main():
         preprocess_across_timepoints=False,
         gaussian_filter_sigma=0,
         remove_hot_pixels=False,
-        config_yaml_filepath='spotmax/nnet/config.yaml', 
+        config_yaml_filepath='./config.yaml', 
         PhysicalSizeX=0.06725,
         resolution_multiplier_yx=1, 
         use_gpu=True, 
