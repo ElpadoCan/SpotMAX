@@ -1950,8 +1950,9 @@ class _ParamsParser(_DataLoader):
             biio_model_kwargs = model_params.get('kwargs')
             if biio_model_kwargs is not None:
                 model_class.set_kwargs(model_params['kwargs'])
-                
-            model_params['segment']['verbose'] = False
+            
+            if 'verbose' in model_params['segment']:
+                model_params['segment']['verbose'] = False
             # Set threshold func to None to not perform it since we use AI
             channel_params = self._params[channel_section]
             channel_params[threshold_func_anchor]['loadedVal'] = None

@@ -52,7 +52,8 @@ class Model:
         architecture_yaml = (
             self.model_description.weights.pytorch_state_dict.architecture
         )
-        architecture_yaml.kwargs = kwargs
+        model_kwargs = {**architecture_yaml.kwargs, **kwargs}
+        architecture_yaml.kwargs = model_kwargs
     
     def get_kwargs(self):
         try:
@@ -79,11 +80,28 @@ class Model:
         self.logger_func(validation_summary.display())
         return validation_summary
     
+    def _convert_dtype(self, image):
+        try:
+            input_dtype = self.model_description.inputs[0].data.type
+            if input_dtype.startswith('float'):
+                return image
+            if input_dtype == 'uint8':
+                from skimage.util import img_as_ubyte
+                image = img_as_ubyte(image)
+            elif input_dtype == 'uint16':
+                from skimage.util import img_as_uint
+                image = img_as_uint(image)
+            return image
+        except Exception as err:
+            return image
+    
     def create_input_sample(self, image: np.ndarray):
         import bioimageio.core
         from bioimageio.spec.model.v0_5 import TensorId
         
         image = np.squeeze(image)
+        image = self._convert_dtype(image)
+        
         axes = self.model_description.inputs[0].axes
         space_axis_ids = {'z', 'y', 'x'}
         output_index = []

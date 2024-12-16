@@ -67,6 +67,12 @@ acdc_df_bool_cols = [
     'corrected_assignment'
 ]
 
+# Keep compatibility with older ini files that had older kwargs names
+# see io.nnet_params_from_ini_params
+LEGACY_MODEL_KWARGS = {
+    'model_doi_url_rdf_or_zip_path': 'model_doi_url_or_zip_path'
+}
+
 df_spots_filename_parts_pattern = (
     r'(\d+)_(\d)_(detected_spots|valid_spots|spotfit)(.*)\.(\w+)'
 )
@@ -2748,6 +2754,12 @@ def nnet_params_from_ini_params(
             except Exception as err:
                 pass
             option = section_params.get(argWidget.name)
+            if option is None:
+                # Try older name
+                older_name = LEGACY_MODEL_KWARGS.get(argWidget.name)
+                if older_name is not None:
+                    option = section_params.get(older_name) 
+            
             if option is None:
                 if use_default_for_missing:
                     continue
