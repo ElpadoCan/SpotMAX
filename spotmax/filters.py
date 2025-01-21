@@ -386,7 +386,10 @@ def local_semantic_segmentation(
                 
                 predict_bud_lab = skimage.measure.label(predict_bud_mask)
                 predict_moth_rp = skimage.measure.regionprops(predict_moth_lab)
-                max_sub_id_moth = max([obj.label for obj in predict_moth_rp])
+                try:
+                    max_sub_id_moth = max([obj.label for obj in predict_moth_rp])
+                except Exception as err:
+                    import pdb; pdb.set_trace()
                 predict_bud_lab[predict_bud_mask] += max_sub_id_moth
                 predict_lab_merged[bud_mask] = predict_bud_lab[bud_mask]
             else:

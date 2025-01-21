@@ -453,7 +453,7 @@ def readStoredParamsINI(ini_path, params, cast_dtypes=True):
                     str_val = configPars.get(section, option)
                 except Exception as e:
                     str_val = None
-                    
+                
                 if callable(dtype):
                     config_value = dtype(configPars.get(section, option))
                 elif isinstance(defaultVal, bool):

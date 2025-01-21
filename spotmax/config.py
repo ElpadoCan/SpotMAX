@@ -262,16 +262,18 @@ def parse_exp_paths(ini_filepath):
     try:
         # Check if text file is in same folder of ini file (relative)
         filepath = os.path.join(ini_folderpath, exp_path)
-        with open(filepath, 'r') as file:
-            paths_to_analyse = file.read()
+        if filepath.endswith('.txt'):
+            with open(filepath, 'r') as file:
+                paths_to_analyse = file.read()
     except Exception as err:
         pass
     
     try:
         # Check if text file path is absolute
         filepath = exp_path
-        with open(filepath, 'r') as file:
-            paths_to_analyse = file.read()
+        if filepath.endswith('.txt'):
+            with open(filepath, 'r') as file:
+                paths_to_analyse = file.read()
     except Exception as err:
         pass
     
