@@ -4504,6 +4504,13 @@ class Kernel(_ParamsParser):
         ):
         spots_masks = None
         
+        Z, Y, X = lab.shape
+        df_spots_coords_input = df_spots_coords_input[
+            (df_spots_coords_input['z']>=0) & (df_spots_coords_input['z']<Z) 
+            & (df_spots_coords_input['y']>=0) & (df_spots_coords_input['y']<Y) 
+            & (df_spots_coords_input['x']>=0) & (df_spots_coords_input['x']<X)
+        ]
+        
         zz, yy, xx = (
             df_spots_coords_input[ZYX_GLOBAL_COLS].to_numpy().transpose()
         )
