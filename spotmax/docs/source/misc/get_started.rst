@@ -1,5 +1,5 @@
 .. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
-.. _Example data SpotMAX GUI: https://github.com/SchmollerLab/SpotMAX/tree/main/examples/test_data_gui/mito_mtDNA_yeast
+.. _Example data SpotMAX GUI: https://hmgubox2.helmholtz-muenchen.de/index.php/s/kiY9j3zJLjQH4S2
 
 .. |compute| image:: ../images/compute.png
     :width: 20
@@ -14,10 +14,12 @@ Getting started
 
 The simplest way to get started is to play around with the graphical user interface (GUI). 
 To run the GUI follow these instructions: :ref:`how-to-run-gui`. You can download example 
-data from here `Example data SpotMAX GUI`_.
+data from here `Example data SpotMAX GUI`_. Alternatively, if you already cloned 
+the entire repo, you will find example data in the folder 
+``SpotMAX/examples/test_data_gui``.
 
-In the GUI you can visualize the result of a previous analysis or setup and run a 
-new analysis. 
+In the GUI you can visualize the results of any previous analysis run or 
+setup and run a new analysis. 
 
 The easiest way to setup the parameters is to interactively test their effect by 
 clicking on the compute button beside each "testable" parameter. 
