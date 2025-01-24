@@ -2,9 +2,9 @@ Description,values
 SizeT,1
 SizeZ,43
 TimeIncrement,180.0
-PhysicalSizeZ,0.2857143
-PhysicalSizeY,0.0602969
-PhysicalSizeX,0.0603516
+PhysicalSizeZ,0.285714
+PhysicalSizeY,0.060297
+PhysicalSizeX,0.060352
 segmSizeT,1
 isSegm3D,False
 mKate_segm_mask_descriptive_name_isSegm3D,True
