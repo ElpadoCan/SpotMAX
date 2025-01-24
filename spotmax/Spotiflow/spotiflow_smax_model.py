@@ -10,7 +10,9 @@ class Devices:
     values = ['auto', 'cpu', 'cuda', 'mps', 'None']
 
 class AvailableModels:
-    values = ['general', 'custom']
+    values = [
+        'general', 'synth_3d', 'smfish_3d', 'hybiss', 'synth_complex', 'custom'
+    ]
 
 class PeakModes:
     values = ['skimage', 'fast']
@@ -78,6 +80,7 @@ class Model:
     
     def segment(
             self, image,
+            run_on_3D_zstack_volume: bool=False,
             output_labels: OutputLabels='Boolean mask',
             prob_thresh: float=0.0,
             expected_spot_radius: int=1,
@@ -143,19 +146,29 @@ class Model:
             if output_labels != 'Boolean mask':
                 lab = lab.astype(np.uint32)
         
-        for z, img in enumerate(image):
-            points, details = self.model.predict(
-                img, 
-                prob_thresh=prob_thresh,
-                min_distance=expected_spot_radius,
-                exclude_border=exclude_border,
-                scale=scale,
-                subpix=subpix,
-                peak_mode=peak_mode,
-                device=self._device,
-                verbose=verbose
-            )
-            coords = np.round(points).astype(int)
+        predict_kwargs = dict(
+            prob_thresh=prob_thresh,
+            min_distance=expected_spot_radius,
+            exclude_border=exclude_border,
+            scale=scale,
+            subpix=subpix,
+            peak_mode=peak_mode,
+            device=self._device,
+            verbose=verbose
+        )
+        
+        if run_on_3D_zstack_volume:
+            points, details = self.model.predict(image, **predict_kwargs)
+        else:
+            points = []
+            for z, img in enumerate(image):
+                yx_points, details = self.model.predict(img, **predict_kwargs)
+                points.append(yx_points)
+            points = np.array(points)
+        
+        for z, yx_coords in enumerate(points):
+            z_slice = round(z)
+            coords = np.round(yx_coords).astype(int)
 
             for yc, xc in coords:
                 rr, cc = skimage.draw.disk(
@@ -166,7 +179,7 @@ class Model:
                 else:
                     values = True
                 
-                lab[z, rr, cc] = values
+                lab[z_slice, rr, cc] = values
         
         if is2D:
             lab = lab[0]

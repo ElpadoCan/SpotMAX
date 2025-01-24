@@ -2532,7 +2532,7 @@ def save_ref_ch_mask(
     if pad_width is not None:
         ref_ch_segm_data = np.pad(ref_ch_segm_data, pad_width)
         
-    ref_ch_segm_data = np.squeeze(ref_ch_segm_data)    
+    ref_ch_segm_data = np.squeeze(ref_ch_segm_data)      
     np.savez_compressed(ref_ch_segm_filepath, ref_ch_segm_data)
     
     if verbose:
