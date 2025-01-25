@@ -3189,14 +3189,14 @@ class selectPathsSpotmax(QBaseDialog):
             parentText = plainText
         else:
             try:
-                posFoldername = re.findall('(.+) \(', plainText)[0]
+                posFoldername = re.findall(r'(.+) \(', plainText)[0]
             except IndexError:
                 posFoldername = plainText
             parentLabel = self.pathSelector.itemWidget(parent, 0)
             doc.setHtml(parentLabel.text())
             parentText = doc.toPlainText()
         
-        relPath = re.findall('...(.+) \(', parentText)[0]
+        relPath = re.findall(r'...(.+) \(', parentText)[0]
         relPath = pathlib.Path(relPath)
         relPath = pathlib.Path(*relPath.parts[2:])
         absPath = self.homePath / relPath / posFoldername
@@ -3219,7 +3219,7 @@ class selectPathsSpotmax(QBaseDialog):
         plainText = doc.toPlainText()
         parent = item.parent()
         if parent is None:
-            relPath1 = re.findall('...(.+) \(', plainText)[0]
+            relPath1 = re.findall(r'...(.+) \(', plainText)[0]
             relPath1 = pathlib.Path(relPath1)
             relPath = pathlib.Path(*relPath1.parts[2:])
             if str(relPath) == '.':
@@ -3231,10 +3231,10 @@ class selectPathsSpotmax(QBaseDialog):
                 'analysisInputs'
             )
         else:
-            posFoldername = re.findall('(.+) \(', plainText)[0]
+            posFoldername = re.findall(r'(.+) \(', plainText)[0]
             doc.setHtml(parent.text(0))
             parentText = doc.toPlainText()
-            relPath1 = re.findall('...(.+) \(', parentText)[0]
+            relPath1 = re.findall(r'...(.+) \(', parentText)[0]
             relPath1 = pathlib.Path(relPath1)
             relPath = pathlib.Path(*relPath1.parts[2:])
             relPath1 = relPath / posFoldername
@@ -3377,11 +3377,11 @@ class selectPathsSpotmax(QBaseDialog):
             if parent is None:
                 continue
             try:
-                posFoldername = re.findall('(.+) \(', plainText)[0]
+                posFoldername = re.findall(r'(.+) \(', plainText)[0]
             except IndexError:
                 posFoldername = plainText
             parentText = parent.text(0)
-            relPath = re.findall('...(.+) \(', parentText)[0]
+            relPath = re.findall(r'...(.+) \(', parentText)[0]
             relPath = pathlib.Path(relPath)
             relPath = pathlib.Path(*relPath.parts[2:])
             absPath = self.homePath / relPath / posFoldername
@@ -3707,7 +3707,7 @@ class selectSpotsH5FileDialog(QBaseDialog):
         self.cancel = False
         selectedItem = selectedItems[0]
         runItem = selectedItem.parent()
-        runNumber = int(re.findall('(\d+)', runItem.text(0))[0])
+        runNumber = int(re.findall(r'(\d+)', runItem.text(0))[0])
         idx = selectedItem.parent().indexOfChild(selectedItem)
         self.selectedFile = self.runsInfo[runNumber][idx]
         self.close()

@@ -227,7 +227,7 @@ def get_threshold_func(func_name):
     return func
 
 def get_valid_text(text):
-    return re.sub('[^\w\-.]', '_', text)
+    return re.sub(r'[^\w\-.]', '_', text)
 
 def parse_threshold_func(threshold_func):
     if isinstance(threshold_func, str):

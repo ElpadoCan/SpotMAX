@@ -1205,8 +1205,8 @@ class expFolderScanner:
     def loadAnalysisInputs(self, spotmaxOutPath, run):
         df = None
         for file in utils.listdir(spotmaxOutPath):
-            match_csv = re.match(f'{run}_(\w*)analysis_inputs\.csv', file)
-            match_ini = re.match(f'{run}_analysis_parameters(.*)\.ini', file)
+            match_csv = re.match(fr'{run}_(\w*)analysis_inputs\.csv', file)
+            match_ini = re.match(fr'{run}_analysis_parameters(.*)\.ini', file)
             if match_csv is not None:
                 csvPath = os.path.join(spotmaxOutPath, file)
                 df = pd.read_csv(csvPath, index_col='Description')
@@ -1227,7 +1227,7 @@ class expFolderScanner:
         if not spotmaxFiles:
             return run_nums
         run_nums = [
-            re.findall('(\d+)_(\d)_detected', f) for f in spotmaxFiles
+            re.findall(r'(\d+)_(\d)_detected', f) for f in spotmaxFiles
         ]
         run_nums = [int(m[0][0]) for m in run_nums if m]
         run_nums = set(run_nums)
@@ -1888,7 +1888,7 @@ class loadData:
         for filename in utils.listdir(self.images_path):
             file_path = os.path.join(self.images_path, filename)
             f, ext = os.path.splitext(filename)
-            m = re.match(f'{basename}.*\.tif', filename)
+            m = re.match(fr'{basename}.*\.tif', filename)
             if m is not None:
                 tif_paths.append(file_path)
                 # Search for npy fluo data
@@ -2626,7 +2626,7 @@ def getInfoPosStatus(expPaths):
 def is_pos_folder(path):
     foldername = os.path.basename(path)
     return (
-        re.search('Position_(\d+)$', foldername) is not None
+        re.search(r'Position_(\d+)$', foldername) is not None
         and os.path.exists(os.path.join(path, 'Images'))
     )
 

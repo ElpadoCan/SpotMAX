@@ -1,5 +1,6 @@
 .. _Cell-ACDC: https://cell-acdc.readthedocs.io/en/latest/index.html
 .. _Example data SpotMAX GUI: https://hmgubox2.helmholtz-muenchen.de/index.php/s/kiY9j3zJLjQH4S2
+.. _Cell-ACDC folder structure: https://cell-acdc.readthedocs.io/en/latest/data-structure.html
 
 .. |compute| image:: ../images/compute.png
     :width: 20
@@ -59,7 +60,9 @@ In the first step, you want to organize your images in a folder structure that
 enables batch-processing and loading of the data into the GUI. 
 
 The folder structure required is the same as for our previously published 
-software called `Cell-ACDC`_, therefore we recommend starting from there. 
+software called `Cell-ACDC`_, therefore we recommend starting from there. See 
+here for a detailed description of the folder structure 
+`Cell-ACDC folder structure`_.
 
 2. Segment objects of interest
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
