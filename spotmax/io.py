@@ -296,7 +296,7 @@ def save_image_data(filepath, img_data):
     elif ext == '.npy':
         np.save(filepath, img_data)
     elif ext == '.tif' or ext == '.tiff':
-        tifffile.imsave(filepath, img_data)
+        tifffile.imwrite(filepath, img_data)
     else:
         skimage.io.imsave(filepath, img_data)
 
