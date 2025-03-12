@@ -6,6 +6,11 @@ SpotMAX AI parameters
 Here you can find the description of the paramters required to configure 
 and run the neural network models provided with SpotMAX. 
 
+You can set this paramaters from the GUI (see the 
+:confval:`Spots segmentation method` parameter) or manually set them in the 
+SpotMAX INI configuration file. At the end of this page, you can find an example 
+of the INI configuration file with the AI parameters.
+
 .. confval:: Model type
 
     Model type to use for the prediction. The available models are: ``2D`` and ``3D``. 
@@ -196,3 +201,27 @@ and run the neural network models provided with SpotMAX.
 
     :type: boolean
     :default: ``False``
+
+Example of the INI configuration file with the AI parameters
+
+.. code-block:: ini
+
+    [Spots channel]
+    Spots segmentation method = spotMAX AI
+
+    [neural_network.init.spots]
+    model_type = 3D
+    preprocess_across_experiment = False
+    preprocess_across_timepoints = True
+    gaussian_filter_sigma = 0.0
+    remove_hot_pixels = False
+    config_yaml_filepath = spotmax/nnet/config.yaml
+    threshold_value = 0.7
+    PhysicalSizeX = 0.073
+    resolution_multiplier_yx = 1.0
+    use_gpu = False
+    save_prediction_map = False
+    verbose = True
+
+    [neural_network.segment.spots]
+    label_components = False

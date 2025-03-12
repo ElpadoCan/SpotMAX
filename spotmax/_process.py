@@ -7,7 +7,8 @@ import multiprocessing
 import argparse
 
 ap = argparse.ArgumentParser(
-    prog='SpotMAX process', description='Used to spawn a separate process', 
+    prog='SpotMAX process', 
+    description='Used to spawn a separate process', 
     formatter_class=argparse.RawTextHelpFormatter
 )
 ap.add_argument(
