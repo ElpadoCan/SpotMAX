@@ -1,5 +1,3 @@
-.. role:: m(math)
-
 .. _Create data structure: https://cell-acdc.readthedocs.io/en/latest/getting-started.html#creating-data-structures
 .. _Cell-ACDC user manual: https://github.com/SchmollerLab/Cell_ACDC/blob/main/UserManual/Cell-ACDC_User_Manual.pdf
 .. _Cell-ACDC: https://github.com/SchmollerLab/Cell_ACDC
@@ -503,11 +501,11 @@ Pre-processing
   .. math::
     \sigma_2 = \sigma_1\cdot\sqrt{2}
   
-  where :m:`s_{zyx}` is the minimum spot size as calculated in the 
+  where :math:`s_{zyx}` is the minimum spot size as calculated in the 
   :confval:`Spot (z, y, x) minimum dimensions (radius)` parameter. 
   
   The filtered image will be the result of subtracting the image blurred 
-  with :m:`\sigma_2` from the image blurred with :m:`\sigma_1`.
+  with :math:`\sigma_2` from the image blurred with :math:`\sigma_1`.
 
   :type: boolean
   :default: ``True``
@@ -928,10 +926,10 @@ Spots channel
   .. math::
     f(x) = \mathrm{exp}(-\frac{(x - x_0)^2}{2 \sigma_x ^ 2})
   
-  where :m:`x_0` and :m:`\sigma_x` are fitting parameters and they are the center 
+  where :math:`x_0` and :math:`\sigma_x` are fitting parameters and they are the center 
   of the gaussian peak and the standard devation (width), respectively. To obtain the 
-  3D equation :m:`G(x, y, z)`, we simply multiply the 1D equations in each 
-  direction and we add an overall amplitude :m:`A` and background :m:`B` fitting 
+  3D equation :math:`G(x, y, z)`, we simply multiply the 1D equations in each 
+  direction and we add an overall amplitude :math:`A` and background :math:`B` fitting 
   parameters as follows:
 
   .. math::
@@ -1081,7 +1079,7 @@ SpotFIT
   the minimum of the x and y center coordinate allowed in the fitting procedure.
 
   For example, if you set this to ``0.2`` and the x center coordinated detected 
-  during the spot detection step is ``200``, then :m:`x_0` and :m:`y_0` in the 
+  during the spot detection step is ``200``, then :math:`x_0` and :math:`y_0` in the 
   gaussian curve equation can reach a minimum of ``199.8`` and a maximum of 
   ``200.2`` during the fitting routine.
 
@@ -1097,7 +1095,7 @@ SpotFIT
   the minimum of the z center coordinate allowed in the fitting procedure.
 
   For example, if you set this to ``0.2`` and the z center coordinated detected 
-  during the spot detection step is ``15``, then :m:`z_0` in the gaussian curve 
+  during the spot detection step is ``15``, then :math:`z_0` in the gaussian curve 
   equation can reach a minimum of ``14.8`` and a maximum of ``15.2`` 
   during the fitting routine.
 
@@ -1109,7 +1107,7 @@ SpotFIT
 
 .. confval:: Bounds for sigma in x-direction
 
-  Here you can specify the maximum and the minimum values that :m:`sigma_x` in 
+  Here you can specify the maximum and the minimum values that :math:`sigma_x` in 
   the gaussian curve equation can reach during the fitting routine.
 
   .. note::
@@ -1125,7 +1123,7 @@ SpotFIT
 
 .. confval:: Bounds for sigma in y-direction
 
-  Here you can specify the maximum and the minimum values that :m:`sigma_y` in 
+  Here you can specify the maximum and the minimum values that :math:`sigma_y` in 
   the gaussian curve equation can reach during the fitting routine.
 
   .. note::
@@ -1141,7 +1139,7 @@ SpotFIT
 
 .. confval:: Bounds for sigma in z-direction
 
-  Here you can specify the maximum and the minimum values that :m:`sigma_z` in 
+  Here you can specify the maximum and the minimum values that :math:`sigma_z` in 
   the gaussian curve equation can reach during the fitting routine.
 
   .. note::
@@ -1157,7 +1155,7 @@ SpotFIT
 
 .. confval:: Bounds for the peak amplitude
 
-  Here you can specify the maximum and the minimum values that :m:`A` in 
+  Here you can specify the maximum and the minimum values that :math:`A` in 
   the gaussian curve equation can reach during the fitting routine.
 
   .. note::
@@ -1172,7 +1170,7 @@ SpotFIT
 
 .. confval:: Bounds for the peak background level
 
-  Here you can specify the maximum and the minimum values that :m:`B` in 
+  Here you can specify the maximum and the minimum values that :math:`B` in 
   the gaussian curve equation can reach during the fitting routine.
 
   .. note::
@@ -1188,7 +1186,7 @@ SpotFIT
 .. confval:: Initial guess for sigma in x-direction
 
   Here you can specify the initial guess in the fitting routine for the 
-  paramter :m:`sigma_x` in the gaussian curve equation.
+  paramter :math:`sigma_x` in the gaussian curve equation.
 
   .. note::
 
@@ -1204,7 +1202,7 @@ SpotFIT
 .. confval:: Initial guess for sigma in y-direction
 
   Here you can specify the initial guess in the fitting routine for the 
-  paramter :m:`sigma_y` in the gaussian curve equation.
+  paramter :math:`sigma_y` in the gaussian curve equation.
 
   .. note::
 
@@ -1220,7 +1218,7 @@ SpotFIT
 .. confval:: Initial guess for sigma in z-direction
 
   Here you can specify the initial guess in the fitting routine for the 
-  paramter :m:`sigma_z` in the gaussian curve equation.
+  paramter :math:`sigma_z` in the gaussian curve equation.
 
   .. note::
 
@@ -1236,7 +1234,7 @@ SpotFIT
 .. confval:: Initial guess for the peak amplitude
 
   Here you can specify the initial guess in the fitting routine for the 
-  paramter :m:`A` in the gaussian curve equation.
+  paramter :math:`A` in the gaussian curve equation.
 
   .. note::
 
@@ -1252,7 +1250,7 @@ SpotFIT
 .. confval:: Initial guess for the peak background level
 
   Here you can specify the initial guess in the fitting routine for the 
-  paramter :m:`B` in the gaussian curve equation.
+  paramter :math:`B` in the gaussian curve equation.
 
   .. note::
 

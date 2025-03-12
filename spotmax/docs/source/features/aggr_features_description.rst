@@ -1,7 +1,5 @@
 .. _aggr-features:
 
-.. role:: m(math)
-
 Aggregated features description
 ===============================
 
@@ -63,6 +61,6 @@ Segmented objects size (e.g., single cells)
   are summed to obtain the total volume.
 * **Estimated 3D volume from 2D mask (fl)**: column name ``cell_vol_fl``. 
   Estimated 3D volume from 2D mask in pixels converted to femtoliters (equivalent 
-  to :m:`\mu m^3`) using the pixel size provided in the parameters.
+  to :math:`\mu m^3`) using the pixel size provided in the parameters.
 * **3D volume from 3D mask (voxel)**: column name ``cell_vol_vox_3D``.
 * **3D volume from 3D mask (fl)**: column name ``cell_vol_fl_3D``.

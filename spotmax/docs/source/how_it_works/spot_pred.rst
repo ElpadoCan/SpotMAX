@@ -17,7 +17,7 @@ spots will not be searched and detected there.
 
 Segmentation of the spots image is performed in two steps:
 
-1. :ref:`spots_preproc`
+1. :ref:`spots_ch_preproc`
 2. :ref:`spots_sem_segm`
 
 .. _spots_ch_preproc:

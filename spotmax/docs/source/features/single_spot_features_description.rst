@@ -1,7 +1,5 @@
 .. _single-spot-features:
 
-.. role:: m(math)
-
 Single-spot features description
 ================================
 
@@ -163,8 +161,8 @@ background. As a rule of thumb, 0.2 is a small effect, while 0.8 could mean
 a large effect. However, make sure that you explore your data before deciding 
 on a threshold to filter out false positives.
 
-Given :m:`P` the pixels intensities inside the spot, :m:`N` the background 
-intensities, and :m:`\mathrm{std}` the standard deviation, SpotMAX will compute 
+Given :math:`P` the pixels intensities inside the spot, :math:`N` the background 
+intensities, and :math:`\mathrm{std}` the standard deviation, SpotMAX will compute 
 the following effect sizes:
 
 * **Glass**: column name ``spot_vs_backgr_effect_size_glass``. 
@@ -233,8 +231,8 @@ of the spots by loading the file ``0_detected_spots`` (see the section
 :ref:`output-files`) using the tools available in the :ref:`inspect-results-tab` 
 of the GUI.
 
-Given :m:`P` the pixels intensities inside the spot, :m:`R` the reference channel  
-intensities, and :m:`std` the standard deviation, SpotMAX will compute the following 
+Given :math:`P` the pixels intensities inside the spot, :math:`R` the reference channel  
+intensities, and :math:`std` the standard deviation, SpotMAX will compute the following 
 effect sizes:
 
 * **Glass**: column name ``spot_vs_ref_ch_effect_size_glass``. 
