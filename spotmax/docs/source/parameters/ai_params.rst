@@ -186,3 +186,13 @@ and run the neural network models provided with SpotMAX.
 
     :type: boolean
     :default: ``False``
+
+.. confval:: Label components
+
+    If ``True``, the output boolean masks will be converted to connected 
+    components using the ``skimage.measure.label`` function. 
+
+    More information `here <https://scikit-image.org/docs/dev/api/skimage.measure.html#skimage.measure.label>`_.
+
+    :type: boolean
+    :default: ``False``
