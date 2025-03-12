@@ -92,11 +92,15 @@ class Model(nn.Module):
             Model type. If 2D model is applied to 3D data then it will run 
             on each z-slice. Default is '2D'
         preprocess_across_experiment : bool, optional
-            If True, the model will assume that the image passed to the 
-            `segment` method is pre-processed. Default is False
+            If False and also `preprocess_across_timepoints` is False, the model 
+            will assume that the image passed to the `segment` method is 
+            pre-processed. If True, pre-processing will run on all input images. 
+            Default is False
         preprocess_across_timepoints : bool, optional
-            If True, the model will assume that the image passed to the 
-            `segment` method is pre-processed. Default is True
+            If False and also `preprocess_across_experiment` is False, the model 
+            will assume that the image passed to the `segment` method is 
+            pre-processed. If True, pre-processing will run on all input images. 
+            Default is True
         gaussian_filter_sigma : float or 3 elements (z, y, x) sequence, optional
             Sigma value(s) of the gaussian filter. This can be a single 
             number or one value per dimension of the input image. 
@@ -106,7 +110,7 @@ class Model(nn.Module):
             will remove single bright pixels (hot pixels). Default is False
         config_yaml_filepath : os.PathLike, optional
             Path to the YAML configuration file of the model. 
-            Pre-trained default is /spotmax/nnet/config.yaml
+            Pre-trained default is ``spotmax/nnet/config.yaml``
         threshold_value : float, optional
             Threshold value used to convert probability output to binary. 
             Increase or decrease this value to detect less or more spots, 
@@ -115,11 +119,14 @@ class Model(nn.Module):
         PhysicalSizeX : float, optional
             Pixel width in µm/pixel. This value is used to rescale the image 
             to the size of the training images. The pixel size of the training 
-            images is defined in the YAML configuration file. Default is 0.073
+            images is defined in the YAML configuration file in nanometers (see 
+            the 'base_pixel_size_nm' entry). Default is 0.073, 
+            meaning no rescaling is applied when using the pretrained 
+            models from ``spotmax/nnet/config.yaml``.
         resolution_multiplier_yx : float, optional
             Additional factor to reduce the scaling factor when resizing the 
             image. Pass a value > 1.0 when you need to detect spots that 
-            are greater than the diffraction limit. Default is 1.0
+            are larger than the diffraction limit. Default is 1.0
         use_gpu : bool, optional
             If True, inference runs on the GPU. Make sure that the correct 
             version of the NVIDIA CUDA drivers and PyTorch with CUDA are 
@@ -127,9 +134,10 @@ class Model(nn.Module):
         save_prediction_map : bool, optional
             If True, the model will return the prediction map and if the model 
             is used as part of SpotMAX analysis, the map will be saved in 
-            each 
+            each Position folder loaded. Default is False
         verbose : bool, optional
-            If True, print information text to the terminal. Default is True
+            If True, print additional information text to the terminal. 
+            Default is True
         """       
         nn.Module.__init__(self)
          
@@ -287,8 +295,8 @@ class Model(nn.Module):
             f'Input image has data type {image.dtype}. The only supported types '
             'are float64, float32, and float16. Did you forget to pre-process '
             'your images? You can let SpotMAX taking care of that by setting '
-            'both `preprocess_across_experiment=False` and '
-            '`preprocess_across_timepoints=False` when you initialize the model.'
+            'both `preprocess_across_experiment = True` or '
+            '`preprocess_across_timepoints = True` when you initialize the model.'
         )
     
     def remove_padding(self, pad_width, image):
