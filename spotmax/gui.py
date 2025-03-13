@@ -3482,7 +3482,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         autoTuneTabWidget.updatePos(posData, self.currentZ())
         self.spotsItems.setPosition(posData)
         self.spotsItems.loadSpotsTables()
-        self.updateAllImages(updateFilters=True)
+        self.updateAllImages()
         self.zoomToCells()
         self.updateScrollbars()
         self.computeSegm()
