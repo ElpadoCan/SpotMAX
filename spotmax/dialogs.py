@@ -642,18 +642,31 @@ class guiTabControl(QTabWidget):
             try:
                 ini_value = params[section][anchor]['loadedVal']
             except Exception as err:
-                continue
+                ini_value = None
             
             try:
                 acdc_desc, dtype = anchors_mapper[anchor]
                 acdc_value = dtype(acdc_metadata_df.at[acdc_desc, 'values'])
             except Exception as err:
+                acdc_value = None
+            
+            if ini_value is None and acdc_value is not None:
+                option = params[section][anchor]['desc']
+                use_acdc_value = self.askMissingMetadataValue(
+                    option, acdc_value
+                )
+                if use_acdc_value:
+                    params[section][anchor]['loadedVal'] = acdc_value
+                continue
+            
+            if acdc_value is None or acdc_value == 0:
                 continue
             
             if asked_about_different_values:
                 continue
             
             if ini_value != acdc_value:
+                printl(ini_value, acdc_value, anchor)
                 proceed = self.askDifferentValuesIniParamsAcdcMetadata(
                     ini_filepath, self.posData.metadata_csv_path
                 )
@@ -662,6 +675,24 @@ class guiTabControl(QTabWidget):
                 asked_about_different_values = True
         
         return True
+    
+    def askMissingMetadataValue(self, missing_option, acdc_value):
+        txt = html_func.paragraph(f"""
+            The metadata value <code>{missing_option}</code> is <b>missing</b> 
+            in the loaded INI parameters file!<br><br>
+            However, it was found in the Cell-ACDC <code>metadata.csv</code> 
+            file with value <code>{acdc_value}</code><br><br>
+            Do you want to use the Cell-ACDC value?
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        noButton, yesButton = msg.warning(
+            self, 'Loaded metadata different from Cell-ACDC values!', txt,
+            buttonsTexts=(
+                'No, I will manually edit the value', 
+                'Yes, load the Cell-ACDC value'
+            )
+        )
+        return msg.clickedButton == yesButton
     
     def setValuesFromParams(self, params, ini_params_file_path):
         # Check if we need to add new widgets for sections with addFieldButton
@@ -722,9 +753,13 @@ class guiTabControl(QTabWidget):
         self.parametersQGBox.updateMinSpotSize()
         spotsParams = self.parametersQGBox.params['Spots channel']
         spotPredMethodWidget = spotsParams['spotPredictionMethod']['widget']
-        spotPredMethodWidget.nnet_params_from_ini_sections(params)
-        spotPredMethodWidget.bioimageio_params_from_ini_sections(params)
-        spotPredMethodWidget.spotiflow_params_from_ini_sections(params)
+        try:
+            spotPredMethodWidget.nnet_params_from_ini_sections(params)
+            spotPredMethodWidget.bioimageio_params_from_ini_sections(params)
+            spotPredMethodWidget.spotiflow_params_from_ini_sections(params)
+        except Exception as err:
+            print(f'[WARNING]: {err}')
+            pass
     
     def validateIniFile(self, filePath):
         params = config.getDefaultParams()
