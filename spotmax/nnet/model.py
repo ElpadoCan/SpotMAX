@@ -10,7 +10,7 @@ import skimage
 import skimage.measure
 import skimage.transform
 
-from cellacdc.types import Vector
+from cellacdc._types import Vector
 
 from spotmax import io, printl
 from spotmax.nnet import install_and_download, config_yaml_path
