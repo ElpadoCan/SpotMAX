@@ -1519,5 +1519,48 @@ def random_choice_pos_foldernames(pos_foldernames, train_perc=80, val_perc=20):
     ]
     return train_positions, val_positions
 
-if __name__ == '__main__':
-    df = get_sizes_path(r'C:\Users\Frank', return_df=True)
+def get_info_version_text(is_cli=False, include_platform=True):
+    from spotmax import read_version, spotmax_path
+    from cellacdc.myutils import get_date_from_version
+    version = read_version()
+    release_date = get_date_from_version(version, package='spotmax')
+    py_ver = sys.version_info
+    python_version = f'{py_ver.major}.{py_ver.minor}.{py_ver.micro}'
+    info_txts = [
+        f'Version {version}',
+        f'Released on: {release_date}',
+        f'Installed in "{spotmax_path}"',
+    ]
+    
+    if include_platform:
+        import platform
+        info_txts.extend([
+            f'Python {python_version}',
+            f'Platform: {platform.platform()}',
+            f'System: {platform.system()}',
+        ])
+        if GUI_INSTALLED and not is_cli:
+            try:
+                from qtpy import QtCore
+                info_txts.append(f'Qt {QtCore.__version__}')
+            except Exception as err:
+                info_txts.append('Qt: Not installed')
+        
+        info_txts.append(f'Working directory: {os.getcwd()}')
+        
+    info_txts = [f'  - {txt}' for txt in info_txts]
+    
+    max_len = max([len(txt) for txt in info_txts]) + 2
+    
+    formatted_info_txts = []
+    for txt in info_txts:
+        horiz_spacing = ' '*(max_len - len(txt))
+        txt = f'{txt}{horiz_spacing}|'
+        formatted_info_txts.append(txt)
+    
+    formatted_info_txts.insert(0, 'SpotMAX info:\n')
+    formatted_info_txts.insert(0, '='*max_len)
+    formatted_info_txts.append('='*max_len)
+    info_txt = '\n'.join(formatted_info_txts)
+    
+    return info_txt
