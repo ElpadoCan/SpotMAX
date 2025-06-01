@@ -114,8 +114,6 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def run(self, module='spotmax_gui', logs_path=logs_path):
         super().run(module=module, logs_path=logs_path)
-        
-        self.logger.info(f'SpotMAX installation directory: "{spotmax_path}"')
 
         self.initGui()
         self.createThreadPool()

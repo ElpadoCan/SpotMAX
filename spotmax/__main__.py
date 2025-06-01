@@ -109,22 +109,14 @@ def run():
     DISPLAY_VERSION = parser_args['version']
     
     if DISPLAY_VERSION:
-        import platform
-        from spotmax import read_version
-        from cellacdc.myutils import get_date_from_version
-        version = read_version()
-        release_date = get_date_from_version(
-            version, package='spotmax'
-        )
-        py_ver = sys.version_info
-        python_version = f'{py_ver.major}.{py_ver.minor}.{py_ver.micro}'
-        print('='*100)
-        print(f'SpotMAX version {version}')
-        print(f'Released on: {release_date}')
-        print(f'Installed in "{spotmax_path}"')
-        print(f'Python {python_version}')
-        print(f'Platform: {platform.platform()}')
-        print('='*100)
+        from cellacdc.myutils import get_info_version_text as acdc_info
+        from spotmax.utils import get_info_version_text
+        acdc_info_txt = acdc_info()
+        
+        info_txt = get_info_version_text(include_platform=False)
+        
+        print(acdc_info_txt)
+        print(info_txt)
         return
 
     if RUN_CLI and not PARAMS_PATH:
