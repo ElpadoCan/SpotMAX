@@ -72,9 +72,7 @@ def save_network_output(output_path, output, logger=None):
 
 loggers = {}
 
-
 def get_logger(name, level=logging.INFO):
-    global loggers
     if loggers.get(name) is not None:
         return loggers[name]
     else:
