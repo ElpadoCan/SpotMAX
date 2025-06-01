@@ -685,7 +685,6 @@ class guiTabControl(QTabWidget):
                 continue
             
             if ini_value != acdc_value:
-                printl(ini_value, acdc_value, anchor)
                 proceed = self.askDifferentValuesIniParamsAcdcMetadata(
                     ini_filepath, self.posData.metadata_csv_path, 
                     ini_value, acdc_value, anchor, params
