@@ -1141,7 +1141,7 @@ def _generate_spots_masks_training_workflow(
     if img_data.ndim == 4:
         spots_masks = np.zeros(img_data.shape, dtype=bool)
         if 't' in df_spots.columns:
-            df_spots['frame_i'] = df['t']
+            df_spots['frame_i'] = df_spots['t']
     else:
         df_spots['frame_i'] = 0
         spots_masks = np.zeros((1, *img_data.shape), dtype=bool)
