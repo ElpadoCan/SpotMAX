@@ -137,27 +137,37 @@ def getMathLabels(text, parent=None):
             labels.append(mathTeXLabel(tex_txt, parent))
     return labels
 
-class showPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
+class showPushButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.setIcon(QIcon(':magnGlass.svg'))
 
-class TunePushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
+class TunePushButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.setIcon(QIcon(':tune.svg'))
 
-class applyPushButton(QPushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
+class applyPushButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.setIcon(QIcon(':magnGlass.svg'))
 
 class computePushButton(acdc_widgets.PushButton):
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.setIcon(QIcon(':compute.svg'))
 
-class lessThanPushButton(QPushButton):
+class AcdcLogoPushButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setIcon(QIcon(':logo.svg'))
+
+class LoadFromFilePushButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setIcon(QIcon(':load_annotation.svg'))
+
+class lessThanPushButton(acdc_widgets.PushButton):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setIcon(QIcon(':less_than.svg'))
@@ -165,7 +175,7 @@ class lessThanPushButton(QPushButton):
         if flat is not None:
             self.setFlat(True)
 
-class RunSpotMaxButton(QPushButton):
+class RunSpotMaxButton(acdc_widgets.PushButton):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setIcon(QIcon(':cog_play.svg'))

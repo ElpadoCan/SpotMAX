@@ -589,6 +589,7 @@ class _ParamsParser(_DataLoader):
     
     def _add_logger_file_handler(self, log_filepath):
         self.logger.info(f'Logging to additional log file "{log_filepath}"')
+        printl(log_filepath)
         file_handler = utils.logger_file_handler(log_filepath, mode='a')
         self.logger.addHandler(file_handler)
     

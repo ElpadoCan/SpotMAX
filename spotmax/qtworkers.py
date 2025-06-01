@@ -84,7 +84,9 @@ class AnalysisWorker(QRunnable):
     def run(self):
         from . import _process
         command = self.cli_command()
-            
+        
+        self.logger.log(f'Full command: {command}')
+        
         # command = r'python, spotmax\test.py'
         command_format = self.getCommandForClipboard()
         self.logger.log(f'SpotMAX analysis started with command `{command_format}`')

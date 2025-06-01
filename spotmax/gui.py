@@ -865,6 +865,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.logger.removeHandler(log_handler)
         log_handler.close()
         
+        self.logger.info(
+            f'Starting SpotMAX analysis worker with log file: {self.log_path}'
+        )
+        
         worker = qtworkers.AnalysisWorker(
             ini_filepath, is_tempfile, log_filepath=self.log_path
         )

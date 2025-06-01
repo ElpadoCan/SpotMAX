@@ -592,14 +592,31 @@ class guiTabControl(QTabWidget):
         msg.information(self, 'Metadata loaded', txt)
     
     def askDifferentValuesIniParamsAcdcMetadata(
-            self, ini_filepath, acdc_metadata_csv_filepath
+            self, ini_filepath, acdc_metadata_csv_filepath, 
+            ini_value, acdc_value, anchor, params
         ):
-        txt = html_func.paragraph("""
-            The metadata in the loaded parameters file is <b>different</b> 
-            from the metadata in the Cell-ACDC <code>metadata.csv</code> file!<br><br>
-            How do you want to <b>proceed?</b><br><br>
-            Loaded parameters file path:
-        """)
+        desc = params['METADATA'][anchor]['desc']
+        html_table = (f"""
+<table cellspacing=0 cellpadding=5 width=100% border: 2px solid rgb(140 140 140)>
+    <tr>
+        <th style="text-align: left; vertical-align: middle;"><b>Parameter</b></th>
+        <th><b>Cell-ACDC metadata.csv value</b></th>
+        <th><b>Parameters file value</b></th>
+    </tr>
+    <tr>
+        <td>{desc}</td>
+        <td style="text-align: center; vertical-align: middle;">{acdc_value}</td>
+        <td style="text-align: center; vertical-align: middle;">{ini_value}</td>
+    </tr>
+</table>
+""")
+        txt = html_func.paragraph(f"""
+    The metadata in the loaded parameters file is <b>different</b> 
+    from the metadata in the Cell-ACDC <code>metadata.csv</code> file!<br><br>
+    {html_table}<br><br><br>
+    How do you want to <b>proceed?</b><br><br>
+    Loaded parameters file path:
+""")
         msg = acdc_widgets.myMessageBox(wrapText=False)
         
         browseIniFile = acdc_widgets.showInFileManagerButton(
@@ -610,15 +627,17 @@ class guiTabControl(QTabWidget):
             'Show Cell-ACDC metadata file in File manager...'
         )
         
-        noButton = acdc_widgets.noPushButton(
-            'Do not load metadata from the parameters file'
+        keepMetadataButton = widgets.AcdcLogoPushButton(
+            'Keep the metadata from the Cell-ACDC metadata.csv file'
         )
-        yesButton = acdc_widgets.okPushButton(
+        yesButton = widgets.LoadFromFilePushButton(
             'Load metadata from the parameters file'
         )
         msg.warning(
             self, 'Loaded metadata different from Cell-ACDC values!', txt,
-            buttonsTexts=(browseIniFile, browseAcdcFile, noButton, yesButton),
+            buttonsTexts=(
+                browseIniFile, browseAcdcFile, keepMetadataButton, yesButton
+            ),
             commands=(ini_filepath,), showDialog=False
         )
         browseIniFile.clicked.disconnect()
@@ -668,7 +687,8 @@ class guiTabControl(QTabWidget):
             if ini_value != acdc_value:
                 printl(ini_value, acdc_value, anchor)
                 proceed = self.askDifferentValuesIniParamsAcdcMetadata(
-                    ini_filepath, self.posData.metadata_csv_path
+                    ini_filepath, self.posData.metadata_csv_path, 
+                    ini_value, acdc_value, anchor, params
                 )
                 if not proceed:
                     return False
