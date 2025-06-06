@@ -173,6 +173,16 @@ class Runnable(QRunnable):
         self.waitCond.wait(self.mutex)
         self.mutex.unlock()
 
+class DummyThread(QObject):
+    def __init__(self):
+        super().__init__()
+    
+    def quit(self):
+        pass
+    
+    def deleteLater(self):
+        return super().deleteLater()
+
 class TuneKernelWorker(Runnable):
     def __init__(self, kernel):
         super().__init__()
@@ -187,6 +197,12 @@ class TuneKernelWorker(Runnable):
         )
         
         self.signals.finished.emit(result)
+    
+    def thread(self):
+        return DummyThread()
+    
+    def deleteLater(self):
+        pass
 
 class CropImageBasedOnSegmDataWorker(QRunnable):
     def __init__(

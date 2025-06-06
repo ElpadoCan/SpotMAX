@@ -243,6 +243,9 @@ class TuneKernel:
         cp = io.add_spots_coordinates_endname_to_configparser(
             cp, '_temp_autotune_coords.csv'
         )
+        cp = io.add_text_to_append_to_configparser(
+            cp, 'temp_autotune_coords'
+        )
         
         io.write_to_ini(cp, self.ini_filepath())
     
@@ -252,12 +255,23 @@ class TuneKernel:
         for pos_foldername, images_path in self.images_paths().items():
             pos_folderpath = os.path.dirname(images_path)
             spotmax_out_path = os.path.join(pos_folderpath, 'spotMAX_output')
+            printl(utils.listdir(spotmax_out_path))
+            valid_spots_filename = None
+            spotfit_filename = None
             for file in utils.listdir(spotmax_out_path):
-                if file == '_temp_autotune_coords.h5':
-                    keys.append(pos_foldername)
-                    dfs.append(io.load_spots_table(spotmax_out_path, file))
+                if file.endswith('1_valid_spots_temp_autotune_coords.h5'):
+                    valid_spots_filename = file
+                elif file.endswith('2_spotfit_temp_autotune_coords.csv'):
+                    spotfit_filename = file
                     break
+            
+            file_to_load = spotfit_filename
+            if file_to_load is None:
+                file_to_load = valid_spots_filename
                 
+            keys.append(pos_foldername)
+            dfs.append(io.load_spots_table(spotmax_out_path, file_to_load))
+             
         df_analysis = pd.concat(dfs, keys=keys, names=['Position_n'])
         return df_analysis
     

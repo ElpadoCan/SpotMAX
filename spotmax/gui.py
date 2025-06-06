@@ -6,13 +6,16 @@ import traceback
 import re
 from queue import Queue
 
+from typing import Tuple
+
 import numpy as np
 import pandas as pd
 
 import skimage.measure
 
 from qtpy.QtCore import (
-    Qt, QTimer, QThreadPool, QMutex, QWaitCondition, QEventLoop
+    Qt, QTimer, QThreadPool, QMutex, QWaitCondition, QEventLoop, 
+    QObject
 )
 from qtpy.QtGui import QIcon, QGuiApplication, QMouseEvent
 from qtpy.QtWidgets import QDockWidget, QToolBar, QAction, QAbstractSlider
@@ -3133,6 +3136,22 @@ class spotMAX_Win(acdc_gui.guiWin):
         worker.signals.finished.connect(self.tuneKernelWorkerFinished)
         self.threadPool.start(worker)
         return worker
+    
+    @exception_handler
+    def workerCritical(self, out: Tuple[QObject, Exception]):
+        worker, error = out
+        if self.progressWin is not None:
+            self.progressWin.workerFinished = True
+            self.progressWin.close()
+            self.progressWin = None
+        self.logger.info(error)
+        try:
+            worker.thread().quit()
+            worker.deleteLater()
+            worker.thread().deleteLater()
+        except Exception as err:
+            pass
+        raise error
     
     def startInspectHoveredSpotWorker(self):
         pass
