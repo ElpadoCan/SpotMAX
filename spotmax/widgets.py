@@ -940,7 +940,7 @@ class SpotPredictionMethodWidget(QWidget):
             paramsGroupBox = self.parent().parent()
             paramsGroupBox.logging_func('Importing neural network model...')
         except Exception as e:
-            printl('Importing neural network model...')
+            print('Importing neural network model...')
         from .nnet import model
         return model
     
@@ -949,7 +949,7 @@ class SpotPredictionMethodWidget(QWidget):
             paramsGroupBox = self.parent().parent()
             paramsGroupBox.logging_func(txt)
         except Exception as e:
-            printl(txt)
+            print(txt)
     
     def _promptConfigNeuralNet(self):
         model = self._importModel()
