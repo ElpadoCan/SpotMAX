@@ -1807,6 +1807,39 @@ class _ParamsParser(_DataLoader):
             
         return True, missing_params
 
+    def _ask_confirm_segm_endname(self, endname, ch_type, extension):
+        default_option = f'Continue with {endname} end name'
+        options = (
+            default_option,
+        )
+        txt = (
+            '[WARNING]: You requested to use the file ending with '
+            f'{endname}{extension} as the segmentation mask for the {ch_type}.\n\n'
+            'SpotMAX expects NPZ or NPY files for the segmentation masks.'
+        )
+        if self._force_default:
+            self.logger.info('*'*100)
+            self.logger.info(txt)
+            io._log_forced_default(default_option, self.logger.info)
+            return 
+        
+        question = f'Are you sure that a {extension} file is the correct one?'
+        answer = io.get_user_input(
+            question, options=options, info_txt=txt, logger=self.logger.info, 
+            default_option=default_option
+        )
+        if answer is None:
+            self.logger.info(
+                'SpotMAX stopped by the user. '
+                'Save ref. ch. features and/or masks not selected.'
+            )
+            self.quit()
+        
+        if answer == default_option:
+            return
+        
+        return answer
+    
     def _ask_saving_ref_ch_features_without_masks(self):
         default_option = 'Save ref. ch. features without saving masks'
         options = (
@@ -1841,6 +1874,69 @@ class _ParamsParser(_DataLoader):
         
         return answer
     
+    def check_segm_masks_endnames(self, images_path):
+        SECTION = 'File paths and channels'
+        section_params = self._params[SECTION]
+        spots_ch_segm_endname = section_params['spotChSegmEndName'].get(
+            'loadedVal', ''
+        )
+        ref_ch_segm_endname = section_params['refChSegmEndName'].get(
+            'loadedVal', ''
+        )
+        
+        if not spots_ch_segm_endname and not ref_ch_segm_endname:
+            return
+        
+        if spots_ch_segm_endname:
+            try:
+                ch_path = io.get_filepath_from_channel_name(
+                    images_path, spots_ch_segm_endname, 
+                    raise_on_duplicates=False
+                )
+                if not os.path.exists(ch_path):
+                    raise FileNotFoundError(f'File "{ch_path}" does not exist')
+                
+                _, extension = os.path.splitext(ch_path)
+                if spots_ch_segm_endname.endswith(extension):
+                    extension = ''
+            except Exception as err:
+                self.logger.exception(traceback.format_exc())
+                self._critical_channel_not_found(
+                    spots_ch_segm_endname, images_path
+                )
+                return
+            
+            answer = self._ask_confirm_segm_endname(
+                spots_ch_segm_endname, 'spots channel', extension
+            )
+            if answer is None:
+                return
+        
+        if ref_ch_segm_endname:
+            try:
+                ch_path = io.get_filepath_from_channel_name(
+                    images_path, ref_ch_segm_endname, 
+                    raise_on_duplicates=False
+                )
+                if not os.path.exists(ch_path):
+                    raise FileNotFoundError(f'File "{ch_path}" does not exist')
+                
+                _, extension = os.path.splitext(ch_path)
+                if ref_ch_segm_endname.endswith(extension):
+                    extension = ''
+            except Exception as err:
+                self.logger.exception(traceback.format_exc())
+                self._critical_channel_not_found(
+                    ref_ch_segm_endname, images_path
+                )
+                return
+            
+            answer = self._ask_confirm_segm_endname(
+                ref_ch_segm_endname, 'reference channel', extension
+            )
+            if answer is None:
+                return
+        
     def check_ref_ch_save_features_and_masks(self):
         SECTION = 'File paths and channels'
         section_params = self._params[SECTION]
@@ -5949,6 +6045,7 @@ class Kernel(_ParamsParser):
                 self._current_pos_path = pos_path
                 pos_analysis_started_datetime = datetime.now()
                 t0_pos = time.perf_counter()
+                self.check_segm_masks_endnames(images_path)
                 result = self._run_from_images_path(
                     images_path, 
                     spots_ch_endname=spots_ch_endname, 
