@@ -5,9 +5,11 @@ import numpy as np
 import skimage.measure
 
 from .. import io
-from ..types import NotParam
 
 from . import install
+
+class NotParam:
+    not_a_param = True
 
 class Model:
     """SpotMAX implementation of any BioImage.IO model
