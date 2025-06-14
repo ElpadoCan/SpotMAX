@@ -78,7 +78,6 @@ browseini = "spotmax.io:browse_last_used_ini_folderpath"
 include-package-data = true
 
 [tool.setuptools.packages.find]
-include = [docs*]
 namespaces = false
 
 [tool.setuptools_scm]
