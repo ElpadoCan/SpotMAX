@@ -16,13 +16,13 @@ keywords = [
     "3D fluorescent signal analysis",
     "image analysis",
 ]
+license = "BSD-3-Clause"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: BSD License",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
     "Operating System :: Microsoft :: Windows",
@@ -79,6 +79,10 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 namespaces = false
+include = ["spotmax", "spotmax.*"]
+exclude = [
+    "spotmax/docs/source/images",
+]
 
 [tool.setuptools_scm]
 version_file = "spotmax/_version.py"
