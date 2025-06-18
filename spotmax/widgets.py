@@ -380,7 +380,16 @@ class FeatureSelectorDialog(acdc_apps.TreeSelectorDialog):
         features_groups = features.get_features_groups(category=category)
         self.addTree(features_groups)
 
+        infoButton = acdc_widgets.helpPushButton('Help...')
+        infoButton.clicked.connect(self.openDocsWebpage)
+        
+        self.buttonsLayout.insertWidget(3, infoButton)
+        
         self.setFont(font)
+    
+    def openDocsWebpage(self):
+        from .docs import single_spot_features_desc_url
+        QDesktopServices.openUrl(QUrl(single_spot_features_desc_url))
     
     def closeEvent(self, event):
         self.sigClose.emit()
