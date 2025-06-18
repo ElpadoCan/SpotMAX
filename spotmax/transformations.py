@@ -1008,6 +1008,13 @@ def extend_3D_segm_in_z(
     if segm_data.ndim < 3:
         return segm_data
     
+    if np.all(segm_data == segm_data[0]):
+        logger_func(
+            'Input segmentation data is equal across all z-slices. '
+            'Skipping extension in z because it is not needed.'
+        )
+        return segm_data
+    
     extended_segm_data = np.copy(segm_data)
     low_num_z, high_num_z = low_high_range
     

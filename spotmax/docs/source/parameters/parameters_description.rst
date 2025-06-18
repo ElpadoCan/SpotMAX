@@ -106,7 +106,9 @@ File paths and channels
   the same number of z-slices of the spots channel data. Same applied when 
   working with 3D z-stacks over time. 
   
-  File formats supported: ``.tif``, ``.tiff``, ``.h5``, ``.npz``, or ``.npy``.
+  Typical file formats: ``.npz``, or ``.npy``
+
+  File formats supported: ``.npz``, ``.npy``, ``.tif``, ``.tiff``, ``.h5``.
 
   :type: string
   :default: ``''``
@@ -139,7 +141,9 @@ File paths and channels
   Use this parameter if you already have the spots segmented with an external 
   software.
 
-  File formats supported: ``.tif``, ``.tiff``, ``.h5``, ``.npz``, or ``.npy``.
+  Typical file formats: ``.npz``, or ``.npy``
+  
+  File formats supported: ``.npz``, ``.npy``, ``.tif``, ``.tiff``, ``.h5``.
 
   :type: string
   :default: ``''``
@@ -159,7 +163,9 @@ File paths and channels
   Use this parameter if you already have the reference channel segmented with 
   an external software.
 
-  File formats supported: ``.tif``, ``.tiff``, ``.h5``, ``.npz``, or ``.npy``.
+  Typical file formats: ``.npz``, or ``.npy``
+  
+  File formats supported: ``.npz``, ``.npy``, ``.tif``, ``.tiff``, ``.h5``.
 
   :type: string
   :default: ``''``
