@@ -22,7 +22,7 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 from qtpy.QtCore import (
     Signal, QTimer, Qt, QRegularExpression, QEvent, QPropertyAnimation,
-    QPointF, QUrl
+    QPointF, QUrl, QObject
 )
 from qtpy.QtGui import (
     QFont,  QPainter, QRegularExpressionValidator, QIcon, QColor, QPalette,
@@ -2297,10 +2297,13 @@ class SpotsItemToolButton(acdc_widgets.PointsLayerToolButton):
     def emitRemove(self):
         self.sigRemove.emit(self)
 
-class SpotsItems:
+class SpotsItems(QObject):
     sigButtonToggled = Signal(object, bool)
+    sigAddPoint = Signal(object)
+    sigProjectionWarning = Signal(object)
 
     def __init__(self, parent):
+        QObject.__init__(self, parent)
         self.buttons = []
         self.parent = parent
         self.currentPointSize = None
@@ -2679,6 +2682,7 @@ class SpotsItems:
             self.parent.logger.info(
                 '[WARNING]: Spots cannot be added on a z-projection'
             )
+            self.sigProjectionWarning.emit(self)
             return
         
         size = item._size

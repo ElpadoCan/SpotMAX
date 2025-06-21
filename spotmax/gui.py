@@ -118,6 +118,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     def run(self, module='spotmax_gui', logs_path=logs_path):
         super().run(module=module, logs_path=logs_path)
 
+        self.initSpotsItems()
         self.initGui()
         self.createThreadPool()
         self.setMaxNumThreadsNumbaParam()
@@ -752,6 +753,18 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         return msg.clickedButton == yesButton
     
+    def initSpotsItems(self):
+        self.spotsItems = widgets.SpotsItems(self)
+        self.spotsItems.sigProjectionWarning.connect(
+            self.warnAddingPointsOnProjection
+        )
+        self.zProjComboBoxBlinker = utils.widgetBlinker(
+            self.zProjComboBox, color='orange'
+        )
+    
+    def warnAddingPointsOnProjection(self):
+        self.zProjComboBoxBlinker.start()
+    
     def reInitGui(self):
         super().reInitGui()
         
@@ -761,7 +774,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         for toolButton in self.spotsItems.buttons:
             self.spotmaxToolbar.removeAction(toolButton.action)
             
-        self.spotsItems = widgets.SpotsItems(self)
+        self.initSpotsItems()
         
         try:
             self.disconnectParamsGroupBoxSignals()
@@ -1029,7 +1042,6 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.addToolBar(Qt.LeftToolBarArea, self.spotmaxToolbar)
         self.spotmaxToolbar.addAction(self.addSpotsCoordinatesAction)
         self.spotmaxToolbar.setVisible(False)
-        self.spotsItems = widgets.SpotsItems(self)
     
     def gui_addTopLayerItems(self):
         super().gui_addTopLayerItems()
