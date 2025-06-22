@@ -370,7 +370,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         if canEditResults:
             z = self.currentZ()
             self.spotsItems.editPoint(
-                posData.frame_i, z, y, x, self.img1.image
+                posData.frame_i, z, y, x, self.img1.image, 
+                snap_to_max=self.snapEditsToMax
             )
     
     def gui_createPlotItems(self):
@@ -764,6 +765,13 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def warnAddingPointsOnProjection(self):
         self.zProjComboBoxBlinker.start()
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        txt = html_func.paragraph(f"""
+            Adding points on a projection image is not allowed.
+        """)
+        msg.warning(
+            self, 'Adding points on projection not allowed', txt,
+        )
     
     def reInitGui(self):
         super().reInitGui()
@@ -788,6 +796,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.transformedDataNnetExp = None
         self.transformedDataTime = None
         self.isEditingResults = False
+        self.snapEditsToMax = False
         self.dfs_ref_ch_features = None
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
@@ -1223,6 +1232,9 @@ class spotMAX_Win(acdc_gui.guiWin):
     def editResultsToggled(self, checked):
         self.isEditingResults = checked
         self.spotmaxToolbar.setDisabled(checked)
+    
+    def snapEditsToMaxToggled(self, checked):
+        self.snapEditsToMax = checked
     
     def computeFeaturesEditedResultsClicked(
             self, text_to_add, src_df_filename, ini_filepath

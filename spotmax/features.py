@@ -435,7 +435,7 @@ def add_missing_cells_to_df_agg_from_segm(df_agg, segm_data):
             missing_rows.append(missing_row)
     
     if len(missing_rows)>1:
-        df_agg = pd.concat(missing_row)
+        df_agg = pd.concat(missing_rows)
     
     return df_agg.sort_index()
 

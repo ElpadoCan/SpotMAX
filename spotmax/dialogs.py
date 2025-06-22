@@ -4619,6 +4619,28 @@ class EditResultsGropbox(QGroupBox):
         
         '----------------------------------------------------------------------'
         row += 1
+        self.snapToMaxToggle = acdc_widgets.Toggle()
+        self.snapToMaxToggle.setChecked(True)
+        self.snapToMaxToggle.setEnabled(False)
+        tooltipText = (
+            'If checked, the new spots will be snapped to the pixel with the '
+            'maximum intensity in the spot circle. If not checked, '
+            'the new spots will be placed at the '
+            'position of the mouse cursor.'
+        )
+        self.snapToMaxToggle.setToolTip(tooltipText)
+        self.snapToMaxToggle.label = QLabel('Snap to maximum intensity')
+        self.snapToMaxToggle.label.setToolTip(tooltipText)
+        gridLayout.addWidget(
+            self.snapToMaxToggle.label, row, 0, alignment=Qt.AlignRight
+        )
+        gridLayout.addWidget(
+            self.snapToMaxToggle, row, 1, alignment=Qt.AlignCenter
+        )
+        '======================================================================'
+        
+        '----------------------------------------------------------------------'
+        row += 1
         self.inputTextLineEdit = widgets.CenteredAlphaNumericLineEdit()
         self.inputTextLineEdit.label = QLabel('Text to add to new filenames')
         gridLayout.addWidget(
@@ -4711,6 +4733,7 @@ class EditResultsGropbox(QGroupBox):
                 self.editResultsToggle.setChecked(False)    
                 return
         
+        self.snapToMaxToggle.setEnabled(checked)
         self.sigEditResultsToggled.emit(checked)
     
     def warnInputTextEmpty(self):

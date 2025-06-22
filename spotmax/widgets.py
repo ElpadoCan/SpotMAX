@@ -2677,7 +2677,7 @@ class SpotsItems(QObject):
         self.setCurrentPointMask(img_data)
         self._segm_data = segm_data
     
-    def addPoint(self, item, img, frame_i, z, y, x, button):
+    def addPoint(self, item, img, frame_i, z, y, x, button, snap_to_max=True):
         if z is None:
             self.parent.logger.info(
                 '[WARNING]: Spots cannot be added on a z-projection'
@@ -2685,11 +2685,14 @@ class SpotsItems(QObject):
             self.sigProjectionWarning.emit(self)
             return
         
-        size = item._size
-        radius = round(size/2)
-        rr, cc = skimage.draw.disk((round(y), round(x)), radius)
-        idx_max = (img[rr, cc]).argmax()
-        xdata, ydata = cc[idx_max], rr[idx_max]
+        if snap_to_max:
+            size = item._size
+            radius = round(size/2)
+            rr, cc = skimage.draw.disk((round(y), round(x)), radius)
+            idx_max = (img[rr, cc]).argmax()
+            xdata, ydata = cc[idx_max], rr[idx_max]
+        else:
+            ydata, xdata = round(y), round(x)
         
         lab = self._segm_data[frame_i]
         if lab.ndim == 3:
@@ -2727,7 +2730,7 @@ class SpotsItems(QObject):
     def setEditsEnabled(self, enabled):
         self._editsEnabled = enabled
     
-    def editPoint(self, frame_i, z, y, x, img):
+    def editPoint(self, frame_i, z, y, x, img, snap_to_max=True):
         if not self._editsEnabled:
             return
         
@@ -2737,7 +2740,9 @@ class SpotsItems(QObject):
         if hoveredPoints:
             self.removePoint(hoveredPoints, item, button, frame_i, z)  
         else:
-            self.addPoint(item, img, frame_i, z, y, x, button)
+            self.addPoint(
+                item, img, frame_i, z, y, x, button, snap_to_max=snap_to_max
+            )
     
     def hideAllItems(self):
         for toolbutton in self.buttons:
