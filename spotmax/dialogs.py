@@ -10,6 +10,7 @@ import tempfile
 import traceback
 from pprint import pprint
 from functools import partial
+from uuid import uuid4
 
 import numpy as np
 import pandas as pd
@@ -1867,34 +1868,35 @@ class AutoTuneTabWidget(QWidget):
         points = item.points()
         hoveredPoints = item.points()[hoveredMask][::-1]
         if len(hoveredPoints) > 0:
-            for hoveredPoint in hoveredPoints:
-                xref, yref = hoveredPoint._data['x'], hoveredPoint._data['y']
-                zref = hoveredPoint.data()[2]
-                # Remove same point in neigh z-slices
-                for point in points:
-                    point_data = point.data()
-                    if point_data[0] != self.posFoldername():
-                        continue
+            id = hoveredPoints[0].data()[3]
+            for point in points:
+                # Remove same point in neigh z-slices (same id)
+                point_data = point.data()
+                if point_data[0] != self.posFoldername():
+                    continue
 
-                    if point_data[1] != frame_i:
-                        continue
-                    
-                    if point_data[3] != zref:
-                        continue
-                    
-                    item.removePoint(point._index)
+                if point_data[1] != frame_i:
+                    continue
+                
+                if point_data[3] != id:
+                    continue
+                
+                item.removePoint(point._index)
         else:
-            point_data = (self.posFoldername(), frame_i, z, z)
+            id = uuid4()
+            point_data = (self.posFoldername(), frame_i, z, id)
             item.addPoints([x], [y], data=[point_data])
             for neigh_z in range(z-self.z_radius, z+self.z_radius+1):
                 if neigh_z == z:
                     continue
-                neigh_point_data = (self.posFoldername(), frame_i, neigh_z, z)
+                neigh_point_data = (self.posFoldername(), frame_i, neigh_z, id)
+                printl(neigh_point_data)
                 item.addPoints(
                     [x], [y], data=[neigh_point_data], 
                     brush=[pg.mkBrush((0, 0, 0, 0))], 
                     pen=[pg.mkPen((0, 0, 0, 0))]
                 )
+                item.data['visible'][-1] = False
         
         self.resetFeatures()
     
@@ -1912,6 +1914,8 @@ class AutoTuneTabWidget(QWidget):
             pens = []
             visibilities = []
             for point in item.data['item']:
+                if point is None:
+                    continue
                 point_data = point.data()
                 visible = (point_data[0], point_data[1], point_data[2]) == args
                 if not visible:
