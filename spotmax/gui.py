@@ -4,6 +4,7 @@ import shutil
 import datetime
 import traceback
 import re
+from functools import partial
 from queue import Queue
 
 from typing import Tuple
@@ -1115,6 +1116,53 @@ class spotMAX_Win(acdc_gui.guiWin):
         inspectResultsTab.sigComputeFeatures.connect(
             self.computeFeaturesEditedResultsClicked
         )
+        viewFeaturesGroupbox = inspectResultsTab.viewFeaturesGroupbox
+        viewFeaturesGroupbox.sigFeatureColumnNotPresent.connect(
+            self.inspectResultsFeatureColumnNotPresent
+        )
+    
+    def inspectResultsFeatureColumnNotPresent(
+            self, warningButton, feature_colname, feature_name, available_cols
+        ):
+        detailsText = '\n  * '.join(available_cols.to_list())
+        detailsText = f'Available features:\n\n{detailsText}'
+        
+        txt = html_func.paragraph(f"""
+            The feature <code>{feature_name}</code> (column {feature_colname})<br>
+            is <b>not present in the loaded table.</b><br><br>
+            Probably you loaded a table from an analysis step that did not 
+            compute this feature<br>
+            (e.g., you did not activate "Compute spot size" and you are trying  
+            to view `spotfit` features).<br><br>
+            See below the list of available features in the table.
+        """)
+        try:
+            warningButton.toggled.disconnect()
+        except TypeError:
+            # If the button was not connected, this will raise a TypeError
+            pass
+        
+        warningButton.toggled.connect(
+            partial(
+                self.warnFeatureColumnNotPresentToInspect, 
+                txt=txt,
+                detailsText=detailsText,
+                button=warningButton,
+            )
+        )
+    
+    def warnFeatureColumnNotPresentToInspect(
+            self, checked, txt='', detailsText='', button=None
+        ):
+        if not checked:
+            return
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(
+            self, 'Feature column not present', txt,
+            detailsText=detailsText
+        )
+        if button is not None:
+            button.setChecked(False)
     
     def warnEditedTableFileExists(self, existing_filepath):
         folderpath = os.path.dirname(existing_filepath)

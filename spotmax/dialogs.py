@@ -1482,6 +1482,8 @@ class ViewRefChannelFeaturesGroupbox(QGroupBox):
         selectButton.setToolTip(f'{column_name}')
 
 class AutoTuneViewSpotFeatures(QGroupBox):
+    sigFeatureColumnNotPresent = Signal(object, str, str, object)
+    
     def __init__(self, parent=None, infoText=None):
         super().__init__(parent)
         
@@ -1536,10 +1538,17 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         self.selectButton.clicked.connect(self.selectFeature)
         self.selectButton.entry = widgets.ReadOnlyLineEdit()
         self.addFeatureButton = acdc_widgets.addPushButton()
+        self.warningButton = acdc_widgets.WarningButton()
+        self.warningButton.setCheckable(True)
+        self.warningButton.setRetainSizeWhenHidden(True)
+        self.warningButton.setVisible(False)
         layout.addWidget(self.selectButton, row, col)
         layout.addWidget(self.selectButton.entry, row, col+1)
         layout.addWidget(
             self.addFeatureButton, row, col+2, alignment=Qt.AlignLeft
+        )
+        layout.addWidget(
+            self.warningButton, row, col+3, alignment=Qt.AlignLeft
         )
         self.featureButtons = [self.selectButton]
         self.addFeatureButton.clicked.connect(self.addFeatureEntry)
@@ -1561,9 +1570,16 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         self.xLineEntry.setText(str(x))
         self.yLineEntry.setText(str(y))
         self.zLineEntry.setText(str(z))
+        self.warningButton.setVisible(False)
         for selectButton in self.featureButtons:
             feature_colname = selectButton.toolTip()
             if feature_colname not in point_features.index:
+                self.sigFeatureColumnNotPresent.emit(
+                    self.warningButton, feature_colname, selectButton.text(), 
+                    point_features.index
+                )
+                selectButton.entry.setText('Not available')
+                self.warningButton.setVisible(True)
                 continue
             value = point_features.loc[feature_colname]
             selectButton.entry.setText(str(value))
