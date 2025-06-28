@@ -151,7 +151,12 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q:
-            pass
+            autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+            autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+            trueItem = autoTuneGroupbox.trueItem
+            df_coords = trueItem.coordsToDf(includeData=True)
+            return
+        
         super().keyPressEvent(event)
     
     def dragEnterEvent(self, event):

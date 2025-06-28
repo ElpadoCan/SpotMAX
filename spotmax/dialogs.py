@@ -1778,7 +1778,12 @@ class AutoTuneTabWidget(QWidget):
         if self.df_features is None:
             return
         point = points[0]
-        ptz_idx = point.data()[:3]
+        point_data = point.data()
+        ptz_idx = (
+            point_data['pos_foldername'], 
+            point_data['frame_i'], 
+            point_data['z'],
+        )
         pos = point.pos()
         x, y = round(pos.x()), round(pos.y())
         point_features = self.df_features.loc[(*ptz_idx, y, x)]
@@ -1848,11 +1853,11 @@ class AutoTuneTabWidget(QWidget):
                 continue
             for point in points:
                 point_data = point.data()
-                if point_data[0] != self.posFoldername():
+                if point_data['pos_foldername'] != self.posFoldername():
                     continue
-                if point_data[1] != frame_i:
+                if point_data['frame_i'] != frame_i:
                     continue
-                if point_data[2] != z:
+                if point_data['z'] != z:
                     continue
                 hoveredPoints.append(point)
         return hoveredPoints
@@ -1868,29 +1873,42 @@ class AutoTuneTabWidget(QWidget):
         points = item.points()
         hoveredPoints = item.points()[hoveredMask][::-1]
         if len(hoveredPoints) > 0:
-            id = hoveredPoints[0].data()[3]
+            uuid = hoveredPoints[0].data()['uuid']
             for point in points:
                 # Remove same point in neigh z-slices (same id)
                 point_data = point.data()
-                if point_data[0] != self.posFoldername():
+                if point_data['pos_foldername'] != self.posFoldername():
                     continue
 
-                if point_data[1] != frame_i:
+                if point_data['frame_i'] != frame_i:
                     continue
                 
-                if point_data[3] != id:
+                if point_data['uuid'] != uuid:
                     continue
                 
                 item.removePoint(point._index)
         else:
-            id = uuid4()
-            point_data = (self.posFoldername(), frame_i, z, id)
+            uuid = uuid4()
+            point_data = {
+                'pos_foldername': self.posFoldername(), 
+                'frame_i': frame_i, 
+                'z': z, 
+                'neigh_z': z, 
+                'uuid': uuid, 
+                'is_neighbour': False
+            }
             item.addPoints([x], [y], data=[point_data])
             for neigh_z in range(z-self.z_radius, z+self.z_radius+1):
                 if neigh_z == z:
                     continue
-                neigh_point_data = (self.posFoldername(), frame_i, neigh_z, id)
-                printl(neigh_point_data)
+                neigh_point_data = {
+                    'pos_foldername': self.posFoldername(), 
+                    'frame_i': frame_i, 
+                    'neigh_z': neigh_z, 
+                    'z': z,
+                    'uuid': uuid, 
+                    'is_neighbour': True
+                }
                 item.addPoints(
                     [x], [y], data=[neigh_point_data], 
                     brush=[pg.mkBrush((0, 0, 0, 0))], 
@@ -1917,7 +1935,12 @@ class AutoTuneTabWidget(QWidget):
                 if point is None:
                     continue
                 point_data = point.data()
-                visible = (point_data[0], point_data[1], point_data[2]) == args
+                ptz_point = (
+                    point_data['pos_foldername'], 
+                    point_data['frame_i'], 
+                    point_data['z'],
+                )
+                visible = ptz_point == args
                 if not visible:
                     brush = pg.mkBrush((0, 0, 0, 0))
                     pen = pg.mkPen((0, 0, 0, 0))

@@ -3519,21 +3519,22 @@ class TuneScatterPlotItem(acdc_widgets.ScatterPlotItem):
         if len(self.points()) == 0:
             return []
         
-        columns = ['Position_n', 'frame_i', 'neigh_z', 'z', 'y', 'x']
+        columns = ['Position_n', 'frame_i', 'z', 'y', 'x']
         df = {col:[] for col in columns}
         for p, point in enumerate(self.points()):
+            point_data = point.data()
+            if point_data['is_neighbour']:
+                continue
+            
             pos = point.pos()
             x, y = pos.x(), pos.y()
             df['x'].append(round(x))
             df['y'].append(round(y))
-            pos_foldername, frame_i, neigh_z, z = point.data()
-            df['Position_n'].append(pos_foldername)
-            df['frame_i'].append(frame_i)
-            df['neigh_z'].append(neigh_z)
-            df['z'].append(z)
+            df['Position_n'].append(point_data['pos_foldername'])
+            df['frame_i'].append(point_data['frame_i'])
+            df['z'].append(point_data['z'])
 
         df = pd.DataFrame(df)
-        df = df[df['neigh_z'] == df['z']].drop(columns='neigh_z')
         
         return df
 
