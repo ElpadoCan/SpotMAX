@@ -750,6 +750,7 @@ def reference_channel_quantify(
             
             col = 'sub_obj_ref_ch_backgr_corrected_mean_intensity'
             df_ref_ch.loc[sub_obj.label, col] = sub_backr_corr_mean
+                
             col = 'sub_obj_ref_ch_backgr_corrected_sum_intensity'
             df_ref_ch.loc[sub_obj.label, col] = sub_backr_corr_mean*sub_vol_vox
             

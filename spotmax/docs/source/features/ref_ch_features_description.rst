@@ -57,7 +57,7 @@ Morphological metrics - whole object
 * **Number of fragments**: column name ``ref_ch_num_fragments``.
 
 Region properties - whole object
-------------------------------
+--------------------------------
 
 These are calculated using the function ``skimage.measure.regionprops`` from 
 the `scikit-image`_ library. The following properties are calculated:
@@ -108,7 +108,6 @@ the `scikit-image`_ library. The following properties are calculated:
 * **Major axis length**: column name ``sub_obj_ref_ch_major_axis_length``.
 * **Minor axis length**: column name ``sub_obj_ref_ch_minor_axis_length``.
 * **Equivalent diameter**: column name ``sub_obj_ref_ch_equivalent_diameter``.
-* **Volume (voxel)**: column name ``sub_obj_ref_ch_area``.
 * **Solidity**: column name ``sub_obj_ref_ch_solidity``.
 * **Extent**: column name ``sub_obj_ref_ch_extent``.
 * **Volume of the filled region**: column name ``sub_obj_ref_ch_filled_area``.

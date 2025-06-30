@@ -252,5 +252,6 @@ def ref_ch_features_column_names():
     rst_text = read_rst(ref_ch_features_rst_filepath)
         
     features_groups = parse_ref_ch_features_groups()
+    
     mapper = _parse_column_names(features_groups, rst_text)
     return mapper
