@@ -151,11 +151,18 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.threadPool = QThreadPool.globalInstance()
     
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Q:
-            autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-            autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
-            trueItem = autoTuneGroupbox.trueItem
-            df_coords = trueItem.coordsToDf(includeData=True)
+        if event.key() == Qt.Key_Q and self.debug:
+            inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+            viewFeaturesGroupbox = inspectResultsTab.viewFeaturesGroupbox
+            spotCircleSizeColname = self.spotsItems.sizeSelectorButton.toolTip()
+            printl(spotCircleSizeColname)
+            for toolbutton in self.spotsItems.buttons:   
+                printl(self.spotsItems.getSizes(toolbutton))
+            
+            for toolbutton in self.spotsItems.buttons:
+                item = toolbutton.item
+                for point in item.points():
+                    printl(point.data())
             return
         
         super().keyPressEvent(event)
@@ -761,7 +768,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         return msg.clickedButton == yesButton
     
     def initSpotsItems(self):
-        self.spotsItems = widgets.SpotsItems(self)
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        viewFeaturesGroupbox = inspectResultsTab.viewFeaturesGroupbox
+        self.spotsItems = widgets.SpotsItems(
+            self, viewFeaturesGroupbox.selectFeatureForSpotSizeButton
+        )
         self.spotsItems.sigProjectionWarning.connect(
             self.warnAddingPointsOnProjection
         )
@@ -1125,6 +1136,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         viewFeaturesGroupbox.sigFeatureColumnNotPresent.connect(
             self.inspectResultsFeatureColumnNotPresent
         )
+        viewFeaturesGroupbox.sigCircleSizeFeatureSelected.connect(
+            self.onSpotCircleSizeFeatureSelected
+        )
     
     def inspectResultsFeatureColumnNotPresent(
             self, warningButton, feature_colname, feature_name, available_cols
@@ -1155,6 +1169,15 @@ class spotMAX_Win(acdc_gui.guiWin):
                 button=warningButton,
             )
         )
+    
+    def onSpotCircleSizeFeatureSelected(
+            self, viewFeaturesGroupbox, selectButton, featureText, colName
+        ):
+        """
+        Called when the user selects a feature to use for the spot circle size.
+        """        
+        # Set the feature column name in the spotsItems
+        self.spotsItems.setSizesFromFeature(colName)
     
     def warnFeatureColumnNotPresentToInspect(
             self, checked, txt='', detailsText='', button=None

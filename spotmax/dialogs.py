@@ -1025,7 +1025,7 @@ class InspectEditResultsTabWidget(QWidget):
         )
         
         self.viewFeaturesGroupbox = AutoTuneViewSpotFeatures(
-            parent=self, infoText=''
+            parent=self, infoText='', includeSizeSelector=True
         )
         
         self.viewRefChFeaturesGroupbox = ViewRefChannelFeaturesGroupbox(
@@ -1484,8 +1484,9 @@ class ViewRefChannelFeaturesGroupbox(QGroupBox):
 
 class AutoTuneViewSpotFeatures(QGroupBox):
     sigFeatureColumnNotPresent = Signal(object, str, str, object)
+    sigCircleSizeFeatureSelected = Signal(object, object, str, str)
     
-    def __init__(self, parent=None, infoText=None):
+    def __init__(self, parent=None, infoText=None, includeSizeSelector=False):
         super().__init__(parent)
         
         self.setTitle('Features of the spot under mouse cursor')
@@ -1508,6 +1509,41 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         layout.addWidget(
             self.infoLabel, row, col, 1, 2, alignment=Qt.AlignCenter
         )
+        
+        if includeSizeSelector:
+            row += 1
+            selectSizeLayout = QHBoxLayout()
+            selectFeatureForSpotSizeButton = widgets.FeatureSelectorButton(
+                'Click to select a feature...  ', 
+            )
+            selectFeatureForSpotSizeButton.setSizeLongestText(
+                'Spotfit size metric, Mean radius xy-direction'
+            )
+            selectFeatureForSpotSizeButton.clicked.connect(
+                partial(self.selectFeature, onlySizeFeatures=True)
+            )
+            selectFeatureForSpotSizeButton.sigFeatureSelected.connect(
+                self.emitCircleSizeFeatureSelected
+            )
+            selectFeatureForSpotSizeButton.sigReset.connect(
+                self.resetCircleSizeSelectButton
+            )
+            layout.addWidget(
+                QLabel('Feature to use for the spot circle size'), row, col, 
+                alignment=Qt.AlignRight
+            )
+            selectFeatureForSpotSizeButton.entry = widgets.ReadOnlyLineEdit()
+            
+            selectSizeLayout.addWidget(selectFeatureForSpotSizeButton)
+            selectSizeLayout.addWidget(selectFeatureForSpotSizeButton.entry)
+            selectSizeLayout.setStretch(0, 1)
+            selectSizeLayout.setStretch(0, 0)
+            
+            layout.addLayout(selectSizeLayout, row, col+1)
+            
+            row += 1
+            layout.addItem(QSpacerItem(1, 15), row, col+1)
+            self.selectFeatureForSpotSizeButton = selectFeatureForSpotSizeButton
         
         row += 1
         layout.addWidget(QLabel('Spot id'), row, col, alignment=Qt.AlignRight)
@@ -1562,6 +1598,11 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         mainLayout.addStretch(1)
         self.setLayout(mainLayout)
     
+    def emitCircleSizeFeatureSelected(self, button, featureText, colName):
+        self.sigCircleSizeFeatureSelected.emit(
+            self, button, featureText, colName
+        )
+    
     def resetFeatures(self):
         self.infoLabel.setText(self._infoText)
     
@@ -1573,6 +1614,8 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         self.zLineEntry.setText(str(z))
         self.warningButton.setVisible(False)
         for selectButton in self.featureButtons:
+            if not selectButton.isFlat():
+                continue
             feature_colname = selectButton.toolTip()
             if feature_colname not in point_features.index:
                 self.sigFeatureColumnNotPresent.emit(
@@ -1584,7 +1627,19 @@ class AutoTuneViewSpotFeatures(QGroupBox):
                 continue
             value = point_features.loc[feature_colname]
             selectButton.entry.setText(str(value))
+            
         self.infoLabel.setText('<i>&nbsp;</i>')
+        
+        if not self.selectFeatureForSpotSizeButton.isFlat():
+            return
+        
+        sizeFeatureColname = self.selectFeatureForSpotSizeButton.toolTip()
+        value = point_features.loc[sizeFeatureColname]
+        self.selectFeatureForSpotSizeButton.entry.setText(str(round(value, 2)))
+    
+    def resetCircleSizeSelectButton(self):
+        self.selectFeatureForSpotSizeButton.entry.setText('')
+        self.selectFeatureForSpotSizeButton.setToolTip('')
     
     def clearFeatures(self):
         self.spotIdEntry.setText('')
@@ -1632,11 +1687,12 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         topLevelText, childText = text.split(', ')
         return {topLevelText: childText}
     
-    def selectFeature(self):
+    def selectFeature(self, checked=False, onlySizeFeatures=False):
         self.selectFeatureDialog = widgets.FeatureSelectorDialog(
             parent=self.sender(), multiSelection=False, 
             expandOnDoubleClick=True, isTopLevelSelectable=False, 
-            infoTxt='Select feature', allItemsExpanded=False
+            infoTxt='Select feature', allItemsExpanded=False,
+            onlySizeFeatures=onlySizeFeatures
         )
         self.selectFeatureDialog.setCurrentItem(self.getFeatureGroup())
         # self.selectFeatureDialog.resizeVertical()
@@ -1655,6 +1711,9 @@ class AutoTuneViewSpotFeatures(QGroupBox):
         selectButton.setFeatureText(featureText)
         column_name = features.feature_names_to_col_names_mapper()[featureText]
         selectButton.setToolTip(f'{column_name}')
+        selectButton.sigFeatureSelected.emit(
+            selectButton, featureText, column_name
+        )
 
 class AutoTuneTabWidget(QWidget):
     sigStartAutoTune = Signal(object)

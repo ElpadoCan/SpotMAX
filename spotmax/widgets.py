@@ -331,18 +331,40 @@ class VerticalSpacerEmptyWidget(QWidget):
         self.setFixedHeight(height)
 
 class FeatureSelectorButton(QPushButton):
+    sigFeatureSelected = Signal(object, str, str)
+    sigReset = Signal(object)
+    
     def __init__(self, text, parent=None, alignment=''):
         super().__init__(text, parent=parent)
         self._isFeatureSet = False
         self._alignment = alignment
         self.setCursor(Qt.PointingHandCursor)
         self._initText = text
+        self.installEventFilter(self)
+
+    def eventFilter(self, object, event):
+        if event.type() == QEvent.MouseButtonPress:
+            if event.button() == Qt.RightButton:
+                self.showContextMenu(event)
+        return False
+
+    def showContextMenu(self, event):
+        contextMenu = QMenu(self)
+        contextMenu.addSeparator()
+        
+        resetAction = QAction('Reset button', self)
+        resetAction.triggered.connect(self.reset)
+        contextMenu.addAction(resetAction)
+        
+        contextMenu.exec(event.globalPos())
     
     def reset(self):
         self._isFeatureSet = False
         self.setFlat(False)
         self.setText(self._initText)
         self.setToolTip('')
+        self.sigFeatureSelected.emit(self, '', '')
+        self.sigReset(self)
     
     def setFeatureText(self, text):
         self.setText(text)
@@ -374,10 +396,19 @@ class FeatureSelectorDialog(acdc_apps.TreeSelectorDialog):
     sigClose = Signal()
     sigValueSelected = Signal(str)
 
-    def __init__(self, category='spots', title='Feature selector', **kwargs) -> None:
+    def __init__(
+            self, 
+            category='spots', 
+            title='Feature selector', 
+            onlySizeFeatures=False,
+            **kwargs
+        ) -> None:
         super().__init__(title=title, **kwargs)
 
-        features_groups = features.get_features_groups(category=category)
+        features_groups = features.get_features_groups(
+            category=category, 
+            only_size_features=onlySizeFeatures
+        )
         self.addTree(features_groups)
 
         infoButton = acdc_widgets.helpPushButton('Help...')
@@ -2302,12 +2333,13 @@ class SpotsItems(QObject):
     sigAddPoint = Signal(object)
     sigProjectionWarning = Signal(object)
 
-    def __init__(self, parent):
+    def __init__(self, parent, sizeSelectorButton):
         QObject.__init__(self, parent)
         self.buttons = []
         self.parent = parent
         self.currentPointSize = None
         self.loadedDfs = {}
+        self.sizeSelectorButton = sizeSelectorButton
 
     def addLayer(self, df_spots_files: dict, selected_file=None):
         all_df_spots_files = set()
@@ -2384,11 +2416,25 @@ class SpotsItems(QObject):
         brush = self.getBrush(state, alpha)
         hoverBrush = self.getBrush(state)
         symbol = state['pg_symbol']
-        size = state['size']
+        if self.sizeSelectorButton.text().startswith('Click to select'):
+            size = state['size']
+            pdMode = True
+        else:
+            size = self.getSizes(button)
+            pdMode = False
+            if size is None:
+                size = state['size']
+                pdMode = True
+                
         xx, yy = button.item.getData()
         button.item.setData(
-            xx, yy, size=size, pen=pen, brush=brush, hoverBrush=hoverBrush, 
-            symbol=symbol
+            xx, yy, 
+            size=size, 
+            pen=pen, 
+            brush=brush, 
+            hoverBrush=hoverBrush, 
+            symbol=symbol, 
+            pxMode=pdMode
         )
     
     def getHoveredPoints(self, frame_i, z, y, x, return_button=False):
@@ -2417,6 +2463,39 @@ class SpotsItems(QObject):
             return hoveredPoints, item, toolbutton
         else:
             return hoveredPoints, item
+    
+    def getSizes(self, button, feature_colname=''):
+        df = button.df
+        if df is None:
+            return
+
+        if not feature_colname:
+            feature_colname = self.sizeSelectorButton.toolTip()
+        
+        if not feature_colname:
+            return 
+        
+        item = button.item
+        try:
+            sizes = [
+                point.data()[feature_colname]*2 
+                for point in item.points()
+            ]
+        except Exception as err:
+            printl(traceback.format_exc())
+            return
+        
+        return sizes
+        
+    def setSizesFromFeature(self, feature_colname):
+        for toolbutton in self.buttons:          
+            sizes = self.getSizes(toolbutton, feature_colname=feature_colname)
+            if sizes is None:
+                continue
+            
+            item = toolbutton.item
+            item.setPxMode(False)
+            item.setSize(sizes)
     
     def getHoveredPointData(self, frame_i, z, y, x):
         for toolbutton in self.buttons:
@@ -2574,13 +2653,22 @@ class SpotsItems(QObject):
             try:
                 data_z = data.loc[[z]]
                 yy, xx = data_z['y'].values + 0.5, data_z['x'].values + 0.5
+                points_data = [data_z.iloc[i] for i in range(len(data_z))]
             except Exception as e:
                 yy, xx = [], []
+                points_data = []
         else:
             data_z = data
             yy, xx = data_z['y'].values + 0.5, data_z['x'].values + 0.5
+            points_data = [data_z.iloc[i] for i in range(len(data_z))]
         
-        scatterItem.setData(xx, yy)
+        
+        scatterItem.setData(xx, yy, data=points_data)
+        size = self.getSizes(toolbutton)
+        if size is not None:
+            scatterItem.setPxMode(False)
+            scatterItem.setSize(size)
+            
         scatterItem.z = z
         scatterItem.frame_i = frame_i
 

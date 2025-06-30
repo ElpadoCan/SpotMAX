@@ -197,7 +197,7 @@ def parse_single_spot_features_groups():
         
     return features_groups
 
-def parse_ref_ch_featurs_groups():
+def parse_ref_ch_features_groups():
     rst_text = read_rst(ref_ch_features_rst_filepath)
     
     features_groups = _parse_section_options(rst_text, ul_item_pattern)
@@ -251,6 +251,6 @@ def single_spot_features_column_names():
 def ref_ch_features_column_names():
     rst_text = read_rst(ref_ch_features_rst_filepath)
         
-    features_groups = parse_ref_ch_featurs_groups()
+    features_groups = parse_ref_ch_features_groups()
     mapper = _parse_column_names(features_groups, rst_text)
     return mapper

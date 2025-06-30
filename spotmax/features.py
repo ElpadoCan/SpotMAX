@@ -222,14 +222,35 @@ def get_effect_size_func():
     }
     return effect_size_func
 
+def filter_spot_size_features_groups(spot_features_groups):
+    spot_size_features_groups = {
+        'SpotSIZE metrics': [
+            feature for feature in spot_features_groups['SpotSIZE metrics']
+            if 'radius' in feature.lower() and 'z-' not in feature.lower()
+        ],
+        'SpotFIT size metrics': [
+            feature for feature in spot_features_groups['SpotFIT size metrics']
+            if 'radius' in feature.lower() and 'z-' not in feature.lower()
+        ]
+    }
+    return spot_size_features_groups
+
 def get_features_groups(
-        category: Literal['spots', 'ref. channel objects']='spots'
+        category: Literal['spots', 'ref. channel objects']='spots',
+        only_size_features=False
     ):
     if category == 'spots':
-        return docs.parse_single_spot_features_groups()
+        spot_features_groups = docs.parse_single_spot_features_groups()
+        if not only_size_features:
+            return spot_features_groups
+
+        spot_features_groups = filter_spot_size_features_groups(
+            spot_features_groups
+        )
+        return spot_features_groups
 
     if category == 'ref. channel objects':
-        return docs.parse_ref_ch_featurs_groups()
+        return docs.parse_ref_ch_features_groups()
 
 def get_aggr_features_groups():
     return docs.parse_aggr_features_groups()
