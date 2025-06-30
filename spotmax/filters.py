@@ -726,9 +726,19 @@ def filter_df_from_features_thresholds(
     
     return df_filtered
 
-def drop_spots_not_in_ref_ch(df, ref_ch_mask, local_peaks_coords):
+def filter_spots_with_ref_ch_masks(
+        df, ref_ch_mask, local_peaks_coords, 
+        keep_inside=True, 
+        remove_inside=False,
+    ):
     if ref_ch_mask is None:
         return df
+    
+    if keep_inside and remove_inside:
+        raise ValueError(
+            'Cannot keep and remove spots inside the reference channel mask at '
+            'the same time.'
+        )
     
     zz = local_peaks_coords[:,0]
     yy = local_peaks_coords[:,1]
@@ -737,6 +747,9 @@ def drop_spots_not_in_ref_ch(df, ref_ch_mask, local_peaks_coords):
     if 'do_not_drop' in df.columns:
         in_ref_ch_spots_mask = (in_ref_ch_spots_mask) | (df['do_not_drop'] > 0)
     
+    if remove_inside:
+        in_ref_ch_spots_mask = np.invert(in_ref_ch_spots_mask)
+        
     return df[in_ref_ch_spots_mask]
 
 def filter_labels_by_size(labels, min_size):

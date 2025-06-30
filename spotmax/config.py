@@ -963,6 +963,17 @@ def _ref_ch_params():
             'actions': None,
             'dtype': get_bool
         },
+        'removePeaksInsideRef': {
+            'desc': 'Remove spots that are inside ref. channel mask',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool
+        },
         'bkgrMaskOutsideRef': {
             'desc': 'Use the ref. channel mask to determine background',
             'initialVal': False,

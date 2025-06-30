@@ -968,6 +968,7 @@ class _ParamsParser(_DataLoader):
         self.cast_loaded_values_dtypes()
         self.add_spot_size_metadata()
         self.check_ref_ch_save_features_and_masks()
+        self.check_filter_spots_based_on_ref_ch_masks()
         
         self.set_abs_exp_paths()
         self.set_metadata()
@@ -1873,6 +1874,41 @@ class _ParamsParser(_DataLoader):
             return
         
         return answer
+
+    def _ask_filter_spots_based_on_ref_ch_masks(self):
+        options = (
+            'Keep only spots that are inside ref. channel mask', 
+            'Remove spots that are inside ref. channel mask',
+            'Do not filter spots based on ref. channel masks'
+        )
+        txt = (
+            '[WARNING]: Both "Keep spots inside ref. ch. masks" and '
+            '"Remove spots inside ref. ch. masks" are set to True. '
+        )
+        if self._force_default:
+            self.logger.info('*'*100)
+            self.logger.info(
+                f'{txt}\n\n'
+                'This is not allowed. Please, set at least one of them to '
+                'False and run SpotMAX again.\n\n'
+                'Thanks for your understanding! :)'
+            )
+            self.quit()
+            return 
+        
+        question = 'What do you want to do'
+        answer = io.get_user_input(
+            question, options=options, info_txt=txt, 
+            logger=self.logger.info, 
+        )
+        if answer is None:
+            self.logger.info(
+                'SpotMAX stopped by the user. '
+                'Filtering spots based on ref. ch. masks not selected.'
+            )
+            self.quit()
+        
+        return answer
     
     def check_segm_masks_endnames(self, images_path):
         SECTION = 'File paths and channels'
@@ -1936,7 +1972,42 @@ class _ParamsParser(_DataLoader):
             )
             if answer is None:
                 return
+    
+    def check_filter_spots_based_on_ref_ch_masks(self):
+        SECTION = 'File paths and channels'
+        section_params = self._params[SECTION]
+        ref_ch_endname = section_params['refChEndName']['loadedVal']
+        if not ref_ch_endname:
+            return
         
+        SECTION = 'Reference channel'
+        section_params = self._params[SECTION]
+        keep_only_spots_in_ref_ch = (
+            section_params['keepPeaksInsideRef']['loadedVal']
+        )
+        remove_spots_in_ref_ch = (
+            section_params['removePeaksInsideRef']['loadedVal']
+        )
+        if not keep_only_spots_in_ref_ch:
+            return
+        
+        if not remove_spots_in_ref_ch:
+            return
+        
+        answer = self._ask_filter_spots_based_on_ref_ch_masks()
+        if answer is None:
+            return
+        
+        if answer.startswith('Keep'):
+            section_params['keepPeaksInsideRef']['loadedVal'] = True
+            section_params['removePeaksInsideRef']['loadedVal'] = False
+        elif answer.startswith('Remove'):
+            section_params['keepPeaksInsideRef']['loadedVal'] = False
+            section_params['removePeaksInsideRef']['loadedVal'] = True
+        elif answer.startswith('Do not filter'):
+            section_params['keepPeaksInsideRef']['loadedVal'] = False
+            section_params['removePeaksInsideRef']['loadedVal'] = False
+    
     def check_ref_ch_save_features_and_masks(self):
         SECTION = 'File paths and channels'
         section_params = self._params[SECTION]
@@ -4488,6 +4559,7 @@ class Kernel(_ParamsParser):
             get_backgr_from_inside_ref_ch_mask=False, 
             df_agg=None, 
             keep_only_spots_in_ref_ch=False, 
+            remove_spots_in_ref_ch=False,
             local_background_ring_width='5 pixel',
             gop_filtering_thresholds=None, 
             dist_transform_spheroid=None,
@@ -4581,6 +4653,7 @@ class Kernel(_ParamsParser):
             preproc_spots_img=preproc_spots_img,
             raw_spots_img=raw_spots_img,
             keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch, 
+            remove_spots_in_ref_ch=remove_spots_in_ref_ch,
             local_background_ring_width=local_background_ring_width,
             gop_filtering_thresholds=gop_filtering_thresholds,
             dist_transform_spheroid=dist_transform_spheroid,
@@ -4948,6 +5021,7 @@ class Kernel(_ParamsParser):
             local_background_ring_width='5 pixel',
             gop_filtering_thresholds=None, 
             keep_only_spots_in_ref_ch=False, 
+            remove_spots_in_ref_ch=False,
             dist_transform_spheroid=None,
             custom_combined_measurements=None,
             verbose=True,
@@ -4983,6 +5057,7 @@ class Kernel(_ParamsParser):
             ref_ch_mask_or_labels=ref_ch_mask_or_labels,
             ref_ch_img=ref_ch_img,
             keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch,
+            remove_spots_in_ref_ch=remove_spots_in_ref_ch,
             use_spots_segm_masks=use_spots_segm_masks,
             min_size_spheroid_mask=min_size_spheroid_mask,
             zyx_voxel_size=self.metadata['zyxVoxelSize'],
@@ -5097,16 +5172,6 @@ class Kernel(_ParamsParser):
         spot_mask = local_spot_mask[slice_crop_local]
         spot_intensities = spots_img[slice_global_to_local][spot_mask]
         return spot_intensities
-    
-    def _drop_spots_not_in_ref_ch(self, df, ref_ch_mask, local_peaks_coords):
-        if ref_ch_mask is None:
-            return df
-        
-        zz = local_peaks_coords[:,0]
-        yy = local_peaks_coords[:,1]
-        xx = local_peaks_coords[:,2]
-        in_ref_ch_spots_mask = ref_ch_mask[zz, yy, xx] > 0
-        return df[in_ref_ch_spots_mask]
    
     def _critical_feature_is_missing(self, missing_feature, df):
         format_colums = [f'    * {col}' for col in df.columns]
@@ -5694,6 +5759,9 @@ class Kernel(_ParamsParser):
         keep_only_spots_in_ref_ch = (
             self._params[SECTION]['keepPeaksInsideRef']['loadedVal']
         )
+        remove_spots_in_ref_ch = (
+            self._params[SECTION]['removePeaksInsideRef']['loadedVal']
+        )
 
         SECTION = 'Spots channel'
         gop_filtering_thresholds = (
@@ -5827,6 +5895,7 @@ class Kernel(_ParamsParser):
                 spot_footprint=spot_footprint,
                 get_backgr_from_inside_ref_ch_mask=get_backgr_from_inside_ref_ch_mask,
                 keep_only_spots_in_ref_ch=keep_only_spots_in_ref_ch,
+                remove_spots_in_ref_ch=remove_spots_in_ref_ch,
                 local_background_ring_width=local_background_ring_width,
                 gop_filtering_thresholds=gop_filtering_thresholds,
                 spots_ch_segm_mask=spots_ch_segm_mask,

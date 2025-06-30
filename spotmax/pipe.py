@@ -1536,6 +1536,7 @@ def spots_calc_features_and_filter(
         ref_ch_mask_or_labels=None, 
         ref_ch_img=None,   
         keep_only_spots_in_ref_ch=False,
+        remove_spots_in_ref_ch=False,
         use_spots_segm_masks=False,
         min_size_spheroid_mask=None,
         zyx_voxel_size=None,
@@ -1601,6 +1602,9 @@ def spots_calc_features_and_filter(
         Reference channel image. Default is None
     keep_only_spots_in_ref_ch : bool, optional
         If True, drops the spots that are outside of the reference channel mask. 
+        Default is False
+    remove_spots_in_ref_ch : bool, optional
+        If True, removes the spots that are inside the reference channel mask.
         Default is False
     use_spots_segm_masks : bool, optional
         If True and `df_spots_coords` has a column called 'spot_maks' with one 
@@ -1804,9 +1808,11 @@ def spots_calc_features_and_filter(
 
         dfs_spots_det.append(df_obj_spots_det)
         df_obj_spots_gop = df_obj_spots_det.copy()
-        if keep_only_spots_in_ref_ch:
-            df_obj_spots_gop = filters.drop_spots_not_in_ref_ch(
-                df_obj_spots_gop, local_ref_ch_mask, expanded_obj_coords
+        if keep_only_spots_in_ref_ch or remove_spots_in_ref_ch:
+            df_obj_spots_gop = filters.filter_spots_with_ref_ch_masks(
+                df_obj_spots_gop, local_ref_ch_mask, expanded_obj_coords, 
+                keep_inside=keep_only_spots_in_ref_ch, 
+                remove_inside=remove_spots_in_ref_ch,
             )
         
         start_num_spots = len(df_obj_spots_det)
