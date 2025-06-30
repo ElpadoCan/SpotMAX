@@ -19,6 +19,38 @@ from . import filters
 from . import _warnings
 from . import core
 
+def get_props_dtype_mapper():
+    props = {
+        'label': int,
+        'major_axis_length': float,
+        'minor_axis_length': float,
+        'inertia_tensor_eigvals': tuple,
+        'equivalent_diameter': float,
+        'moments': np.ndarray,
+        'area': int,
+        'solidity': float,
+        'extent': float,
+        'inertia_tensor': np.ndarray,
+        'filled_area': int,
+        'centroid': tuple,
+        'bbox_area': int,
+        'local_centroid': tuple,
+        'convex_area': int,
+        'euler_number': int,
+        'moments_normalized': np.ndarray,
+        'moments_central': np.ndarray,
+        'bbox': tuple,
+        'feret_diameter_max': float,
+        'inertia_tensor_eigvals': tuple,
+        'moments_hu': tuple,
+        'orientation': float,
+        'perimeter': float,
+        'perimeter_crofton': float,
+    }
+    return props
+
+REGIONPROPS_DTYPE_MAPPER = get_props_dtype_mapper()
+
 def normalise_by_dist_transform_simple(
         spot_slice_z, dist_transf, backgr_vals_z_spot, debug=False
     ):

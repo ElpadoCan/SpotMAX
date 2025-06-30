@@ -1,5 +1,4 @@
 from collections import defaultdict
-from unittest import result
 from tqdm import tqdm
 
 import numpy as np
@@ -709,6 +708,20 @@ def reference_channel_quantify(
             backr_corr_mean*vol_voxels
         )
         
+        ref_ch_obj = skimage.measure.regionprops(
+            ref_ch_mask_local.astype(np.uint8)
+        )[0]
+        for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
+            try:
+                prop_value = getattr(ref_ch_obj, prop_name, None)
+            except Exception as err:
+                prop_value = np.nan
+            
+            if dtype == float or dtype == int:
+                df_ref_ch.loc[:, f'ref_ch_{prop_name}'] = (
+                    prop_value
+                )
+        
         for sub_obj in ref_ch_rp:
             sub_vol_vox = np.count_nonzero(sub_obj.image)
             df_ref_ch.at[sub_obj.label, 'sub_obj_vol_vox'] = sub_vol_vox
@@ -739,6 +752,16 @@ def reference_channel_quantify(
             df_ref_ch.loc[sub_obj.label, col] = sub_backr_corr_mean
             col = 'sub_obj_ref_ch_backgr_corrected_sum_intensity'
             df_ref_ch.loc[sub_obj.label, col] = sub_backr_corr_mean*sub_vol_vox
+            
+            for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
+                try:
+                    prop_value = getattr(sub_obj, prop_name, None)
+                except Exception as err:
+                    prop_value = np.nan
+                if dtype == float or dtype == int:
+                    df_ref_ch.loc[sub_obj.label, f'ref_ch_{prop_name}'] = (
+                        prop_value
+                    )
             
             sub_objs[(ID, sub_obj.label)] = (obj, sub_obj)
         
