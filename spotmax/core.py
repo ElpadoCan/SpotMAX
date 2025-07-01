@@ -4306,42 +4306,6 @@ class Kernel(_ParamsParser):
         slicer = transformations.SliceImageFromSegmObject(lab, lineage_table)
         return slicer.slice(image, obj)
     
-    def add_ref_ch_features(
-            self, 
-            df_agg,
-            lab_rp,
-            ref_ch_segm,
-            ref_ch_img,
-            vox_to_um3=None,
-            frame_i=0,
-            verbose=True
-        ):
-        df_ref_ch = df_agg.copy()
-        if verbose and frame_i == 0:
-            print('')
-            self.logger.info('Quantifying reference channel...')
-        desc = 'Quantifying reference channel'
-        pbar = tqdm(
-            total=len(lab_rp), ncols=100, desc=desc, position=3, 
-            leave=False
-        )
-        for obj in lab_rp:
-            ref_ch_lab_local = ref_ch_segm[obj.slice].copy()
-            ref_ch_lab_local[ref_ch_lab_local!=obj.label] = 0
-            ref_ch_mask_local = ref_ch_lab_local > 0
-            
-            ref_ch_img_local = ref_ch_img[obj.slice]
-
-            # Add numerical features
-            df_agg, df_ref_ch = self._add_aggregated_ref_ch_features(
-                df_agg, df_ref_ch, frame_i, obj.label, 
-                ref_ch_mask_local, ref_ch_img_local,
-                vox_to_um3=vox_to_um3
-            )
-            pbar.update()
-        pbar.close()
-        return df_agg, df_ref_ch
-    
     def ref_ch_to_physical_units(self, df_agg, metadata):
         vox_to_um3_factor = metadata['vox_to_um3_factor']
         df_agg['ref_ch_vol_um3'] = df_agg['ref_ch_vol_vox']*vox_to_um3_factor
