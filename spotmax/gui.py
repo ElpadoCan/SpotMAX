@@ -118,6 +118,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def run(self, module='spotmax_gui', logs_path=logs_path):
         super().run(module=module, logs_path=logs_path)
+        
+        self.logger_write_func = self.logger.write
 
         self.initSpotsItems()
         self.initGui()
@@ -152,17 +154,9 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q and self.debug:
-            inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
-            viewFeaturesGroupbox = inspectResultsTab.viewFeaturesGroupbox
-            spotCircleSizeColname = self.spotsItems.sizeSelectorButton.toolTip()
-            printl(spotCircleSizeColname)
-            for toolbutton in self.spotsItems.buttons:   
-                printl(self.spotsItems.getSizes(toolbutton))
-            
-            for toolbutton in self.spotsItems.buttons:
-                item = toolbutton.item
-                for point in item.points():
-                    printl(point.data())
+            printl(self.logger, type(self.logger), dir(self.logger), sep='\n\n')
+            printl(self.logger.write, type(self.logger.write), dir(self.logger.write), sep='\n\n')
+            printl(self.logger.info('Test'))
             return
         
         super().keyPressEvent(event)
@@ -2810,6 +2804,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         )            
             
     def startComputeAnalysisStepWorker(self, module_func, anchor, **kwargs):
+        self.logger_write_func = self.logger.write
+        
         if self.progressWin is None:
             self.progressWin = acdc_apps.QDialogWorkerProgress(
                 title=self.funcDescription, parent=self,
@@ -2846,6 +2842,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             worker.waitCond.wakeAll()
     
     def computeAnalysisStepWorkerFinished(self, output: tuple):
+        self.logger.write = self.logger_write_func
+        
         if self.progressWin is not None:
             self.progressWin.workerFinished = True
             self.progressWin.close()
@@ -3239,6 +3237,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     @exception_handler
     def workerCritical(self, out: Tuple[QObject, Exception]):
+        self.logger.write = self.logger_write_func
+        
         worker, error = out
         if self.progressWin is not None:
             self.progressWin.workerFinished = True
