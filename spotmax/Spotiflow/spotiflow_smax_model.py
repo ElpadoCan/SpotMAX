@@ -56,27 +56,36 @@ class Model:
         
         self._device = device
         
-        if model_name == 'general' and os.path.exists(custom_model_path):
+        if model_name == 'custom' and not os.path.exists(custom_model_path):
+            raise FileNotFoundError(
+                f'This model folder does not exist: "{custom_model_path}"'
+            )
+        
+        is_pretrained = (
+            model_name in AvailableModels().values and model_name != 'custom'
+        )
+        
+        if is_pretrained and os.path.exists(custom_model_path):
             raise TypeError(
-                'The "general" model cannot be loaded if the `custom_model_path` '
-                'exists! Please, either pass `model_name="custom" with an '
+                f'The pre-trained model "{model_name}" model cannot be loaded '
+                'if the `custom_model_path` exists!\n\n'
+                'Please, either pass `model_name="custom" with an '
                 'existing custom model, or `model_name="custom" with empty '
                 '`custom_model_path`, thanks.'
             )
-        elif model_name == 'custom' and os.path.exists(custom_model_path):
+            
+        if model_name == 'custom':
             self.model = Spotiflow.from_folder(
                 custom_model_path, 
                 map_location=map_location
             )
-        elif model_name == 'general':
+        else:
             self.model = Spotiflow.from_pretrained(
-                'general', 
+                model_name, 
                 map_location=map_location
             )
-        elif model_name == 'custom':
-            raise FileNotFoundError(
-                f'This model folder does not exist: "{custom_model_path}"'
-            )
+        
+        
     
     def segment(
             self, image,
@@ -163,23 +172,25 @@ class Model:
             points = []
             for z, img in enumerate(image):
                 yx_points, details = self.model.predict(img, **predict_kwargs)
-                points.append(yx_points)
-            points = np.array(points)
+                zyx_points = np.zeros((len(yx_points), 3))
+                zyx_points[:, 0] = z
+                zyx_points[:, 1:] = yx_points
+                points.append(zyx_points)
+            points = np.vstack(points)
         
-        for z, yx_coords in enumerate(points):
-            z_slice = round(z)
-            coords = np.round(yx_coords).astype(int)
-
-            for yc, xc in coords:
-                rr, cc = skimage.draw.disk(
-                    (yc, xc), expected_spot_radius, shape=img.shape
-                )
-                if output_labels == 'Boolean mask' and is2D:
-                    values = np.arange(1, len(rr)+1)
-                else:
-                    values = True
-                
-                lab[z_slice, rr, cc] = values
+        for zyx_coords in points:
+            zc, yc, xc = zyx_coords
+            z_slice = round(zc)
+            img = image[z_slice]
+            rr, cc = skimage.draw.disk(
+                (yc, xc), expected_spot_radius, shape=img.shape
+            )
+            if output_labels == 'Boolean mask' and is2D:
+                values = np.arange(1, len(rr)+1)
+            else:
+                values = True
+            
+            lab[z_slice, rr, cc] = values
         
         if is2D:
             lab = lab[0]

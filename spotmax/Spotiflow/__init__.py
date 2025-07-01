@@ -1,3 +1,5 @@
+from cellacdc import is_mac
+
 from cellacdc.myutils import check_install_package
 
 from spotmax import is_cli
@@ -7,5 +9,5 @@ def install():
         'spotiflow', 
         is_cli=is_cli,
         caller_name='SpotMAX',
-        installer='conda'
+        installer='conda' if is_mac else 'pip'
     )

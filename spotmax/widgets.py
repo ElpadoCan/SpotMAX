@@ -2265,7 +2265,7 @@ class QLogConsole(QTextEdit):
         font.setPixelSize(12)
         self.setFont(font)
 
-    def write(self, message):
+    def write(self, message, **kwargs):
         # Method required by tqdm pbar
         message = message.replace('\r ', '')
         if message:
