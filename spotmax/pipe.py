@@ -708,9 +708,11 @@ def reference_channel_quantify(
             backr_corr_mean*vol_voxels
         )
         
-        ref_ch_obj = skimage.measure.regionprops(
+        ref_ch_local_rp = skimage.measure.regionprops(
             ref_ch_mask_local.astype(np.uint8)
-        )[0]
+        )
+        if len(ref_ch_local_rp) > 0:
+            ref_ch_obj = ref_ch_local_rp[0]
         for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
             try:
                 prop_value = getattr(ref_ch_obj, prop_name, None)
