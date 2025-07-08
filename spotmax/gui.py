@@ -785,7 +785,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def reInitGui(self):
-        super().reInitGui()
+        proceed = super().reInitGui()
+        if not proceed or proceed is None:
+            self.openFolderAction.setEnabled(True)
+            return False
         
         self.loadCustomAnnotationsAction.setDisabled(True)
         self.addCustomAnnotationAction.setDisabled(True)
@@ -822,6 +825,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.ax1.removeItem(self.highlightedRefChObjItem)
         except Exception as err:
             pass
+            
+        return True
     
     def hideCellACDCtools(self):
         # self.measurementsMenu.setDisabled(False)
