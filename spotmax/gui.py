@@ -120,6 +120,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         super().run(module=module, logs_path=logs_path)
         
         self.logger_write_func = self.logger.write
+        self.dfs_ref_ch_features = None
 
         self.initSpotsItems()
         self.initGui()
