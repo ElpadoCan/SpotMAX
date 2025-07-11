@@ -27,17 +27,14 @@ extensions = [
     'sphinx.ext.duration',
     'sphinx.ext.doctest',
     'sphinx.ext.autodoc',
-    # 'sphinx.ext.autosectionlabel',
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
     'sphinx_copybutton',
     'sphinxcontrib.email',
     'sphinx_tabs.tabs',
     'sphinx_toolbox.confval',
-    # 'sphinx_carousel.carousel',
     'sphinxcontrib.video',
-    # # 'nbsphinx'
-    # # 'sphinx_rtd_dark_mode'
+    'sphinx_design'
 ]
 
 intersphinx_mapping = {

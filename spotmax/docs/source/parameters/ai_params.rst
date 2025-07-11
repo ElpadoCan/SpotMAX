@@ -98,7 +98,7 @@ of the INI configuration file with the AI parameters.
     :default: ``0.0``
 
 
-.. confval:: Remove hot pixels
+.. confval:: Remove hot pixels (AI input)
 
     If ``True``, the model will apply a morphological opening filter to remove 
     hot pixels (isolated bright pixels) from the input images.
@@ -112,7 +112,7 @@ of the INI configuration file with the AI parameters.
     during training. The default value is ``spotmax/nnet/config.yaml``, 
     which are the pretrained models provided with SpotMAX.
 
-    You can view this file `here <https://github.com/SchmollerLab/SpotMAX/blob/main/spotmax/nnet/config.yaml>`_. 
+    View `config file <https://github.com/SchmollerLab/SpotMAX/blob/main/spotmax/nnet/config.yaml>`_. 
 
     :type: PathLike
     :default: ``spotmax/nnet/config.yaml``
