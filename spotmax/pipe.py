@@ -632,7 +632,7 @@ def reference_channel_quantify(
         print('')
         logger_func('Quantifying reference channel...')
         
-    if lab:
+    if lab is None:
         lab = np.ones(ref_ch_segm.shape, dtype=np.uint8)
     
     if lab_rp is None:
@@ -713,16 +713,19 @@ def reference_channel_quantify(
         )
         if len(ref_ch_local_rp) > 0:
             ref_ch_obj = ref_ch_local_rp[0]
-        for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
-            try:
-                prop_value = getattr(ref_ch_obj, prop_name, None)
-            except Exception as err:
-                prop_value = np.nan
-            
-            if dtype == float or dtype == int:
-                df_ref_ch.loc[:, f'ref_ch_{prop_name}'] = (
-                    prop_value
-                )
+            for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
+                try:
+                    prop_value = getattr(ref_ch_obj, prop_name, None)
+                except Exception as err:
+                    prop_value = np.nan
+                
+                if dtype == float or dtype == int:
+                    try:
+                        df_ref_ch.loc[:, f'ref_ch_{prop_name}'] = (
+                            prop_value
+                        )
+                    except Exception as err:
+                        import pdb; pdb.set_trace()
         
         for sub_obj in ref_ch_rp:
             sub_vol_vox = np.count_nonzero(sub_obj.image)
