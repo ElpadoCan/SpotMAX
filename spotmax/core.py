@@ -589,7 +589,6 @@ class _ParamsParser(_DataLoader):
     
     def _add_logger_file_handler(self, log_filepath):
         self.logger.info(f'Logging to additional log file "{log_filepath}"')
-        printl(log_filepath)
         file_handler = utils.logger_file_handler(log_filepath, mode='a')
         self.logger.addHandler(file_handler)
     
@@ -650,9 +649,16 @@ class _ParamsParser(_DataLoader):
         
         return report_filepath
 
-    def _check_exists_report_file(
+    def _check_exists_validate_report_file(
             self, report_filepath, params_path, force_default=False
         ):
+        report_folderpath = os.path.dirname(report_filepath)
+        if io.is_images_path(report_folderpath, check_parent=False):
+            raise PermissionError(
+                'The report file cannot be saved to a Cell-ACDC Images folder! '
+                f'Requested folder: "{report_folderpath}"'
+            )
+
         report_default_filepath = self.get_default_report_filepath(params_path)
         report_default_filename = os.path.basename(report_default_filepath)
         
@@ -839,6 +845,12 @@ class _ParamsParser(_DataLoader):
             parser_args['log_folderpath'] = self.logs_path
         
         if parser_args['log_filepath']:
+            if io.is_images_path(arser_args['log_filepath'], check_parent=False):
+                raise PermissionError(
+                    'The log file cannot be saved to a Cell-ACDC Images folder! '
+                    f'Requested folder: "{report_folderpath}"'
+                )
+                
             self._add_logger_file_handler(parser_args['log_filepath'])
         
         disable_final_report = parser_args['disable_final_report']
@@ -856,7 +868,7 @@ class _ParamsParser(_DataLoader):
                 )
                 self.quit()
                 return
-            report_filepath = self._check_exists_report_file(
+            report_filepath = self._check_exists_validate_report_file(
                 report_filepath, params_path, force_default=force_default
             )
             if report_filepath is None:
