@@ -70,7 +70,7 @@ LINEAGE_COLUMNS = list(base_cca_dict.keys())
 
 ANALYSIS_STEP_RESULT_SLOTS = {
     'gaussSigma': '_displayGaussSigmaResult',
-    'refChGaussSigma': '_displayGaussSigmaResult',
+    'refChGaussSigma': '_displayGaussSigmaResultRefCh',
     'refChRidgeFilterSigmas': '_displayRidgeFilterResult',
     'removeHotPixels': '_displayRemoveHotPixelsResult',
     'sharpenSpots': '_displaySharpenSpotsResult',
@@ -120,6 +120,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         super().run(module=module, logs_path=logs_path)
         
         self.logger_write_func = self.logger.write
+        self.dfs_ref_ch_features = None
 
         self.initSpotsItems()
         self.initGui()
@@ -785,7 +786,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
     
     def reInitGui(self):
-        super().reInitGui()
+        proceed = super().reInitGui()
+        if not proceed or proceed is None:
+            self.openFolderAction.setEnabled(True)
+            return False
         
         self.loadCustomAnnotationsAction.setDisabled(True)
         self.addCustomAnnotationAction.setDisabled(True)
@@ -822,6 +826,8 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.ax1.removeItem(self.highlightedRefChObjItem)
         except Exception as err:
             pass
+            
+        return True
     
     def hideCellACDCtools(self):
         # self.measurementsMenu.setDisabled(False)
@@ -2514,15 +2520,25 @@ class spotMAX_Win(acdc_gui.guiWin):
             on_finished_callback=on_finished_callback
         )
     
-    def _displayGaussSigmaResult(self, filtered, image):
+    def _displayGaussSigmaResultRefCh(self, filtered, image):
+        self._displayGaussSigmaResult(
+            filtered, image, 
+            section='Reference channel', 
+            anchor='refChGaussSigma'
+        )
+    
+    def _displayGaussSigmaResult(
+            self, filtered, image, 
+            section='Pre-processing', 
+            anchor='gaussSigma'
+        ):
         from cellacdc.plot import imshow
         posData = self.data[self.pos_i]
         
         ParamsGroupBox = self.computeDockWidget.widget().parametersQGBox
         
-        preprocessParams = ParamsGroupBox.params['Pre-processing']
-        anchor = 'gaussSigma'
-        sigma = preprocessParams[anchor]['widget'].value()
+        sectionParams = ParamsGroupBox.params[section]
+        sigma = sectionParams[anchor]['widget'].value()
         titles = ['Raw image', f'Filtered image (sigma = {sigma})']
         imshow(
             image, filtered, axis_titles=titles, parent=self, 

@@ -11,6 +11,9 @@
 .. _BioImage.IO: https://www.biorxiv.org/content/10.1101/2022.06.07.495102v1
 .. _thread: https://x.com/frank_pado/status/1849739617735426438
 
+.. |spotmaxlogo| image:: https://raw.githubusercontent.com/SchmollerLab/SpotMAX/refs/heads/main/spotmax/resources/spotMAX_logo.svg
+   :width: 80
+
 .. |build_win_pyqt5| image:: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-windows_pyqt5.yml/badge.svg
    :target: https://github.com/ElPadoCan/SpotMAX/actions/workflows/build-windows_pyqt5.yml
    :alt: Build Status (Windows PyQt5)
@@ -58,10 +61,6 @@
 .. |docs| image:: https://readthedocs.org/projects/spotmax/badge/?version=latest
     :target: https://spotmax.readthedocs.io/en/latest/
     :alt: Documentation Status
-
-.. |spotmaxlogo| image:: spotmax/docs/source/_static/logo.png
-   :width: 64
-   :target: https://github.com/ElpadoCan/SpotMAX/tree/main/spotmax/resources
 
 |spotmaxlogo| Welcome to SpotMAX!
 =================================

@@ -30,46 +30,55 @@ SpotMAX will help you with these **two tasks**:
 1. Detect and quantify **globular-like structures** (a.k.a. "spots")
 2. Segment and quantify **fluorescently labelled structures** (e.g., mitochondria, nucelus, etc.)
 
-.. carousel::
-   :show_captions_below:
-   :show_controls:
-   :show_indicators:
+.. card-carousel:: 1
 
-   .. figure:: images/home_carousel/spotmax_GUI.png
+   .. card::
+      
+      .. figure:: images/home_carousel/spotmax_GUI.png
 
-      Graphical User Interface
+         Graphical User Interface
 
-      Interactively set the analysis parameters
+         Interactively set the analysis parameters
    
-   .. figure:: images/home_carousel/C_elegans_halo.png
+   .. card::
+      
+      .. figure:: images/home_carousel/C_elegans_halo.png
 
-      Synaptonemal Complex in *C. elegans*
+         Synaptonemal Complex in *C. elegans*
 
-      Accurately detect touching spots
+         Accurately detect touching spots
    
-   .. figure:: images/home_carousel/Anika_mito_yeast.png
+   .. card::
+      
+      .. figure:: images/home_carousel/Anika_mito_yeast.png
 
-      Detect spots and segment a reference channel
+         Detect spots and segment a reference channel
 
-      Segment and quantify the mitochondrial network in 3D
+         Segment and quantify the mitochondrial network in 3D
    
-   .. figure:: images/home_carousel/Jette_stem_cells_telomeres.png
+   .. card::
+      
+      .. figure:: images/home_carousel/Jette_stem_cells_telomeres.png
 
-      Telomeres length quantification in stem cells (DNA-FISH)
+         Telomeres length quantification in stem cells (DNA-FISH)
 
-      Quantify telomeres length as a function of cell size 
+         Quantify telomeres length as a function of cell size 
    
-   .. figure:: images/home_carousel/Dimitra_smFISH.png
+   .. card::
+      
+      .. figure:: images/home_carousel/Dimitra_smFISH.png
 
-      Count single-molecule of mRNAs in smFISH data
+         Count single-molecule of mRNAs in smFISH data
 
-      Optimised for high spot density
+         Optimised for high spot density
    
-   .. figure:: images/home_carousel/inspect_results_GUI.png
+   .. card::
+      
+      .. figure:: images/home_carousel/inspect_results_GUI.png
 
-      Inspect the results
+         Inspect the results
 
-      Annotate detected spots and inspect features by hovering on the spot
+         Annotate detected spots and inspect features by hovering on the spot
 
 SpotMAX excels in particularly challenging situations, such as 
 **low signal-to-noise ratio** and **high spot density**.
