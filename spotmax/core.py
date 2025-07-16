@@ -846,9 +846,10 @@ class _ParamsParser(_DataLoader):
         
         if parser_args['log_filepath']:
             if io.is_images_path(parser_args['log_filepath'], check_parent=False):
+                log_filepath = parser_args['log_filepath']
                 raise PermissionError(
                     'The log file cannot be saved to a Cell-ACDC Images folder! '
-                    f'Requested folder: "{report_folderpath}"'
+                    f'Requested folder: "{log_filepath}"'
                 )
                 
             self._add_logger_file_handler(parser_args['log_filepath'])
