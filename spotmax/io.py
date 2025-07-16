@@ -239,14 +239,15 @@ def is_pos_path(path):
     else:
         return False
 
-def is_images_path(path):
+def is_images_path(path, check_parent=False):
     if not os.path.isdir(path):
         return False
     folder_name = os.path.basename(path)
-    if folder_name == 'Images':
-        return True
-    else:
-        return False
+    if not check_parent:
+        return folder_name == 'Images'
+    
+    parent_foldername = os.path.basename(os.path.dirname(path))
+    return folder_name == 'Images' and parent_foldername.startswith('Position_')
 
 def _load_video(path):
     video = cv2.VideoCapture(path)
