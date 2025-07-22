@@ -893,6 +893,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     @exception_handler
     def runAnalysis(self, ini_filepath, is_tempfile, start=True):
         self.isAnalysisRunning = True
+        self.spotsItems.clearLoadedTables()
         self.stateBeforeStartingAnalysis = self.windowState()
         self.setWindowState(Qt.WindowMinimized)
         self.setDisabled(True)

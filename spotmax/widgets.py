@@ -2341,6 +2341,9 @@ class SpotsItems(QObject):
         self.loadedDfs = {}
         self.sizeSelectorButton = sizeSelectorButton
 
+    def clearLoadedTables(self):
+        self.loadedDfs = {}
+    
     def addLayer(self, df_spots_files: dict, selected_file=None):
         all_df_spots_files = set()
         for files in df_spots_files.values():
