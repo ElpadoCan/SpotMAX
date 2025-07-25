@@ -46,6 +46,8 @@ def get_props_dtype_mapper():
         'orientation': float,
         'perimeter': float,
         'perimeter_crofton': float,
+        'circularity': float,
+        'roundness': float
     }
     return props
 
@@ -765,3 +767,48 @@ def kurtosis_from_hist(bin_centers, counts):
             / (variance**2 * total)
         )
     return kurtosis
+
+def calc_circularity(obj):
+    if obj.image.ndim == 3:
+        raise TypeError(
+            'Circularity can only be calculated for 2D objects.'
+        )
+    
+    circularity = 4 * np.pi * obj.area / pow(obj.perimeter, 2)
+    return circularity
+
+def calc_roundness(obj):
+    if obj.image.ndim == 3:
+        raise TypeError(
+            'Roundness can only be calculated for 2D objects.'
+        )
+    
+    roundness = 4 * obj.area / np.pi / pow(obj.major_axis_length, 2)
+    return roundness
+
+def calc_additional_regionprops(obj):
+    if obj.image.ndim == 3:
+        circularity_sum = 0
+        roundness_sum = 0
+        for image_z in obj.image:
+            rp_z = skimage.measure.regionprops(image_z.astype(np.uint8))
+            if len(rp_z) == 0:
+                continue
+            obj_z = rp_z[0]
+            circularity_sum += calc_circularity(obj_z)
+            roundness_sum += calc_roundness(obj_z)
+        circularity = circularity_sum / len(obj.image)
+        roundness = roundness_sum / len(obj.image)
+    elif obj.image.ndim == 2:
+        circularity = calc_circularity(obj)
+        roundness = calc_roundness(obj)
+    else:
+        raise TypeError(
+            'Additional regionprops can be calculated only for 2D or 3D objects.'
+        )
+    
+    obj.circularity = circularity
+    obj.roundness = roundness
+    
+    return obj
+        

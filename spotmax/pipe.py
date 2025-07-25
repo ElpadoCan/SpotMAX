@@ -709,11 +709,13 @@ def reference_channel_quantify(
         )
         
         ref_ch_local_rp = skimage.measure.regionprops(
-            ref_ch_mask_local.astype(np.uint8)
+            np.squeeze(ref_ch_mask_local.astype(np.uint8))
         )
         if len(ref_ch_local_rp) > 0:
             ref_ch_obj = ref_ch_local_rp[0]
+            ref_ch_obj = features.calc_additional_regionprops(ref_ch_obj)
             for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
+                
                 try:
                     prop_value = getattr(ref_ch_obj, prop_name, None)
                 except Exception as err:
@@ -725,7 +727,7 @@ def reference_channel_quantify(
                             prop_value
                         )
                     except Exception as err:
-                        import pdb; pdb.set_trace()
+                        pass
         
         for sub_obj in ref_ch_rp:
             sub_vol_vox = np.count_nonzero(sub_obj.image)
@@ -759,18 +761,22 @@ def reference_channel_quantify(
             col = 'sub_obj_ref_ch_backgr_corrected_sum_intensity'
             df_ref_ch.loc[sub_obj.label, col] = sub_backr_corr_mean*sub_vol_vox
             
+            sub_objs[(ID, sub_obj.label)] = (obj, sub_obj)
+            
+        ref_ch_rp = skimage.measure.regionprops(np.squeeze(ref_ch_lab))
+        for sub_obj in ref_ch_rp:
+            sub_obj = features.calc_additional_regionprops(sub_obj)
             for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
+                col_name = f'sub_obj_ref_ch_{prop_name}'
                 try:
                     prop_value = getattr(sub_obj, prop_name, None)
                 except Exception as err:
                     prop_value = np.nan
                 if dtype == float or dtype == int:
-                    df_ref_ch.loc[sub_obj.label, f'ref_ch_{prop_name}'] = (
+                    df_ref_ch.loc[sub_obj.label, col_name] = (
                         prop_value
-                    )
+                    )  
             
-            sub_objs[(ID, sub_obj.label)] = (obj, sub_obj)
-        
         dfs_ref_ch.append(df_ref_ch)
         keys.append((frame_i, ID))
         
