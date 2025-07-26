@@ -487,7 +487,7 @@ Pre-processing
 
   If greater than 0, SpotMAX will apply a Gaussian blur before detection. 
   This is usually beneficial. Note that you can provide a single sigma value 
-  or one for each axis (separated by a comma). 
+  or one for each axis ((z, y, x) separated by a comma). 
 
   :type: float
   :default: ``0.75``
@@ -605,7 +605,7 @@ Reference channel
 
   If greater than 0, SpotMAX will appy a gaussian filter to the reference 
   channel before segmenting it. Note that you can provide a single sigma value 
-  or one for each axis (separated by a comma). 
+  or one for each axis ((z, y, x) separated by a comma). 
 
   :type: float
   :default: ``0.75``
