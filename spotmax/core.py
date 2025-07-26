@@ -5611,8 +5611,10 @@ class Kernel(_ParamsParser):
                 f'Analysing until frame n. {stopFrameNum} '
                 f'("{os.path.dirname(images_path)}")'
             )
+
+        if stopFrameNum > len(segm_data):
+            stopFrameNum = len(segm_data)  
         
-        """---------------------------INIT DFs-------------------------------"""
         desc = 'Adding segmentation objects features'
         self._current_step = desc
         pbar = tqdm(
