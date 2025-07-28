@@ -333,9 +333,17 @@ class spotMAX_Win(acdc_gui.guiWin):
     def onHoverInspectPoints(self, x, y):
         z = self.currentZ()
         frame_i = self.data[self.pos_i].frame_i
-        point_features = self.spotsItems.getHoveredPointData(frame_i, z, y, x)
+        point_features, df = self.spotsItems.getHoveredPointData(
+            frame_i, z, y, x, return_df=True
+        )
+        if point_features is None:
+            return
+        
+        posData = self.data[self.pos_i]
+        xdata, ydata = int(x), int(y)
+        ID = self.get_2Dlab(posData.lab)[ydata, xdata]
         inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
-        inspectResultsTab.setInspectFeatures(point_features)
+        inspectResultsTab.setInspectFeatures(point_features, df=df, ID=ID)
         
     def getIDfromXYPos(self, x, y):
         posData = self.data[self.pos_i]
@@ -998,9 +1006,20 @@ class spotMAX_Win(acdc_gui.guiWin):
         dfUpdated = self.spotsItems.checkUpdateLoadedDf(runNumberLastAnalysis)
         if dfUpdated:
             self.logger.info(
-                'Previously loaded results updated.'
+                'Previously loaded results from run number '
+                f'{runNumberLastAnalysis} have been updated.'
+            )
+            txt = html_func.paragraph(f"""
+                The previously loaded tables from run number 
+                {runNumberLastAnalysis} <b>have been updated</b> in the 
+                <code>Inspect and/or edit results</code> tab.
+            """)
+            msg = acdc_widgets.myMessageBox(wrapText=False)
+            msg.information(
+                self, 'Loaded tables updated', txt, 
             )
             return
+        
         self.askVisualizeResults(runNumberLastAnalysis)
     
     def instructHowToVisualizeResults(self):

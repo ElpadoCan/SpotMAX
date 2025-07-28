@@ -2363,7 +2363,7 @@ class SpotsItems(QObject):
         toolbutton = self.addLayerFromState(win.state, all_df_spots_files)
         return toolbutton
     
-    def addLayerFromState(self, state, all_df_spots_files):
+    def addLayerFromState(self, state, all_df_spots_files, add_items_to_ax=False):
         toolbutton = self.addToolbarButton(state)
         toolbutton.df_spots_files = all_df_spots_files
         self.buttons.append(toolbutton)
@@ -2371,7 +2371,16 @@ class SpotsItems(QObject):
         self.loadSpotsTables(toolbutton)
         toolbutton.setToolTip(toolbutton.filename)
         toolbutton.setChecked(True)
-        return toolbutton
+        if not add_items_to_ax:
+            return toolbutton
+        
+        toolbutton.action = self.parent.spotmaxToolbar.addWidget(toolbutton)
+        self.parent.ax1.addItem(toolbutton.item)
+        
+        self.setData(
+            self.posData.frame_i, toolbutton=toolbutton,
+            z=self.parent.currentZ(checkIfProj=True)
+        )
 
     def checkUpdateLoadedDf(self, run_number):
         states_to_reload = []
@@ -2379,6 +2388,8 @@ class SpotsItems(QObject):
             if button.filename.startswith(f'{run_number}_'):
                 states_to_reload.append((button.state, button.df_spots_files))
                 self.removeButton(button)
+        
+        printl(states_to_reload)
         
         if not states_to_reload:
             return False
@@ -2389,8 +2400,10 @@ class SpotsItems(QObject):
     
     def restoreButtons(self, states):
         for state, df_spots_files in states:
-            toolbutton = self.addLayerFromState(state, df_spots_files)
-    
+            toolbutton = self.addLayerFromState(
+                state, df_spots_files, add_items_to_ax=True
+            )
+        
     def addToolbarButton(self, state):
         symbol = state['pg_symbol']
         color = state['symbolColor']
@@ -2522,7 +2535,7 @@ class SpotsItems(QObject):
             item.setPxMode(False)
             item.setSize(sizes)
     
-    def getHoveredPointData(self, frame_i, z, y, x):
+    def getHoveredPointData(self, frame_i, z, y, x, return_df=False):
         for toolbutton in self.buttons:
             if not toolbutton.isChecked():
                 continue
@@ -2551,7 +2564,13 @@ class SpotsItems(QObject):
             point_df['Position_n'] = self.posFoldername()
             point_features = point_df.set_index(
                 ['Position_n', 'frame_i', 'z', 'y', 'x']).iloc[0]
-            return point_features
+            
+            if not return_df:
+                return point_features
+            else:
+                return point_features, df
+            
+        return None, None
     
     def getBrush(self, state, alpha=255):
         r,g,b,a = state['symbolColor'].getRgb()

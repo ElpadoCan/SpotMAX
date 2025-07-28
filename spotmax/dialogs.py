@@ -1089,10 +1089,24 @@ class InspectEditResultsTabWidget(QWidget):
     def emitSigComputeFeatures(self, *args):
         self.sigComputeFeatures.emit(*args)
     
-    def setInspectFeatures(self, point_features):
+    def setInspectFeatures(self, point_features, df=None, ID=None):
         if point_features is None:
             return
+        
         self.viewFeaturesGroupbox.setFeatures(point_features)       
+        if df is None:
+            return
+        
+        self.viewFeaturesGroupbox.totNumSpotsEntry.setValue(len(df))
+        
+        if ID is None:
+            return
+        
+        if ID <= 0:
+            return
+        
+        num_spots_per_ID = df[df['Cell_ID'] == ID].shape[0]
+        self.viewFeaturesGroupbox.numSpotsPerObjEntry.setValue(num_spots_per_ID)
     
     def setLoadedRefChannelFeaturesFile(self, filename):
         self.viewRefChFeaturesGroupbox.infoLabel.setText(
@@ -1510,6 +1524,7 @@ class AutoTuneViewSpotFeatures(QGroupBox):
             self.infoLabel, row, col, 1, 2, alignment=Qt.AlignCenter
         )
         
+        self.numSpotsEntry = None
         if includeSizeSelector:
             row += 1
             selectSizeLayout = QHBoxLayout()
@@ -1544,6 +1559,25 @@ class AutoTuneViewSpotFeatures(QGroupBox):
             row += 1
             layout.addItem(QSpacerItem(1, 15), row, col+1)
             self.selectFeatureForSpotSizeButton = selectFeatureForSpotSizeButton
+            
+            row += 1
+            layout.addWidget(
+                QLabel('Total number of spots'), row, col, 
+                alignment=Qt.AlignRight
+            )
+            self.totNumSpotsEntry = widgets.ReadOnlyLineEdit()
+            layout.addWidget(self.totNumSpotsEntry, row, col+1)
+            
+            row += 1
+            layout.addWidget(
+                QLabel('Number of spots per segmented object'), row, col, 
+                alignment=Qt.AlignRight
+            )
+            self.numSpotsPerObjEntry = widgets.ReadOnlyLineEdit()
+            layout.addWidget(self.numSpotsPerObjEntry, row, col+1)
+            
+            row += 1
+            layout.addItem(QSpacerItem(1, 15), row, col+1)
         
         row += 1
         layout.addWidget(QLabel('Spot id'), row, col, alignment=Qt.AlignRight)
