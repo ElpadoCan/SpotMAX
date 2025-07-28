@@ -1564,3 +1564,16 @@ def get_info_version_text(is_cli=False, include_platform=True):
     info_txt = '\n'.join(formatted_info_txts)
     
     return info_txt
+
+def squeeze_3D_if_needed(arr):
+    if arr.ndim == 2:
+        return arr
+    
+    if arr.ndim == 3 and arr.shape[0] == 1:
+        return arr[0].copy()
+    
+    raise TypeError(
+        'Input array must be 2D or 3D with a single Z slice. '
+        f'Currently it has shape {arr.shape}'
+    )
+    

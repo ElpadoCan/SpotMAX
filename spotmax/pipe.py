@@ -709,7 +709,7 @@ def reference_channel_quantify(
         )
         
         ref_ch_local_rp = skimage.measure.regionprops(
-            np.squeeze(ref_ch_mask_local.astype(np.uint8))
+            utils.squeeze_3D_if_needed(ref_ch_mask_local.astype(np.uint8))
         )
         if len(ref_ch_local_rp) > 0:
             ref_ch_obj = ref_ch_local_rp[0]
@@ -763,7 +763,9 @@ def reference_channel_quantify(
             
             sub_objs[(ID, sub_obj.label)] = (obj, sub_obj)
             
-        ref_ch_rp = skimage.measure.regionprops(np.squeeze(ref_ch_lab))
+        ref_ch_rp = skimage.measure.regionprops(
+            utils.squeeze_3D_if_needed(ref_ch_lab)
+        )
         for sub_obj in ref_ch_rp:
             sub_obj = features.calc_additional_regionprops(sub_obj)
             for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
