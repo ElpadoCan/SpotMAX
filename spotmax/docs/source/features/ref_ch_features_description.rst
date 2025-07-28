@@ -76,6 +76,27 @@ the `scikit-image`_ library. The following properties are calculated:
 * **Orientation (angle)**: column name ``ref_ch_orientation``.
 * **Perimeter**: column name ``ref_ch_perimeter``.
 * **Perimeter (Crofton)**: column name ``ref_ch_perimeter_crofton``.
+* **Perimeter (Crofton)**: column name ``ref_ch_perimeter_crofton``.
+* **Circularity**: column name ``ref_ch_circularity``. 
+  Circularity is calculated as follows:
+
+    .. math::
+    
+        \mathrm{circularity} = \frac{4\pi A}{P^2}
+    
+    where :math:`A` is the area of the object and :math:`P` is the perimeter 
+    of the object.
+
+* **Roundness**: column name ``ref_ch_roundness``.
+  Roundness is calculated as follows:
+
+    .. math::
+    
+        \mathrm{roundness} = \frac{4A}{\pi M^2}
+    
+    where :math:`A` is the area of the object and :math:`M` is the major  
+    axis length of the object.
+
 
 Intensity metrics - sub-object
 ------------------------------
@@ -118,3 +139,24 @@ the `scikit-image`_ library. The following properties are calculated:
 * **Orientation (angle)**: column name ``sub_obj_ref_ch_orientation``.
 * **Perimeter**: column name ``sub_obj_ref_ch_perimeter``.
 * **Perimeter (Crofton)**: column name ``sub_obj_ref_ch_perimeter_crofton``.
+* **Circularity**: column name ``ref_ch_circularity``. 
+  
+  Circularity is calculated as follows:
+
+    .. math::
+    
+        \mathrm{circularity} = \frac{4\pi A}{P^2}
+    
+    where :math:`A` is the area of the object and :math:`P` is the perimeter 
+    of the object.
+
+* **Roundness**: column name ``ref_ch_roundness``.
+  
+  Roundness is calculated as follows:
+
+    .. math::
+    
+        \mathrm{roundness} = \frac{4A}{\pi M^2}
+    
+    where :math:`A` is the area of the object and :math:`M` is the major  
+    axis length of the object.
