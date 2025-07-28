@@ -2360,15 +2360,37 @@ class SpotsItems(QObject):
         if win.cancel:
             return
 
-        toolbutton = self.addToolbarButton(win.state)
+        toolbutton = self.addLayerFromState(win.state, all_df_spots_files)
+        return toolbutton
+    
+    def addLayerFromState(self, state, all_df_spots_files):
+        toolbutton = self.addToolbarButton(state)
         toolbutton.df_spots_files = all_df_spots_files
         self.buttons.append(toolbutton)
-        self.createSpotItem(win.state, toolbutton)
+        self.createSpotItem(state, toolbutton)
         self.loadSpotsTables(toolbutton)
         toolbutton.setToolTip(toolbutton.filename)
         toolbutton.setChecked(True)
         return toolbutton
 
+    def checkUpdateLoadedDf(self, run_number):
+        states_to_reload = []
+        for button in self.buttons:
+            if button.filename.startswith(f'{run_number}_'):
+                states_to_reload.append((button.state, button.df_spots_files))
+                self.removeButton(button)
+        
+        if not states_to_reload:
+            return False
+        
+        QTimer.singleShot(100, partial(self.restoreButtons, states_to_reload))
+        
+        return True
+    
+    def restoreButtons(self, states):
+        for state, df_spots_files in states:
+            toolbutton = self.addLayerFromState(state, df_spots_files)
+    
     def addToolbarButton(self, state):
         symbol = state['pg_symbol']
         color = state['symbolColor']

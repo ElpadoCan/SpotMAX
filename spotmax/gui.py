@@ -990,9 +990,18 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         if self.isDataLoaded:
             runNumberLastAnalysis = args[2]
-            self.askVisualizeResults(runNumberLastAnalysis)
+            self.checkAskLoadedResults(runNumberLastAnalysis)
         else:
             self.instructHowToVisualizeResults()
+    
+    def checkAskLoadedResults(self, runNumberLastAnalysis):
+        dfUpdated = self.spotsItems.checkUpdateLoadedDf(runNumberLastAnalysis)
+        if dfUpdated:
+            self.logger.info(
+                'Previously loaded results updated.'
+            )
+            return
+        self.askVisualizeResults(runNumberLastAnalysis)
     
     def instructHowToVisualizeResults(self):
         txt = html_func.paragraph("""
