@@ -2389,8 +2389,6 @@ class SpotsItems(QObject):
                 states_to_reload.append((button.state, button.df_spots_files))
                 self.removeButton(button)
         
-        printl(states_to_reload)
-        
         if not states_to_reload:
             return False
         
