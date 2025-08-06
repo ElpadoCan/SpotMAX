@@ -718,7 +718,7 @@ def filter_df_from_features_thresholds(
         query = f'({query}) | (do_not_drop > 0)'
     
     # logger_func(f'Filtering with query = `{query}`')
-    
+
     df_filtered = df_features.query(query)
     
     if debug:

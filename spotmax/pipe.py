@@ -666,6 +666,10 @@ def reference_channel_quantify(
         
         ref_ch_lab = skimage.measure.label(ref_ch_mask_local)
         ref_ch_rp = skimage.measure.regionprops(ref_ch_lab)
+        
+        if len(ref_ch_rp) == 0:
+            continue
+        
         df_ref_ch = features._init_df_ref_ch(ref_ch_rp)
 
         # Add num of fragments
@@ -715,7 +719,6 @@ def reference_channel_quantify(
             ref_ch_obj = ref_ch_local_rp[0]
             ref_ch_obj = features.calc_additional_regionprops(ref_ch_obj)
             for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
-                
                 try:
                     prop_value = getattr(ref_ch_obj, prop_name, None)
                 except Exception as err:
@@ -763,10 +766,10 @@ def reference_channel_quantify(
             
             sub_objs[(ID, sub_obj.label)] = (obj, sub_obj)
             
-        ref_ch_rp = skimage.measure.regionprops(
+        sub_obj_ref_ch_rp = skimage.measure.regionprops(
             utils.squeeze_3D_if_needed(ref_ch_lab)
         )
-        for sub_obj in ref_ch_rp:
+        for sub_obj in sub_obj_ref_ch_rp:
             sub_obj = features.calc_additional_regionprops(sub_obj)
             for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
                 col_name = f'sub_obj_ref_ch_{prop_name}'
