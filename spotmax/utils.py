@@ -1572,8 +1572,5 @@ def squeeze_3D_if_needed(arr):
     if arr.ndim == 3 and arr.shape[0] == 1:
         return arr[0].copy()
     
-    raise TypeError(
-        'Input array must be 2D or 3D with a single Z slice. '
-        f'Currently it has shape {arr.shape}'
-    )
+    return arr
     
