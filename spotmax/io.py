@@ -2452,7 +2452,7 @@ def _save_concat_dfs_to_hdf(
             # Convert iterable keys to single string
             key = ';;'.join([str(k) for k in key])
             key = key.replace('\\', '/')
-        df = acdc_load.pd_bool_to_int(df)
+        df = acdc_load.pd_bool_and_float_to_int(df)
         key = re.sub(r'[^a-zA-Z0-9_]', "_", key)
         store_hdf.append(key, df)
     store_hdf.close()
