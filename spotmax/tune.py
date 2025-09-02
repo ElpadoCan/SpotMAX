@@ -255,7 +255,6 @@ class TuneKernel:
         for pos_foldername, images_path in self.images_paths().items():
             pos_folderpath = os.path.dirname(images_path)
             spotmax_out_path = os.path.join(pos_folderpath, 'spotMAX_output')
-            printl(utils.listdir(spotmax_out_path))
             valid_spots_filename = None
             spotfit_filename = None
             for file in utils.listdir(spotmax_out_path):
@@ -294,9 +293,18 @@ class TuneKernel:
             )
             df_spots_coords_pos.to_csv(temp_csv_path)
         
+        print('-'*100)
+        logger_func(f'Tuning points coords:\n\n{df_spots_coords}')
+        print('*'*100)
+        
         self._setup_configparser(
             images_paths_to_analyse, logger_func=logger_func
         )
+        
+        print('-'*100)
+        with open(self.ini_filepath(), 'r') as file:
+            logger_func(f'Analysis parameters:\n\n{file.read()}')
+        print('*'*100)
         
         command = f'spotmax, -p, {self.ini_filepath()}'
         # command = r'python, spotmax\test.py'
