@@ -2207,7 +2207,9 @@ def spotfit(
         rp = skimage.measure.regionprops(lab)
     
     if delta_tol is None:
-        delta_tol = (0, 0, 0)
+        delta_tol = transformations.get_expand_obj_delta_tolerance(
+            spots_zyx_radii_pxl
+        )
     
     if zyx_voxel_size is None:
         zyx_voxel_size = np.array((1, 1, 1))
