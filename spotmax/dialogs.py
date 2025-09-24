@@ -2500,9 +2500,110 @@ class ParamsGroupBox(QGroupBox):
                     'initialVal': initialVal
                 }
         
+        ini_params = self.askValidateParams(ini_params)
+        
         ini_params = self.addNNetParams(ini_params, 'spots')
         ini_params = self.addNNetParams(ini_params, 'ref_ch')
         return ini_params
+    
+    def askValidateParams(self, ini_params):
+        ini_params = self._askValidateSaveSpotMasks(ini_params)
+        ini_params = self._askValidateSpotSizeNotComputed(ini_params)
+        return ini_params
+    
+    def _askValidateSpotSizeNotComputed(self, ini_params):
+        # Check that, if there are features for spot sizes to save, then 
+        # compute spots size is True
+        spots_channel_params = ini_params['Spots channel']
+        sizes_for_spot_masks = (
+            spots_channel_params['spotsMasksSizeFeatures']['loadedVal']
+        )
+        if not sizes_for_spot_masks:
+            return ini_params
+        
+        compute_spots_size = (
+            spots_channel_params['doSpotFit']['loadedVal']
+        )
+        if compute_spots_size:
+            return ini_params
+        
+        msg = acdc_widgets.myMessageBox(wrapText=False, showCentered=False)
+        text = acdc_html.paragraph("""
+            You selected <b>size features for saving spot masks</b>, however,<br> 
+            the parameter <code>Compute spots size (fit gaussian peak(s))</code> is <code>False</code>.<br><br>
+            This means the size features will not be computed, hence<br>
+            they will not be available to generate the masks.<br><br>
+            How do you want to proceed?       
+        """)
+        doNotSaveButton = acdc_widgets.noPushButton('Do not save any mask')
+        saveOnlyButton = acdc_widgets.savePushButton('Save only default masks')
+        computeButton = widgets.computePushButton(
+            'Compute spots size and save masks'
+        )
+        msg.warning(
+            self, 'Compute spots size to save spots masks?', text,
+            buttonsTexts=(
+                doNotSaveButton,
+                saveOnlyButton, 
+                computeButton
+            )
+        )
+        if msg.cancel or msg.clickedButton == doNotSaveButton:
+            spots_channel_params['saveSpotsMask']['loadedVal'] = False
+            spots_channel_params['spotsMasksSizeFeatures']['loadedVal'] = ''
+        elif msg.clickedButton == saveOnlyButton:
+            spots_channel_params['saveSpotsMask']['loadedVal'] = True
+            spots_channel_params['spotsMasksSizeFeatures']['loadedVal'] = ''
+        else:
+            spots_channel_params['doSpotFit']['loadedVal'] = True
+            spots_channel_params['saveSpotsMask']['loadedVal'] = True
+        
+        return ini_params
+    
+    def _askValidateSaveSpotMasks(self, ini_params):
+        # Check that, if there are features for spot sizes to save, save 
+        # spot masks is also set to True
+        spots_channel_params = ini_params['Spots channel']
+        sizes_for_spot_masks = (
+            spots_channel_params['spotsMasksSizeFeatures']['loadedVal']
+        )
+        if not sizes_for_spot_masks:
+            return ini_params
+        
+        save_spot_masks = (
+            spots_channel_params['saveSpotsMask']['loadedVal']
+        )
+        if save_spot_masks:
+            return ini_params
+        
+        msg = acdc_widgets.myMessageBox(wrapText=False, showCentered=False)
+        text = acdc_html.paragraph("""
+            You selected <b>size features for saving spot masks</b>, however,<br> 
+            the parameter <code>Save spots segmentation masks</code> is <code>False</code>.<br><br>
+            How do you want to proceed?       
+        """)
+        doNotSaveButton = acdc_widgets.noPushButton('Do not save any mask')
+        saveOnlyButton = acdc_widgets.savePushButton('Save only default masks')
+        saveAllButton = acdc_widgets.savePushButton('Save all masks')
+        msg.warning(
+            self, 'Save spots masks?', text,
+            buttonsTexts=(
+                doNotSaveButton,
+                saveOnlyButton, 
+                saveAllButton
+            )
+        )
+        if msg.cancel or msg.clickedButton == saveAllButton:
+            spots_channel_params['saveSpotsMask']['loadedVal'] = True
+        elif msg.clickedButton == saveOnlyButton:
+            spots_channel_params['saveSpotsMask']['loadedVal'] = True
+            spots_channel_params['spotsMasksSizeFeatures']['loadedVal'] = ''
+        else:
+            spots_channel_params['saveSpotsMask']['loadedVal'] = False
+            spots_channel_params['spotsMasksSizeFeatures']['loadedVal'] = ''
+        
+        return ini_params
+        
     
     def addNNetParams(self, ini_params, channel):
         if channel == 'spots':

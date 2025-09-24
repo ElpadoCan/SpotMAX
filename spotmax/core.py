@@ -592,6 +592,51 @@ class _ParamsParser(_DataLoader):
         file_handler = utils.logger_file_handler(log_filepath, mode='a')
         self.logger.addHandler(file_handler)
     
+    def check_save_spots_masks_size_features(self):
+        spots_channel_params = self._params['Spots channel']
+        sizes_for_spot_masks = (
+            spots_channel_params['spotsMasksSizeFeatures']['loadedVal']
+        )
+        if not sizes_for_spot_masks:
+            return True
+        
+        save_spot_masks = (
+            spots_channel_params['saveSpotsMask']['loadedVal']
+        )
+        compute_spots_size = (
+            spots_channel_params['doSpotFit']['loadedVal']
+        )
+        if save_spot_masks and compute_spots_size:
+            return True
+        
+        save_spots_masks_desc = (
+            spots_channel_params['saveSpotsMask']['desc']
+        )
+        compute_spots_size_desc = (
+            spots_channel_params['doSpotFit']['desc']
+        )
+        
+        answer = self._ask_validate_save_spots_masks_params(
+            save_spot_masks, 
+            compute_spots_size,
+            save_spots_masks_desc, 
+            compute_spots_size_desc
+        )
+        if answer is None:
+            return False
+        
+        if answer.startswith('Do not save'):
+            spots_channel_params['saveSpotsMask']['loadedVal'] = False
+            spots_channel_params['spotsMasksSizeFeatures']['loadedVal'] = ''
+        elif answer.startswith('Save only '):
+            spots_channel_params['saveSpotsMask']['loadedVal'] = True
+            spots_channel_params['spotsMasksSizeFeatures']['loadedVal'] = ''
+        else:
+            spots_channel_params['saveSpotsMask']['loadedVal'] = True
+            spots_channel_params['doSpotFit']['loadedVal'] = True
+        
+        return True
+    
     def _check_report_filepath(
             self, report_folderpath, params_path, report_filename='', 
             force_default=False
@@ -982,6 +1027,9 @@ class _ParamsParser(_DataLoader):
         self.add_spot_size_metadata()
         self.check_ref_ch_save_features_and_masks()
         self.check_filter_spots_based_on_ref_ch_masks()
+        proceed = self.check_save_spots_masks_size_features()
+        if not proceed:
+            return False, None
         
         self.set_abs_exp_paths()
         self.set_metadata()
@@ -1888,6 +1936,55 @@ class _ParamsParser(_DataLoader):
         
         return answer
 
+    def _ask_validate_save_spots_masks_params(
+            self, 
+            save_spot_masks: bool, 
+            compute_spots_size: bool,
+            save_spots_masks_desc: str, 
+            compute_spots_size_desc: str
+        ):
+        if not save_spot_masks:
+            txt = (
+                'Saving the requested spots masks is not possible, because '
+                f'`{save_spots_masks_desc}` is `False`.'
+            )
+            options = (
+                'Do not save any mask',
+                'Save only default masks',
+                'Save all masks'
+            )
+        elif not compute_spots_size:
+            txt = (
+                'Saving the requested spots masks is not possible, because '
+                f'`{compute_spots_size_desc}` is `False`. This means that '
+                'the requested features for the spot masks size will not '
+                'be computed, hence they will not be available.'
+            )
+            options = (
+                'Do not save any mask',
+                'Save only default masks',
+                'Compute spots size and save masks'
+            )
+        
+        if self._force_default:
+            # No safe default in this case, raise error
+            raise ValueError(txt) 
+        
+        question = 'What do you want to do'
+        answer = io.get_user_input(
+            question, options=options, info_txt=txt, 
+            logger=self.logger.info, 
+        )
+        if answer is None:
+            self.logger.info(
+                'SpotMAX stopped by the user. '
+                'Saving spots masks parameters not valid.'
+            )
+            self.quit()
+            return
+        
+        return answer
+    
     def _ask_filter_spots_based_on_ref_ch_masks(self):
         options = (
             'Keep only spots that are inside ref. channel mask', 
@@ -4647,7 +4744,7 @@ class Kernel(_ParamsParser):
 
     def _add_aggr_and_local_coords_from_global(
             self, df_spots_coords_input, lab, aggregated_lab,
-            spots_zyx_radii_pxl, add_spots_mask=False
+            spots_zyx_radii_pxl, add_spots_mask=False,
         ):
         spots_masks = None
         
@@ -4712,17 +4809,29 @@ class Kernel(_ParamsParser):
         pbar.close()
         
         if add_spots_mask:
-            spots_coords = df_spots_coords_input[ZYX_AGGR_COLS].to_numpy()
-            spots_masks = transformations.from_spots_coords_to_spots_masks(
-                spots_coords, spots_zyx_radii_pxl, debug=False
-            )
-            df_spots_coords_input['spot_mask'] = spots_masks
+            df_spots_coords_input = self._add_spots_masks_to_df(
+                df_spots_coords_input, 
+                spots_zyx_radii_pxl
+            )      
         
         df_spots_coords_input = transformations.add_closest_ID_col(
             df_spots_coords_input, aggregated_lab, ZYX_AGGR_COLS
         )
         
         return df_spots_coords_input, num_spots_objs_txts
+    
+    def _add_spots_masks_to_df(
+            self, 
+            df_spots_coords_input,
+            spots_zyx_radii_pxl,
+        ):
+        spots_coords = df_spots_coords_input[ZYX_AGGR_COLS].to_numpy()
+        spots_masks = transformations.from_spots_coords_to_spots_masks(
+            spots_coords, spots_zyx_radii_pxl, debug=False
+        )
+        df_spots_coords_input['spot_mask'] = spots_masks
+        
+        return df_spots_coords_input
     
     def _add_local_coords_from_aggr(
             self, aggr_spots_coords, aggregated_lab, spots_masks=None, 
@@ -4953,7 +5062,7 @@ class Kernel(_ParamsParser):
                 self._add_aggr_and_local_coords_from_global(
                     df_spots_coords_input, lab, aggregated_lab,
                     self.metadata['zyxResolutionLimitPxl'], 
-                    add_spots_mask=save_spots_mask
+                    add_spots_mask=save_spots_mask,
                 )
             )
         
@@ -6440,6 +6549,15 @@ class Kernel(_ParamsParser):
             df_spots = dfs.get(key, None)
 
             if df_spots is not None:
+                spots_channel_params = (
+                    self._params['Spots channel']
+                )
+                sizes_for_spot_masks = (
+                    spots_channel_params['spotsMasksSizeFeatures']['loadedVal']
+                )
+                if key != 'spots_spotfit':
+                    # Save additional spots masks only with spotfit
+                    sizes_for_spot_masks = None
                 print('')
                 if 'spot_mask' in df_spots.columns:
                     df_spots = io.save_spots_masks(
@@ -6449,6 +6567,7 @@ class Kernel(_ParamsParser):
                         filename, 
                         spots_ch_endname, 
                         run_number, 
+                        sizes_for_spot_masks=sizes_for_spot_masks,
                         text_to_append=text_to_append,
                         mask_shape=uncropped_shape,
                         verbose=verbose,

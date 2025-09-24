@@ -59,6 +59,7 @@ from . import last_used_ini_text_filepath
 from . import transformations
 from . import DFs_FILENAMES
 from . import spotmax_appdata_path
+from . import docs
 
 acdc_df_bool_cols = [
     'is_cell_dead',
@@ -76,6 +77,8 @@ LEGACY_MODEL_KWARGS = {
 df_spots_filename_parts_pattern = (
     r'(\d+)_(\d)_(detected_spots|valid_spots|spotfit)(.*)\.(\w+)'
 )
+
+group_feature_to_col_mapper = docs.single_spot_features_column_names()
 
 class MultipleFilesFound(Exception):
     pass
@@ -2547,8 +2550,17 @@ def save_ref_ch_mask(
         )
 
 def save_spots_masks(
-        df_spots, images_path, basename, filename, spots_ch_endname, run_number, 
-        text_to_append='', mask_shape=None, verbose=True, logger_func=print
+        df_spots, 
+        images_path, 
+        basename, 
+        filename, 
+        spots_ch_endname, 
+        run_number, 
+        sizes_for_spot_masks: dict[str, list]='',
+        text_to_append='', 
+        mask_shape=None, 
+        verbose=True, 
+        logger_func=print
     ):
     if verbose:
         logger_func(f'Saving spots masks...')
@@ -2570,6 +2582,14 @@ def save_spots_masks(
     spots_ch_segm_filepath = os.path.join(images_path, spots_ch_segm_filename)
     
     spots_mask_data = np.zeros(mask_shape, dtype=np.uint32)
+    if sizes_for_spot_masks:
+        custom_spots_masks_data = defaultdict(dict)
+        for group, features in sizes_for_spot_masks.items():
+            for feature in features:
+                custom_spots_masks_data[group][feature] = (
+                    np.zeros_like(spots_mask_data)
+                )
+        
     for frame_i, df_spots_frame_i in df_spots.groupby(level=0):
         df_spots_frame_i = df_spots_frame_i.loc[frame_i]
         spots_lab = spots_mask_data[frame_i]
@@ -2577,13 +2597,35 @@ def save_spots_masks(
             df_spots_frame_i, spots_lab.shape, spots_lab=spots_lab
         )
         spots_mask_data[frame_i] = spots_lab
-    
+        
+        if not sizes_for_spot_masks:
+            continue
+        
+        _add_custom_size_spots_masks(
+            custom_spots_masks_data, frame_i, df_spots_frame_i, 
+            sizes_for_spot_masks
+        )                
+
     np.savez_compressed(spots_ch_segm_filepath, np.squeeze(spots_mask_data))
     df_spots = df_spots.drop(columns='spot_mask')
     if verbose:
         logger_func(f'Spots masks saved to "{spots_ch_segm_filepath}"')
     return df_spots
-    
+
+def _add_custom_size_spots_masks(
+        custom_spots_masks_data, frame_i, df_spots_frame_i, 
+        sizes_for_spot_masks
+    ):
+    for group, features in sizes_for_spot_masks.items():
+        for feature in features:
+            spots_lab = custom_spots_masks_data[group][feature][frame_i]
+            key = f'{group}, {feature}'
+            spot_mask_size_colname = group_feature_to_col_mapper[key]
+            spots_lab = transformations.from_df_spots_objs_to_spots_lab(
+                df_spots_frame_i, spots_lab.shape, spots_lab=spots_lab,
+                spot_mask_size_colname=spot_mask_size_colname
+            ) 
+            custom_spots_masks_data[group][feature][frame_i] = spots_lab
 
 def addToRecentPaths(selectedPath):
     if not os.path.exists(selectedPath):

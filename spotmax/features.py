@@ -19,6 +19,47 @@ from . import filters
 from . import _warnings
 from . import core
 
+SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER = {
+    'spotsize_initial_radius_yx_pixel': (
+        'spotsize_initial_radius_z_pixel',
+        'spotsize_initial_radius_yx_pixel', 
+        'spotsize_initial_radius_yx_pixel',
+    ),
+    'spotsize_yx_radius_pxl': (
+        'spotsize_z_radius_pxl',
+        'spotsize_yx_radius_pxl', 
+        'spotsize_yx_radius_pxl',
+    ),
+    'sigma_yx_mean_fit': (
+        'sigma_z_fit',
+        'sigma_yx_mean_fit',
+        'sigma_yx_mean_fit', 
+    ),
+    'sigma_x_fit': (
+        'sigma_z_fit',
+        'sigma_y_fit',
+        'sigma_x_fit', 
+    ),
+}
+SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['spotsize_initial_radius_z_pixel'] = (
+    SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['spotsize_initial_radius_yx_pixel']
+)
+SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['spotsize_z_radius_pxl'] = (
+    SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['spotsize_yx_radius_pxl']
+)
+SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['spotsize_yx_radius_um'] = (
+    SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['spotsize_yx_radius_pxl']
+)
+SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['spotsize_z_radius_um'] = (
+    SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['spotsize_yx_radius_pxl']
+)
+SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['sigma_z_fit'] = (
+    SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['sigma_x_fit']
+)
+SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['sigma_y_fit'] = (
+    SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER['sigma_x_fit']
+)
+
 def get_props_dtype_mapper():
     props = {
         'label': int,

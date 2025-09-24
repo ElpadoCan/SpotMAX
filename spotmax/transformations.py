@@ -926,7 +926,11 @@ def from_spots_coords_to_spots_masks(spots_coords, spot_zyx_size, debug=False):
     return spots_masks
 
 def from_df_spots_objs_to_spots_lab(
-        df_spots_objs, arr_shape, spots_lab=None, show_pbar=False
+        df_spots_objs: pd.DataFrame, 
+        arr_shape, 
+        spots_lab=None, 
+        show_pbar=False,
+        spot_mask_size_colname=None
     ):
     if spots_lab is None:
         spots_lab = np.zeros(arr_shape, dtype=np.uint32)
@@ -934,12 +938,27 @@ def from_df_spots_objs_to_spots_lab(
     if spots_lab.ndim == 2:
         spots_lab = spots_lab[np.newaxis]
     
+    if spot_mask_size_colname is not None:
+        # Start adding from larger spots in order to not 
+        # cover the smaller ones
+        df_spots_objs = df_spots_objs.sort_values(
+            spot_mask_size_colname, ascending=False
+        )
+    
     if show_pbar:
         pbar = tqdm(total=len(df_spots_objs), ncols=100)
     
     for row in df_spots_objs.itertuples():
         ID, spot_id = row.Index
-        spot_mask = row.spot_mask
+        if spot_mask_size_colname is None:
+            spot_mask = row.spot_mask
+        else:
+            zyx_colnames = (
+                features.SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER
+                [spot_mask_size_colname]
+            )
+            spot_zyx_size = [getattr(row, col) for col in zyx_colnames]
+            spot_mask = get_local_spheroid_mask(spot_zyx_size)
         zyx_center = (row.z, row.y, row.x)
         slices = get_slices_local_into_global_3D_arr(
             zyx_center, arr_shape, spot_mask.shape

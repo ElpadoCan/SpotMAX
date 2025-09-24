@@ -999,7 +999,7 @@ Spots channel
 .. confval:: Save spots segmentation masks
 
   If ``True``, SpotMAX will save the segmentation masks of the spots in the same 
-  folder where the spots's data is located. 
+  folder where the spots image file is located. 
   
   The file will be named with the pattern 
   ``<basename>_run_num<run_number>_<spots_ch_name>_spots_segm_mask_<text_to_append>.npz`` 
@@ -1010,6 +1010,8 @@ Spots channel
   :confval:`Text to append at the end of the output files` 
   parameter.
 
+  .. _spot-masks-note:
+
   .. important::
 
     When :confval:`Spots detection method` is ``peak_local_max``, the masks of 
@@ -1019,6 +1021,18 @@ Spots channel
 
   :type: boolean
   :default: ``False``
+
+.. confval:: Features for the size of the saved spots masks
+
+  If not empty, SpotMAX will save the segmentation masks of the spots in the same 
+  folder where the spots image file is located. 
+  
+  You can provide as many size features as you want. SpotMAX will then save one file per selected feature. 
+
+  See the section :ref:`segmentation-data` for more details about how the files will named.
+
+  :type: list of strings
+  :default: ````
 
 .. confval:: Save pre-processed spots image
 

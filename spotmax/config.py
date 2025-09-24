@@ -9,6 +9,8 @@ import pandas as pd
 import configparser
 import skimage.filters
 
+from collections import defaultdict
+
 from . import GUI_INSTALLED
 
 if GUI_INSTALLED:
@@ -320,6 +322,21 @@ def get_exp_paths(exp_paths, ini_folderpath=''):
     
     return exp_paths
 
+def parse_dict_str_list_to_configpars(dict_in: dict[str, list[str]]):
+    if dict_in is None:
+        return ''
+    
+    if not dict_in:
+        return ''
+    
+    items = []
+    for key, values in dict_in.items():
+        for value in values:
+            items.append(f'{key}, {value}')
+    
+    dict_str = '\n'.join(items)
+    return dict_str
+
 def parse_log_folderpath(log_path):
     log_path = io.get_abspath(log_path)
     try:
@@ -336,13 +353,13 @@ def parse_list_to_configpars(iterable: list):
     if isinstance(iterable, str):
         iterable = [iterable]
     
-    li_str = [f'\n{p}' for p in iterable]
-    li_str = ''.join(li_str)
+    li_str = '\n'.join(iterable)
+    
     return li_str
 
 def features_thresholds_comment():
     s = (
-        '# Save the features to use for filtering truw spots as `feature_name,max,min`.\n'
+        '# Save the features to use for filtering true spots as `feature_name,max,min`.\n'
         '# You can write as many features as you want. Write each feature on its own indented line.\n'
         '# Example: `spot_vs_ref_ch_ttest_pvalue,None,0.025` means `keep only spots whose p-value\n'
         '# is smaller than 0.025` where `None` indicates that there is no minimum.'
@@ -350,7 +367,7 @@ def features_thresholds_comment():
     return s
 
 def get_features_thresholds_filter(features_thresholds_to_parse):
-    """_summary_
+    """Convert string to dictionary
 
     Parameters
     ----------
@@ -365,6 +382,15 @@ def get_features_thresholds_filter(features_thresholds_to_parse):
             `spot_vs_bkgr_glass_effect_size,0.8,None`: Filter all the spots 
             that have the Glass' effect size greater than 0.8. There is no max 
             set.
+    
+    Returns
+    -------
+    out_features_thresholds : dict
+        Dictionary where the keys are the feature name with element-wise 
+        pandas logical operators and the values are the min and max thresholds 
+        for that feature. The logical operators are prepended upon 
+        splitting to enable easy joining into a single string that can be 
+        used with pandas.eval.
     """    
     in_features_thresholds = features_thresholds_to_parse.split('\n')
     out_features_thresholds = {}
@@ -392,6 +418,32 @@ def get_features_thresholds_filter(features_thresholds_to_parse):
         
         out_features_thresholds[feature_name] = tuple(thresholds)
     return out_features_thresholds
+
+def get_size_spot_masks_to_save(group_feature_to_parse: str):
+    """Convert string to dictionary
+
+    Parameters
+    ----------
+    group_feature_to_parse : str
+        Input string with pattern `group_name, feature_name`. Multiple 
+        entries are separated by end of line character.
+    
+    Returns
+    -------
+    out_group_features_mapper : dict
+        Dictionary where the keys are the group name and the values are 
+        list of feature names for each group. 
+    """ 
+    out_group_features_mapper = defaultdict(list)
+    
+    items = group_feature_to_parse.split('\n')
+    for item in items:
+        group, feature = item.split(',')
+        group = group.strip()
+        feature = feature.strip()
+        out_group_features_mapper[group].append(feature)
+    
+    return out_group_features_mapper
 
 def _filepaths_params():
     filepaths_params = {
@@ -1254,6 +1306,21 @@ def _spots_ch_params():
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
             'dtype': get_bool
+        },
+        'spotsMasksSizeFeatures': {
+            'desc': 'Features for the size of the saved spots masks',
+            'initialVal': '',
+            'stretchWidget': True,
+            'addInfoButton': True,
+            'addComputeButton': False, 
+            'addApplyButton': False,
+            'addBrowseButton': False,
+            'addAutoButton': False,
+            'formWidgetFunc': 'widgets.SelectSizeFeaturesButton',
+            'valueSetter': 'setValue',
+            'actions': None,
+            'dtype': get_size_spot_masks_to_save,
+            'parser': parse_dict_str_list_to_configpars,
         },
         'saveSpotsPreprocImage': {
             'desc': 'Save pre-processed spots image',

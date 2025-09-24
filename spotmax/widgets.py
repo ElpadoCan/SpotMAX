@@ -6,6 +6,7 @@ import re
 import traceback
 from natsort import natsorted
 import webbrowser
+from collections import defaultdict
 
 from functools import partial
 
@@ -401,6 +402,7 @@ class FeatureSelectorDialog(acdc_apps.TreeSelectorDialog):
             category='spots', 
             title='Feature selector', 
             onlySizeFeatures=False,
+            ifOnlySizeIncludeZ=False,
             **kwargs
         ) -> None:
         super().__init__(title=title, **kwargs)
@@ -3896,7 +3898,6 @@ class VoxelSizeWidget(QWidget):
                 return self.controlWidget.value()
         else:
             return eval(self.displayLabel.text())
-        
 
 class LineEdit(QLineEdit):
     def __init__(self, *args, centered=True, **kwargs):
@@ -4011,3 +4012,161 @@ class ArrowButtons(QWidget):
     
     def buttonClicked(self):
         self.sigButtonClicked.emit(self.sender().direction)
+
+class SelectSizeFeaturesButton(FeatureSelectorButton):
+    def __init__(self):
+        super().__init__('Select or view size feature(s)...')
+        self.setSizeLongestText(
+            'Spotfit size metric, Mean radius xy-direction'
+        )
+        
+        self.clicked.connect(self.selectFeatures)
+        self.sigReset.connect(self.resetSelection)
+        
+        buttons_slot_mapper = {
+            'Delete selected features': self.deleteSelectedFeatures,
+            'Add feature': self.addFeature
+        }
+        self.featuresListWidget = acdc_widgets.QDialogListbox(
+            'Spot masks size feature(s)',
+            'Selected size feature(s):', [],
+            additionalButtons=buttons_slot_mapper.keys(),
+            parent=self, multiSelection=False
+        )
+        for button in self.featuresListWidget._additionalButtons:
+            button.disconnect()
+            slot = buttons_slot_mapper[button.text()]
+            button.clicked.connect(slot) 
+
+        self.setToolTip('Click to select size feature(s)...')
+        self.featuresListWidget.sigSelectionConfirmed.connect(
+            self.updateToolTip
+        )
+    
+    def updateToolTip(self):
+        texts = []
+        for i in range(self.featuresListWidget.listBox.count()):
+            item = self.featuresListWidget.listBox.item(i)
+            item_text = item.text()
+            if not item_text:
+                continue
+                
+            texts.append(f'  - {item_text}')
+    
+        features_text = '\n'.join(texts)
+        tooltip = f'Selected features:\n\n{features_text}'
+        self.setToolTip(tooltip)
+    
+    def toolTipToItemsText(self):
+        if self.toolTip().startswith('Click'):
+            return []
+        
+        itemsTexts = re.findall(r'  - (.+)', self.toolTip())
+        return itemsTexts
+    
+    def deleteSelectedFeatures(self):
+        featuresToDelete = self.featuresListWidget.listBox.selectedItems()
+        
+        items = []
+        for i in range(self.featuresListWidget.listBox.count()):
+            item = self.featuresListWidget.listBox.item(i)
+            item_text = item.text()
+            if item_text in featuresToDelete:
+                continue
+            
+            items.append(item_text)
+        
+        self.featuresListWidget.listBox.clear()
+        self.featuresListWidget.listBox.addItems(items)
+    
+    def selectFeatures(self):
+        self.featuresListWidget.listBox.clear()
+        self.featuresListWidget.listBox.addItems(self.toolTipToItemsText())        
+        
+        self.featuresListWidget.show()
+        
+        if self.selectedGroupFeaturesMapper():
+            return
+        
+        for button in self.featuresListWidget._additionalButtons:
+            if button.text().startswith('Add'):
+                button.click()
+                break
+    
+    def addFeature(self):
+        self.selectFeatureDialog = FeatureSelectorDialog(
+            parent=self.featuresListWidget, 
+            multiSelection=False, 
+            expandOnDoubleClick=True, 
+            isTopLevelSelectable=False, 
+            infoTxt='Select size feature', 
+            allItemsExpanded=False,
+            onlySizeFeatures=True
+        )
+        self.selectFeatureDialog.sigClose.connect(self._addFeature)
+        self.selectFeatureDialog.show()
+    
+    def _addFeature(self):
+        if self.selectFeatureDialog.cancel:
+            return
+        
+        selection = self.selectFeatureDialog.selectedItems()
+        group_name = list(selection.keys())[0]
+        feature_name = selection[group_name][0]
+        
+        item_text = f'{group_name}, {feature_name}'
+        
+        self.featuresListWidget.listBox.addItem(item_text)
+    
+    def resetSelection(self, *args):
+        self.featuresListWidget.listBox.clear()
+
+    def setValue(self, value: str | list[str] | dict[str, list[str]]):
+        if not value:
+            return 
+        
+        self.featuresListWidget.listBox.clear()
+        if isinstance(value, str):
+            items = value.split('\n')
+        elif isinstance(value, dict):
+            items = []
+            for group, features in value.items():
+                for feature in features:
+                    items.append(f'{group}, {feature}')
+        else:
+            items = value
+        
+        self.featuresListWidget.listBox.addItems(items)
+        self.updateToolTip()
+
+    def value(self) -> str:
+        if not hasattr(self, 'featuresListWidget'):
+            return super().text()
+        
+        items = []
+        for i in range(self.featuresListWidget.listBox.count()):
+            item = self.featuresListWidget.listBox.item(i)
+            item_text = item.text()          
+            items.append(item_text)
+        
+        value = '\n'.join(items)
+        return value
+    
+    def text(self):
+        return self.value()
+
+    def currentText(self):
+        return self.value()
+    
+    def selectedGroupFeaturesMapper(self):
+        group_features_mapper = defaultdict(list)
+        for i in range(self.featuresListWidget.listBox.count()):
+            item = self.featuresListWidget.listBox.item(i)
+            item_text = item.text()
+            if not item_text:
+                continue
+            
+            group_name, feature_name = item_text.split(', ')
+            group_features_mapper[group_name].append(feature_name)
+            
+        return group_features_mapper

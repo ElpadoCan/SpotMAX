@@ -13,26 +13,29 @@ Segmentation and processed image data will be saved in each
 Tabular data will be saved in each Position folder in a sub-folder called 
 ``SpotMAX_output``.
 
+.. _segmentation-data:
+
 Segmentation data
 -----------------
 
 Segmentation masks are saved from spots and reference channel data. These data 
 are optional and can be saved by activating the parameters 
 :confval:`Save spots segmentation masks` and 
-:confval:`Save reference channel segmentation masks`, respectively.
+:confval:`Save reference channel segmentation masks`, respectively. The default size of the spots masks is explained :ref:`here <spot-masks-note>`. If you need spot masks 
+with different sizes, you can specify which features to use with the parameter :confval:`Features for the size of the saved spots masks`.
 
 The naming pattern is the following::
 
-    <basename>_run_num<run_number>_<spots_ch_name>_spots_segm_mask_<appended_text>.npz
+    <basename>_run_num<run_number>_<spots_ch_name>_spots_segm_mask_<_spot_size_feature_><appended_text>.npz
     <basename>_run_num<run_number>_<ref_ch_name>_ref_ch_segm_mask_<appended_text>.npz
 
 where ``<basename>`` is the common part of all the file names in the Position 
 folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
 the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name` 
 parameter, ``<ref_ch_name>`` is the text provided at the :confval:`Reference channel end name` 
-parameter, and ``<appended_text>`` is the text provided at the 
+parameter, ``<appended_text>`` is the text provided at the 
 :confval:`Text to append at the end of the output files` 
-parameter.
+parameter, and ``<_spot_size_feature_>`` is empty for the default spot size, or the name of the feature used for the spot masks size provided at the parameter :confval:`Features for the size of the saved spots masks`.
 
 Tables
 ------
