@@ -92,15 +92,6 @@ def cli_parser():
 
 def run():
     # print('Setting up required libraries...')
-    from spotmax import error_up_str
-    from cellacdc._run import _install_tables
-    requires_restart = _install_tables(parent_software='SpotMAX')
-    if requires_restart:
-        exit(
-            '[NOTE]: SpotMAX had to install a required library and needs to be '
-            'restarted. Thank you for you patience!. '
-        )
-
     parser_args = cli_parser()
 
     PARAMS_PATH = parser_args['params']
@@ -110,14 +101,21 @@ def run():
     
     if DISPLAY_VERSION:
         from cellacdc.myutils import get_info_version_text as acdc_info
-        from spotmax.utils import get_info_version_text
         acdc_info_txt = acdc_info()
         
-        info_txt = get_info_version_text(include_platform=False)
+        # info_txt = get_info_version_text(include_platform=False)
         
         print(acdc_info_txt)
-        print(info_txt)
         return
+    
+    from spotmax import error_up_str
+    from cellacdc._run import _install_tables
+    requires_restart = _install_tables(parent_software='SpotMAX')
+    if requires_restart:
+        exit(
+            '[NOTE]: SpotMAX had to install a required library and needs to be '
+            'restarted. Thank you for you patience!. '
+        )
 
     if RUN_CLI and not PARAMS_PATH:
         error_msg = (

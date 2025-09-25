@@ -7181,45 +7181,36 @@ class AboutSpotMAXDialog(QBaseDialog):
         
         textLayout = QHBoxLayout()
         
-        version = read_version()
-        release_date = acdc_myutils.get_date_from_version(
-            version, package='spotmax'
-        )
-        
-        py_ver = sys.version_info
-        python_version = f'{py_ver.major}.{py_ver.minor}.{py_ver.micro}'
-        
         iconPixmap = QPixmap(icon_path)
         h = 128
         iconPixmap = iconPixmap.scaled(h,h, aspectRatioMode=Qt.KeepAspectRatio)
         iconLabel = QLabel()
         iconLabel.setPixmap(iconPixmap)
-        
         titleLabel = QLabel()
         txt = (f"""
         <p style="font-size:20px; font-family:ubuntu">
             <b>SpotMAX</b>
-            <span style="font-size:12pt; font-family:ubuntu">
-                (Multi-dimensional spot detection and quantification)
-            </span>
         </p>
-        <p style="font-size:14px; font-family:ubuntu">
-            Version {version}<br><br>
-            Release date: {release_date}
-        </p>
-        <p style="font-size:13px; font-family:ubuntu">
-            Qt {QtCore.__version__}<br>
-            Python {python_version}<br>
-        </p>
-        <p style="font-size:13px; font-family:ubuntu">
-            Platform: {platform.platform()}<br>
+        <p style="font-size:16px; font-family:ubuntu">
+            <i>Multidimensional microscopy data analysis</i>
         </p>
         """)
+        
+        info_txts = utils.get_info_version_text(
+            cli_formatted_text=False,
+            is_cli=False
+        )
+        
+        for info_txt in info_txts:
+            paragraph = acdc_html.paragraph(info_txt)
+            txt = f'{txt}{paragraph}'
 
         titleLabel.setText(txt)
         
         textLayout.addWidget(iconLabel, alignment=Qt.AlignTop)
         textLayout.addWidget(QLabel(txt), alignment=Qt.AlignTop)
+        textLayout.setStretch(0, 0)
+        textLayout.setStretch(1, 1)
         
         buttonsLayout = QHBoxLayout()
         
@@ -7237,6 +7228,7 @@ class AboutSpotMAXDialog(QBaseDialog):
         buttonsLayout.addWidget(browseButton)
         
         mainLayout.addLayout(textLayout)
+        mainLayout.addSpacing(40)
         mainLayout.addLayout(buttonsLayout)
         
         self.setLayout(mainLayout)

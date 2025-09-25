@@ -1519,12 +1519,15 @@ def random_choice_pos_foldernames(pos_foldernames, train_perc=80, val_perc=20):
     ]
     return train_positions, val_positions
 
-def get_info_version_text(is_cli=False, include_platform=True):
+def get_info_version_text(
+        is_cli=False, include_platform=True, cli_formatted_text=True
+    ):
     from spotmax import read_version, spotmax_path
     from cellacdc.myutils import get_date_from_version
     version = read_version()
     release_date = get_date_from_version(version, package='spotmax')
     py_ver = sys.version_info
+    env_folderpath = sys.prefix
     python_version = f'{py_ver.major}.{py_ver.minor}.{py_ver.micro}'
     info_txts = [
         f'Version {version}',
@@ -1535,6 +1538,7 @@ def get_info_version_text(is_cli=False, include_platform=True):
     if include_platform:
         import platform
         info_txts.extend([
+            f'Environment folder: "{env_folderpath}"',
             f'Python {python_version}',
             f'Platform: {platform.platform()}',
             f'System: {platform.system()}',
@@ -1546,7 +1550,9 @@ def get_info_version_text(is_cli=False, include_platform=True):
             except Exception as err:
                 info_txts.append('Qt: Not installed')
         
-        info_txts.append(f'Working directory: {os.getcwd()}')
+    info_txts.append(f'Working directory: {os.getcwd()}')
+    if not cli_formatted_text:
+        return info_txts
         
     info_txts = [f'  - {txt}' for txt in info_txts]
     
