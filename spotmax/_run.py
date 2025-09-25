@@ -62,6 +62,7 @@ def run_cli(parser_args, debug=False):
     report_filepath = os.path.join(
         parser_args['report_folderpath'], parser_args['report_filename']
     )
+    
     kernel.run(
         parser_args['params'], 
         report_filepath=report_filepath,

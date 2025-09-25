@@ -114,10 +114,8 @@ def setup_cli_logger(name='spotmax_cli', custom_logs_folderpath=None):
     logger._file_handler = output_file_handler
     logger.addHandler(output_file_handler)
     
-    acdc_myutils._log_system_info(
-        logger, log_path, is_cli=True, also_spotmax=True
-    )
-    
+    acdc_myutils._log_system_info(logger, log_path, is_cli=True)
+
     # stdout_handler = logging.StreamHandler(sys.stdout)    
     # logger.addHandler(stdout_handler)
     
