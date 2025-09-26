@@ -456,8 +456,13 @@ Features that are computed during the gaussian fit procedure.
 * **Spheroid spot volume (voxel)**: column name ``spheroid_vol_vox_fit``. 
   Volume of the spheroid with z-radius = ``sigma_z_fit`` and y-radius = 
   x-radius = ``sigma_yx_mean_fit``. 
+* **Circle area YX spot plane (pixel)**: column name ``circle_yx_area_pixel_fit``. 
+  Area of the circle at the YX spot central plane with y-radius = x-radius = ``sigma_yx_mean_fit``. 
 * **Ellipsoid spot volume (voxel)**: column name ``ellipsoid_vol_vox_fit``. 
   Volume of the ellipsoid with z-radius = ``sigma_z_fit``, y-radius = 
+  ``sigma_y_fit``, and the x-radius = ``sigma_x_fit``. 
+* **Ellipse area YX spot plane (pixel)**: column name ``ellipse_yx_area_pixel_fit``. 
+  Area of the ellipse at the YX spot central plane with y-radius = 
   ``sigma_y_fit``, and the x-radius = ``sigma_x_fit``. 
 
 SpotFIT intens. metrics
