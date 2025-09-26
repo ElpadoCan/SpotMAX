@@ -57,6 +57,8 @@ spotmax/docs/source/tutorials/*
 !spotmax/docs/source/tutorials/mtDNA_yeast.rst
 !spotmax/docs/source/tutorials/smFISH_yeast.rst
 
+tutorials
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
