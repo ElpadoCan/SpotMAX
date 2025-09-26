@@ -785,7 +785,7 @@ class channelName:
             self.last_sel_channel = self._load_last_selection()
         else:
             self.last_sel_channel = None
-        self.was_aborted = False
+        self.was_cancelled = False
 
     def reloadLastSelectedChannel(self, which):
         self.which_channel = which
@@ -982,7 +982,7 @@ class channelName:
         win.setFont(font)
         win.exec_()
         if win.cancel:
-            self.was_aborted = True
+            self.was_cancelled = True
         self.channel_name = win.selectedItemText
         if not win.cancel:
             self._save_last_selection(self.channel_name)

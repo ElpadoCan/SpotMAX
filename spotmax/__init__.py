@@ -25,7 +25,7 @@ def _warn_ask_install_package(commands: Iterable[str], note_txt=''):
     print(text)
     
     message_on_exit = (
-        '[WARNING]: Execution aborted. Run the following commands before '
+        '[WARNING]: Execution cancelled. Run the following commands before '
         f'running SpotMAX again:\n\n{commands_txt}\n'
     )
     msg_on_invalid = (

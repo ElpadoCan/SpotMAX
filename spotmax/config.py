@@ -437,7 +437,11 @@ def get_size_spot_masks_to_save(group_feature_to_parse: str):
     out_group_features_mapper = defaultdict(list)
     
     items = group_feature_to_parse.split('\n')
+   
     for item in items:
+        if not item:
+            continue
+        
         group, feature = item.split(',')
         group = group.strip()
         feature = feature.strip()

@@ -1249,7 +1249,7 @@ class _ParamsParser(_DataLoader):
             f'{error_up_str}'
         )
         self.logger.info(err_msg)
-        self.logger.info('SpotMAX aborted due to ERROR. See above more details.')
+        self.logger.info('SpotMAX cancelled due to ERROR. See above more details.')
         self.quit()
     
     @exception_handler_cli
@@ -1589,7 +1589,7 @@ class _ParamsParser(_DataLoader):
         if self.is_cli:
             print('*'*100)
             self.logger.info(
-                'SpotMAX execution aborted because some metadata are missing. '
+                'SpotMAX execution cancelled because some metadata are missing. '
                 'See details above.'
             )
             self.quit()
@@ -1843,7 +1843,7 @@ class _ParamsParser(_DataLoader):
             if self.is_cli:
                 print('*'*100)
                 self.logger.info(
-                    'SpotMAX execution aborted because some parameters are missing. '
+                    'SpotMAX execution cancelled because some parameters are missing. '
                     'See details above.'
                 )
                 self.quit()
@@ -2310,7 +2310,7 @@ class _ParamsParser(_DataLoader):
                     f'{exp_path}{error_up_str}'
                 )
                 self.logger.info(txt)
-                self.logger.info('SpotMAX aborted due to ERROR. See above more details.')
+                self.logger.info('SpotMAX closed due to ERROR. See above more details.')
                 return False
             if not os.path.isdir(exp_path):
                 self.logger.info('='*100)
@@ -2319,7 +2319,7 @@ class _ParamsParser(_DataLoader):
                     f'{exp_path}{error_up_str}'
                 )
                 self.logger.info(txt)
-                self.logger.info('SpotMAX aborted due to ERROR. See above more details.')
+                self.logger.info('SpotMAX closed due to ERROR. See above more details.')
                 return False
         return True
 
@@ -4249,8 +4249,16 @@ class SpotFIT(Spheroid):
         ellips_vol = 4/3*np.pi*abs(sz_fit)*abs(sy_fit)*abs(sx_fit)
         self._df_spotFIT.at[(obj_id, s), 'ellipsoid_vol_vox_fit'] = ellips_vol
         
+        ellips_yx_area = np.pi*abs(sy_fit)*abs(sx_fit)
+        self._df_spotFIT.at[(obj_id, s), 'ellipse_yx_area_pixel_fit'] = (
+            ellips_yx_area
+        )
+        
         spher_vol = 4/3*np.pi*abs(sz_fit)*abs(sigma_yx_mean)*abs(sigma_yx_mean)
         self._df_spotFIT.at[(obj_id, s), 'spheroid_vol_vox_fit'] = ellips_vol
+        
+        circle_area = np.pi*abs(sigma_yx_mean)*abs(sigma_yx_mean)
+        self._df_spotFIT.at[(obj_id, s), 'circle_yx_area_pixel_fit'] = circle_area
 
         self._df_spotFIT.at[(obj_id, s), 'A_fit'] = A_fit
         self._df_spotFIT.at[(obj_id, s), 'B_fit'] = B_fit
@@ -5268,7 +5276,7 @@ class Kernel(_ParamsParser):
             f'Available features are:\n\n{format_colums}{error_up_str}'
         )
         self.logger.info(txt)
-        self.logger.info('SpotMAX aborted due to ERROR. See above more details.')
+        self.logger.info('SpotMAX closed due to ERROR. See above more details.')
         self.quit()
     
     def _add_segm_obj_features_from_labels(
@@ -6656,7 +6664,7 @@ class Kernel(_ParamsParser):
             print('-'*100)
             self.logger.info(f'[ERROR]: {error}{error_up_str}')
             err_msg = (
-                'SpotMAX aborted due to **error**. '
+                'SpotMAX closed due to **error**. '
                 'More details above or in the following log file:\n\n'
                 f'{self.log_path}\n\n'
                 'If you cannot solve it, you can report this error by opening '
