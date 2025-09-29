@@ -1609,6 +1609,8 @@ class formWidget(QWidget):
 
             if self.labelLeft.text().endswith('end name'):
                 value = acdc_load.get_endname_from_filepath(file_path)
+                if value is None:
+                    value = os.path.basename(file_path)
             else:
                 value = file_path
             
