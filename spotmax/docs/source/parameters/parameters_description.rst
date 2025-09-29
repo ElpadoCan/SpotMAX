@@ -906,9 +906,9 @@ Spots channel
 
   If ``True``, SpotMAX will fit a 3D gaussian curve to the spots intensities. 
   This will result in more features being computed. These features are 
-  described in the :ref:`spotfit-features` section. To determine which 
+  described in the :ref:`spotfit-features` and :ref:`spotfit-coords` sections. To determine which 
   pixels should be given as input to the fitting procedure for each spot, 
-  SpotMAX will first perform a step called spotSIZE.
+  SpotMAX will first perform a step called SpotSIZE.
   
   Starting from a spot mask that is half the size of the minimum spot size, 
   SpotMAX will grow the masks by one voxel size in each direction. 
