@@ -1097,7 +1097,8 @@ class _ParamsParser(_DataLoader):
             return True
 
     def _check_multi_or_missing_run_numbers(
-            self, run_nums, exp_path, scanner_paths, user_run_number
+            self, run_nums, exp_path, scanner_paths, user_run_number, 
+            pos_foldername=None
         ):
         if len(run_nums) > 1 and user_run_number is None:
             # Multiple run numbers detected
@@ -1112,7 +1113,7 @@ class _ParamsParser(_DataLoader):
         elif user_run_number is None:
             # Single run number --> we still need to check if already exists
             ask_run_number = False
-            for exp_path, exp_info in scanner_paths[run_nums[0]].items():
+            for _exp_path, exp_info in scanner_paths[run_nums[0]].items():
                 if exp_info['numPosSpotCounted'] > 0:
                     ask_run_number = True
                     break
@@ -1129,39 +1130,61 @@ class _ParamsParser(_DataLoader):
                         'Run number was not provided.'
                     )
                     self.quit()
-        elif user_run_number is not None:
+        elif user_run_number is not None and user_run_number in run_nums:
             # Check that user run number is not already existing
-            if user_run_number in run_nums:
-                run_num_info = scanner_paths[user_run_number]
-                ask_run_number = False
-                for exp_path, exp_info in run_num_info.items():
-                    if exp_info['numPosSpotCounted'] > 0:
-                        ask_run_number = True
-                        break
-                
-                if ask_run_number:
-                    user_run_number = self._ask_user_run_num_exists(
-                        user_run_number, run_nums, exp_path
+            run_num_info = scanner_paths[user_run_number]
+            exp_info = run_num_info[os.path.normpath(exp_path)]
+            spot_counted_pos_foldernames = (
+                exp_info['spotCountedPosFoldernames']
+            )
+            ask_run_number = False
+            for _exp_path, _exp_info in run_num_info.items():
+                if _exp_info['numPosSpotCounted'] > 0:
+                    ask_run_number = True
+                    break
+            
+            if ask_run_number:
+                user_run_number = self._ask_user_run_num_exists(
+                    user_run_number, run_nums, exp_path,
+                    spot_counted_pos_foldernames,
+                    pos_foldername
+                )
+                if user_run_number is None:
+                    self.logger.info(
+                        'SpotMAX stopped by the user.'
+                        'Run number was not provided.'
                     )
-                    if user_run_number is None:
-                        self.logger.info(
-                            'SpotMAX stopped by the user.'
-                            'Run number was not provided.'
-                        )
-                        self.quit()
+                    self.quit()
                 
             run_number = user_run_number
         return run_number        
         
-    def _ask_user_run_num_exists(self, user_run_num, run_nums, exp_path):
-        default_option = f'Overwrite existing run number {user_run_num}'
+    def _ask_user_run_num_exists(
+            self, user_run_num, run_nums, exp_path, 
+            spot_counted_pos_foldernames,
+            pos_foldername_to_analyse
+        ):
+        is_overwrite = (
+            pos_foldername_to_analyse is None 
+            or pos_foldername_to_analyse in spot_counted_pos_foldernames
+        )
+        if is_overwrite:
+            default_option = f'Overwrite existing run number {user_run_num}'
+            folder_path_with_existing_run = exp_path
+            prefix_text = '[WARNING]: '
+        else:
+            default_option = f'Continue with run number {user_run_num}'
+            folder_path_with_existing_run = os.path.join(
+                exp_path, pos_foldername_to_analyse
+            )
+            prefix_text = ''
         options = ('Choose a different run number', default_option )
         question = 'What do you want to do'
         txt = (
-            f'[WARNING]: The requested run number {user_run_num} already exists '
-            'in the folder path below! '
+            f'{prefix_text}The requested run number {user_run_num} '
+            'already exists in the folder path below. '
             f'(run numbers presents are {run_nums}):\n\n'
-            f'{exp_path}'
+            f'{folder_path_with_existing_run}'
         )
         print('')
         if self._force_default:
@@ -1257,23 +1280,26 @@ class _ParamsParser(_DataLoader):
         self.logger.info('Scanning experiment folders...')
         SECTION = 'File paths and channels'
         ANCHOR = 'folderPathsToAnalyse'
-        loaded_exp_paths = self._params[SECTION][ANCHOR]['loadedVal']
+        paths_to_analyse = self._params[SECTION][ANCHOR]['loadedVal']
         user_run_number = self._params[SECTION]['runNumber'].get('loadedVal')
         self.exp_paths_list = []
         run_num_log = []
         run_num_exp_path_processed = {}
-        pbar_exp = tqdm(total=len(loaded_exp_paths), ncols=100)
-        for exp_path in loaded_exp_paths:
-            acdc_myutils.addToRecentPaths(exp_path, logger=self.logger.info)
-            if io.is_pos_path(exp_path):
-                pos_path = exp_path
-                pos_foldername = os.path.basename(exp_path)
+        pbar_exp = tqdm(total=len(paths_to_analyse), ncols=100)
+        for path_to_analyse in paths_to_analyse:
+            acdc_myutils.addToRecentPaths(
+                path_to_analyse, logger=self.logger.info
+            )
+            pos_foldername = None
+            if io.is_pos_path(path_to_analyse):
+                pos_path = path_to_analyse
+                pos_foldername = os.path.basename(path_to_analyse)
                 exp_path = os.path.dirname(pos_path)
                 exp_paths = (
                     {exp_path: {'pos_foldernames': [pos_foldername]}}
                 )
-            elif io.is_images_path(exp_path):
-                images_path = exp_path
+            elif io.is_images_path(path_to_analyse):
+                images_path = path_to_analyse
                 pos_path = os.path.dirname(images_path)
                 if not acdc_myutils.is_pos_folderpath(pos_path):
                     self._raise_pos_path_not_valid(images_path)
@@ -1288,20 +1314,20 @@ class _ParamsParser(_DataLoader):
                 )
             else:
                 exp_paths = {}
+                exp_path = path_to_analyse
             
             exp_path = exp_path.replace('\\', '/')
             
             # Scan and determine run numbers
-            pathScanner = io.expFolderScanner(
-                exp_path, logger_func=None
-            )
+            pathScanner = io.expFolderScanner(exp_path, logger_func=None)
             pathScanner.getExpPaths(exp_path)
             pathScanner.infoExpPaths(pathScanner.expPaths)
             
             if exp_path not in run_num_exp_path_processed:
                 run_nums = sorted([int(r) for r in pathScanner.paths.keys()])
                 run_number = self._check_multi_or_missing_run_numbers(
-                    run_nums, exp_path, pathScanner.paths, user_run_number
+                    run_nums, exp_path, pathScanner.paths, user_run_number,
+                    pos_foldername=pos_foldername
                 )
             else:
                 run_number = run_num_exp_path_processed[exp_path]

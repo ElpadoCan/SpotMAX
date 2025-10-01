@@ -1068,6 +1068,8 @@ class expFolderScanner:
             'numPosSpotCounted': 0,
             'numPosSpotSized': 0,
             'posFoldernames': posFoldernames, 
+            'spotCountedPosFoldernames': [], 
+            'spotSizedPosFoldernames': [],
             'dateModified': np.nan
         }
         for p, pos in enumerate(posFoldernames):
@@ -1107,7 +1109,9 @@ class expFolderScanner:
                             'numPosSpotCounted': 0,
                             'numPosSpotSized': 0,
                             'posFoldernames': posFoldernames,
-                            'analysisInputs': analysisInputs
+                            'analysisInputs': analysisInputs,
+                            'spotCountedPosFoldernames': [],
+                            'spotSizedPosFoldernames': [],
                         }
 
                     timeAnalysed = os.path.getmtime(analysisParamsFilepath)
@@ -1119,10 +1123,13 @@ class expFolderScanner:
                         'isPosSpotSized': isSpotSized, 
                         'timeAnalysed': timeAnalysed
                     }
+                    expInfo = self.paths[run][exp_path]
                     if isSpotCounted:
-                        self.paths[run][exp_path]['numPosSpotCounted'] += 1
+                        expInfo['numPosSpotCounted'] += 1
+                        expInfo['spotCountedPosFoldernames'].append(pos)
                     if isSpotSized:
-                        self.paths[run][exp_path]['numPosSpotSized'] += 1
+                        expInfo['numPosSpotSized'] += 1
+                        expInfo['spotSizedPosFoldernames'].append(pos)
 
     def addMissingRunsInfo(self):
         # paths = copy.deepcopy(self.paths)
