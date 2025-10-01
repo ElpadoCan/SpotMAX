@@ -1174,15 +1174,18 @@ class _ParamsParser(_DataLoader):
             prefix_text = '[WARNING]: '
         else:
             default_option = f'Continue with run number {user_run_num}'
-            folder_path_with_existing_run = os.path.join(
-                exp_path, pos_foldername_to_analyse
+            folder_paths_with_existing_run = [
+                os.path.join(exp_path, pos) for pos in spot_counted_pos_foldernames
+            ]
+            folder_path_with_existing_run = '\n'.join(
+                folder_paths_with_existing_run
             )
             prefix_text = ''
         options = ('Choose a different run number', default_option )
         question = 'What do you want to do'
         txt = (
             f'{prefix_text}The requested run number {user_run_num} '
-            'already exists in the folder path below. '
+            'already exists in the folder path(s) below. '
             f'(run numbers presents are {run_nums}):\n\n'
             f'{folder_path_with_existing_run}'
         )
