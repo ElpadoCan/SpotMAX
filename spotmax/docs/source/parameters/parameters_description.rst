@@ -1024,10 +1024,11 @@ Spots channel
 
 .. confval:: Features for the size of the saved spots masks
 
-  If not empty, SpotMAX will save the segmentation masks of the spots in the same 
-  folder where the spots image file is located. 
+  If not empty, SpotMAX will generate one segmentation mask per selected size 
+  feature. The feature will be used to determine the size of the spots masks.
   
-  You can provide as many size features as you want. SpotMAX will then save one file per selected feature. 
+  You can provide as many size features as you want. You can also define a 
+  completely custom size. 
 
   See the section :ref:`segmentation-data` for more details about how the files will named.
 

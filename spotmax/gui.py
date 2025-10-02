@@ -155,9 +155,9 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q and self.debug:
-            printl(self.logger, type(self.logger), dir(self.logger), sep='\n\n')
-            printl(self.logger.write, type(self.logger.write), dir(self.logger.write), sep='\n\n')
-            printl(self.logger.info('Test'))
+            guiTabControl = self.computeDockWidget.widget()
+            parametersGroupBox = guiTabControl.parametersQGBox
+            printl(parametersGroupBox.params['METADATA']['SizeT'])
             return
         
         super().keyPressEvent(event)
@@ -390,6 +390,13 @@ class spotMAX_Win(acdc_gui.guiWin):
                 snap_to_max=self.snapEditsToMax
             )
     
+    def gui_createMenuBar(self):
+        super().gui_createMenuBar()
+        
+        self.helpMenu.insertAction(
+            self.tipsAction, self.openUserProfileFolderAction
+        )
+    
     def gui_createPlotItems(self):
         super().gui_createPlotItems()
         
@@ -456,6 +463,10 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.addSpotsCoordinatesTriggered
         )
         
+        self.openUserProfileFolderAction.triggered.connect(
+            self.openUserProfileFolder
+        )
+        
         inspectTabWidget = self.computeDockWidget.widget().inspectResultsTab
         inspectTabWidget.loadAnalysisButton.clicked.connect(
             self.loadAnalysisPathSelected
@@ -478,7 +489,10 @@ class spotMAX_Win(acdc_gui.guiWin):
         msg.warning(self, 'Data not loaded', txt)
         
         return False
-        
+    
+    def openUserProfileFolder(self):
+        from . import user_profile_path
+        myutils.showInExplorer(user_profile_path)
     
     def loadAnalysisPathSelected(self):
         proceed = self.checkDataLoaded()
@@ -1089,6 +1103,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.saveAction.setDisabled(True)
         self.quickSaveAction.setDisabled(True)
         self.newAction.setDisabled(True)
+        
+        self.openUserProfileFolderAction = QAction('Open user profile path...')
     
     def gui_createToolBars(self):
         super().gui_createToolBars()

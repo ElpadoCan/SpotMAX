@@ -1303,6 +1303,7 @@ class formWidget(QWidget):
         self.stretchFactors = stretchFactors
         self.useEditableLabel = useEditableLabel
         self.browseExtensions = browseExtensions
+        self._parent = parent
 
         if widget is not None:
             widget.setParent(self)
@@ -1435,6 +1436,9 @@ class formWidget(QWidget):
         if addLabel:
             self.labelLeft.clicked.connect(self.tryChecking)
         self.labelRight.clicked.connect(self.tryChecking)
+    
+    def parent(self):
+        return self._parent
     
     def setDisabled(self, disabled: bool) -> None:
         for item in self.items:
@@ -4054,7 +4058,10 @@ class SelectSizeFeaturesButton(FeatureSelectorButton):
                 continue
                 
             texts.append(f'  - {item_text}')
-    
+
+        if not texts:
+            return
+        
         features_text = '\n'.join(texts)
         tooltip = f'Selected features:\n\n{features_text}'
         self.setToolTip(tooltip)
@@ -4067,13 +4074,12 @@ class SelectSizeFeaturesButton(FeatureSelectorButton):
         return itemsTexts
     
     def deleteSelectedFeatures(self):
-        featuresToDelete = self.featuresListWidget.listBox.selectedItems()
-        
+        itemsToDelete = self.featuresListWidget.listBox.selectedItems()
         items = []
         for i in range(self.featuresListWidget.listBox.count()):
             item = self.featuresListWidget.listBox.item(i)
             item_text = item.text()
-            if item_text in featuresToDelete:
+            if item in itemsToDelete:
                 continue
             
             items.append(item_text)
@@ -4096,14 +4102,21 @@ class SelectSizeFeaturesButton(FeatureSelectorButton):
                 break
     
     def addFeature(self):
-        self.selectFeatureDialog = FeatureSelectorDialog(
+        try:
+            guiTabControlParams = self.parentFormWidget.parent().params
+        except Exception as err:
+            traceback.print_exc()
+            guiTabControlParams = None
+        
+        self.selectFeatureDialog = SpotSizeFeatureSelectDialog(
             parent=self.featuresListWidget, 
             multiSelection=False, 
             expandOnDoubleClick=True, 
             isTopLevelSelectable=False, 
             infoTxt='Select size feature', 
             allItemsExpanded=False,
-            onlySizeFeatures=True
+            onlySizeFeatures=True, 
+            analysis_params=guiTabControlParams
         )
         self.selectFeatureDialog.sigClose.connect(self._addFeature)
         self.selectFeatureDialog.show()
@@ -4112,11 +4125,14 @@ class SelectSizeFeaturesButton(FeatureSelectorButton):
         if self.selectFeatureDialog.cancel:
             return
         
-        selection = self.selectFeatureDialog.selectedItems()
-        group_name = list(selection.keys())[0]
-        feature_name = selection[group_name][0]
-        
-        item_text = f'{group_name}, {feature_name}'
+        if self.selectFeatureDialog.customValueText:
+            item_text = self.selectFeatureDialog.customValueText
+        else:
+            selection = self.selectFeatureDialog.selectedItems()
+            group_name = list(selection.keys())[0]
+            feature_name = selection[group_name][0]
+            
+            item_text = f'{group_name}, {feature_name}'
         
         self.featuresListWidget.listBox.addItem(item_text)
     
@@ -4168,7 +4184,43 @@ class SelectSizeFeaturesButton(FeatureSelectorButton):
             if not item_text:
                 continue
             
-            group_name, feature_name = item_text.split(', ')
-            group_features_mapper[group_name].append(feature_name)
+            try:
+                group_name, feature_name = item_text.split(', ')
+                group_features_mapper[group_name].append(feature_name)
+            except Exception as err:
+                # In SpotSizeFeatureSelectDialog we have custom sizes that 
+                # are not features --> it would not be found in 
+                # group_features_mapper --> ignore error
+                pass
             
         return group_features_mapper
+
+class SpotSizeFeatureSelectDialog(FeatureSelectorDialog):
+    def __init__(self, *args, analysis_params=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setWindowTitle('Select spot size feature')
+        
+        customSizeButton = acdc_widgets.editPushButton(
+            'Define custom size feature...'
+        )
+        self.buttonsLayout.insertSpacing(3, 20)
+        self.buttonsLayout.insertWidget(3, customSizeButton)
+        
+        self.customSizeDialog = dialogs.CustomSpotSizeDialog(
+            parent=self, analysis_params=analysis_params
+        )
+        self.customSizeDialog.setWindowFlags(Qt.WindowStaysOnTopHint)
+        
+        customSizeButton.clicked.connect(self.defineCustomSizeFeature)
+        
+        self.customValueText = ''
+    
+    def defineCustomSizeFeature(self, checked=False):
+        self.customSizeDialog.exec_()
+        if self.customSizeDialog.cancel:
+            return
+        
+        self.customValueText = self.customSizeDialog.text()
+        
+        self.cancel = False
+        self.close()

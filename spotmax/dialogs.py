@@ -7360,5 +7360,199 @@ class QDialogBioimageIOModelParams(acdc_apps.QDialogModelParams):
             argSpecs.append(argspec)
         return argSpecs
         
+class CustomSpotSizeDialog(QBaseDialog):
+    def __init__(self, analysis_params=None, parent=None):
+        self.cancel = True
         
+        super().__init__(parent=parent)
         
+        self.setWindowTitle('Custom spot size parameters')
+
+        mainLayout = QVBoxLayout()
+
+        font = config.font()
+
+        if analysis_params is None:
+            analysis_params = config.analysisInputsParams()
+        
+        section = 'METADATA'
+        self.params = {section: {}}
+        metadata_params = analysis_params[section]
+            
+        formLayout = widgets.FormLayout()
+        groupBox = QGroupBox('Parameters for spot size')
+        groupBox.setCheckable(False)
+        groupBox.setFont(font)
+        
+        groupBox.formWidgets = []
+        
+        section_option_to_desc_mapper = docs.get_params_desc_mapper()
+        
+        requiredAnchors = {
+            'pixelWidth',
+            'pixelHeight',
+            'voxelDepth', 
+            'SizeZ', 
+            'emWavelen', 
+            'numAperture',
+            'zResolutionLimit',
+            'yxResolLimitMultiplier',
+            'spotMinSizeLabels'
+        }
+        
+        for row, (anchor, param) in enumerate(metadata_params.items()):
+            if anchor not in requiredAnchors:
+                continue
+            
+            self.params[section][anchor] = param.copy()
+            formWidget = widgets.ParamFormWidget(
+                anchor, param, self, 
+                section_option_to_desc_mapper=section_option_to_desc_mapper
+            )
+            formWidget.section = section
+            formWidget.sigLinkClicked.connect(self.infoLinkClicked)
+            
+            formLayout.addFormWidget(formWidget, row=row)
+            
+            try:
+                # Get value from guiTabControl on GUI
+                in_value = metadata_params[anchor]['widget'].value()
+                formWidget.widget.setValue(in_value)
+            except Exception as err:
+                pass
+            
+            self.params[section][anchor]['widget'] = formWidget.widget
+            self.params[section][anchor]['formWidget'] = formWidget
+            self.params[section][anchor]['groupBox'] = groupBox
+            
+            groupBox.formWidgets.append(formWidget)
+            
+            if anchor == 'spotMinSizeLabels':
+                labelTextLeft = formWidget.labelTextLeft
+                formWidget.labelLeft.setTextFormat(Qt.RichText)
+                formWidget.labelLeft.setText(f'<b>{labelTextLeft}</b>')
+            
+            actions = param.get('actions', None)
+            if actions is None:
+                continue
+            
+            for action in actions:
+                signal = getattr(formWidget.widget, action[0])
+                signal.connect(getattr(self, action[1]))
+            
+        groupBox.setLayout(formLayout)
+        mainLayout.addWidget(groupBox)
+        
+        buttonsLayout = acdc_widgets.CancelOkButtonsLayout()
+        mainLayout.addSpacing(20)
+        mainLayout.addLayout(buttonsLayout)
+        
+        self.setLayout(mainLayout)
+        
+        self.updateMinSpotSize()
+        
+        buttonsLayout.okButton.clicked.connect(self.ok_cb)
+        buttonsLayout.cancelButton.clicked.connect(self.close)
+    
+    def ok_cb(self):
+        self.cancel = False
+        self.close()
+    
+    def text(self):
+        text = self.params['METADATA']['spotMinSizeLabels']['widget'].text()
+        text = text.replace('\n', ' ; ')
+        text = ' '.join(text.split())
+        return text
+    
+    def infoLinkClicked(self, link):
+        try:
+            # Stop previously blinking controls, if any
+            self.blinker.stopBlinker()
+            self.labelBlinker.stopBlinker()
+        except Exception as e:
+            pass
+
+        try:
+            section, anchor, *option = link.split(';')
+            formWidget = self.params[section][anchor]['formWidget']
+            if option:
+                option = option[0]
+                widgetToBlink = getattr(formWidget, option)
+            else:
+                widgetToBlink = formWidget.widget
+            self.blinker = utils.widgetBlinker(widgetToBlink)
+            label = formWidget.labelLeft
+            self.labelBlinker = utils.widgetBlinker(
+                label, styleSheetOptions=('color',)
+            )
+            self.blinker.start()
+            self.labelBlinker.start()
+        except Exception as e:
+            traceback.print_exc()
+    
+    def SizeZchanged(self, SizeZ):
+        isZstack = SizeZ > 1
+        metadata = self.params['METADATA']
+        spotMinSizeLabels = metadata['spotMinSizeLabels']['widget']
+        spotMinSizeLabels.setIsZstack(isZstack)
+        self.updateMinSpotSize()
+    
+    def updateMinSpotSize(self, value=0.0):
+        metadata = self.params['METADATA']
+        physicalSizeX = metadata['pixelWidth']['widget'].value()
+        physicalSizeY = metadata['pixelHeight']['widget'].value()
+        physicalSizeZ = metadata['voxelDepth']['widget'].value()
+        SizeZ = metadata['SizeZ']['widget'].value()
+        emWavelen = metadata['emWavelen']['widget'].value()
+        NA = metadata['numAperture']['widget'].value()
+        zResolutionLimit_um = metadata['zResolutionLimit']['widget'].value()
+        yxResolMultiplier = metadata['yxResolLimitMultiplier']['widget'].value()
+        zyxMinSize_pxl, zyxMinSize_um = core.calcMinSpotSize(
+            emWavelen, NA, physicalSizeX, physicalSizeY, physicalSizeZ,
+            zResolutionLimit_um, yxResolMultiplier
+        )
+        if SizeZ == 1:
+            zyxMinSize_pxl = (float('nan'), *zyxMinSize_pxl[1:])
+            zyxMinSize_um = (float('nan'), *zyxMinSize_um[1:])
+        
+        zyxMinSize_pxl_txt = (f'{[round(val, 4) for val in zyxMinSize_pxl]} pxl'
+            .replace(']', ')')
+            .replace('[', '(')
+        )
+        zyxMinSize_um_txt = (f'{[round(val, 4) for val in zyxMinSize_um]} μm'
+            .replace(']', ')')
+            .replace('[', '(')
+        )
+        spotMinSizeLabels = metadata['spotMinSizeLabels']['widget']
+        spotMinSizeLabels.setIsZstack(SizeZ > 1)
+        spotMinSizeLabels.pixelLabel.setText(zyxMinSize_pxl_txt)
+        spotMinSizeLabels.umLabel.setText(zyxMinSize_um_txt)
+        
+        formWidget = metadata['spotMinSizeLabels']['formWidget']
+        warningButton = formWidget.warningButton
+        warningButton.hide()
+        if any([val<2 for val in zyxMinSize_pxl]):
+            warningButton.show()
+            try:
+                formWidget.sigWarningButtonClicked.disconnect()
+            except Exception as err:
+                pass
+            formWidget.sigWarningButtonClicked.connect(
+                self.warnSpotSizeMightBeTooLow
+            )
+    
+    def warnSpotSizeMightBeTooLow(self, formWidget):
+        spotMinSizeLabels = formWidget.widget.pixelLabel.text()
+        txt = html_func.paragraph(f"""
+            One or more radii of the <code>{formWidget.text()}</code> are 
+            <b>less than 2 pixels</b>.<br><br>
+            This means that SpotMAX can detect spots that are 1 pixel away 
+            along the dimension that is less than 2 pixels.<br><br>
+            We recommend <b>increasing the radii to at least 3 pixels</b>.<br><br>
+            Current <code>{formWidget.text()} = {spotMinSizeLabels}</code>
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        msg.warning(self, 'Minimimum spot size potentially too low', txt)
+    
+    def updateLocalBackgroundValue(self, pixelSize):
+        pass

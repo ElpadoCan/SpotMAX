@@ -442,9 +442,14 @@ def get_size_spot_masks_to_save(group_feature_to_parse: str):
         if not item:
             continue
         
-        group, feature = item.split(',')
-        group = group.strip()
-        feature = feature.strip()
+        if ';' in item:
+            group = 'custom'
+            feature = item
+        else:
+            group, feature = item.split(',')
+            group = group.strip()
+            feature = feature.strip()
+            
         out_group_features_mapper[group].append(feature)
     
     return out_group_features_mapper

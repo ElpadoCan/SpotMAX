@@ -593,7 +593,11 @@ def index_aggregated_segm_into_input_lab(
 def get_local_spheroid_mask(spots_zyx_radii_pxl, logger_func=print):
     zr, yr, xr = spots_zyx_radii_pxl
     wh = int(np.ceil(yr))
-    d = int(np.ceil(zr))
+    try:
+        d = int(np.ceil(zr))
+    except Exception as err:
+        # This way we can pass zr as None or NaN to get a 2D mask
+        d = 1
 
     # Generate a sparse meshgrid to evaluate 3D spheroid mask
     z, y, x = np.ogrid[-d:d+1, -wh:wh+1, -wh:wh+1]
@@ -932,18 +936,39 @@ def from_df_spots_objs_to_spots_lab(
         show_pbar=False,
         spot_mask_size_colname=None
     ):
+    debug = False
+    
     if spots_lab is None:
         spots_lab = np.zeros(arr_shape, dtype=np.uint32)
     
     if spots_lab.ndim == 2:
         spots_lab = spots_lab[np.newaxis]
     
-    if spot_mask_size_colname is not None:
+    is_spot_mask_size_feature = (
+        spot_mask_size_colname is not None 
+        and not spot_mask_size_colname.startswith('custom_')
+    )
+    if is_spot_mask_size_feature:
         # Start adding from larger spots in order to not 
         # cover the smaller ones
         df_spots_objs = df_spots_objs.sort_values(
             spot_mask_size_colname, ascending=False
         )
+    elif spot_mask_size_colname is not None:
+        # Custom size --> it comes as text with pattern 'custom_#_#_#_pixel'
+        # where # are the z,y,x radii in pixels with 'p' instead of . to denote 
+        # decimal values, e.g. 'custom_1p5_2p96_2p96_pixel' for 
+        # spot_zyx_size = [1.5, 2.96, 2.96]
+        values_text_pixel = (
+            spot_mask_size_colname.replace('custom_', '')
+            .replace('_pixel', '')
+            .replace('p', '.')
+            .split('_')
+        )
+        spot_zyx_size = [float(v) for v in values_text_pixel]
+        spot_mask = get_local_spheroid_mask(spot_zyx_size)
+        df_spots_objs['spot_mask'] = [spot_mask]*len(df_spots_objs)
+        spot_mask_size_colname = None
     
     if show_pbar:
         pbar = tqdm(total=len(df_spots_objs), ncols=100)
@@ -959,6 +984,7 @@ def from_df_spots_objs_to_spots_lab(
             )
             spot_zyx_size = [getattr(row, col) for col in zyx_colnames]
             spot_mask = get_local_spheroid_mask(spot_zyx_size)
+        
         zyx_center = (row.z, row.y, row.x)
         slices = get_slices_local_into_global_3D_arr(
             zyx_center, arr_shape, spot_mask.shape

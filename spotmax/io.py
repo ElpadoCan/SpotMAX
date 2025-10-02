@@ -50,6 +50,13 @@ if GUI_INSTALLED:
 from cellacdc import data_structure_docs_url
 from cellacdc import myutils as acdc_myutils
 from cellacdc import load as acdc_load
+try:
+    from cellacdc.regex import float_regex
+except Exception as err:
+    from cellacdc.acdc_regex import float_regex
+
+float_re = float_regex()
+
 import cellacdc.features
 
 from . import utils, config
@@ -2594,8 +2601,19 @@ def save_spots_masks(
         custom_spots_masks_data = defaultdict(dict)
         for group, features in sizes_for_spot_masks.items():
             for feature in features:
-                key = f'{group}, {feature}'
-                spot_mask_size_colname = group_feature_to_col_mapper[key]
+                if group == 'custom':
+                    values_text_pixel = re.findall(
+                        rf'\(({float_re}), ({float_re}), ({float_re})\) pixel',
+                        feature
+                    )
+                    values_text_fn = (
+                        '_'.join(values_text_pixel[0])
+                        .replace('.', 'p')
+                    )
+                    spot_mask_size_colname = f'custom_{values_text_fn}_pixel'
+                else:
+                    key = f'{group}, {feature}'
+                    spot_mask_size_colname = group_feature_to_col_mapper[key]
                 custom_spots_masks_data[spot_mask_size_colname] = (
                     np.zeros_like(spots_mask_data)
                 )
