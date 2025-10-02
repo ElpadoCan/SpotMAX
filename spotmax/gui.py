@@ -492,7 +492,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def openUserProfileFolder(self):
         from . import user_profile_path
-        myutils.showInExplorer(user_profile_path)
+        acdc_myutils.showInExplorer(user_profile_path)
     
     def loadAnalysisPathSelected(self):
         proceed = self.checkDataLoaded()
