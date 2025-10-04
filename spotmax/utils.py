@@ -38,6 +38,7 @@ from . import GUI_INSTALLED
 from . import DFs_FILENAMES
 from . import valid_true_bool_str, valid_false_bool_str
 from . import rng
+from . import get_watchdog_filepaths
 
 if GUI_INSTALLED:
     import matplotlib.colors
@@ -966,9 +967,11 @@ def parse_log_file(log_path=None):
         r'^Traceback[\w\W]+?(?=^\[|\Z)', log_text, re.M | re.X
     )
     
+    warnings = re.findall(r'(^\[WARNING\]: [\w\W]*?^)\^.*', log_text, re.M)
+    
     errors.extend(tracebacks)
     
-    return log_path, errors
+    return log_path, errors, warnings
 
 def resolve_path(rel_or_abs_path, abs_path=''):
     if os.path.isabs(rel_or_abs_path):
@@ -1577,4 +1580,23 @@ def squeeze_3D_if_needed(arr):
         return arr[0].copy()
     
     return arr
+
+def stop_watchdog(watchdog_id):
+    watchdog_filepaths = get_watchdog_filepaths(watchdog_id)
+    (stop_watchdog_flag_filepath, watchdog_log_filepath, 
+    watchdog_stopped_flag) = watchdog_filepaths
+    open(stop_watchdog_flag_filepath, 'w').close()
+    while True:
+        if os.path.exists(watchdog_stopped_flag):
+            break
+        time.sleep(0.1)
     
+    is_watchdog_warning = os.path.exists(watchdog_log_filepath)
+    
+    for filepath in watchdog_filepaths:
+        try:
+            os.remove(filepath)
+        except Exception as e:
+            pass
+    
+    return is_watchdog_warning

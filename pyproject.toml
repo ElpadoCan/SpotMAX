@@ -73,6 +73,7 @@ biio = [
 spotmax = "spotmax.__main__:run"
 smax = "spotmax.__main__:run"
 browseini = "spotmax.io:browse_last_used_ini_folderpath"
+spotmax_watch = "spotmax._process_watchdog:run"
 
 [tool.setuptools]
 include-package-data = true

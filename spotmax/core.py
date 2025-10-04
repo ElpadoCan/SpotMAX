@@ -7,6 +7,7 @@ from typing import Tuple
 from tqdm import tqdm
 import time
 from datetime import datetime, timedelta
+from uuid import uuid4
 
 import pandas as pd
 import numpy as np
@@ -40,6 +41,8 @@ from . import (
     exception_handler_cli, handle_log_exception_cli
 )
 from . import LT_DF_REQUIRED_COLUMNS
+from . import spotmax_path
+from . import get_watchdog_filepaths
 
 if GUI_INSTALLED:
     from cellacdc.plot import imshow
@@ -876,6 +879,11 @@ class _ParamsParser(_DataLoader):
     def check_parsed_arguments(self, parser_args):
         params_path = parser_args['params']
         params_path = utils.check_cli_file_path(params_path)
+
+        self.watchdog_id = None
+        
+        if parser_args['identifier']:
+            self.watchdog_id = parser_args['identifier']
 
         parser_args = self._add_args_from_params_ini_file(
             parser_args, params_path
@@ -6632,7 +6640,9 @@ class Kernel(_ParamsParser):
             disable_final_report=False,
             report_filepath='',
             parser_args=None
-        ):        
+        ): 
+        self.start_watchdog()
+               
         version = read_version()
         acdc_version = acdc_myutils.read_version()
         
@@ -6682,8 +6692,32 @@ class Kernel(_ParamsParser):
         self._log_exec_time(t0_analysis, 'entire analysis')
         self.save_report()
         self.quit()
-            
+    
+    def start_watchdog(self):
+        import subprocess
+        import sys
+        
+        if self.watchdog_id is None:
+            self.watchdog_id = str(uuid4())
+
+        try:
+            p = subprocess.Popen(['spotmax_watch', '-id', self.watchdog_id])
+            return
+        except Exception as e:
+            pass
+        
+        try:
+            watchdog_script = os.path.join(spotmax_path, '_process_watchdog.py')
+            p = subprocess.Popen(
+                [sys.executable, watchdog_script, '-id', self.watchdog_id]
+            )
+            return
+        except Exception as e:
+            pass
+        
     def quit(self, error=None):
+        is_watchdog_warning = utils.stop_watchdog(self.watchdog_id)
+        
         if not self.is_cli and error is not None:
             raise error
 
@@ -6725,11 +6759,22 @@ class Kernel(_ParamsParser):
                 'Please **send the log file** when reporting an issue, thanks!'
             )
             self.logger.info(txt)
+        elif is_watchdog_warning:
+            txt = (
+                '[WARNING]: During the analysis, the RAM usage exceeded '
+                '95% of the available memory.\n\n'
+                'If the output files were not created, it could be that '
+                'the analysis was interrupted due to insufficient memory.\n\n'
+                'Try closing other applications and re-running the analysis.\n\n'
+                'Thank you for your patience!'
+            )
+            self.logger.info(txt)
         else:
             self.logger.info(
                 'SpotMAX command-line interface closed. '
                 f'{utils.get_salute_string()}'
             )
+        
         self.logger.info('='*100)
         exit()
 

@@ -59,12 +59,19 @@ class signals(QObject):
     sigLoadingNewChunk = Signal(object)
 
 class AnalysisWorker(QRunnable):
-    def __init__(self, ini_filepath, is_tempfile, log_filepath: os.PathLike=''):
+    def __init__(
+            self, 
+            ini_filepath, 
+            is_tempfile, 
+            log_filepath: os.PathLike='',
+            identifier: str=None
+        ):
         QRunnable.__init__(self)
         self.signals = signals()
         self._ini_filepath = ini_filepath
         self._is_tempfile = is_tempfile
         self._log_filepath = log_filepath
+        self._identifier = identifier
         self.logger = workerLogger(self.signals.progress)
 
     def getCommandForClipboard(self):
@@ -74,8 +81,11 @@ class AnalysisWorker(QRunnable):
         command_cp = command_cp.replace(',', '')
         return command_cp
     
-    def cli_command(self):
-        command = f'spotmax, -p, {self._ini_filepath}'
+    def cli_command(self, identifier: str=None):
+        if identifier is None:
+            identifier = ''
+        
+        command = f'spotmax, -p, {self._ini_filepath}, -id, {identifier}'
         if self._log_filepath:
             command = f'{command}, -l, {self._log_filepath}'
         return command
@@ -83,19 +93,26 @@ class AnalysisWorker(QRunnable):
     @worker_exception_handler
     def run(self):
         from . import _process
-        command = self.cli_command()
+        command = self.cli_command(identifier=self._identifier)
         
         self.logger.log(f'Full command: {command}')
         
         # command = r'python, spotmax\test.py'
         command_format = self.getCommandForClipboard()
-        self.logger.log(f'SpotMAX analysis started with command `{command_format}`')
+        self.logger.log(
+            f'SpotMAX analysis started with command `{command_format}`'
+        )
         args = [sys.executable, _process.__file__, '-c', command]
         subprocess.run(args)
         run_number = io.get_run_number_from_ini_filepath(self._ini_filepath)
-        self.signals.finished.emit(
-            (self._ini_filepath, self._is_tempfile, run_number)
+        
+        out = (
+            self._ini_filepath, 
+            self._is_tempfile, 
+            run_number, 
+            self._identifier
         )
+        self.signals.finished.emit(out)
 
 class ComputeAnalysisStepWorker(QRunnable):
     def __init__(self, module_func, anchor, **kwargs):

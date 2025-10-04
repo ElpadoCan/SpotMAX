@@ -7,6 +7,8 @@ import re
 from functools import partial
 from queue import Queue
 
+from uuid import uuid4
+
 from typing import Tuple
 
 import numpy as np
@@ -935,7 +937,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         
         worker = qtworkers.AnalysisWorker(
-            ini_filepath, is_tempfile, log_filepath=self.log_path
+            ini_filepath, is_tempfile, log_filepath=self.log_path,
+            identifier=str(uuid4())
         )
 
         command = worker.getCommandForClipboard()
@@ -951,6 +954,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         return worker
     
     def promptAnalysisWorkerFinished(self, args):
+        identifier = args[3]
+        is_watchdog_warning = utils.stop_watchdog(identifier)
+        
         self.isAnalysisRunning = False
         self.setWindowState(self.stateBeforeStartingAnalysis)
         self.setDisabled(False)
@@ -960,9 +966,23 @@ class spotMAX_Win(acdc_gui.guiWin):
             tempdir = os.path.dirname(ini_filepath)
             self.logger.info(f'Deleting temp folder "{tempdir}"')
             shutil.rmtree(tempdir)
-        log_path, errors = utils.parse_log_file()
+        log_path, errors, warnings = utils.parse_log_file()
+        
+        if is_watchdog_warning:
+            warnings.append(
+                '[WARNING]: During the analysis, the RAM usage exceeded '
+                '85% of the available memory.\n\n'
+                'If the output files were not created, it could be that '
+                'the analysis process was "killed" due to insufficient memory.\n\n'
+                'Try closing other applications and re-running the analysis.\n\n'
+                'Thank you for your patience!'
+            )
+        
         self._analysis_finished_datetime = datetime.datetime.now()
-        delta = self._analysis_finished_datetime-self._analysis_started_datetime
+        delta = (
+            self._analysis_finished_datetime
+            - self._analysis_started_datetime
+        )
         delta_sec = str(delta).split('.')[0]
         ff = r'%d %b %Y, %H:%M:%S'
         txt = (
@@ -991,6 +1011,21 @@ class spotMAX_Win(acdc_gui.guiWin):
                 'log file:'
             )
             msg_func = 'critical'
+            msg_kwargs['commands'] = (log_path, )
+        elif warnings:
+            details = '\n\n'.join(warnings)
+            msg_kwargs['detailsText'] = details
+            txt = txt.replace(
+                'SpotMAX analysis finished!', 
+                'SpotMAX analysis finished with WARNINGS'
+            )
+            txt = (
+                f'{txt}\n'
+                'WARNING: Analysis ended with warnings. '
+                'See summary of warnings below and more details in the '
+                'log file:'
+            )
+            msg_func = 'warning'
             msg_kwargs['commands'] = (log_path, )
         else:
             msg_func = 'information'

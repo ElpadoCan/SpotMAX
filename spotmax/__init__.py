@@ -142,6 +142,10 @@ last_cli_log_file_path = os.path.join(
     spotmax_appdata_path, 'last_cli_log_file_path.txt'
 )
 data_path = os.path.join(SpotMAX_path, 'data')
+watchdog_folderpath = os.path.join(
+    spotmax_appdata_path, 'watchdog'
+)
+os.makedirs(watchdog_folderpath, exist_ok=True)
 
 logs_path = os.path.join(spotmax_appdata_path, 'logs')
 if not os.path.exists(logs_path):
@@ -297,6 +301,23 @@ def njit_replacement(parallel=False):
             return func(*args, **kwargs)
         return inner_function
     return wrap
+
+def get_watchdog_filepaths(identifier: str):
+    stop_watchdog_flag_filepath = os.path.join(
+        watchdog_folderpath, f'stop_watchdog_{identifier}.flag'
+    )
+    watchdog_log_filepath = os.path.join(
+        watchdog_folderpath, f'watchdog_alert_{identifier}.log'
+    )
+    watchdog_stopped_flag = os.path.join(
+        watchdog_folderpath, f'watchdog_stopped_{identifier}.flag'
+    )
+    watchdog_filepaths = (
+        stop_watchdog_flag_filepath, 
+        watchdog_log_filepath, 
+        watchdog_stopped_flag
+    )
+    return watchdog_filepaths
 
 from . import (
     config, core, data, features, filters, io, pipe, transformations, utils

@@ -87,6 +87,15 @@ def cli_parser():
             '"if self.debug: <debug code here>"'
         )
     )
+    
+    ap.add_argument(
+        '-id', '--identifier', 
+        required=False, 
+        default='',
+        type=str, 
+        metavar='COMMAND',
+        help='Text identifier to distinguish multiple SpotMAX instances.'
+    )
 
     return vars(ap.parse_args())
 
