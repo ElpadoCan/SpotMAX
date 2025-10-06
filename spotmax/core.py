@@ -1108,6 +1108,7 @@ class _ParamsParser(_DataLoader):
             self, run_nums, exp_path, scanner_paths, user_run_number, 
             pos_foldername=None
         ):
+        run_number = user_run_number
         if len(run_nums) > 1 and user_run_number is None:
             # Multiple run numbers detected
             run_number = self._ask_user_multiple_run_nums(
