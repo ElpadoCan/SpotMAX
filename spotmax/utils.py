@@ -1586,7 +1586,7 @@ def stop_watchdog(watchdog_id):
     (stop_watchdog_flag_filepath, watchdog_log_filepath, 
     watchdog_stopped_flag) = watchdog_filepaths
     open(stop_watchdog_flag_filepath, 'w').close()
-    while True:
+    for _ in range(50):  # wait max 5 seconds
         if os.path.exists(watchdog_stopped_flag):
             break
         time.sleep(0.1)
