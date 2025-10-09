@@ -877,11 +877,11 @@ class _ParamsParser(_DataLoader):
     
     @exception_handler_cli
     def check_parsed_arguments(self, parser_args):
+        self.watchdog_id = None
+
         params_path = parser_args['params']
         params_path = utils.check_cli_file_path(params_path)
 
-        self.watchdog_id = None
-        
         if parser_args['identifier']:
             self.watchdog_id = parser_args['identifier']
 
@@ -5087,6 +5087,7 @@ class Kernel(_ParamsParser):
                 spot_footprint=footprint,
                 return_spots_mask=save_spots_mask,
                 spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
+                debug=True
             )
             if verbose:
                 print('')
