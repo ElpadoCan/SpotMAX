@@ -205,6 +205,10 @@ class _DataLoader:
             ch_data, ch_dtype = io.load_image_data(
                 ch_path, to_float=to_float, return_dtype=True
             )
+            self.log(
+                f'Image data "{channel}" has shape {ch_data.shape} '
+                f'and data type {ch_dtype}'
+            )
             data[f'{key}.dtype'] = ch_dtype
             data[key] = ch_data
             data[f'{key}.shape'] = ch_data.shape
