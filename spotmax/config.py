@@ -1113,6 +1113,30 @@ def _ref_ch_params():
             'dtype': get_threshold_func,
             'parser': parse_threshold_func
         },
+        'calcRefChFeatures': {
+            'desc': 'Compute reference channel features',
+            'initialVal': True,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool, 
+            'ignoreIfMissing': True
+        },
+        'calcRefChRegionprops': {
+            'desc': 'Compute region properties of the reference channel',
+            'initialVal': False,
+            'stretchWidget': False,
+            'addInfoButton': True,
+            'addComputeButton': False,
+            'addApplyButton': False,
+            'formWidgetFunc': 'acdc_widgets.Toggle',
+            'actions': None,
+            'dtype': get_bool, 
+            'ignoreIfMissing': True
+        },
         'refChFilteringFeatures': {
             'desc': 'Features for filtering ref. channel objects',
             'initialVal': None,

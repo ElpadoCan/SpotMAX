@@ -10,6 +10,7 @@
 .. _pandas.eval: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.eval.html
 .. _open: https://docs.python.org/3/library/functions.html#open
 .. _pandas.read_hdf: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_hdf.html
+.. _scikit-image region properties: https://scikit-image.org/docs/dev/api/skimage.measure.html#skimage.measure.regionprops
 
 .. |edit-button| image:: ../../../resources/icons/cog.svg
     :width: 20
@@ -646,6 +647,31 @@ Reference channel
 
   :type: string
   :default: ``threshold_otsu``
+
+.. confval:: Compute reference channel features
+
+  If ``True``, SpotMAX will calculate features (intensity, moprhology, size, etc.) of the reference channel objects. 
+
+  These features can be used to filter valid reference channel objects 
+  (see :confval:`Features for filtering ref. channel objects`).
+
+  For more details about the calculated features, see the section :ref:`ref_ch_features`.
+
+.. confval:: Compute region properties of the reference channel
+
+  If ``True``, SpotMAX will calculate the region properties of the reference 
+  channel objects. These include features such as area, perimeter, eccentricity, 
+  etc. calculated with the function `scikit-image region properties`_.
+
+  These features can be used to filter valid reference channel objects 
+  (see :confval:`Features for filtering ref. channel objects`).
+
+  For more details about the calculated features, see the section :ref:`ref_ch_features` and `scikit-image region properties`_ page.
+
+  .. note:: 
+    
+    The region properties for 3D objects can be computationally expensive to 
+    calculate. Therefore, if you are working with 3D data and you are experiencing long computation times, consider setting this parameter to ``False``.
 
 .. confval:: Features for filtering ref. channel objects
 

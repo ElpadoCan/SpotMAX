@@ -3,6 +3,8 @@ from typing import Union, Literal
 from numbers import Number
 import warnings
 
+from tqdm import tqdm
+
 import math
 
 import numpy as np
@@ -18,6 +20,7 @@ from . import transformations
 from . import filters
 from . import _warnings
 from . import core
+from . import utils
 
 SPOTS_SIZE_COLNAME_TO_ZYX_COLS_MAPPER = {
     'spotsize_initial_radius_yx_pixel': (
@@ -852,4 +855,67 @@ def calc_additional_regionprops(obj):
     obj.roundness = roundness
     
     return obj
-        
+
+def add_regionprops_to_df(
+        ref_ch_mask_local: np.ndarray, 
+        df_ref_ch: pd.DataFrame
+    ):
+    ref_ch_local_rp = skimage.measure.regionprops(
+        utils.squeeze_3D_if_needed(ref_ch_mask_local.astype(np.uint8))
+    )
+    if len(ref_ch_local_rp) > 0:
+        ref_ch_obj = ref_ch_local_rp[0]
+        ref_ch_obj = calc_additional_regionprops(ref_ch_obj)
+        for prop_name, dtype in REGIONPROPS_DTYPE_MAPPER.items():
+            try:
+                prop_value = getattr(ref_ch_obj, prop_name, None)
+            except Exception as err:
+                prop_value = np.nan
+            
+            if dtype == float or dtype == int:
+                try:
+                    df_ref_ch.loc[:, f'ref_ch_{prop_name}'] = (
+                        prop_value
+                    )
+                except Exception as err:
+                    pass
+    
+    return df_ref_ch
+
+def add_regionprops_subobj_ref_ch_to_df(
+        ref_ch_lab: np.ndarray, 
+        df_ref_ch: pd.DataFrame,
+        show_progressbar=True
+    ):
+    sub_obj_ref_ch_rp = skimage.measure.regionprops(
+        utils.squeeze_3D_if_needed(ref_ch_lab)
+    )
+    
+    if show_progressbar:
+        desc = 'Morphological analysis sub-objects'
+        pbar_rp_subobj = tqdm(
+            total=len(sub_obj_ref_ch_rp), 
+            ncols=100, 
+            desc=desc, 
+            leave=False
+        )
+    
+    for sub_obj in sub_obj_ref_ch_rp:
+        sub_obj = calc_additional_regionprops(sub_obj)
+        for prop_name, dtype in REGIONPROPS_DTYPE_MAPPER.items():
+            col_name = f'sub_obj_ref_ch_{prop_name}'
+            try:
+                prop_value = getattr(sub_obj, prop_name, None)
+            except Exception as err:
+                prop_value = np.nan
+            if dtype == float or dtype == int:
+                df_ref_ch.loc[sub_obj.label, col_name] = (
+                    prop_value
+                )  
+        if show_progressbar:
+            pbar_rp_subobj.update()
+    
+    if show_progressbar:
+        pbar_rp_subobj.close()
+    
+    return df_ref_ch

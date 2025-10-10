@@ -4484,6 +4484,7 @@ class Kernel(_ParamsParser):
             df_agg=None, frame_i=0, vox_to_um3=None, zyx_tolerance=None, 
             ridge_filter_sigmas=0.0, verbose=True, raw_ref_ch_img=None, 
             return_filtered_img=False, filtering_features_thresholds=None, 
+            calc_ref_ch_features=True, calc_ref_ch_rp=True
         ):
         if self._is_lab_all_zeros(lab):
             df_agg['ref_ch_vol_vox'] = np.nan
@@ -4536,24 +4537,57 @@ class Kernel(_ParamsParser):
         else:
             ref_ch_segm = result
         
-        df_agg, df_ref_ch, ref_ch_segm = pipe.reference_channel_quantify(
-            ref_ch_segm,
-            ref_ch_img,
-            lab=None, 
-            lab_rp=lab_rp,
-            df_agg=df_agg,
-            frame_i=frame_i, 
-            vox_to_um3=vox_to_um3,
-            filtering_features_thresholds=filtering_features_thresholds,
-            logger_func=self.logger.info,
-            verbose=verbose
-        )
+        if calc_ref_ch_features:
+            df_agg, df_ref_ch, ref_ch_segm = pipe.reference_channel_quantify(
+                ref_ch_segm,
+                ref_ch_img,
+                lab=None, 
+                lab_rp=lab_rp,
+                df_agg=df_agg,
+                frame_i=frame_i, 
+                vox_to_um3=vox_to_um3,
+                calc_rp=calc_ref_ch_rp,
+                filtering_features_thresholds=filtering_features_thresholds,
+                logger_func=self.logger.info,
+                verbose=verbose
+            )
+        else:
+            df_ref_ch = self._init_df_ref_ch_empty(
+                lab_rp, ref_ch_segm, ref_ch_img, frame_i
+            )
         
         if return_filtered_img:
             return ref_ch_segm, ref_ch_filtered_img, df_agg, df_ref_ch
         else:
             return ref_ch_segm, df_agg, df_ref_ch
 
+    def _init_df_ref_ch_empty(self, lab_rp, ref_ch_segm, ref_ch_img, frame_i):
+        dfs_ref_ch = []
+        keys = []
+        for obj in lab_rp:
+            ID = obj.label
+            
+            ref_ch_lab_local = ref_ch_segm[obj.slice].copy()
+            ref_ch_lab_local[ref_ch_lab_local!=obj.label] = 0
+            ref_ch_mask_local = ref_ch_lab_local > 0
+            
+            ref_ch_img_local = ref_ch_img[obj.slice]
+            
+            ref_ch_lab = skimage.measure.label(ref_ch_mask_local)
+            ref_ch_rp = skimage.measure.regionprops(ref_ch_lab)
+            
+            if len(ref_ch_rp) == 0:
+                continue
+            
+            df_ref_ch = features._init_df_ref_ch(ref_ch_rp)
+            dfs_ref_ch.append(df_ref_ch)
+            keys.append((frame_i, ID))
+        
+        df_ref_ch = pd.concat(
+            dfs_ref_ch, keys=keys, names=['frame_i', 'Cell_ID']
+        )
+        return df_ref_ch
+            
     def spotfit(
             self, 
             spots_data, 
@@ -5638,6 +5672,12 @@ class Kernel(_ParamsParser):
         filtering_features_thresholds = (
             ref_ch_section['refChFilteringFeatures']['loadedVal']
         )
+        calc_ref_ch_features = (
+            ref_ch_section['calcRefChFeatures']['loadedVal']
+        )
+        calc_ref_ch_rp = (
+            ref_ch_section['calcRefChRegionprops']['loadedVal']
+        )
         vox_to_um3 = self.metadata.get('vox_to_um3_factor', 1)
         ref_ch_segm_data = np.zeros(ref_ch_data.shape, dtype=np.uint32)
         preproc_ref_ch_data = None
@@ -5678,7 +5718,9 @@ class Kernel(_ParamsParser):
                 filtering_features_thresholds=filtering_features_thresholds,
                 verbose=verbose, 
                 raw_ref_ch_img=raw_ref_ch_img,
-                return_filtered_img=save_preproc_ref_ch_img           
+                return_filtered_img=save_preproc_ref_ch_img,
+                calc_ref_ch_features=calc_ref_ch_features,
+                calc_ref_ch_rp=calc_ref_ch_rp       
             )
             if save_preproc_ref_ch_img:
                 ref_ch_lab, ref_ch_filtered_img, df_agg, df_ref_ch = result

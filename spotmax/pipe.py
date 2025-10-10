@@ -566,6 +566,7 @@ def reference_channel_quantify(
         ref_ch_img,
         lab=None, 
         lab_rp=None,
+        calc_rp=True,
         filtering_features_thresholds=None,
         df_agg=None,
         frame_i=0, 
@@ -588,6 +589,9 @@ def reference_channel_quantify(
         If not None, list of properties of objects in `lab` as returned by 
         skimage.measure.regionprops(lab). If None, this will be computed 
         with `skimage.measure.regionprops(lab)`. Default is None
+    calc_rp : bool, optional
+        If True, calculate additional regionprops using `skimage.measure.regionprops` and `features.calc_additional_regionprops`. 
+        Default is True
     filtering_features_thresholds : dict of {'feature_name': (min_value, max_value)}, optional
         Features and their maximum and minimum values to filter valid reference 
         channel segmented objects. 
@@ -712,26 +716,18 @@ def reference_channel_quantify(
             backr_corr_mean*vol_voxels
         )
         
-        ref_ch_local_rp = skimage.measure.regionprops(
-            utils.squeeze_3D_if_needed(ref_ch_mask_local.astype(np.uint8))
-        )
-        if len(ref_ch_local_rp) > 0:
-            ref_ch_obj = ref_ch_local_rp[0]
-            ref_ch_obj = features.calc_additional_regionprops(ref_ch_obj)
-            for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
-                try:
-                    prop_value = getattr(ref_ch_obj, prop_name, None)
-                except Exception as err:
-                    prop_value = np.nan
-                
-                if dtype == float or dtype == int:
-                    try:
-                        df_ref_ch.loc[:, f'ref_ch_{prop_name}'] = (
-                            prop_value
-                        )
-                    except Exception as err:
-                        pass
+        if calc_rp:
+            df_ref_ch = features.add_regionprops_to_df(
+                ref_ch_mask_local, df_ref_ch
+            )
         
+        desc = 'Quantifying sub-objects in reference channel'
+        pbar_subobj = tqdm(
+            total=len(ref_ch_rp), 
+            ncols=100, 
+            desc=desc, 
+            leave=False
+        )
         for sub_obj in ref_ch_rp:
             sub_vol_vox = np.count_nonzero(sub_obj.image)
             df_ref_ch.at[sub_obj.label, 'sub_obj_vol_vox'] = sub_vol_vox
@@ -766,21 +762,14 @@ def reference_channel_quantify(
             
             sub_objs[(ID, sub_obj.label)] = (obj, sub_obj)
             
-        sub_obj_ref_ch_rp = skimage.measure.regionprops(
-            utils.squeeze_3D_if_needed(ref_ch_lab)
-        )
-        for sub_obj in sub_obj_ref_ch_rp:
-            sub_obj = features.calc_additional_regionprops(sub_obj)
-            for prop_name, dtype in features.REGIONPROPS_DTYPE_MAPPER.items():
-                col_name = f'sub_obj_ref_ch_{prop_name}'
-                try:
-                    prop_value = getattr(sub_obj, prop_name, None)
-                except Exception as err:
-                    prop_value = np.nan
-                if dtype == float or dtype == int:
-                    df_ref_ch.loc[sub_obj.label, col_name] = (
-                        prop_value
-                    )  
+            pbar_subobj.update()
+        
+        pbar_subobj.close()
+        
+        if calc_rp:
+            df_ref_ch = features.add_regionprops_subobj_ref_ch_to_df(
+                ref_ch_lab, df_ref_ch
+            )
             
         dfs_ref_ch.append(df_ref_ch)
         keys.append((frame_i, ID))
