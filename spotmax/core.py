@@ -4761,7 +4761,7 @@ class Kernel(_ParamsParser):
         
         if spot_footprint is None:
             spot_footprint = features.get_peak_footprint(
-                sharp_spots_img, zyx_radii_pxl
+                sharp_spots_img, zyx_resolution_limit_pxl
             )
         
         if gop_filtering_thresholds is None:
