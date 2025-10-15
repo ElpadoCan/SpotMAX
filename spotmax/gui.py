@@ -850,8 +850,6 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.ax1.removeItem(self.highlightedRefChObjItem)
         except Exception as err:
             pass
-        
-        printl(self.isEditingResults)
 
         return True
     

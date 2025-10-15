@@ -1393,11 +1393,10 @@ def spot_detection(
     `skimage.measure.regionprops <https://scikit-image.org/docs/stable/api/skimage.measure.html#skimage.measure.regionprops>`__
     """        
     if spot_footprint is None and spots_zyx_radii_pxl is not None:
-        zyx_radii_pxl = [val/2 for val in spots_zyx_radii_pxl]
-        spot_footprint = transformations.get_local_spheroid_mask(
-            zyx_radii_pxl
+        spot_footprint = features.get_peak_footprint(
+            image, spots_zyx_radii_pxl
         )
-    
+        
     if spots_zyx_radii_pxl is None:
         spots_zyx_radii_pxl = np.array([1, 1, 1])
     
@@ -1430,7 +1429,7 @@ def spot_detection(
             min_distance=min_distance,
             footprint=spot_footprint, 
             labels=labels,
-            debug=False
+            debug=debug
         )
         if return_spots_mask:
             spots_masks = transformations.from_spots_coords_to_spots_masks(

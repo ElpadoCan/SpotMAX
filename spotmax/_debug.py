@@ -109,11 +109,30 @@ def find_local_peaks(
         image, labels, peaks_coords, valid_peaks_coords, footprint
     ):
     from cellacdc.plot import imshow
+    from spotmax import ZYX_GLOBAL_COLS
     
-    df_peaks = pd.DataFrame(data=peaks_coords, columns=['z', 'y', 'x'])
-    df_valid = pd.DataFrame(data=valid_peaks_coords, columns=['z', 'y', 'x'])
+    columns = ZYX_GLOBAL_COLS[-image.ndim:]
+    peaks_coords = peaks_coords[:, -image.ndim:]
+    valid_peaks_coords = valid_peaks_coords[:, -image.ndim:]
     
-    imshow(image, labels, points_coords_df=df_valid)
+    df_peaks = pd.DataFrame(data=peaks_coords, columns=columns)
+    df_valid = pd.DataFrame(data=valid_peaks_coords, columns=columns)
+    
+    imshow(
+        image, 
+        labels, 
+        image, 
+        labels,
+        points_coords_df=[
+            df_peaks, df_peaks, df_valid, df_valid
+        ],
+        annotate_labels_idxs=[1, 3],
+        max_ncols=2,
+        axis_titles=[
+            'All spots (image)', 'All peaks (segm)', 
+            'Valid spots (image)', 'Valid spots (segm)'
+        ]
+    )
     
     import pdb; pdb.set_trace()
 
