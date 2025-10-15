@@ -626,14 +626,13 @@ def find_local_peaks(
         min_distance = [min_distance]*image.ndim
     
     if footprint is None:
-        zyx_radii_pxl = [val/2 for val in min_distance]
-        footprint = transformations.get_local_spheroid_mask(
-            zyx_radii_pxl
-        )
+        footprint = get_peak_footprint(image, min_distance)
     
     if labels is not None and not np.any(labels):
         # No point in searching for spots, labels are empty
         return np.zeros((0, 2), dtype=np.int32)
+    
+    import pdb; pdb.set_trace()
     
     peaks_coords = skimage.feature.peak_local_max(
         image, 
@@ -919,3 +918,16 @@ def add_regionprops_subobj_ref_ch_to_df(
         pbar_rp_subobj.close()
     
     return df_ref_ch
+
+def get_peak_footprint(min_distance, image):
+    zyx_radii_pxl = [val/2 if val/2 > 1 else 1 for val in min_distance]
+    if len(zyx_radii_pxl) == 2:
+        zyx_radii_pxl = [1, *zyx_radii_pxl]
+        
+    footprint = transformations.get_local_spheroid_mask(
+        zyx_radii_pxl
+    )
+    if image.ndim == 2:
+        footprint = footprint[0]
+    
+    return footprint

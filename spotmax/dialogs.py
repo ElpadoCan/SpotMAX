@@ -472,6 +472,10 @@ class guiTabControl(QTabWidget):
         QTimer.singleShot(100, self.setMeasurementsButton.confirmAction)
     
     def runAnalysis(self):
+        proceed = self.validateMinSpotSize()
+        if not proceed:
+            return
+        
         txt = html_func.paragraph("""
             Do you want to <b>save the current parameters</b> 
             to a configuration file?<br><br>
@@ -890,7 +894,24 @@ class guiTabControl(QTabWidget):
         self.parametersQGBox.selectedMeasurements = selectedMeasurements
         self.confirmMeasurementsSet()
     
+    def validateMinSpotSize(self):
+        metadata = self.parametersQGBox.params['METADATA']
+        formWidget = metadata['spotMinSizeLabels']['formWidget']
+        warningButton = formWidget.warningButton
+        
+        if not warningButton.isVisible():
+            return True
+        
+        proceed = self.parametersQGBox.warnSpotSizeMightBeTooLow(
+            formWidget, askConfirm=True
+        )
+        return proceed
+    
     def saveParamsFile(self):
+        proceed = self.validateMinSpotSize()
+        if not proceed:
+            return ''
+        
         showSetMeas, cancel = self.askSetMeasurements()
         if cancel:
             return ''
@@ -2447,7 +2468,7 @@ class ParamsGroupBox(QGroupBox):
         spotPredictionMethodWidget = spotsParams[anchor]['widget']
         spotPredictionMethodWidget.setExpectedYXSpotRadius(spot_yx_radius_pixel)
     
-    def warnSpotSizeMightBeTooLow(self, formWidget):
+    def warnSpotSizeMightBeTooLow(self, formWidget, askConfirm=False):
         spotMinSizeLabels = formWidget.widget.pixelLabel.text()
         txt = html_func.paragraph(f"""
             One or more radii of the <code>{formWidget.text()}</code> are 
@@ -2458,7 +2479,20 @@ class ParamsGroupBox(QGroupBox):
             Current <code>{formWidget.text()} = {spotMinSizeLabels}</code>
         """)
         msg = acdc_widgets.myMessageBox(wrapText=False)
-        msg.warning(self, 'Minimimum spot size potentially too low', txt)
+        
+        if askConfirm:
+            buttonsTexts = ('Stop process', 'Continue')
+        else:
+            buttonsTexts = None
+        
+        buttons = msg.warning(
+            self, 'Minimimum spot size potentially too low', txt, 
+            buttonsTexts=buttonsTexts
+        )
+        if askConfirm:
+            return msg.clickedButton == buttons[1]
+        
+        return True
     
     def configIniParams(self):
         ini_params = {}
@@ -7541,7 +7575,7 @@ class CustomSpotSizeDialog(QBaseDialog):
                 self.warnSpotSizeMightBeTooLow
             )
     
-    def warnSpotSizeMightBeTooLow(self, formWidget):
+    def warnSpotSizeMightBeTooLow(self, formWidget, askConfirm=False):
         spotMinSizeLabels = formWidget.widget.pixelLabel.text()
         txt = html_func.paragraph(f"""
             One or more radii of the <code>{formWidget.text()}</code> are 
@@ -7552,7 +7586,20 @@ class CustomSpotSizeDialog(QBaseDialog):
             Current <code>{formWidget.text()} = {spotMinSizeLabels}</code>
         """)
         msg = acdc_widgets.myMessageBox(wrapText=False)
-        msg.warning(self, 'Minimimum spot size potentially too low', txt)
+        
+        if askConfirm:
+            buttonsTexts = ('Cancel process', 'Continue')
+        else:
+            buttonsTexts = None
+        
+        buttons = msg.warning(
+            self, 'Minimimum spot size potentially too low', txt, 
+            buttonsTexts=buttonsTexts
+        )
+        if askConfirm:
+            return msg.clickedButton == buttons[1]
+        
+        return True
     
     def updateLocalBackgroundValue(self, pixelSize):
         pass

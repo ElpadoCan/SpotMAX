@@ -4760,9 +4760,8 @@ class Kernel(_ParamsParser):
             df_agg = pd.DataFrame(df_data).set_index(['frame_i', 'Cell_ID'])
         
         if spot_footprint is None:
-            zyx_radii_pxl = [val/2 for val in zyx_resolution_limit_pxl]
-            spot_footprint = transformations.get_local_spheroid_mask(
-                zyx_radii_pxl
+            spot_footprint = features.get_peak_footprint(
+                sharp_spots_img, zyx_radii_pxl
             )
         
         if gop_filtering_thresholds is None:
@@ -5125,7 +5124,7 @@ class Kernel(_ParamsParser):
                 spot_footprint=footprint,
                 return_spots_mask=save_spots_mask,
                 spots_zyx_radii_pxl=self.metadata['zyxResolutionLimitPxl'],
-                debug=True
+                debug=self.debug
             )
             if verbose:
                 print('')
