@@ -632,8 +632,6 @@ def find_local_peaks(
         # No point in searching for spots, labels are empty
         return np.zeros((0, 2), dtype=np.int32)
     
-    import pdb; pdb.set_trace()
-    
     peaks_coords = skimage.feature.peak_local_max(
         image, 
         footprint=footprint, 
