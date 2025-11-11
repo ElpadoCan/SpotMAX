@@ -3391,7 +3391,10 @@ class selectedPathsSummaryDialog(acdc_apps.TreeSelectorDialog):
         super().__init__()
 
 class selectPathsSpotmax(QBaseDialog):
-    def __init__(self, paths, homePath, parent=None, app=None):
+    def __init__(
+            self, paths: dict[int, dict], homePath, parent=None, app=None, 
+            singleTopLevelItemSelection=False
+        ):
         super().__init__(parent)
 
         self.cancel = True
@@ -3420,6 +3423,13 @@ class selectPathsSpotmax(QBaseDialog):
             '<code>Shift+Click</code> <i>to select a range of items</i><br>'
             '<code>Ctrl+A</code> <i>to select all</i><br>'
         )
+        
+        if singleTopLevelItemSelection:
+            note = (
+                '<br>NOTE: Only <b>one experiment folder</b> can be selected<br>'
+            )
+            text = f'{text}{note}'
+        
         htmlText = html_func.paragraph(text, center=True)
         infoLabel.setText(htmlText)
 
@@ -3456,7 +3466,10 @@ class selectPathsSpotmax(QBaseDialog):
         self.hideSpotCountCheckbox = hideSpotCountCheckbox
         self.hideSpotSizeCheckbox = hideSpotSizeCheckbox
 
-        pathSelector = acdc_widgets.TreeWidget(multiSelection=True)
+        pathSelector = widgets.TreeWidget(
+            multiSelection=True, 
+            singleTopLevelItemSelection=singleTopLevelItemSelection
+        )
         self.pathSelector = pathSelector
         pathSelector.setHeaderHidden(True)
         homePath = pathlib.Path(homePath)

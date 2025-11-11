@@ -4224,3 +4224,39 @@ class SpotSizeFeatureSelectDialog(FeatureSelectorDialog):
         
         self.cancel = False
         self.close()
+
+class TreeWidget(acdc_widgets.TreeWidget):
+    def __init__(self, *args, singleTopLevelItemSelection=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        if singleTopLevelItemSelection:
+            self.itemSelectionChanged.connect(self.setSingleTopLevelSelection)
+    
+    def get_top_level_item(self, item):
+        while item.parent() is not None:
+            item = item.parent()
+        return item
+    
+    def setSingleTopLevelSelection(self):
+        selected = self.selectedItems()
+        if not selected:
+            return
+        
+        # Determine which top-level items are involved in the selection
+        top_levels = [self.get_top_level_item(item) for item in selected]
+
+        # If more than one top-level item is involved, keep only one
+        if len(top_levels) <= 1:
+            return
+        
+        # Keep the first top-level item’s selection only
+        top_to_keep = next(iter(top_levels))
+        items_to_keep = [item for item in selected 
+                            if self.get_top_level_item(item) == top_to_keep]
+        
+        # Block signal to prevent recursion
+        self.blockSignals(True)
+        self.clearSelection()
+        for item in items_to_keep:
+            item.setSelected(True)
+        self.blockSignals(False)
