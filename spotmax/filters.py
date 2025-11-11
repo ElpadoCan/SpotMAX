@@ -553,6 +553,7 @@ def global_semantic_segmentation(
                     keep_objects_touching_lab_intact=keep_subobj_intact, 
                 )
             )
+
         result = reindexed_result
         if return_image:
             deaggr_img = transformations.deaggregate_img(
@@ -749,7 +750,7 @@ def filter_spots_with_ref_ch_masks(
     
     if remove_inside:
         in_ref_ch_spots_mask = np.invert(in_ref_ch_spots_mask)
-        
+    
     return df[in_ref_ch_spots_mask]
 
 def filter_labels_by_size(labels, min_size):

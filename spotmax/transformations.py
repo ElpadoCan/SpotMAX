@@ -9,6 +9,7 @@ import pandas as pd
 
 import scipy.ndimage
 import skimage.measure
+import skimage.segmentation
 
 import cellacdc.io
 import cellacdc.core
@@ -550,17 +551,19 @@ def index_aggregated_segm_into_input_lab(
     aggr_subobj_lab = np.zeros(aggregated_segm.shape, dtype=np.uint32)
     
     start_x_slice = 0
-    last_max_id = 0
     for end_x_slice in x_slice_idxs:
         sliced_subobj_mask = aggregated_segm[..., start_x_slice:end_x_slice] > 0
-        sliced_subobj_lab = skimage.measure.label(sliced_subobj_mask) 
-        sliced_subobj_lab[sliced_subobj_mask] = (
-            sliced_subobj_lab[sliced_subobj_mask] + last_max_id
+        sliced_aggr_lab = aggregated_lab[..., start_x_slice:end_x_slice]
+        sliced_voronoi = voronoi_tesselation(sliced_aggr_lab)
+        sliced_subobj_lab = sliced_subobj_mask.astype(np.uint32)
+        sliced_subobj_lab[sliced_subobj_mask] += (
+            sliced_voronoi[sliced_subobj_mask] - 1
         )
+            
         aggr_subobj_lab[..., start_x_slice:end_x_slice] = sliced_subobj_lab
         max_id = sliced_subobj_lab.max()
-        if max_id > 0:
-            last_max_id = max_id
+        # if max_id > 0:
+        #     last_max_id = max_id
         start_x_slice = end_x_slice
     
     aggr_subobj_rp = skimage.measure.regionprops(aggr_subobj_lab)
@@ -1109,3 +1112,21 @@ def extend_3D_segm_in_z(
         extended_segm_data = extended_segm_data[0]
     
     return extended_segm_data
+
+def voronoi_tesselation(labels):
+    rp = skimage.measure.regionprops(labels)
+    if len(rp) == 0:
+        return labels
+    
+    if len(rp) == 1:
+        return np.full_like(labels, rp[0].label)
+    
+    expanded_labels = labels
+    while True:
+        expanded_labels = skimage.segmentation.expand_labels(
+            expanded_labels
+        )
+        if np.all(expanded_labels):
+            break
+    
+    return expanded_labels

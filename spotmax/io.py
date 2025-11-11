@@ -1285,13 +1285,14 @@ class expFolderScanner:
         msg.addShowInFileManagerButton(str(homePath))
         msg.warning(parent, 'No valid experiments found!', txt)
     
-    def input(self, parent=None, app=None):
+    def input(self, parent=None, app=None, singleTopLevelItemSelection=True):
         if len(self.paths) == 0:
             self.warnNoValidExperimentsFound(self.homePath, parent)
             self.selectedPaths = []
             return
         win = dialogs.selectPathsSpotmax(
-            self.paths, self.homePath, parent=parent, app=app
+            self.paths, self.homePath, parent=parent, app=app,
+            singleTopLevelItemSelection=singleTopLevelItemSelection
         )
         win.exec_()
         self.selectedPaths = win.selectedPaths
@@ -2742,10 +2743,13 @@ class PathScanner:
         self._loop = QEventLoop()
         self._loop.exec_()
     
-    def pathScannerWorkerFinished(self, pathScanner):
+    def pathScannerWorkerFinished(self, pathScanner: expFolderScanner):
         self.progressWin.workerFinished = True
         self.progressWin.close()
-        pathScanner.input(app=self.guiWin.app, parent=self.guiWin)
+        pathScanner.input(
+            app=self.guiWin.app, parent=self.guiWin, 
+            singleTopLevelItemSelection=False
+        )
         self.images_paths = pathScanner.selectedPaths
         self._loop.exit()
 
