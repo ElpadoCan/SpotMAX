@@ -5132,10 +5132,12 @@ class Kernel(_ParamsParser):
                 
             df_spots_coords, num_spots_objs_txts = (
                 self._add_local_coords_from_aggr(
-                    aggr_spots_coords, aggregated_lab, spots_masks=spots_masks, 
+                    aggr_spots_coords, aggregated_lab, 
+                    spots_masks=spots_masks, 
                     labels=labels
                 )
             )
+            
             spots_labels = transformations.deaggregate_img(
                 labels, aggregated_lab, lab,
                 delta_expand=self.metadata['deltaTolerance'], 

@@ -1306,8 +1306,6 @@ def _compute_obj_spots_features(
             pbar.update()
     if show_progress:
         pbar.close()
-    if spot_ids_to_drop:
-        df_obj_spots = df_obj_spots.drop(index=spot_ids_to_drop)
     
     if custom_combined_measurements is not None:
         df_obj_spots = features.add_custom_combined_measurements(
@@ -1315,7 +1313,7 @@ def _compute_obj_spots_features(
             **custom_combined_measurements,   
         )
     
-    return df_obj_spots
+    return df_obj_spots, spot_ids_to_drop
 
 def spot_detection(
         image,
@@ -1834,14 +1832,12 @@ def spots_calc_features_and_filter(
         if raw_image is not None:
             raw_spots_img_obj = raw_image[obj_slice]
 
-        dfs_spots_det.append(df_obj_spots_det)
+        dfs_spots_det.append(df_obj_spots_det.copy())
         df_obj_spots_gop = df_obj_spots_det.copy()
-        if keep_only_spots_in_ref_ch or remove_spots_in_ref_ch:
-            df_obj_spots_gop = filters.filter_spots_with_ref_ch_masks(
-                df_obj_spots_gop, local_ref_ch_mask, expanded_obj_coords, 
-                keep_inside=keep_only_spots_in_ref_ch, 
-                remove_inside=remove_spots_in_ref_ch,
-            )
+        
+        do_filter_spots_with_ref_ch_masks = (
+            keep_only_spots_in_ref_ch or remove_spots_in_ref_ch
+        )
         
         start_num_spots = len(df_obj_spots_det)
         filtered_spots_info[obj.label]['start_num_spots'] = start_num_spots
@@ -1854,7 +1850,7 @@ def spots_calc_features_and_filter(
                 break
             
             bkgr_from_in_reg_ch = get_backgr_from_inside_ref_ch_mask
-            df_obj_spots_gop = _compute_obj_spots_features(
+            df_obj_spots_gop, spot_ids_to_drop = _compute_obj_spots_features(
                 local_spots_img, 
                 df_obj_spots_gop.copy(), 
                 obj_image, 
@@ -1885,7 +1881,20 @@ def spots_calc_features_and_filter(
                     df_obj_spots_gop
                 )
             
-                
+            if do_filter_spots_with_ref_ch_masks and i == 0:
+                # Filter spots with ref_ch_masks at first iteration
+                df_obj_spots_gop = filters.filter_spots_with_ref_ch_masks(
+                    df_obj_spots_gop, local_ref_ch_mask, 
+                    expanded_obj_coords, 
+                    keep_inside=keep_only_spots_in_ref_ch, 
+                    remove_inside=remove_spots_in_ref_ch,
+                )
+            
+            if spot_ids_to_drop:
+                df_obj_spots_gop = df_obj_spots_gop.drop(
+                    index=spot_ids_to_drop, errors='ignore'
+                )
+            
             # from . import _debug
             # _debug._spots_filtering(
             #     local_spots_img, df_obj_spots_gop, obj, obj_image
