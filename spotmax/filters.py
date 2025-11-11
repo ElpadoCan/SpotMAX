@@ -553,6 +553,7 @@ def global_semantic_segmentation(
                     keep_objects_touching_lab_intact=keep_subobj_intact, 
                 )
             )
+
         result = reindexed_result
         if return_image:
             deaggr_img = transformations.deaggregate_img(
