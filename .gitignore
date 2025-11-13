@@ -3,6 +3,7 @@
 **/.DS_Store
 data/*
 mytests
+private_tests
 outreach
 notebooks/test.ipynb
 notebooks/Untitled-1.ipynb

@@ -157,9 +157,11 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q and self.debug:
-            guiTabControl = self.computeDockWidget.widget()
-            parametersGroupBox = guiTabControl.parametersQGBox
-            printl(parametersGroupBox.params['METADATA']['SizeT'])
+            printl(self.labelsLayerRightImg.levels)
+            printl(self.labelsLayerRightImg.lut)
+            printl(self.labelsLayerRightImg.lut[1])
+            printl(self.labelsLayerRightImg.lut[2])
+            printl(self.labelsLayerRightImg.lut[3])
             return
         
         super().keyPressEvent(event)
@@ -2727,10 +2729,20 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         window_title = 'Spots channel - Spots segmentation method'
         
+        posData = self.data[self.pos_i]
+        n_labs = len(prediction_images)-1
+        lab_lut = self.getLabelsImageLut()[:max(posData.IDs, default=1)+1]
+        lab_lut[0] = [15, 15, 15, 255]
+        luts = [None, *[lab_lut]*n_labs]
+        
         imshow(
-            *prediction_images, axis_titles=titles, parent=self, 
-            window_title=window_title, color_scheme=self._colorScheme, 
-            max_ncols=max_ncols
+            *prediction_images, 
+            axis_titles=titles, 
+            parent=self, 
+            window_title=window_title, 
+            color_scheme=self._colorScheme, 
+            max_ncols=max_ncols,
+            lut=luts
         )
     
     @exception_handler
@@ -2868,9 +2880,20 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         window_title = 'Reference channel - Semantic segmentation'
         
+        posData = self.data[self.pos_i]
+        n_labs = len(prediction_images)-1
+        lab_lut = self.getLabelsImageLut()[:max(posData.IDs, default=1)+1]
+        lab_lut[0] = [15, 15, 15, 255]
+        luts = [None, *[lab_lut]*n_labs]
+        
         imshow(
-            *prediction_images, axis_titles=titles, parent=self, 
-            window_title=window_title, color_scheme=self._colorScheme
+            *prediction_images, 
+            axis_titles=titles, 
+            parent=self, 
+            window_title=window_title, 
+            color_scheme=self._colorScheme,
+            lut=luts,
+            autoLevels=False
         )
     
     def connectDefaultWorkerSlots(self, worker):

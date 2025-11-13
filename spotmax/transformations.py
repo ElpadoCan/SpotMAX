@@ -550,20 +550,23 @@ def index_aggregated_segm_into_input_lab(
     
     aggr_subobj_lab = np.zeros(aggregated_segm.shape, dtype=np.uint32)
     
+    last_max_id = 0
     start_x_slice = 0
     for end_x_slice in x_slice_idxs:
         sliced_subobj_mask = aggregated_segm[..., start_x_slice:end_x_slice] > 0
         sliced_aggr_lab = aggregated_lab[..., start_x_slice:end_x_slice]
-        sliced_voronoi = voronoi_tesselation(sliced_aggr_lab)
-        sliced_subobj_lab = sliced_subobj_mask.astype(np.uint32)
-        sliced_subobj_lab[sliced_subobj_mask] += (
-            sliced_voronoi[sliced_subobj_mask] - 1
+        sliced_voronoi_lab = voronoi_tesselation(sliced_aggr_lab)
+        sliced_subobj_lab = skimage.measure.label(sliced_subobj_mask)
+        sliced_subobj_lab = split_sub_objects(
+            sliced_subobj_lab, sliced_voronoi_lab
         )
+    
+        sliced_subobj_lab[sliced_subobj_mask] += last_max_id
+        sliced_max_id = sliced_subobj_lab.max()
+        if sliced_max_id > last_max_id:
+            last_max_id = sliced_max_id
             
         aggr_subobj_lab[..., start_x_slice:end_x_slice] = sliced_subobj_lab
-        max_id = sliced_subobj_lab.max()
-        # if max_id > 0:
-        #     last_max_id = max_id
         start_x_slice = end_x_slice
     
     aggr_subobj_rp = skimage.measure.regionprops(aggr_subobj_lab)
@@ -1130,3 +1133,51 @@ def voronoi_tesselation(labels):
             break
     
     return expanded_labels
+
+def split_sub_objects(subobj_lab, lab):
+    """Split objects in `subobj_lab` if they overlap with multiple parent 
+    objects in `lab` (e.g., mitochondria branch spanning across mother-bud)
+
+    Parameters
+    ----------
+    subobj_lab : (Y, X) or (Z, Y, X) array of ints
+        The labelled array with the sub-objects to split.
+    lab : (Y, X) or (Z, Y, X) array of ints
+        The labelled array with the parent objects. If an object in `subobj_lab` 
+        overlpas with more than one object in lab it will be splitted
+    """
+    rp = skimage.measure.regionprops(lab)
+    if len(rp) <= 1:
+        # Single parent object --> nothing to split
+        return subobj_lab
+    
+    rp_mapper = {obj.label: obj for obj in rp}
+    subobj_rp = skimage.measure.regionprops(subobj_lab)
+    if len(subobj_rp) == 0:
+        return subobj_lab
+    
+    max_sub_obj_id = max([sub_obj.label for sub_obj in subobj_rp])
+    splitted_subobj_lab = np.zeros_like(subobj_lab)
+    for sub_obj in subobj_rp:
+        ids_overlap = np.unique(lab[sub_obj.slice][sub_obj.image])
+        splitted_subobj_lab[sub_obj.slice][sub_obj.image] = sub_obj.label
+        
+        if len(ids_overlap) == 1:
+            # No overlap --> nothing to split
+            continue
+        
+        if len(ids_overlap) == 2 and ids_overlap[0] == 0:
+            continue
+        
+        for id in ids_overlap[1:]:
+            obj = rp_mapper[id]
+            sub_obj_split_mask = np.logical_and(
+                sub_obj.image, lab[sub_obj.slice] == obj.label
+            )
+            splitted_subobj_lab[sub_obj.slice][sub_obj_split_mask] = (
+                sub_obj.label + max_sub_obj_id
+            )
+            max_sub_obj_id += 1
+        
+    return splitted_subobj_lab
+        
