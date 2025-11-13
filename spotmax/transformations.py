@@ -1153,6 +1153,9 @@ def split_sub_objects(subobj_lab, lab):
     
     rp_mapper = {obj.label: obj for obj in rp}
     subobj_rp = skimage.measure.regionprops(subobj_lab)
+    if len(subobj_rp) == 0:
+        return subobj_lab
+    
     max_sub_obj_id = max([sub_obj.label for sub_obj in subobj_rp])
     splitted_subobj_lab = np.zeros_like(subobj_lab)
     for sub_obj in subobj_rp:
