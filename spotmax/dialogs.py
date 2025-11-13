@@ -766,6 +766,12 @@ class guiTabControl(QTabWidget):
                     groupbox.setChecked(True)
                 except Exception as e:
                     pass
+                
+                try:
+                    params[section][anchor]
+                except Exception as err:
+                    continue
+                
                 valueSetter = params[section][anchor].get('valueSetter')
                 formWidget.setValue(val, valueSetter=valueSetter)
                 if formWidget.useEditableLabel:
@@ -819,6 +825,57 @@ class guiTabControl(QTabWidget):
                 if hasattr(formWidget, 'delFieldButton'):
                     formWidget.delFieldButton.click()
     
+    def askSelectParamsToLoad(self, params):
+        params_tree = defaultdict(list)
+        for section, section_options in params.items():
+            for anchor, options in section_options.items():
+                option = options['desc']
+                value = options['loadedVal']
+                text = f'{option} = {value}'
+                params_tree[section].append(text)
+                
+        infoTxt = (
+            'Select <b>parameters to load:</b><br>'
+        )
+        win = acdc_apps.TreeSelectorDialog(
+            title='Select parameters to load',
+            infoTxt=infoTxt,
+            allowNoSelection=False,
+            allItemsExpanded=False
+        )
+        win.addTree(params_tree)
+        win.setMinimumWidth(win.sizeHint().width()*2)
+        win.setMinimumHeight(int(win.sizeHint().height()*1.5))
+        
+        # Set all selected
+        for i in range(win.treeWidget.topLevelItemCount()):
+            topLevelItem = win.treeWidget.topLevelItem(i)
+            topLevelItem.setSelected(True)
+            win.treeWidget.selectAllChildren(topLevelItem)
+        
+        win.exec_()
+        
+        if win.cancel:
+            return
+        
+        selectedParams = win.selectedItems()
+        
+        selected_params = {}
+        for section, texts in selectedParams.items():
+            params_section = params[section]
+            selected_params[section] = {}
+            for text in texts:
+                selected_option = text.split(' =')[0]
+                for anchor, options in params_section.items():
+                    option = options['desc']
+                    if option == selected_option:
+                        selected_params[section][anchor] = (
+                            params_section[anchor]
+                        )
+                        break
+        
+        return selected_params
+    
     def loadPreviousParams(self, filePath):
         self.logging_func(f'Loading analysis parameters from "{filePath}"...')
         acdc_myutils.addToRecentPaths(os.path.dirname(filePath))
@@ -826,10 +883,15 @@ class guiTabControl(QTabWidget):
         proceed = self.validateIniFile(filePath)
         if not proceed:
             return
-        self._lastLoadedParamsFilepath = filePath
-        self.showInFileMangerButton.setDisabled(False)
-        self.removeAddedFields()
+        
         params = config.analysisInputsParams(filePath, cast_dtypes=False)
+        params = self.askSelectParamsToLoad(params)
+        if params is None:
+            return
+        
+        self._lastLoadedParamsFilepath = filePath
+        self.showInFileMangerButton.setDisabled(False)        
+        self.removeAddedFields()
         self.setValuesFromParams(params, filePath)
         self.parametersQGBox.setSelectedMeasurements(filePath)
         self.showParamsLoadedMessageBox()
