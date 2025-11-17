@@ -662,6 +662,9 @@ class guiTabControl(QTabWidget):
         
         asked_about_different_values = False
         section = 'METADATA'
+        if section not in params:
+            return True
+        
         for anchor, options in anchorOptions.items():
             try:
                 ini_value = params[section][anchor]['loadedVal']
