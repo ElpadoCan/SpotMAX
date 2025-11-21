@@ -792,7 +792,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
         viewFeaturesGroupbox = inspectResultsTab.viewFeaturesGroupbox
         self.spotsItems = widgets.SpotsItems(
-            self, viewFeaturesGroupbox.selectFeatureForSpotSizeButton
+            self, viewFeaturesGroupbox.selectFeatureForSpotSizeButton,
+            inspectResultsTab.summaryValuesSpotsTableGroupbox
         )
         self.spotsItems.sigProjectionWarning.connect(
             self.warnAddingPointsOnProjection

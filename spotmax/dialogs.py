@@ -1110,6 +1110,10 @@ class InspectEditResultsTabWidget(QWidget):
             parent=self
         )
         
+        self.summaryValuesSpotsTableGroupbox = SummaryValuesSpotsTableGroupbox(
+            parent=self
+        )
+        
         self.viewFeaturesGroupbox = AutoTuneViewSpotFeatures(
             parent=self, infoText='', includeSizeSelector=True
         )
@@ -1119,11 +1123,13 @@ class InspectEditResultsTabWidget(QWidget):
         )
         
         scrollAreaLayout.addWidget(self.editResultsGroupbox)
+        scrollAreaLayout.addWidget(self.summaryValuesSpotsTableGroupbox)
         scrollAreaLayout.addWidget(self.viewFeaturesGroupbox)
         scrollAreaLayout.addWidget(self.viewRefChFeaturesGroupbox)
         scrollAreaLayout.setStretch(0, 0)
-        scrollAreaLayout.setStretch(1, 4)
-        scrollAreaLayout.setStretch(2, 3)
+        scrollAreaLayout.setStretch(1, 2)
+        scrollAreaLayout.setStretch(2, 4)
+        scrollAreaLayout.setStretch(3, 3)
         scrollArea.setWidget(scrollAreaWidget)
         
         mainLayout.addWidget(buttonsScrollArea)
@@ -1182,8 +1188,6 @@ class InspectEditResultsTabWidget(QWidget):
         self.viewFeaturesGroupbox.setFeatures(point_features)       
         if df is None:
             return
-        
-        self.viewFeaturesGroupbox.totNumSpotsEntry.setValue(len(df))
         
         if ID is None:
             return
@@ -1468,7 +1472,7 @@ class ViewRefChannelFeaturesGroupbox(QGroupBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        self.setTitle('Features of the ref. ch. mask under mouse cursor')
+        self.setTitle('Numerical values of the last ref. ch. mask hovered with mouse cursor')
         
         mainLayout = QVBoxLayout()
         
@@ -1589,7 +1593,7 @@ class AutoTuneViewSpotFeatures(QGroupBox):
     def __init__(self, parent=None, infoText=None, includeSizeSelector=False):
         super().__init__(parent)
         
-        self.setTitle('Features of the spot under mouse cursor')
+        self.setTitle('Numerical values of the last spot hovered with mouse cursor')
         
         mainLayout = QVBoxLayout()
         
@@ -1648,22 +1652,11 @@ class AutoTuneViewSpotFeatures(QGroupBox):
             
             row += 1
             layout.addWidget(
-                QLabel('Total number of spots'), row, col, 
-                alignment=Qt.AlignRight
-            )
-            self.totNumSpotsEntry = widgets.ReadOnlyLineEdit()
-            layout.addWidget(self.totNumSpotsEntry, row, col+1)
-            
-            row += 1
-            layout.addWidget(
-                QLabel('Number of spots per segmented object'), row, col, 
+                QLabel('Number of spots on hovered object'), row, col, 
                 alignment=Qt.AlignRight
             )
             self.numSpotsPerObjEntry = widgets.ReadOnlyLineEdit()
             layout.addWidget(self.numSpotsPerObjEntry, row, col+1)
-            
-            row += 1
-            layout.addItem(QSpacerItem(1, 15), row, col+1)
         
         row += 1
         layout.addWidget(QLabel('Spot id'), row, col, alignment=Qt.AlignRight)
@@ -7681,3 +7674,84 @@ class CustomSpotSizeDialog(QBaseDialog):
     
     def updateLocalBackgroundValue(self, pixelSize):
         pass
+        
+class SummaryValuesSpotsTableGroupbox(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        
+        self.setTitle('Summary values of the loaded spots tables')
+        
+        mainLayout = QVBoxLayout()
+        
+        layout = QGridLayout()
+        
+        self.numTables = 0
+        
+        self._layout = layout
+        
+        self.fieldWidgetsMapper = defaultdict(list)
+        
+        self._layout.setColumnStretch(0, 1)
+        self._layout.setColumnStretch(1, 1)
+        self._layout.setColumnStretch(2, 0)
+        
+        mainLayout.addLayout(layout)
+        mainLayout.addStretch(1)
+        self.setLayout(mainLayout)
+    
+    def addField(self, parentToolbutton: 'widgets.SpotsItemToolButton'):
+        row = self.numTables * 2
+        col = 0
+        layout = self._layout
+        
+        spotsItemProps = parentToolbutton.state
+        filename = spotsItemProps['selected_file']
+        
+        label = QLabel('Total number of spots')
+        layout.addWidget(label, row, col, alignment=Qt.AlignRight)
+        self.totNumSpotsEntry = widgets.ReadOnlyLineEdit()
+        layout.addWidget(self.totNumSpotsEntry, row, col+1)
+        
+        self.fieldWidgetsMapper[filename].append(label)
+        self.fieldWidgetsMapper[filename].append(self.totNumSpotsEntry)
+        
+        symbol = spotsItemProps['pg_symbol']
+        color = spotsItemProps['symbolColor']
+        toolbutton = widgets.SpotsItemToolButton(symbol, color=color)
+        toolbutton.state = spotsItemProps
+        toolbutton.setCheckable(False)
+        toolbutton.filename = filename
+        toolbutton.setToolTip(
+            f'Spots table from file: "{toolbutton.filename}"'
+        )
+        layout.addWidget(
+            toolbutton, row, col+2, 1, 1, alignment=Qt.AlignLeft
+        )
+        
+        row += 1
+        spacer = QSpacerItem(1, 15)
+        layout.addItem(spacer, row, col+1)
+        
+        self.fieldWidgetsMapper[filename].append(spacer)
+        
+        self.numTables += 1
+        
+        self.setValues(parentToolbutton.df)
+    
+    def removeField(self, filename: str):
+        layout = self._layout
+        
+        widgets_to_remove = self.fieldWidgetsMapper[filename]
+        for widget in widgets_to_remove:
+            if isinstance(widget, QSpacerItem):
+                layout.removeItem(widget)
+            else:
+                layout.removeWidget(widget)
+                widget.deleteLater()
+        
+        del self.fieldWidgetsMapper[filename]
+        
+        self.numTables -= 1
+    
+    def setValues(self, df):
+        self.totNumSpotsEntry.setValue(len(df))
