@@ -1657,6 +1657,9 @@ class AutoTuneViewSpotFeatures(QGroupBox):
             )
             self.numSpotsPerObjEntry = widgets.ReadOnlyLineEdit()
             layout.addWidget(self.numSpotsPerObjEntry, row, col+1)
+            
+            row += 1
+            layout.addItem(QSpacerItem(1, 15), row, col+1)
         
         row += 1
         layout.addWidget(QLabel('Spot id'), row, col, alignment=Qt.AlignRight)
@@ -7707,13 +7710,16 @@ class SummaryValuesSpotsTableGroupbox(QGroupBox):
         spotsItemProps = parentToolbutton.state
         filename = spotsItemProps['selected_file']
         
+        if filename in self.fieldWidgetsMapper:
+            return
+        
         label = QLabel('Total number of spots')
         layout.addWidget(label, row, col, alignment=Qt.AlignRight)
-        self.totNumSpotsEntry = widgets.ReadOnlyLineEdit()
-        layout.addWidget(self.totNumSpotsEntry, row, col+1)
+        totNumSpotsEntry = widgets.ReadOnlyLineEdit()
+        layout.addWidget(totNumSpotsEntry, row, col+1)
         
         self.fieldWidgetsMapper[filename].append(label)
-        self.fieldWidgetsMapper[filename].append(self.totNumSpotsEntry)
+        self.fieldWidgetsMapper[filename].append(totNumSpotsEntry)
         
         symbol = spotsItemProps['pg_symbol']
         color = spotsItemProps['symbolColor']
@@ -7728,6 +7734,10 @@ class SummaryValuesSpotsTableGroupbox(QGroupBox):
             toolbutton, row, col+2, 1, 1, alignment=Qt.AlignLeft
         )
         
+        parentToolbutton.totNumSpotsEntry = totNumSpotsEntry
+        
+        self.fieldWidgetsMapper[filename].append(toolbutton)
+        
         row += 1
         spacer = QSpacerItem(1, 15)
         layout.addItem(spacer, row, col+1)
@@ -7736,7 +7746,7 @@ class SummaryValuesSpotsTableGroupbox(QGroupBox):
         
         self.numTables += 1
         
-        self.setValues(parentToolbutton.df)
+        self.setValues(parentToolbutton)
     
     def removeField(self, filename: str):
         layout = self._layout
@@ -7753,5 +7763,14 @@ class SummaryValuesSpotsTableGroupbox(QGroupBox):
         
         self.numTables -= 1
     
-    def setValues(self, df):
-        self.totNumSpotsEntry.setValue(len(df))
+    def setValues(self, parentToolbutton):
+        filename = parentToolbutton.filename
+        if filename not in self.fieldWidgetsMapper:
+            return
+        
+        df = parentToolbutton.df
+        if df is None:
+            parentToolbutton.totNumSpotsEntry.setValue('N/A')
+            return
+        
+        parentToolbutton.totNumSpotsEntry.setValue(len(df))

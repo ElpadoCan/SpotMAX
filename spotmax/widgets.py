@@ -2640,6 +2640,8 @@ class SpotsItems(QObject):
             toolbutton.df = None
         else:
             toolbutton.df = df.reset_index().set_index(['frame_i', 'z'])
+      
+        self.summaryValuesGroupbox.setValues(toolbutton)
     
     def setActiveButtonDf(self, df):
         toolbutton = self.getActiveButton()
