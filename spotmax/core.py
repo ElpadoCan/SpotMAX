@@ -4467,8 +4467,12 @@ class Kernel(_ParamsParser):
         return slicer.slice(image, obj)
     
     def ref_ch_to_physical_units(self, df_agg, metadata):
-        vox_to_um3_factor = metadata['vox_to_um3_factor']
-        df_agg['ref_ch_vol_um3'] = df_agg['ref_ch_vol_vox']*vox_to_um3_factor
+        try:
+            vox_to_um3_factor = metadata['vox_to_um3_factor']
+            df_agg['ref_ch_vol_um3'] = df_agg['ref_ch_vol_vox']*vox_to_um3_factor
+        except KeyError as err:
+            pass
+        
         return df_agg
 
     def _is_lab_all_zeros(self, lab):

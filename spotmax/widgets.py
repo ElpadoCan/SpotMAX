@@ -2341,13 +2341,14 @@ class SpotsItems(QObject):
     sigAddPoint = Signal(object)
     sigProjectionWarning = Signal(object)
 
-    def __init__(self, parent, sizeSelectorButton):
+    def __init__(self, parent, sizeSelectorButton, summaryValuesGroupbox):
         QObject.__init__(self, parent)
         self.buttons = []
         self.parent = parent
         self.currentPointSize = None
         self.loadedDfs = {}
         self.sizeSelectorButton = sizeSelectorButton
+        self.summaryValuesGroupbox = summaryValuesGroupbox
 
     def clearLoadedTables(self):
         self.loadedDfs = {}
@@ -2379,6 +2380,7 @@ class SpotsItems(QObject):
         self.loadSpotsTables(toolbutton)
         toolbutton.setToolTip(toolbutton.filename)
         toolbutton.setChecked(True)
+        self.summaryValuesGroupbox.addField(toolbutton)
         if not add_items_to_ax:
             return toolbutton
         
@@ -2433,6 +2435,8 @@ class SpotsItems(QObject):
             pass
         toolbar = self.parent.spotmaxToolbar.removeAction(button.action)
         self.buttons.remove(button)
+        
+        self.summaryValuesGroupbox.removeField(filename)
     
     def buttonToggled(self, button, checked):
         button.item.setVisible(checked)

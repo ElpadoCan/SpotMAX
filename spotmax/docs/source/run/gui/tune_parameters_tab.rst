@@ -27,7 +27,7 @@ The viewed plane will switch to the ``zy`` plane to allow you to see the
 spots along the z-axis. As before, hover on one spot and press up/down arrows 
 on the keyboard to adjust the length of the line to the height of the spot. 
 
-Once you add some spots, you can view their features in the "Features of the spot under mouse cursor". 
+Once you add some spots, you can view their features in the "Numerical values of the last spot hovered with mouse cursor". 
 Select which features you want to view and hover with the mouse onto a spot. 
 
 This step is very useful to get a sense of what could be a minimum and maximum value 
