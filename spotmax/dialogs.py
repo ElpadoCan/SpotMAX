@@ -2334,7 +2334,9 @@ class ParamsGroupBox(QGroupBox):
         if not preSelectedPaths:
             preSelectedPaths = None
         win = SelectFolderToAnalyse(
-            preSelectedPaths=preSelectedPaths, scanFolderTree=True
+            preSelectedPaths=preSelectedPaths, 
+            scanFolderTree=True,
+            askSelectPositions=True
         )
         win.exec_()
         if win.cancel:
@@ -4503,8 +4505,11 @@ class SpotsItemPropertiesDialog(QBaseDialog):
 
 class SelectFolderToAnalyse(QBaseDialog):
     def __init__(
-            self, parent=None, preSelectedPaths=None, onlyExpPaths=False, 
-            scanFolderTree=True
+            self, parent=None, 
+            preSelectedPaths=None, 
+            onlyExpPaths=False, 
+            scanFolderTree=True,
+            askSelectPositions=False
         ):
         super().__init__(parent)
         
@@ -4512,6 +4517,7 @@ class SelectFolderToAnalyse(QBaseDialog):
         self.onlyExpPaths = onlyExpPaths
         self.setWindowTitle('Select experiments to analyse')
         self.scanTree = scanFolderTree
+        self.askSelectPositions = askSelectPositions
         
         mainLayout = QVBoxLayout()
         
@@ -4613,6 +4619,45 @@ class SelectFolderToAnalyse(QBaseDialog):
             path_to_browse=selected_path
         )
     
+    def getInfoPosStatus(self, expPaths: dict[os.PathLike, list[str]]):
+        infoPaths = {}
+        for exp_path, posFoldernames in expPaths.items():
+            posFoldersInfo = {}
+            for pos in posFoldernames:
+                pos_path = os.path.join(exp_path, pos)
+                status = acdc_myutils.get_pos_status(pos_path)
+                posFoldersInfo[pos] = status
+            infoPaths[exp_path] = posFoldersInfo
+        return infoPaths
+    
+    def askSelectPositionsFromPaths(self, paths: list[os.PathLike]):
+        expPaths = {}
+        selectedPaths = []
+        for path in paths:
+            folder_type = acdc_myutils.determine_folder_type(path)     
+            is_pos_folder, is_images_folder, folder_path = folder_type 
+            if is_pos_folder or is_images_folder:
+                selectedPaths.append(folder_path)
+            else:
+                expPaths[path] = acdc_myutils.get_pos_foldernames(path)
+                
+        infoPaths = self.getInfoPosStatus(expPaths)
+        selectPosWin = acdc_apps.selectPositionsMultiExp(
+            expPaths, 
+            infoPaths=infoPaths, 
+            parent=self
+        )
+        selectPosWin.exec_()
+        if selectPosWin.cancel:
+            return
+        
+        for exp_path, pos in selectPosWin.selectedPaths.items():
+            for p in pos:
+                selectedPaths.append(os.path.join(exp_path, p))
+        
+        return selectedPaths
+        
+    
     def addFolderPath(self, path):
         acdc_myutils.addToRecentPaths(path)
         
@@ -4628,6 +4673,11 @@ class SelectFolderToAnalyse(QBaseDialog):
             paths = pathScanner.expPaths
         else:
             paths = [path]
+        
+        if self.askSelectPositions:
+            paths = self.askSelectPositionsFromPaths(paths)
+            if paths is None:
+                return
         
         if not paths:
             self.warnNoValidPathsFound(path)
