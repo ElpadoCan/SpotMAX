@@ -65,6 +65,7 @@ from . import features
 from . import prompts
 from . import spotmax_path
 from . import _warnings
+from . import read_version
 
 warnings.simplefilter(action="ignore", category=pd.errors.PerformanceWarning)
 
@@ -117,6 +118,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self._version = kwargs.get('version')
         self._appName = 'SpotMAX'
         self._executed = executed
+        
+        self._smax_version = read_version()
     
     def run(self, module='spotmax_gui', logs_path=logs_path):
         super().run(module=module, logs_path=logs_path)
@@ -135,8 +138,10 @@ class spotMAX_Win(acdc_gui.guiWin):
             icon = QIcon(icon_path)
         super().setWindowIcon(icon)
     
-    def setWindowTitle(self, title="SpotMAX - GUI"):
-        super().setWindowTitle(title)
+    def setWindowTitle(self, title=None):
+        if title is None:
+            title = f'SpotMAX v{self._smax_version} - GUI'
+        super().setWindowTitle(title=title)
     
     def setMaxNumThreadsNumbaParam(self):
         SECTION = 'Configuration'
@@ -1181,7 +1186,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         self.logFilesInSpotmaxOutPath(posData.spotmax_out_path)
         
-        self.setWindowTitle(f'SpotMAX - GUI - "{posData.exp_path}"')
+        self.setWindowTitle(
+            title=f'SpotMAX v{self._smax_version} - GUI - "{posData.exp_path}"'
+        )
         self.spotmaxToolbar.setVisible(True)
         self.computeDockWidget.widget().initState(True)
         
