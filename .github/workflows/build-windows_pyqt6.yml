@@ -40,3 +40,10 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
+    - uses: yaananth/run-notebook@v2
+      env:
+        RUNNER: ${{ toJson(runner) }}
+        SECRETS: ${{ toJson(secrets) }}
+        GITHUB: ${{ toJson(github) }}
+      with:
+        notebook: "examples/notebooks/spots_synthetic_simple.ipynb"
