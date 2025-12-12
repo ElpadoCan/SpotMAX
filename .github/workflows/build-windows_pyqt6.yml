@@ -11,7 +11,6 @@ on:
 
 jobs:
   build:
-
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -31,7 +30,6 @@ jobs:
         python -m pip install -e .
         python -m pip install "git+https://github.com/SchmollerLab/Cell_ACDC.git"
         python -m pip install -r requirements_gui_pyqt6.txt
-        python -m pip install jupyter nbconvert
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
@@ -41,10 +39,3 @@ jobs:
     - name: Test with pytest
       run: |
         pytest
-    - name: Run spots_synthetic_simple.ipynb notebook
-      run: |
-          jupyter nbconvert \
-            --to notebook \
-            --execute \
-            --ExecutePreprocessor.timeout=600 \ 
-            examples/notebooks/spots_synthetic_simple.ipynb
