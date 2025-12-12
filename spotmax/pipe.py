@@ -1392,7 +1392,7 @@ def spot_detection(
     """        
     if spot_footprint is None and spots_zyx_radii_pxl is not None:
         spot_footprint = features.get_peak_footprint(
-            image, spots_zyx_radii_pxl
+            spots_zyx_radii_pxl, image 
         )
         
     if spots_zyx_radii_pxl is None:
