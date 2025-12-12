@@ -53,5 +53,5 @@ jobs:
           jupyter nbconvert \
             --to notebook \
             --execute \
-            --ExecutePreprocessor.timeout=600 \ 
+            --ExecutePreprocessor.timeout=600 \
             examples/notebooks/spots_synthetic_simple.ipynb
