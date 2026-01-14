@@ -4359,6 +4359,7 @@ class SpotsItemPropertiesDialog(QBaseDialog):
             rgb = SIX_RGBs_RAINBOW[color_idx]
             self.colorButton.setColor(rgb)
         layout.addFormWidget(self.colorWidget, row=row)
+        
         row += 1
         self.sizeSpinBox = acdc_widgets.SpinBox()
         self.sizeSpinBox.setMinimum(1)
@@ -4372,6 +4373,20 @@ class SpotsItemPropertiesDialog(QBaseDialog):
         if state is not None:
             self.sizeSpinBox.setValue(state['size'])
         layout.addFormWidget(self.sizeWidget, row=row)
+        
+        row += 1
+        self.penWidthSpinBox = acdc_widgets.SpinBox()
+        self.penWidthSpinBox.setMinimum(0)
+        self.penWidthSpinBox.setValue(2)
+
+        self.penWidthWidget = acdc_widgets.formWidget(
+            self.penWidthSpinBox, addInfoButton=False, stretchWidget=False,
+            labelTextLeft='Symbol weight: ', parent=self, 
+            widgetAlignment='left'
+        )
+        if state is not None:
+            self.penWidthSpinBox.setValue(state.get('penWidth', 2))
+        layout.addFormWidget(self.penWidthWidget, row=row)
 
         row += 1
         self.opacitySlider = acdc_widgets.sliderWithSpinBox(
@@ -4494,7 +4509,8 @@ class SpotsItemPropertiesDialog(QBaseDialog):
             'description': self.descWidget.widget.toPlainText(),
             'symbolColor': self.colorButton.color(),
             'size': self.sizeSpinBox.value(),
-            'opacity': self.opacitySlider.value()
+            'opacity': self.opacitySlider.value(),
+            'penWidth': self.penWidthSpinBox.value(),
         }
         self.close()
 

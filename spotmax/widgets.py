@@ -2466,14 +2466,14 @@ class SpotsItems(QObject):
         symbol = state['pg_symbol']
         if self.sizeSelectorButton.text().startswith('Click to select'):
             size = state['size']
-            pdMode = True
+            # pxMode = False
         else:
             size = self.getSizes(button)
-            pdMode = False
+            # pxMode = False
             if size is None:
                 size = state['size']
-                pdMode = True
-                
+                # pxMode = True
+        
         xx, yy = button.item.getData()
         button.item.setData(
             xx, yy, 
@@ -2482,7 +2482,7 @@ class SpotsItems(QObject):
             brush=brush, 
             hoverBrush=hoverBrush, 
             symbol=symbol, 
-            pxMode=pdMode
+            pxMode=False # pxMode
         )
     
     def getHoveredPoints(self, frame_i, z, y, x, return_button=False):
@@ -2589,7 +2589,11 @@ class SpotsItems(QObject):
     
     def getPen(self, state):
         r,g,b,a = state['symbolColor'].getRgb()
-        pen = pg.mkPen(width=2, color=(r,g,b))
+        penWidth = state.get('penWidth', 2)
+        if penWidth == 0:
+            return
+        
+        pen = pg.mkPen(width=penWidth, color=(r,g,b))
         return pen
 
     def getAlpha(self, state):
