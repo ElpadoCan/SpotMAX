@@ -1029,6 +1029,14 @@ def add_closest_ID_col(
         touching_IDs, counts = np.unique(
             lab[spots_labels==spot_obj_id], return_counts=True
         )
+        if touching_IDs[0] == 0 and len(touching_IDs) == 1:
+            nonzero_coords = np.column_stack(np.nonzero(lab))
+            closest_ID, _ = core.nearest_nonzero(
+                lab, point, nonzero_coords=nonzero_coords
+            )
+            closest_IDs.append(closest_ID)
+            continue
+            
         if len(touching_IDs) == 1:
             closest_IDs.append(touching_IDs[0])
             continue
