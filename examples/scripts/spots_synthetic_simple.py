@@ -11,7 +11,7 @@ spots_radii = np.array([4, 6, 6])
 shape = (25, 256, 256)
 spots_img, spots_gt_mask, spots_coords = sm.data.synthetic_spots(
     num_spots=20,
-    shape=(25, 256, 256), 
+    shape=shape, 
     spots_radii=spots_radii, 
     noise_scale=0.05,
     noise_shape=0.03, 
@@ -28,7 +28,7 @@ imshow(
 # Segment the spots
 print('Segmenting the spots...')
 result = sm.pipe.spots_semantic_segmentation(
-    spots_img, do_try_all_thresholds=True
+    spots_img, do_try_all_thresholds=True, do_sharpen=True
 )
 
 # Visualize the result of segmentation
@@ -57,7 +57,10 @@ df_spots_coords = sm.data.add_random_coords_df(
 )
 
 # Add more challenging false positive
-fp_zyx_coord = df_spots_coords.iloc[0][['z', 'y', 'x']].to_numpy()
+fp_zyx_coord = (
+    df_spots_coords.loc[df_spots_coords.index[0], ['z','y','x']]
+    .to_numpy(dtype=int).copy()
+)
 fp_zyx_coord[2] -= spots_radii[2]-1
 
 new_spot_id = df_spots_coords.index.get_level_values(1).max() + 1
