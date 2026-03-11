@@ -1704,7 +1704,7 @@ def spots_calc_features_and_filter(
     """    
     if verbose and len(df_spots_coords) > 0:
         print('')
-        logger_func('Filtering valid spots...')
+        logger_func('Quantifying spots...')
 
     if gop_filtering_thresholds is None:
         gop_filtering_thresholds = {}
@@ -1760,7 +1760,7 @@ def spots_calc_features_and_filter(
         sharp_spots_image = image
     
     if show_progress:
-        desc = 'Filtering spots'
+        desc = 'Quantifying spots'
         pbar = tqdm(
             total=len(rp), ncols=100, desc=desc, position=3, leave=False
         )
@@ -2403,6 +2403,10 @@ def filter_spots_from_features_thresholds(
     pandas.DataFrame
         The filtered DataFrame
     """
+    if verbose:
+        print('')
+        logger_func('Filtering valid spots...')
+    
     if df_features.empty:
         return df_features
     
