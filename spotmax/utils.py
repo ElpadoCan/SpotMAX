@@ -957,7 +957,7 @@ def parse_log_file(log_path=None):
     if log_path is None:
         log_path = get_current_log_file_path()
         if log_path is None:
-            return '', []
+            return '', [], []
     
     with open(log_path, 'r') as file:
         log_text = file.read()
