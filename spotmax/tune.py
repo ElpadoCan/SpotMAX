@@ -267,6 +267,10 @@ class TuneKernel:
             file_to_load = spotfit_filename
             if file_to_load is None:
                 file_to_load = valid_spots_filename
+            
+            if file_to_load is None:
+                # Skip pos where no points were added
+                continue
                 
             keys.append(pos_foldername)
             dfs.append(io.load_spots_table(spotmax_out_path, file_to_load))
