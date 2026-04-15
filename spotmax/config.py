@@ -259,8 +259,22 @@ def parse_exp_paths(ini_filepath):
     SECTION = 'File paths and channels'
     input_exp_paths = cp[SECTION]['Experiment folder path(s) to analyse']
     exp_path = input_exp_paths.replace('\n', '')
+    exp_path = exp_path.strip()
     
     paths_to_analyse = None
+    if exp_path.startswith('.'):
+        num_levels = len(exp_path) - len(exp_path.lstrip('.')) - 1
+        base_folderpath = ini_folderpath
+        clean_rel_path = exp_path.lstrip('.').lstrip('/').lstrip('\\')
+        for i in range(num_levels):
+            base_folderpath = os.path.dirname(base_folderpath)
+        filepath = os.path.join(base_folderpath, clean_rel_path)
+        try:
+            with open(filepath, 'r') as file:
+                paths_to_analyse = file.read()
+        except Exception as err:
+            pass
+
     try:
         # Check if text file is in same folder of ini file (relative)
         filepath = os.path.join(ini_folderpath, exp_path)
