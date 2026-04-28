@@ -4690,7 +4690,13 @@ class SelectFolderToAnalyse(QBaseDialog):
         else:
             paths = [path]
         
-        if self.askSelectPositions:
+        ask_select_pos = (
+            self.askSelectPositions 
+            and not is_pos_folder 
+            and not is_images_folder
+        )
+        
+        if ask_select_pos:
             paths = self.askSelectPositionsFromPaths(paths)
             if paths is None:
                 return

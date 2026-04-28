@@ -1840,17 +1840,28 @@ class spotMAX_Win(acdc_gui.guiWin):
             core.ceil(voxelDepth, precision=3)
         )
         
-        plane = self.switchPlaneCombobox.currentText()
+        activateCheckbox = self.activateAutoTuneParamsPointSizeBasedOnPlane()
+        activateCheckbox.click()
+    
+    def activateAutoTuneParamsPointSizeBasedOnPlane(
+            self, plane=None):
+        autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
+        autoTuneGroupbox = autoTuneTabWidget.autoTuneGroupbox
+        section = 'METADATA'
+        
+        if plane is None:
+            plane = self.switchPlaneCombobox.currentText()
+            
         if plane == 'xy':
             anchor = 'yxResolLimitMultiplier'
             widget = autoTuneGroupbox.params[section][anchor]['widget']
             widget.activateCheckbox.setChecked(False)
-            widget.activateCheckbox.click()
         else:
             anchor = 'zResolutionLimit'
             widget = autoTuneGroupbox.params[section][anchor]['widget']
             widget.activateCheckbox.setChecked(False)
-            widget.activateCheckbox.click()
+        
+        return widget.activateCheckbox
     
     def checkReinitTuneKernel(self):
         if not hasattr(self, 'data'):
@@ -2929,7 +2940,15 @@ class spotMAX_Win(acdc_gui.guiWin):
         prompts.informationComputeFeaturesFinished(
             self.spotsItems.edited_df_out_filename, qparent=self
         )            
-            
+    
+    def switchViewedPlane(self, previousPlane, currentPlane):
+        if previousPlane == currentPlane:
+            return
+        
+        super().switchViewedPlane(previousPlane, currentPlane)
+        activateCheckbox = self.activateAutoTuneParamsPointSizeBasedOnPlane()
+        activateCheckbox.click()
+    
     def startComputeAnalysisStepWorker(self, module_func, anchor, **kwargs):
         self.logger_write_func = self.logger.write
         

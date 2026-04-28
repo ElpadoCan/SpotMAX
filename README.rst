@@ -10,6 +10,7 @@
 .. _Spotiflow: https://www.biorxiv.org/content/10.1101/2024.02.01.578426v2
 .. _BioImage.IO: https://www.biorxiv.org/content/10.1101/2022.06.07.495102v1
 .. _thread: https://x.com/frank_pado/status/1849739617735426438
+.. _YouTube channel: https://www.youtube.com/@cellacdc
 
 .. |spotmaxlogo| image:: https://raw.githubusercontent.com/SchmollerLab/SpotMAX/refs/heads/main/spotmax/resources/spotMAX_logo.svg
    :width: 80
@@ -89,6 +90,11 @@ SpotMAX excels in particularly challenging situations, such as
 It supports **2D, 3D, 4D, and 5D data**, i.e., z-stacks, timelapse, and multiple 
 fluorescence channels (and combinations thereof).
 
+`:rocket: :sunglasses: :partying_face:` **Announcement** `:rocket: :sunglasses: :partying_face:`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We have a brand new `YouTube channel`_ with video tutorials! 
+
 Installation
 ------------
 
@@ -104,6 +110,7 @@ Resources
 
 - `Documentation`_
 - `Examples (notebooks, parameters files, etc.)`_
+- `YouTube channel`_ with video tutorials
 - `Preprint`_
 - `Image.sc Forum <https://forum.image.sc/tag/spotmax>`_ to ask **any question**. Make sure to tag the Topic with the tag ``spotmax``. 
 - X/Twitter `thread`_
