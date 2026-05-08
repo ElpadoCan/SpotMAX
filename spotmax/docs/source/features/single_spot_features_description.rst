@@ -221,7 +221,10 @@ normalization (since they are often different stains or fluorophores and they
 are excited at different light intensities). Before computing the effect size, 
 SpotMAX will normalize each channel individually by dividing with the median of 
 the background pixels' intensities. See the `Effect size (vs. backgr.)`_ section  
-for more information about how the background mask is determined.
+for more information about how the background mask is determined. 
+The normalising values (the median of the background pixels' intensities) will 
+be saved in the columns called ``spots_normalising_value``, and 
+``ref_ch_normalising_value``.
 
 This metric is useful to determine how bright the spots are compared to the 
 reference channel. As a rule of thumb, 0.2 is a small effect, while 0.8 could mean 
