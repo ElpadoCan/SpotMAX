@@ -827,8 +827,11 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.addCustomAnnotationAction.setDisabled(True)
         
         for toolButton in self.spotsItems.buttons:
-            self.spotmaxToolbar.removeAction(toolButton.action)
-            
+            try:
+                toolButton.emitRemove()
+            except Exception as e:
+                pass
+
         self.initSpotsItems()
         
         try:
