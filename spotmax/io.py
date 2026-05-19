@@ -716,7 +716,11 @@ def load_spots_table(spotmax_out_path, filename, filepath=None):
     filepath = os.path.join(spotmax_out_path, filename)
     if not os.path.exists(filepath):
         return
-    if filename.endswith('csv'):
+    
+    if not filename:
+        return
+    
+    if filename.endswith('.csv'):
         df = pd.read_csv(filepath, index_col=['frame_i', 'Cell_ID'])
     elif filename.endswith('.h5'):
         df = _load_spots_table_h5(filepath)
