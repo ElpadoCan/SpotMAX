@@ -642,12 +642,12 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def warnNoSpotsFilesFound(self, spotmax_out_path):
         txt = html_func.paragraph(f"""
-            There are no valid files in the following folder:<br><br>
-            <code>{spotmax_out_path}</code><br><br>
-            This could be because the number of detected spots was 0,  
-            you did not run any analysis yet, or the analysis ended 
-            with errors.<br><br>
-            If you need help with this feel free to reach out on or 
+            There are no valid files in the following folder:
+            <copiable>{spotmax_out_path}</copiable><br>
+            This could be because the <b>number of detected spots was 0</b>,  
+            you did <b>not run any analysis</b> yet, or the analysis ended 
+            <b>with errors</b>.<br><br>
+            If you need help with this, feel free to reach out on or 
             {html_func.href('GitHub page', issues_url)}.
         """)
         msg = acdc_widgets.myMessageBox(wrapText=False)
@@ -664,7 +664,11 @@ class spotMAX_Win(acdc_gui.guiWin):
             df_spots_files[_posData.spotmax_out_path] = (
                 _posData.getSpotmaxSingleSpotsfiles()
             )
-        if not df_spots_files:
+        
+        any_spots_file_found = any(
+            df_files for df_files in df_spots_files.values()
+        )
+        if not df_spots_files or any_spots_file_found:
             self.warnNoSpotsFilesFound(posData.spotmax_out_path)
             return
         
