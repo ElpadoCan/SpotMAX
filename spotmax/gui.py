@@ -662,13 +662,13 @@ class spotMAX_Win(acdc_gui.guiWin):
         df_spots_files = {}
         for _posData in self.data:
             df_spots_files[_posData.spotmax_out_path] = (
-                _posData.getSpotmaxSingleSpotsfiles()
+                list(_posData.getSpotmaxSingleSpotsfiles())
             )
         
         any_spots_file_found = any(
-            df_files for df_files in df_spots_files.values()
+            len(df_files) > 0 for df_files in df_spots_files.values()
         )
-        if not df_spots_files or any_spots_file_found:
+        if not df_spots_files or not any_spots_file_found:
             self.warnNoSpotsFilesFound(posData.spotmax_out_path)
             return
         
