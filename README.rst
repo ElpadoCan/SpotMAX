@@ -71,7 +71,7 @@
 =================================
 
 *Written by* `Francesco Padovani`_ *(creator of* `Cell-ACDC`_ *) with feedback 
-from* **tons of people**,  *see list of authors here* `Citation`_. 
+from* **tons of people**, *see list of authors here* `Citation`_. 
 
 |build_win_pyqt5| |build_ubuntu_pyqt5| |build_macos_pyqt5| |build_win_pyqt6|
 |build_macos_pyqt6| |py_version| |pypi_version| |downloads_month| |license|
