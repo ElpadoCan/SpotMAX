@@ -59,7 +59,7 @@
    :target: https://www.biorxiv.org/content/10.1101/2024.10.22.619610v1
    :alt: DOI
 
-.. |zenodo| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.21285538.svg
+.. |zenodo| image:: https://zenodo.org/badge/876039808.svg
    :target: https://doi.org/10.5281/zenodo.21285537
    :alt: Zenodo Repository
 
