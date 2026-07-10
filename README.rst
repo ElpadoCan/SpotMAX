@@ -59,6 +59,10 @@
    :target: https://www.biorxiv.org/content/10.1101/2024.10.22.619610v1
    :alt: DOI
 
+.. |zenodo| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.21285538.svg
+   :target: https://doi.org/10.5281/zenodo.21285537
+   :alt: Zenodo Repository
+
 .. |docs| image:: https://readthedocs.org/projects/spotmax/badge/?version=latest
     :target: https://spotmax.readthedocs.io/en/latest/
     :alt: Documentation Status
@@ -67,11 +71,11 @@
 =================================
 
 *Written by* `Francesco Padovani`_ *(creator of* `Cell-ACDC`_ *) with feedback 
-from* **tons of people**,  *see list of authors here* `Citation`_. 
+from* **tons of people**, *see list of authors here* `Citation`_. 
 
 |build_win_pyqt5| |build_ubuntu_pyqt5| |build_macos_pyqt5| |build_win_pyqt6|
 |build_macos_pyqt6| |py_version| |pypi_version| |downloads_month| |license|
-|repo_size| |doi| |docs|
+|repo_size| |doi| |docs| |zenodo|
 
 A generalist framework for multi-dimensional automatic spot detection and quantification
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
