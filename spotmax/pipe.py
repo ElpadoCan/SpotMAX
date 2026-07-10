@@ -2300,7 +2300,7 @@ def spotfit(
                     [ZYX_FIT_COLS].to_numpy()
                 )
                 valid_fit_coords = np.unique(
-                    np.row_stack((valid_fit_coords, undroppable_coords)), 
+                    np.vstack((valid_fit_coords, undroppable_coords)), 
                     axis=0
                 )
 

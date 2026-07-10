@@ -3552,7 +3552,7 @@ class SpotFIT(Spheroid):
                     continue
                 
                 # Check if the two peaks are within twice the largest sigma
-                fit_coords = np.row_stack(
+                fit_coords = np.vstack(
                     (pair_fit_coeffs[:3], pair_fit_coeffs[7:10])
                 )
                 fit_coords_int = np.round(fit_coords).astype(int)
