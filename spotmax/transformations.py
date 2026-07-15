@@ -1058,18 +1058,20 @@ def extend_3D_segm_in_z(
         errors='raise', 
         logger_func=print,
     ):
-    if segm_data.ndim < 3 and errors == 'raise':
-        raise TypeError(
+    if segm_data.ndim < 3:
+        err_msg = (
             'Input segmentation data is less than 3D. '
             'Only 3D data can be extended in z.'
         )
+        if errors == 'raise':
+            raise TypeError(err_msg)
+        else:
+            logger_func(f'[WARNING]: {err_msg}')
+            return segm_data
     
-    if segm_data.ndim < 3:
-        return segm_data
-    
-    if np.all(segm_data == segm_data[0]):
+    if np.all(segm_data == segm_data[..., :1, :, :]):
         logger_func(
-            'Input segmentation data is equal across all z-slices. '
+            '[WARNING]: Input segmentation data is equal across all z-slices. '
             'Skipping extension in z because it is not needed.'
         )
         return segm_data
@@ -1085,13 +1087,15 @@ def extend_3D_segm_in_z(
     
     T, Z, Y, X = extended_segm_data.shape
     
-    if Z == 1 and errors == 'raise':
-        raise TypeError(
-            'Input segmentation has 1 z-slice. It cannot be extended further.'
-        )
-    
     if Z == 1:
-        return segm_data
+        err_msg = (
+             'Input segmentation has 1 z-slice. It cannot be extended further.'
+        )
+        if errors == 'raise':
+            raise TypeError(err_msg)
+        else:
+            logger_func(f'[WARNING]: {err_msg}')
+            return segm_data
     
     for frame_i, lab in enumerate(segm_data):
         rp = skimage.measure.regionprops(lab)
