@@ -1181,13 +1181,18 @@ class InspectEditResultsTabWidget(QWidget):
     def emitSigComputeFeatures(self, *args):
         self.sigComputeFeatures.emit(*args)
     
-    def setInspectFeatures(self, point_features, df=None, ID=None):
+    def setInspectFeatures(self, point_features, df=None, ID=None):        
         if point_features is None:
             return
         
         self.viewFeaturesGroupbox.setFeatures(point_features)       
         if df is None:
             return
+        
+        try:
+            ID = int(point_features.Cell_ID)
+        except Exception as err:
+            pass
         
         if ID is None:
             return

@@ -407,6 +407,8 @@ segmentated objects.
 SpotSIZE metrics
 ----------------
 
+.. include:: _spotfit_features_important_admon.rst
+
 Features that are computed during the SpotSIZE step. This step is used to determine 
 the extent of each spot by iteratively growing a spheroid centerd at each spot 
 until the mean of the pixels' intensities on the surface of the spheroid is 
@@ -441,6 +443,8 @@ The pixels belonging to the final mask will be used in the spotFIT step.
 SpotFIT peak coordinates
 ------------------------
 
+.. include:: _spotfit_features_important_admon.rst
+
 Features that are computed during the gaussian fit procedure.
 
 * **x-coordinate of the gaussian peak**: column name ``x_fit``.
@@ -470,6 +474,8 @@ Features that are computed during the gaussian fit procedure.
 
 SpotFIT intens. metrics
 -----------------------
+
+.. include:: _spotfit_features_important_admon.rst
 
 Features that are computed during the gaussian fit procedure.
 
@@ -509,6 +515,9 @@ Features that are computed during the gaussian fit procedure.
 
 SpotFIT Goodness-of-fit
 -----------------------
+
+.. include:: _spotfit_features_important_admon.rst
+
 * **RMS error gauss. fit**: column name ``RMSE_fit``. Root mean squared error 
   between fitted and predicted data. The lower this value, the better was the fit. 
 * **Normalised RMS error gauss. fit**: column name ``NRMSE_fit``. RMS error 
@@ -521,6 +530,8 @@ SpotFIT Goodness-of-fit
 
 Post-analysis metrics
 ---------------------
+
+.. include:: _spotfit_features_important_admon.rst
 
 * **Consecutive spots distance (pixel)**: column name ``consecutive_spots_distance_voxel``. 
   Euclidean distance between consecutive pairs of spots without a specific order. 
