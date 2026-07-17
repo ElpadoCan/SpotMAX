@@ -5126,7 +5126,7 @@ class EditResultsGropbox(QGroupBox):
             self, loadedSegmEndname, analysisSegmEndname
         ):
         txt = html_func.paragraph(f"""
-            <b>Editing results is not possible<\b> because you loaded the segmentation 
+            <b>Editing results is not possible</b> because you loaded the segmentation 
             file ending with <code>{loadedSegmEndname}</code>,<br>
             while the segmentation file used for the analysis of the loaded 
             spots table is <code>{analysisSegmEndname}</code>.<br><br>

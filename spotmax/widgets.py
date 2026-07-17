@@ -2692,6 +2692,8 @@ class SpotsItems(QObject):
         analysisSegmEndname = analysisSegmEndname.split('.npy')[0]
         analysisSegmEndname = analysisSegmEndname.split('.npz')[0]
         loadedSegmEndname = self.posData.getSegmEndname()
+        analysisSegmEndname = analysisSegmEndname.lstrip('_')
+        loadedSegmEndname = loadedSegmEndname.lstrip('_')
         return loadedSegmEndname, analysisSegmEndname
         
     def _setDataButton(self, toolbutton, frame_i, z=None):
