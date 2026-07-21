@@ -162,11 +162,7 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q and self.debug:
-            printl(self.labelsLayerRightImg.levels)
-            printl(self.labelsLayerRightImg.lut)
-            printl(self.labelsLayerRightImg.lut[1])
-            printl(self.labelsLayerRightImg.lut[2])
-            printl(self.labelsLayerRightImg.lut[3])
+            self.autoRange()
             return
         
         super().keyPressEvent(event)
@@ -1217,6 +1213,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.modeToolBar.setVisible(False)
         
         QTimer.singleShot(300, self.autoRange)
+        QTimer.singleShot(600, self.autoRange)
     
     def connectInspectResultsTab(self):
         inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
@@ -3532,6 +3529,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.spotsItems.hideAllItems()
         super().updateAllImages()
         self.setStatusBarLabel()
+
+        self.navigateScrollBarStartedMoving = False
     
     def PosScrollBarReleased(self):
         super().PosScrollBarReleased()
