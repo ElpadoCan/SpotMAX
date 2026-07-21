@@ -46,6 +46,7 @@ from cellacdc import myutils as acdc_myutils
 from cellacdc import html_utils as acdc_html
 from cellacdc import load as acdc_load
 from cellacdc import _palettes as acdc_palettes
+from cellacdc import qutils as acdc_qutils
 
 from . import html_func, io, widgets, utils, config
 from . import core, features
@@ -7848,6 +7849,14 @@ class SummaryValuesSpotsTableGroupbox(QGroupBox):
         df = parentToolbutton.df
         if df is None:
             parentToolbutton.totNumSpotsEntry.setValue('N/A')
+            parentToolbutton.totNumSpotsEntry.setStyleSheet(
+                LINEEDIT_INVALID_ENTRY_STYLESHEET
+            )
+            self.blinker = acdc_qutils.QControlBlink(
+                parentToolbutton.totNumSpotsEntry, qparent=self
+            )
+            self.blinker.start()
             return
         
+        parentToolbutton.totNumSpotsEntry.setStyleSheet('')
         parentToolbutton.totNumSpotsEntry.setValue(len(df))
