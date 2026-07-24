@@ -22,12 +22,15 @@ def run_gui(debug=False, app=None, mainWin=None, launcherSlot=None):
             icon_path=icon_path, logo_path=logo_path, splashscreen=True
         )
         EXEC = True
-    
+
     version = read_version()
     win = gui.spotMAX_Win(
         app, debug=debug, executed=EXEC, version=version, mainWin=mainWin,
         launcherSlot=launcherSlot
     )
+    if mainWin is None:
+        app.mainWindow = win
+        
     win.run()
     win.logger.info(f'Using Qt version {QtCore.__version__}')
 
