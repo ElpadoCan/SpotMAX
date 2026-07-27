@@ -39,6 +39,7 @@ from . import DFs_FILENAMES
 from . import valid_true_bool_str, valid_false_bool_str
 from . import rng
 from . import get_watchdog_filepaths
+from . import SpotMAX_path
 
 if GUI_INSTALLED:
     import matplotlib.colors
@@ -1520,6 +1521,16 @@ def random_choice_pos_foldernames(pos_foldernames, train_perc=80, val_perc=20):
     ]
     return train_positions, val_positions
 
+def get_git_branch_name():
+    from cellacdc.myutils import _subprocess_run_command
+
+    command = f'git -C "{SpotMAX_path}" rev-parse --abbrev-ref HEAD'
+    output = _subprocess_run_command(
+        command, shell=False, callback='check_output'
+    )
+    branch_name = output.decode().strip()
+    return branch_name
+
 def get_info_version_text(
         is_cli=False, include_platform=True, cli_formatted_text=True
     ):
@@ -1550,7 +1561,13 @@ def get_info_version_text(
                 info_txts.append(f'Qt {QtCore.__version__}')
             except Exception as err:
                 info_txts.append('Qt: Not installed')
-        
+    
+    try:
+        branch_name = get_git_branch_name()
+        info_txts.append(f'Git branch: "{branch_name}"')
+    except Exception as err:
+        pass
+
     info_txts.append(f'Working directory: {os.getcwd()}')
     if not cli_formatted_text:
         return info_txts
