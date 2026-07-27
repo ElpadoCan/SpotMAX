@@ -549,7 +549,10 @@ class _DataLoader:
             data['df_agg'][col_name] = (
                 data['df_agg'][col_name].astype(type(value))
             )
-            cca_df[col_name] = cca_df[col_name].astype(type(value))
+            try:
+                cca_df[col_name] = cca_df[col_name].astype(type(value))
+            except Exception as err:
+                import pdb; pdb.set_trace()
 
             data['df_agg'].loc[idx_both, col_name] = (
                 cca_df.loc[idx_both, col_name]
