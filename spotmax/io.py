@@ -2460,11 +2460,33 @@ def save_df_spots_to_hdf(
     store_hdf = pd.HDFStore(temp_filepath, mode='w')
     for frame_i, sub_df in df.groupby(level=0):
         key = f'frame_{frame_i}'
-        store_hdf.append(key, sub_df.loc[frame_i])
+        df_clean = prepare_for_hdf(sub_df.loc[frame_i])
+        store_hdf.append(key, df_clean)
     store_hdf.close()
     dst_filepath = os.path.join(folder_path, filename)
     shutil.move(temp_filepath, dst_filepath)
     shutil.rmtree(temp_dirpath)
+
+def prepare_for_hdf(df):
+    df = df.copy()
+    
+    for col in df.columns:
+        dtype = df[col].dtype
+        
+        if pd.api.types.is_string_dtype(dtype):
+            df[col] = df[col].astype(object)
+            
+        elif pd.api.types.is_integer_dtype(dtype):
+            # nullable ints → float (safe fallback) or int if no NaN
+            if df[col].isna().any():
+                df[col] = df[col].astype(float)
+            else:
+                df[col] = df[col].astype(np.int64)
+                
+        elif pd.api.types.is_bool_dtype(dtype):
+            df[col] = df[col].astype(object)
+    
+    return df
 
 def _save_concat_dfs_to_hdf(
         dfs, keys, dst_folderpath, filename, return_concat_df=False, 
@@ -2485,7 +2507,8 @@ def _save_concat_dfs_to_hdf(
             df = acdc_load.pd_bool_and_float_to_int_to_str(df)
             
         key = re.sub(r'[^a-zA-Z0-9_]', "_", key)
-        store_hdf.append(key, df)
+        df_clean = prepare_for_hdf(df)
+        store_hdf.append(key, df_clean)
     store_hdf.close()
     dst_filepath = os.path.join(dst_folderpath, filename)
     shutil.move(temp_filepath, dst_filepath)
