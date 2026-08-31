@@ -215,8 +215,6 @@ class GopFeaturesAndThresholdsDialog(QBaseDialog):
     
     def ok_cb(self):
         expr = self.expression()
-        if not expr:
-            return
         self.cancel = False
         self.close()
 
