@@ -365,7 +365,7 @@ class FeatureSelectorButton(QPushButton):
         self.setText(self._initText)
         self.setToolTip('')
         self.sigFeatureSelected.emit(self, '', '')
-        self.sigReset(self)
+        self.sigReset.emit(self)
     
     def setFeatureText(self, text):
         self.setText(text)
