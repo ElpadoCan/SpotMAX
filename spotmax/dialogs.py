@@ -7385,9 +7385,17 @@ class AboutSpotMAXDialog(QBaseDialog):
             is_cli=False
         )
         
-        for info_txt in info_txts:
-            paragraph = acdc_html.paragraph(info_txt)
-            txt = f'{txt}{paragraph}'
+        info_txt = (
+            '<br>'.join(info_txts).replace('\n', '<br>').replace(' ', '&nbsp;')
+        )
+
+        # Make bold text at first colon
+        info_txt_html = re.sub(
+            r'(^|<br>)(?!(&nbsp;)*\*&nbsp;)([^<:]+):',
+            r'\1<span style="font-weight: bold; font-size: 14px;">\3:</span>',
+            info_txt,
+        )
+        txt = f'{txt}{html_func.paragraph(info_txt_html)}'
 
         titleLabel.setText(txt)
         
