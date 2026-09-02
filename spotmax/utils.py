@@ -1556,23 +1556,23 @@ def get_info_version_text(
     env_folderpath = sys.prefix
     python_version = f'{py_ver.major}.{py_ver.minor}.{py_ver.micro}'
     info_txts = [
-        f'Version {version}',
+        f'Version: {version}',
         f'Released on: {release_date}',
-        f'Installed in "{spotmax_path}"',
+        f'Installed in: "{spotmax_path}"',
     ]
     
     if include_platform:
         import platform
         info_txts.extend([
             f'Environment folder: "{env_folderpath}"',
-            f'Python {python_version}',
+            f'Python version: {python_version}',
             f'Platform: {platform.platform()}',
             f'System: {platform.system()}',
         ])
         if GUI_INSTALLED and not is_cli:
             try:
                 from qtpy import QtCore
-                info_txts.append(f'Qt {QtCore.__version__}')
+                info_txts.append(f'Qt version: {QtCore.__version__}')
             except Exception as err:
                 info_txts.append('Qt: Not installed')
     
