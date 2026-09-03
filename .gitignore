@@ -53,12 +53,9 @@ spotmax/settings/*
 !spotmax/settings/dummy.txt
 
 spotmax/docs/source/tutorials/*
-!spotmax/docs/source/tutorials/_preliminary_segment_cells.rst
-!spotmax/docs/source/tutorials/index.rst
-!spotmax/docs/source/tutorials/mtDNA_yeast.rst
-!spotmax/docs/source/tutorials/smFISH_yeast.rst
+!spotmax/docs/source/tutorials/*.rst
 
-tutorials
+tutorials/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

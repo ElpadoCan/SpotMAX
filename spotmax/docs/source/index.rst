@@ -117,6 +117,7 @@ Contents
    misc/output_files
    run/gui/inspect_results_tab
    misc/training_ai
+   tutorials/video-tutorials
    tutorials/index
    misc/publications
    misc/contributing

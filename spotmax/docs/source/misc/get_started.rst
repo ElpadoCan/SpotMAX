@@ -13,7 +13,8 @@ Getting started
     If you haven't installed SpotMAX yet, follow these instructions before proceeding 
     :ref:`how-to-install`.
 
-The simplest way to get started is to play around with the graphical user interface (GUI). 
+The simplest way to get started is to either watch our :ref:`video-tutorials` or play around with the graphical user interface (GUI). 
+
 To run the GUI follow these instructions: :ref:`how-to-run-gui`. You can download example 
 data from here `Example data SpotMAX GUI`_. Alternatively, if you already cloned 
 the entire repo, you will find example data in the folder 

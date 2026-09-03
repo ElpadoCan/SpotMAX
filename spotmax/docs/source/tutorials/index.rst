@@ -7,6 +7,8 @@ The tutorials presented here describe how to run SpotMAX with real-world
 data. We will setup the paramters using the GUI and we will run the analysis in 
 the terminal. 
 
+If you prefer **video tutorials**, you can find them :ref:`video-tutorials`.
+
 If you prefer to run SpotMAX in your own pipeline see the notebooks 
 `here <https://github.com/ElpadoCan/SpotMAX/tree/main/examples/notebooks>`_. 
 
