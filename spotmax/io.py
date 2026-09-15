@@ -47,7 +47,7 @@ if GUI_INSTALLED:
 
     from . import dialogs, html_func, qtworkers
 
-from cellacdc import data_structure_docs_url
+from cellacdc.urls import data_structure_docs_url
 from cellacdc import myutils as acdc_myutils
 from cellacdc import load as acdc_load
 try:
