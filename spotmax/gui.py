@@ -443,7 +443,14 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.initAutoTuneColors()
         
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
-        self.LeftClickButtons.append(autoTuneTabWidget.addAutoTunePointsButton)
+        try:
+            self.LeftClickButtons.append(
+                autoTuneTabWidget.addAutoTunePointsButton
+            )
+        except AttributeError as err:
+            self.leftClickButtons.append(
+                autoTuneTabWidget.addAutoTunePointsButton
+            )
     
     def gui_createShowPropsButton(self):
         super().gui_createShowPropsButton(side='right') 
