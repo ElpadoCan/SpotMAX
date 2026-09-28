@@ -193,7 +193,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         else:
             self.openFile(file_path=dropped_path)
     
-    def gui_setCursor(self, modifiers, event):
+    def gui_setCursor(self, modifiers, event, *args, **kwargs):
         cursorsInfo = super().gui_setCursor(modifiers, event)
         noModifier = modifiers == Qt.NoModifier
         autoTuneTabWidget = self.computeDockWidget.widget().autoTuneTabWidget
