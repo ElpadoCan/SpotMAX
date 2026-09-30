@@ -23,11 +23,11 @@ from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
 from qtpy.QtCore import (
     Signal, QTimer, Qt, QRegularExpression, QEvent, QPropertyAnimation,
-    QPointF, QUrl, QObject
+    QPointF, QUrl, QObject, QSize, QRect
 )
 from qtpy.QtGui import (
     QFont,  QPainter, QRegularExpressionValidator, QIcon, QColor, QPalette,
-    QDesktopServices
+    QDesktopServices, QPixmap, QPen
 )
 from qtpy.QtWidgets import (
     QTextEdit, QLabel, QProgressBar, QHBoxLayout, QToolButton, QCheckBox,
@@ -36,7 +36,7 @@ from qtpy.QtWidgets import (
     QScrollArea, QSizePolicy, QComboBox, QPushButton, QScrollBar,
     QGroupBox, QAbstractSlider, QDialog, QStyle, QSpacerItem,
     QAction, QWidgetAction, QMenu, QActionGroup, QFileDialog, QFrame,
-    QListWidget, QApplication, QDoubleSpinBox
+    QListWidget, QApplication, QDoubleSpinBox, QLayout
 )
 
 import pyqtgraph as pg
@@ -147,6 +147,47 @@ class TunePushButton(acdc_widgets.PushButton):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setIcon(QIcon(':tune.svg'))
+
+class PointsLayerButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setIcon(QIcon(':pointsLayer.svg'))
+
+class ReferenceChannelButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setIcon(QIcon(':overlay_labels.svg'))
+
+class BothChannelsButton(acdc_widgets.PushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setIcon(self._make_icon())
+        self.setIconSize(QSize(64, 24))
+
+    @staticmethod
+    def _make_icon():
+        icon_size = 16
+        pixmap = QPixmap(44, icon_size)
+        pixmap.fill(Qt.transparent)
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        QIcon(":pointsLayer.svg").paint(
+            painter, QRect(0, 0, icon_size, icon_size)
+        )
+
+        # Red plus between the icons
+        painter.setPen(QPen(QColor("#e53935"), 2.5))
+        painter.drawLine(22, 5, 22, 11)
+        painter.drawLine(19, 8, 25, 8)
+
+        QIcon(":overlay_labels.svg").paint(
+            painter, QRect(28, 0, icon_size, icon_size)
+        )
+
+        painter.end()
+        return QIcon(pixmap)
 
 class applyPushButton(acdc_widgets.PushButton):
     def __init__(self, *args, **kwargs):
@@ -271,6 +312,78 @@ class AddAutoTunePointsButton(acdc_widgets.CrossCursorPointButton):
         spaces = ' '*(3-self._counter)
         self.setText(f'   Adding points{dots}{spaces}    ')
         self._counter += 1
+
+class ShowDetailsLabel(acdc_widgets.QClickableLabel):
+    sigToggled = Signal(bool)
+
+    def __init__(self, txt: str, parent=None):
+        super().__init__(parent)
+
+        self.txt = txt
+        self.checkedText = txt.replace('Show', 'Hide')
+
+        self.checkedIcon = QIcon(':hideUp.svg')
+        self.uncheckedIcon = QIcon(':showDown.svg')
+
+        self._checked = False
+
+        # Icon
+        self.iconLabel = QLabel()
+        self.iconLabel.setFixedSize(12, 8)
+        self.iconLabel.setAlignment(Qt.AlignCenter)
+        self.iconLabel.setAttribute(
+            Qt.WA_TransparentForMouseEvents
+        )
+
+        # Text
+        self.textLabel = QLabel()
+        self.textLabel.setTextFormat(Qt.RichText)
+        self.textLabel.setText(f'<u>{self.txt}</u>')
+        self.textLabel.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        self.textLabel.setAttribute(
+            Qt.WA_TransparentForMouseEvents
+        )
+
+        # Layout
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        layout.addWidget(self.iconLabel)
+        layout.addWidget(self.textLabel)
+        layout.addStretch()
+
+        self._setIcon(self.uncheckedIcon)
+
+        # Make it look/behave like a clickable link
+        self.setCursor(Qt.PointingHandCursor)
+
+        # QLabel itself receives the click
+        self.clicked.connect(self._onClicked)
+
+    def _setIcon(self, icon):
+        pixmap = icon.pixmap(QSize(12, 8))
+        self.iconLabel.setPixmap(pixmap)
+
+    def _onClicked(self, label):
+        self.setChecked(not self._checked)
+
+    def setChecked(self, checked):
+        if self._checked == checked:
+            return
+
+        self._checked = checked
+
+        if checked:
+            self.textLabel.setText(f'<u>{self.checkedText}</u>')
+            self._setIcon(self.checkedIcon)
+        else:
+            self.textLabel.setText(f'<u>{self.txt}</u>')
+            self._setIcon(self.uncheckedIcon)
+
+        self.sigToggled.emit(checked)
+
+    def isChecked(self):
+        return self._checked
 
 class measurementsQGroupBox(QGroupBox):
     def __init__(self, names, parent=None):
@@ -1247,6 +1360,43 @@ class SpotMinSizeLabels(QWidget):
             values.insert(0, 1)
         return values
 
+class NonStretchableCenteredWidgetHBoxLayout(QHBoxLayout):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+    
+    def addWidget(self, widget):
+        self.spacerLeft = QSpacerItem(
+            0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum
+        )
+        self.addSpacerItem(self.spacerLeft)
+        super().addWidget(widget)
+        self.spacerRight = QSpacerItem(
+            0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum
+        )
+        self.addSpacerItem(self.spacerRight)
+        return widget
+    
+    def setVisible(self, visible):
+        for i in range(self.count()):
+            item = self.itemAt(i)
+            if isinstance(item, QSpacerItem):
+                if visible:
+                    item.changeSize(
+                        0, 0, QSizePolicy.Expanding, QSizePolicy.Minimum
+                    )
+                else:
+                    item.changeSize(0, 0, QSizePolicy.Fixed, QSizePolicy.Fixed)
+            else:
+                item.widget().setVisible(visible)
+        self.invalidate()
+    
+    def setDisabled(self, disabled):
+        for i in range(self.count()):
+            item = self.itemAt(i)
+            if isinstance(item, QSpacerItem):
+                continue
+            item.widget().setDisabled(disabled)
+
 class formWidget(QWidget):
     sigApplyButtonClicked = Signal(object)
     sigComputeButtonClicked = Signal(object)
@@ -1286,7 +1436,8 @@ class formWidget(QWidget):
             key='',
             parent=None,
             valueSetter=None,
-            infoHtmlText=''
+            infoHtmlText='',
+            isOptional=False,
         ):
         super().__init__(parent)
         self.widget = widget
@@ -1304,6 +1455,7 @@ class formWidget(QWidget):
         self.useEditableLabel = useEditableLabel
         self.browseExtensions = browseExtensions
         self._parent = parent
+        self._isOptional = isOptional
 
         if widget is not None:
             widget.setParent(self)
@@ -1324,7 +1476,7 @@ class formWidget(QWidget):
             font = QFont()
             font.setPixelSize(11)
 
-        self.labelLeft = None
+        self.labelLeft = QLabel('')
         if addLabel:
             if useEditableLabel:
                 self.labelLeft = EditableLabel(labelTextLeft)
@@ -1332,9 +1484,8 @@ class formWidget(QWidget):
                 self.labelLeft = acdc_widgets.QClickableLabel(widget)
                 self.labelLeft.setText(labelTextLeft)
             self.labelLeft.setFont(font)
-            self.items.append(self.labelLeft)
-        else:
-            self.items.append(None)
+        
+        self.items.append(self.labelLeft)
 
         self.labelMiddle = None
         if labelTextMiddle:
@@ -1344,10 +1495,8 @@ class formWidget(QWidget):
             self.items.append(self.labelMiddle)
         
         if not stretchWidget:
-            widgetLayout = QHBoxLayout()
-            widgetLayout.addStretch(1)
+            widgetLayout = NonStretchableCenteredWidgetHBoxLayout()
             widgetLayout.addWidget(widget)
-            widgetLayout.addStretch(1)
             self.items.append(widgetLayout)
         else:
             self.items.append(widget)
@@ -1440,13 +1589,38 @@ class formWidget(QWidget):
     def parent(self):
         return self._parent
     
+    def isOptional(self):
+        return self._isOptional
+    
+    def setOptional(self, optional: bool):
+        self._isOptional = optional
+    
     def setDisabled(self, disabled: bool) -> None:
         for item in self.items:
-            try:
-                item.setDisabled(disabled)
-            except Exception as err:
-                pass
+            if item is None:
+                continue
+
+            item.setDisabled(disabled)
     
+    def setVisibilityToggle(self, togglableWidget):
+        self._visibilityToggle = togglableWidget
+
+    def isVisiblePossible(self):
+        try:
+            return self._visibilityToggle.isChecked()
+        except AttributeError as err:
+            return True
+
+    def setVisible(self, visible):
+        for item in self.items:
+            if item is None:
+                continue
+            
+            if visible:
+                visible = self.isVisiblePossible()
+
+            item.setVisible(visible)
+
     def setToolTip(self, tooltip):
         self.labelLeft.setToolTip(tooltip)
         self.widget.setToolTip(tooltip)
@@ -1679,54 +1853,125 @@ class formWidget(QWidget):
             buttonsTexts=buttons
         )
 
+def ParamFormWidget(
+        anchor, param, parent, use_tune_widget=False,
+        section_option_to_desc_mapper=None
+    ):
+    if use_tune_widget:
+        widgetName = param['autoTuneWidget']
+    else:
+        widgetName = param['formWidgetFunc']
+    
+    if section_option_to_desc_mapper is None:
+        section_option_to_desc_mapper = {}
+    
+    module_name, attr = widgetName.split('.')
+    try:
+        widgets_module = globals()[module_name]
+        widgetFunc = getattr(widgets_module, attr)
+    except KeyError as e:
+        widgetFunc = globals()[attr]
+    
+    section = config.get_section_from_anchor(anchor)
+    confvalText = param.get('confvalText', param.get('desc', ''))
+    key = (section, confvalText)
+    infoHtmlText = section_option_to_desc_mapper.get(key, '')
+    
+    if use_tune_widget:
+        addComputeButton = False
+    else:
+        addComputeButton = param.get('addComputeButton', False)
+    
+    return formWidget(
+        widgetFunc(),
+        anchor=anchor,
+        labelTextLeft=param.get('desc', ''),
+        confvalText=param.get('confvalText', ''),
+        labelTextMiddle=param.get('labelTextMiddle', ''),
+        useEditableLabel=param.get('useEditableLabel', ''),
+        initialVal=param.get('initialVal', None),
+        stretchWidget=param.get('stretchWidget', True),
+        addInfoButton=param.get('addInfoButton', True),
+        addAddFieldButton=param.get('addAddFieldButton', False),
+        addComputeButton=addComputeButton,
+        addWarningButton=param.get('addWarningButton', False),
+        addApplyButton=param.get('addApplyButton', False),
+        addBrowseButton=param.get('addBrowseButton', False),
+        isFolderBrowse=param.get('isFolderBrowse', False),
+        browseExtensions=param.get('browseExtensions'),
+        addAutoButton=param.get('addAutoButton', False),
+        addEditButton=param.get('addEditButton', False),
+        stretchFactors=param.get('stretchFactors'),
+        addLabel=param.get('addLabel', True),
+        valueSetter=param.get('valueSetter'),
+        disableComputeButtons=True,
+        infoHtmlText=infoHtmlText,
+        isOptional=param.get('isOptional', False),
+        parent=parent
+    )
+
+
 class FormLayout(QGridLayout):
     def __init__(self):
-        QGridLayout.__init__(self)
+        super().__init__()
+        self._paramsWidgets = []
 
     def _addItems(self, formWidget, row, items=None):
         if items is None:
             items = formWidget.items
-        
+
         for col, item in enumerate(items):
             if item is None:
                 continue
-            
+
             if col == 1 and not formWidget.addLabel:
                 col = 0
                 colspan = 2
             else:
                 colspan = 1
-            
-            if col==0:
+
+            if col == 0:
                 alignment = Qt.AlignRight
-            elif col==len(formWidget.items)-1:
+            elif col == len(formWidget.items) - 1:
                 alignment = Qt.AlignLeft
             else:
                 alignment = None
+
             try:
                 if alignment is None:
                     self.addWidget(item, row, col, 1, colspan)
                 else:
-                    self.addWidget(item, row, col, 1, colspan, alignment=alignment)
+                    self.addWidget(
+                        item, row, col, 1, colspan,
+                        alignment=alignment
+                    )
             except TypeError:
                 self.addLayout(item, row, col, 1, colspan)
-    
+
     def _addItemsAsLayout(self, formWidget, row, items=None):
         _layout = QHBoxLayout()
+
         if items is None:
             items = formWidget.items
+
         colspan = len(items)
+
         for col, item in enumerate(items):
             if item is None:
                 continue
+
             _layout.addWidget(item)
+
             try:
-                _layout.setStretch(col, formWidget.stretchFactors[col])
+                _layout.setStretch(
+                    col,
+                    formWidget.stretchFactors[col]
+                )
             except IndexError:
                 _layout.setStretch(col, 0)
-        
+
         self.addLayout(_layout, row, 0, 1, colspan)
-    
+
     def addFormWidget(self, formWidget, row=0):
         if formWidget.stretchFactors is not None:
             self._addItemsAsLayout(formWidget, row)
@@ -1734,10 +1979,13 @@ class FormLayout(QGridLayout):
         else:
             self._addItems(formWidget, row)
             formWidget.adderFunc = self._addItems
-            
+
         formWidget.row = row
         formWidget._layout = self
-        
+
+    def addParamWidget(self, paramWidget, row=0):
+        self.addFormWidget(paramWidget, row=row)
+        self._paramsWidgets.append(paramWidget)        
 
 class ReadOnlyElidingLineEdit(acdc_widgets.ElidingLineEdit):
     def __init__(self, parent=None, transparent=False):
@@ -2902,62 +3150,6 @@ class SpotsItems(QObject):
         for toolbutton in self.buttons:
             toolbutton.item.setVisible(toolbutton.isChecked())
 
-def ParamFormWidget(
-        anchor, param, parent, use_tune_widget=False,
-        section_option_to_desc_mapper=None
-    ):
-    if use_tune_widget:
-        widgetName = param['autoTuneWidget']
-    else:
-        widgetName = param['formWidgetFunc']
-    
-    if section_option_to_desc_mapper is None:
-        section_option_to_desc_mapper = {}
-    
-    module_name, attr = widgetName.split('.')
-    try:
-        widgets_module = globals()[module_name]
-        widgetFunc = getattr(widgets_module, attr)
-    except KeyError as e:
-        widgetFunc = globals()[attr]
-    
-    section = config.get_section_from_anchor(anchor)
-    confvalText = param.get('confvalText', param.get('desc', ''))
-    key = (section, confvalText)
-    infoHtmlText = section_option_to_desc_mapper.get(key, '')
-    
-    if use_tune_widget:
-        addComputeButton = False
-    else:
-        addComputeButton = param.get('addComputeButton', False)
-    
-    return formWidget(
-        widgetFunc(),
-        anchor=anchor,
-        labelTextLeft=param.get('desc', ''),
-        confvalText=param.get('confvalText', ''),
-        labelTextMiddle=param.get('labelTextMiddle', ''),
-        useEditableLabel=param.get('useEditableLabel', ''),
-        initialVal=param.get('initialVal', None),
-        stretchWidget=param.get('stretchWidget', True),
-        addInfoButton=param.get('addInfoButton', True),
-        addAddFieldButton=param.get('addAddFieldButton', False),
-        addComputeButton=addComputeButton,
-        addWarningButton=param.get('addWarningButton', False),
-        addApplyButton=param.get('addApplyButton', False),
-        addBrowseButton=param.get('addBrowseButton', False),
-        isFolderBrowse=param.get('isFolderBrowse', False),
-        browseExtensions=param.get('browseExtensions'),
-        addAutoButton=param.get('addAutoButton', False),
-        addEditButton=param.get('addEditButton', False),
-        stretchFactors=param.get('stretchFactors'),
-        addLabel=param.get('addLabel', True),
-        valueSetter=param.get('valueSetter'),
-        disableComputeButtons=True,
-        infoHtmlText=infoHtmlText,
-        parent=parent
-    )
-
 class SelectFeatureAutoTuneButton(acdc_widgets.editPushButton):
     sigFeatureSelected = Signal(object, str, str)
 
@@ -3533,48 +3725,172 @@ class PlusMinusFloatLineEdit(FloatLineEdit):
         else:
             return 0.0
 
-class ExpandableGroupbox(QGroupBox):
+class GroupBoxWithOptionalParameters(QGroupBox):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._paramsLayout = None
+
+    def createShowDetailsButton(self):
+        self.optionalParamsButton = ShowDetailsLabel(
+            'Show additional parameters'
+        )
+        self.optionalParamsButton.sigToggled.connect(
+            self.optionalParamsButtonToggled
+        )
+        self.showDetailsLayout = QHBoxLayout()
+        self.showDetailsLayout.addSpacing(10)
+        self.showDetailsLayout.addWidget(self.optionalParamsButton)
+        self.showDetailsLayout.setContentsMargins(0, 5, 0, 10)
+
+        # Initially hidden
+        self.optionalParamsButton.setChecked(False)
+
+    def setParamsWidgets(self, paramWidgets, init=True):
+        if init:
+            self._paramsLayout = FormLayout()
+            self.createShowDetailsButton()
+        else:
+            self.showDetailsLayout.addSpacing(10)
+            self.showDetailsLayout.addWidget(self.optionalParamsButton)
+
+        self._optionalParamWidgets = []
+        self._paramWidgets = paramWidgets
+
+        required_row = 0
+        for paramWidget in paramWidgets:
+            if paramWidget.isOptional():
+                self._optionalParamWidgets.append(paramWidget)
+            else:
+                self._paramsLayout.addParamWidget(
+                    paramWidget,
+                    row=required_row,
+                )
+                required_row += 1
+
+        show_details_label_row = required_row
+        
+        self._paramsLayout.addLayout(
+            self.showDetailsLayout, 
+            show_details_label_row, 0, 1, 2,
+            alignment=Qt.AlignLeft
+        )
+        
+        optional_row = show_details_label_row + 1
+        for optionalParamWidget in self._optionalParamWidgets:
+            if init:
+                optionalParamWidget.setVisibilityToggle(
+                    self.optionalParamsButton
+                )
+            self._paramsLayout.addParamWidget(
+                optionalParamWidget,
+                row=optional_row,
+            )
+            optional_row += 1
+
+        if init:
+            self._setLeftColumnWidth(paramWidgets)
+            self.setLayout(self._paramsLayout)
+
+        self.optionalParamsButtonToggled(self.optionalParamsButton.isChecked())
+
+        if not self._optionalParamWidgets:
+            self.optionalParamsButton.hide()
+    
+    def optionalParamsButtonToggled(self, visible):
+        for optionalParamWidget in self._optionalParamWidgets:
+            optionalParamWidget.setVisible(visible)
+    
+    def _setLeftColumnWidth(self, paramWidgets):
+        largestColWidth = 0
+        for paramWidget in paramWidgets:
+            width = paramWidget.labelLeft.sizeHint().width()
+            if width > largestColWidth:
+                largestColWidth = width
+
+        self._paramsLayout.setColumnMinimumWidth(0, largestColWidth+5)
+
+    def setParamOptional(self, paramWidget: formWidget, optional: bool):
+        if paramWidget.isOptional() == optional:
+            return
+
+        areAdditionalParamsVisible = self.optionalParamsButton.isChecked()
+        if not areAdditionalParamsVisible:
+            self.optionalParamsButton.setChecked(True)
+
+        paramWidget.setOptional(optional)
+        self.removeAllItems()
+        self.setParamsWidgets(self._paramWidgets, init=False)
+
+        if not areAdditionalParamsVisible:
+            self.optionalParamsButton.setChecked(False)
+    
+    def removeAllItems(self):
+        # Remove everything from the existing layout.
+        # This does NOT delete the widgets.
+        while self._paramsLayout.count():
+            item = self._paramsLayout.takeAt(0)
+
+            # If this is an intermediate layout (e.g. the HBoxLayout
+            # created by FormLayout._addItemsAsLayout), remove its
+            # children from the layout as well.
+            if item.layout() is not None:
+                layout = item.layout()
+
+                while layout.count():
+                    layout.takeAt(0)
+
+        self._paramsLayout._paramsWidgets.clear()
+        self._paramsLayout.invalidate()
+
+class ExpandableGroupbox(GroupBoxWithOptionalParameters):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._expanded = True
         self._scheduled_expansion = None
-        self._layout = None
-    
+        self._contentLayout = None
+
     def setLayout(self, layout):
         buttonLayout = QHBoxLayout()
-        self.expandButton = acdc_widgets.showDetailsButton(txt='Show parameters')
+
+        self.expandButton = ShowDetailsLabel('Show parameters')
         self.expandButton.setChecked(True)
         self.expandButton.sigToggled.connect(self.setExpanded)
+
         buttonLayout.addWidget(self.expandButton)
         buttonLayout.setStretch(0, 1)
         buttonLayout.addStretch(2)
-        self._layout = layout
-        _mainLayout = QVBoxLayout()
-        _mainLayout.addLayout(buttonLayout)    
-        _mainLayout.addLayout(layout)     
-        super().setLayout(_mainLayout)
+
+        self._contentLayout = layout
+
+        self._contentWidget = QWidget()
+        self._contentWidget.setLayout(layout)
+
+        mainLayout = QVBoxLayout()
+        mainLayout.addLayout(buttonLayout)
+        mainLayout.addWidget(self._contentWidget)
+
+        super().setLayout(mainLayout)
+
         if self._scheduled_expansion is not None:
-            self.expandButton.setChecked(self._scheduled_expansion)
-        
+            self.expandButton.setChecked(
+                self._scheduled_expansion
+            )
+
         if self.isCheckable():
-            self.toggled.connect(self.expandButton.setChecked)
-        
-    def layout(self):
-        return self._layout
-    
+            self.toggled.connect(
+                self.expandButton.setChecked
+            )
+
+    def contentLayout(self):
+        return self._contentLayout
+
     def setExpanded(self, expanded):
-        if self._layout is None:
+        if self._contentLayout is None:
             self._scheduled_expansion = expanded
             return
-        
-        self._expanded = expanded            
-        
-        for i in range(self.layout().count()):
-            item = self.layout().itemAt(i)
-            widget = item.widget()
-            if widget is None:
-                continue
-            widget.setVisible(expanded)       
+
+        self._expanded = expanded
+        self._contentWidget.setVisible(expanded)
 
 class EditableLabel(QWidget):
     clicked = Signal(object)

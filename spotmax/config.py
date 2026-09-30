@@ -527,7 +527,8 @@ def _filepaths_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
-            'dtype': str
+            'dtype': str,
+            'valueSetter': 'setText'
         },
         'spotChSegmEndName': {
             'desc': 'Spots channel segmentation end name',
@@ -541,7 +542,8 @@ def _filepaths_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
-            'dtype': str
+            'dtype': str,
+            'isOptional': True,
         },
         'refChSegmEndName': {
             'desc': 'Ref. channel segmentation end name',
@@ -555,7 +557,8 @@ def _filepaths_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
-            'dtype': str
+            'dtype': str,
+            'isOptional': True,
         },
         'inputDfSpotsEndname': {
             'desc': 'Spots coordinates table end name',
@@ -569,7 +572,8 @@ def _filepaths_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
-            'dtype': str
+            'dtype': str,
+            'isOptional': True,
         },
         'lineageTableEndName': {
             'desc': 'Table with lineage info end name',
@@ -583,7 +587,8 @@ def _filepaths_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets._CenteredLineEdit',
             'actions': None,
-            'dtype': str
+            'dtype': str,
+            'isOptional': True,
         },
         'runNumber': {
             'desc': 'Run number',
@@ -610,7 +615,8 @@ def _filepaths_params():
             'addEditButton': False,
             'formWidgetFunc': 'widgets.CenteredAlphaNumericLineEdit',
             'actions': None,
-            'dtype': get_valid_text
+            'dtype': get_valid_text,
+            'isOptional': True,
         },
         'dfSpotsFileExtension': {
             'desc': 'File extension of the output tables',
@@ -624,7 +630,8 @@ def _filepaths_params():
             'formWidgetFunc': 'widgets._dfSpotsFileExtensionsWidget',
             'actions': None,
             'dtype': str, 
-            'parser_arg': 'output_tables_file_ext'
+            'parser_arg': 'output_tables_file_ext',
+            'isOptional': True,
         },
     }
     return filepaths_params
@@ -776,7 +783,8 @@ def _metadata_params():
             'formWidgetFunc': 'acdc_widgets.IntLineEdit',
             'actions': None,
             'dtype': int,
-            'valueSetter': 'setValue'
+            'valueSetter': 'setValue',
+            'isOptional': True
         },
         'stopFrameNum': {
             'desc': 'Analyse until frame number',
@@ -789,7 +797,8 @@ def _metadata_params():
             'formWidgetFunc': 'acdc_widgets.IntLineEdit',
             'actions': None,
             'dtype': int,
-            'valueSetter': 'setValue'
+            'valueSetter': 'setValue',
+            'isOptional': True
         },
         'SizeZ': {
             'desc': 'Number of z-slices (SizeZ)',
@@ -804,7 +813,8 @@ def _metadata_params():
                 ('valueChanged', 'SizeZchanged'),
             ),
             'dtype': int,
-            'valueSetter': 'setValue'
+            'valueSetter': 'setValue',
+            'isOptional': True
         },
         'pixelWidth': {
             'desc': 'Pixel width (μm)',
@@ -819,7 +829,8 @@ def _metadata_params():
                 ('valueChanged', 'updateLocalBackgroundValue'),
             ),
             'dtype': float,
-            'valueSetter': 'setValue'
+            'valueSetter': 'setValue',
+            'isOptional': True
         },
         'pixelHeight': {
             'desc': 'Pixel height (μm)',
@@ -833,7 +844,8 @@ def _metadata_params():
                 ('valueChanged', 'updateMinSpotSize'),
             ),
             'dtype': float,
-            'valueSetter': 'setValue'
+            'valueSetter': 'setValue',
+            'isOptional': True
         },
         'voxelDepth': {
             'desc': 'Voxel depth (μm)',
@@ -847,7 +859,8 @@ def _metadata_params():
                 ('valueChanged', 'updateMinSpotSize'),
             ),
             'dtype': float,
-            'valueSetter': 'setValue'
+            'valueSetter': 'setValue',
+            'isOptional': True
         },
         'numAperture': {
             'desc': 'Numerical aperture',
@@ -861,7 +874,8 @@ def _metadata_params():
                 ('valueChanged', 'updateMinSpotSize'),
             ),
             'dtype': float,
-            'valueSetter': 'setValue'
+            'valueSetter': 'setValue',
+            'isOptional': True
         },
         'emWavelen': {
             'desc': 'Spots reporter emission wavelength (nm)',
@@ -875,7 +889,8 @@ def _metadata_params():
                 ('valueChanged', 'updateMinSpotSize'),
             ),
             'dtype': float,
-            'valueSetter': 'setValue'
+            'valueSetter': 'setValue',
+            'isOptional': True
         },
         'zResolutionLimit': {
             'desc': 'Spot minimum z-size (μm)',
@@ -1036,7 +1051,8 @@ def _ref_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
         'removePeaksInsideRef': {
             'desc': 'Remove spots that are inside ref. channel mask',
@@ -1047,7 +1063,8 @@ def _ref_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
         'bkgrMaskOutsideRef': {
             'desc': 'Use the ref. channel mask to determine background',
@@ -1058,7 +1075,8 @@ def _ref_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
         'refChSingleObj': {
             'desc': 'Ref. channel is single object (e.g., nucleus)',
@@ -1069,7 +1087,8 @@ def _ref_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
         'keepTouchObjectsIntact': {
             'desc': 'Keep external touching objects intact',
@@ -1080,7 +1099,8 @@ def _ref_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
         'refChGaussSigma': {
             'desc': 'Ref. channel gaussian filter sigma',
@@ -1137,7 +1157,8 @@ def _ref_ch_params():
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
             'dtype': get_bool, 
-            'ignoreIfMissing': True
+            'ignoreIfMissing': True,
+            'isOptional': True
         },
         'calcRefChRegionprops': {
             'desc': 'Compute region properties of the reference channel',
@@ -1149,7 +1170,8 @@ def _ref_ch_params():
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
             'dtype': get_bool, 
-            'ignoreIfMissing': True
+            'ignoreIfMissing': True,
+            'isOptional': True
         },
         'refChFilteringFeatures': {
             'desc': 'Features for filtering ref. channel objects',
@@ -1163,7 +1185,8 @@ def _ref_ch_params():
             'formWidgetFunc': 'widgets.RefChannelFeaturesThresholdsButton',
             'actions': None,
             'dtype': get_features_thresholds_filter,
-            'parser': parse_list_to_configpars
+            'parser': parse_list_to_configpars,
+            'isOptional': True
         },
         'saveRefChFeatures': {
             'desc': 'Save reference channel features',
@@ -1175,7 +1198,8 @@ def _ref_ch_params():
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
             'dtype': get_bool, 
-            'ignoreIfMissing': True
+            'ignoreIfMissing': True,
+            'isOptional': True
         },
         'saveRefChMask': {
             'desc': 'Save reference channel segmentation masks',
@@ -1186,7 +1210,8 @@ def _ref_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
         'saveRefChPreprocImage': {
             'desc': 'Save pre-processed reference channel image',
@@ -1197,7 +1222,8 @@ def _ref_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         }
     }
     return ref_ch_params
@@ -1227,6 +1253,7 @@ def _spots_ch_params():
             'formWidgetFunc': 'widgets.SpinBox',
             'actions': None,
             'dtype': int,
+            'isOptional': True
         },
         'spotThresholdFunc': {
             'desc': 'Spot detection threshold function',
@@ -1249,7 +1276,8 @@ def _spots_ch_params():
             'addComputeButton': True,
             'addApplyButton': False,
             'formWidgetFunc': 'widgets._spotDetectionMethod',
-            'actions': None
+            'actions': None,
+            'isOptional': True
         },
         'gopThresholds': {
             'desc': 'Features and thresholds for filtering true spots',
@@ -1265,7 +1293,8 @@ def _spots_ch_params():
             'dtype': get_features_thresholds_filter,
             'parser': parse_list_to_configpars,
             'comment': features_thresholds_comment,
-            'autoTuneWidget': 'widgets.SelectFeaturesAutoTune'
+            'autoTuneWidget': 'widgets.SelectFeaturesAutoTune',
+            'isOptional': True
         },
         'localBkgrRingWidth': {
             'desc': 'Local background ring width',
@@ -1280,6 +1309,7 @@ def _spots_ch_params():
             'valueSetter': 'setText',
             'actions': None,
             'dtype': str,
+            'isOptional': True
         },
         'optimiseWithEdt': {
             'desc': 'Optimise detection for high spot density',
@@ -1290,7 +1320,8 @@ def _spots_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
         'doSpotFit': {
             'desc': 'Compute spots size (fit gaussian peak(s))',
@@ -1315,7 +1346,8 @@ def _spots_ch_params():
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
             'dtype': get_bool, 
-            'parentActivator': ('Spots channel', 'doSpotFit')
+            'parentActivator': ('Spots channel', 'doSpotFit'),
+            'isOptional': True
         },
         'checkMergeSpotfit': {
             'desc': 'Merge spots pairs where single peak fits better',
@@ -1327,7 +1359,8 @@ def _spots_ch_params():
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
             'dtype': get_bool, 
-            'parentActivator': ('Spots channel', 'doSpotFit')
+            'parentActivator': ('Spots channel', 'doSpotFit'),
+            'isOptional': True
         },
         'maxNumPairs': {
             'desc': 'Maximum number of spot pairs to check',
@@ -1341,7 +1374,8 @@ def _spots_ch_params():
             'formWidgetFunc': 'widgets.SpinBox',
             'actions': None,
             'dtype': int, 
-            'parentActivator': ('Spots channel', 'doSpotFit')
+            'parentActivator': ('Spots channel', 'doSpotFit'),
+            'isOptional': True
         },
         'saveSpotsMask': {
             'desc': 'Save spots segmentation masks',
@@ -1352,7 +1386,8 @@ def _spots_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
         'spotsMasksSizeFeatures': {
             'desc': 'Features for the size of the saved spots masks',
@@ -1368,6 +1403,7 @@ def _spots_ch_params():
             'actions': None,
             'dtype': get_size_spot_masks_to_save,
             'parser': parse_dict_str_list_to_configpars,
+            'isOptional': True
         },
         'saveSpotsPreprocImage': {
             'desc': 'Save pre-processed spots image',
@@ -1378,7 +1414,8 @@ def _spots_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
         'skipInvalidSpotsLabels': {
             'desc': 'Skip objects where segmentation failed',
@@ -1389,7 +1426,8 @@ def _spots_ch_params():
             'addApplyButton': False,
             'formWidgetFunc': 'acdc_widgets.Toggle',
             'actions': None,
-            'dtype': get_bool
+            'dtype': get_bool,
+            'isOptional': True
         },
     }
     return spots_ch_params
@@ -1630,3 +1668,11 @@ if GUI_INSTALLED:
 
     # Initialize color items
     initColorItems()
+
+OPTIONAL_GROUPS_PARAMS = {
+    'Reference channel',
+    'Spots channel',
+    'SpotFIT',
+    'Custom combined measurements',
+    'Configuration'
+}
