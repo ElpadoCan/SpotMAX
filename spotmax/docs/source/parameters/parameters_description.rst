@@ -12,7 +12,7 @@
 .. _pandas.read_hdf: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_hdf.html
 .. _scikit-image region properties: https://scikit-image.org/docs/dev/api/skimage.measure.html#skimage.measure.regionprops
 
-.. |edit-button| image:: ../../../resources/icons/cog.svg
+.. |edit-button| image:: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/refs/heads/main/cellacdc/resources/icons/cog.svg
     :width: 20
 
 .. |compute| image:: ../images/compute.png

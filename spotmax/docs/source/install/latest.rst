@@ -7,7 +7,7 @@ Install latest version
 
 .. include:: _conda_create_activate_acdc.rst
 
-7. **Install Cell-ACDC** latest version:
+8. **Install Cell-ACDC** latest version:
 
     .. code-block:: 
         
@@ -24,7 +24,7 @@ Install latest version
         you can restart from here, but **remember to activate the** ``acdc`` 
         **environment first** with the command ``conda activate acdc``.
 
-8.  **Install SpotMAX** from the GitHub repository with the following command:
+9.  **Install SpotMAX** from the GitHub repository with the following command:
    
     .. code-block:: 
         
@@ -42,7 +42,7 @@ Install latest version
         
     This tells pip to install SpotMAX directly from the GitHub repo.
 
-9.  **Install the GUI libraries**:
+10.  **Install the GUI libraries**:
 
     If you plan to use the SpotMAX GUI and you never used Cell-ACDC before, 
     run the command ``acdc``. Remember to **always activate** the ``acdc`` 

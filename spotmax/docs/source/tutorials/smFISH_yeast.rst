@@ -3,16 +3,16 @@
 .. _BioImage Model Zoo: https://bioimage.io/#/
 .. _Quasar 670: https://www.aatbio.com/fluorescence-excitation-emission-spectrum-graph-viewer/quasar_670
 
-.. |load-folder| image:: ../images/folder-open.svg
+.. |load-folder| image:: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/refs/heads/main/cellacdc/resources/icons/folder-open.svg
     :width: 20
 
-.. |compute| image:: ../images/compute.png
+.. |compute| image:: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/refs/heads/main/cellacdc/resources/icons/compute.svg
     :width: 20
 
-.. |cog| image:: ../../../resources/icons/cog.svg
+.. |cog| image:: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/refs/heads/main/cellacdc/resources/icons/cog.svg
     :width: 20
 
-.. |cog_play| image:: ../../../resources/icons/cog_play.svg
+.. |cog_play| image:: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/refs/heads/main/cellacdc/resources/icons/cog_play.svg
     :width: 20
 
 .. _smfish-yeast:

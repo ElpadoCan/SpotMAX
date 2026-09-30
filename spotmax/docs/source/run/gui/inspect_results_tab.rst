@@ -1,4 +1,4 @@
-.. |plus| image:: ../../../../resources/icons/math/add.svg
+.. |plus| image:: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/refs/heads/main/cellacdc/resources/icons/math/add.svg
     :width: 20
 
 .. _inspect-results-tab:

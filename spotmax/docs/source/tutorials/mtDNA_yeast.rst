@@ -11,13 +11,13 @@
 .. |compute| image:: ../images/compute.png
     :width: 20
 
-.. |cog| image:: ../../../resources/icons/cog.svg
+.. |cog| image:: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/refs/heads/main/cellacdc/resources/icons/cog.svg
     :width: 20
 
-.. |cog_play| image:: ../../../resources/icons/cog_play.svg
+.. |cog_play| image:: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/refs/heads/main/cellacdc/resources/icons/cog_play.svg
     :width: 20
 
-.. |plus| image:: ../../../resources/icons/math/add.svg
+.. |plus| image:: https://raw.githubusercontent.com/SchmollerLab/Cell_ACDC/refs/heads/main/cellacdc/resources/icons/math/add.svg
     :width: 20
 
 .. _mtdna-yeast:
