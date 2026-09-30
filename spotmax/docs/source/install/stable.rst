@@ -7,7 +7,7 @@ Install stable version
 
 .. include:: _conda_create_activate_acdc.rst
 
-7.  **Install SpotMAX** with the following command:
+8.  **Install SpotMAX** with the following command:
    
     .. code-block:: 
         
@@ -15,7 +15,7 @@ Install stable version
         
     This tells pip to install SpotMAX.
 
-8.  **Install the GUI libraries**:
+9.  **Install the GUI libraries**:
 
     If you plan to use the SpotMAX GUI and you never used Cell-ACDC before, 
     run the command ``acdc``. Remember to **always activate** the ``acdc`` 

@@ -1,4 +1,4 @@
-3. **Update conda** by running the following command:
+4. **Update conda** by running the following command:
     
     .. code-block:: 
     
@@ -6,7 +6,7 @@
     
     This will update all packages that are part of conda.
 
-4. **Create a virtual environment** with the following command:
+5. **Create a virtual environment** with the following command:
    
     .. code-block:: 
    
@@ -16,7 +16,7 @@
     where the required libraries will be installed. 
     The virtual environment is called ``acdc`` in this case.
 
-5. **Activate the virtual environment** with the following command:
+6. **Activate the virtual environment** with the following command:
    
     .. code-block:: 
    
@@ -55,7 +55,7 @@
                     Terminal app after activating the ``acdc`` environment 
                     with the command ``conda activate acdc``.
 
-6. **Update pip** with the following command:
+7. **Update pip** with the following command:
    
     .. code-block:: 
    

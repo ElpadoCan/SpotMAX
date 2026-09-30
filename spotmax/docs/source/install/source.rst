@@ -9,7 +9,7 @@ If you want to try out experimental features (and, if you have time, maybe repor
 
 .. include:: _conda_create_activate_acdc.rst
 
-7. **Clone the source code** with the following command:
+8. **Clone the source code** with the following command:
    
     .. code-block:: 
     
@@ -23,7 +23,7 @@ If you want to try out experimental features (and, if you have time, maybe repor
         you can restart from here, but **remember to activate the** ``acdc`` 
         **environment first** with the command ``conda activate acdc``.
 
-8. **Navigate to the SpotMAX folder** with the following command:
+9. **Navigate to the SpotMAX folder** with the following command:
    
     .. code-block:: 
    
@@ -32,7 +32,7 @@ If you want to try out experimental features (and, if you have time, maybe repor
     The command ``cd`` stands for "change directory" and it allows you to move 
     between directories in the terminal. 
 
-9.  **Install SpotMAX** with the following command:
+10.  **Install SpotMAX** with the following command:
    
     .. code-block:: 
    
@@ -42,7 +42,7 @@ If you want to try out experimental features (and, if you have time, maybe repor
     the current folder in the terminal. This must be the ``SpotMAX`` folder 
     that you cloned before. 
 
-10. **Install the GUI libraries**:
+11. **Install the GUI libraries**:
 
     If you plan to use the SpotMAX GUI and you never used Cell-ACDC before, 
     run the command ``acdc``. Remember to **always activate** the ``acdc`` 
