@@ -397,7 +397,19 @@ class guiTabControl(QTabWidget):
         buttonsScrollArea = widgets.InvisibleScrollArea()
         buttonsScrollArea.setWidget(buttonsContainerWidget)
         buttonsScrollArea.setWidgetResizable(True)
-        buttonsLayout = QHBoxLayout()
+        buttonsLayout = QGridLayout()
+
+        self.analysisModeCombobox = QComboBox()
+        self.analysisModeCombobox.addItems([
+                'Detect spots', 'Segment reference channel', 'Both'
+            ]
+        )
+        analysisModeLabel = QLabel('Analysis mode:')
+        analysisModeLayout = QHBoxLayout()
+        analysisModeLayout.addWidget(analysisModeLabel)
+        analysisModeLayout.addWidget(self.analysisModeCombobox)
+        analysisModeLayout.addStretch(1)
+
         self.saveParamsButton = acdc_widgets.savePushButton(
             'Save parameters to file...'
         )
@@ -411,13 +423,14 @@ class guiTabControl(QTabWidget):
             'Browse loaded/saved file'
         )
         self.showInFileMangerButton.setDisabled(True)
-        buttonsLayout.addWidget(self.loadPreviousParamsButton)
-        buttonsLayout.addWidget(self.showInFileMangerButton)
-        buttonsLayout.addWidget(self.saveParamsButton)
-        buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(self.loadPreviousParamsButton, 0, 0)
+        buttonsLayout.addWidget(self.showInFileMangerButton, 0, 1)
+        buttonsLayout.addWidget(self.saveParamsButton, 0, 2)
+
+        buttonsLayout.addLayout(analysisModeLayout, 1, 0)
 
         self.runSpotMaxButton = widgets.RunSpotMaxButton('  Run analysis...')
-        buttonsLayout.addWidget(self.runSpotMaxButton)
+        buttonsLayout.addWidget(self.runSpotMaxButton, 0, 3)
         
         buttonsLayout.setContentsMargins(0, 0, 0, 0)
         buttonsContainerWidget.setLayout(buttonsLayout)
@@ -2205,24 +2218,20 @@ class ParamsGroupBox(QGroupBox):
 
         _params = config.analysisInputsParams()
         self.params = {}
+        
         for section, section_params in _params.items():
             formLayout = widgets.FormLayout()
+            paramWidgets = []
             self.params[section] = {}
-            isNotCheckableGroup = (
-                section == 'File paths and channels' or section == 'METADATA'
-                or section == 'Pre-processing'
-            )
-            
-            if section == 'SpotFIT':
+
+            if section in config.OPTIONAL_GROUPS_PARAMS:
                 groupBox = widgets.ExpandableGroupbox(section)
                 groupBox.setExpanded(False)
-            else:
-                groupBox = QGroupBox(section)
-            
-            if isNotCheckableGroup:
-                groupBox.setCheckable(False)
-            else:
                 groupBox.setCheckable(True)
+            else:
+                groupBox = widgets.GroupBoxWithOptionalParameters(section)
+                groupBox.setCheckable(False)
+
             groupBox.setFont(font)
             groupBox.formWidgets = []
             for row, (anchor, param) in enumerate(section_params.items()):
@@ -2234,7 +2243,8 @@ class ParamsGroupBox(QGroupBox):
                 formWidget.section = section
                 formWidget.sigLinkClicked.connect(self.infoLinkClicked)
                 self.connectFormWidgetButtons(formWidget, param)
-                formLayout.addFormWidget(formWidget, row=row)
+                paramWidgets.append(formWidget)
+                # formLayout.addParamWidget(formWidget, row=row)
                 self.params[section][anchor]['widget'] = formWidget.widget
                 self.params[section][anchor]['formWidget'] = formWidget
                 self.params[section][anchor]['groupBox'] = groupBox
@@ -2269,15 +2279,6 @@ class ParamsGroupBox(QGroupBox):
                     signal.connect(getattr(self, action[1]))
 
             if section == 'METADATA':
-                # loadMetadataFromAcdcButton = acdc_widgets.browseFileButton(
-                #     'Load metadata from Cell-ACDC metadata.csv file...',
-                #     title='Select Cell-ACDC metadata.csv file',
-                #     ext={'CSV': ['.csv']},
-                #     start_dir=acdc_myutils.getMostRecentPath()
-                # )
-                # loadMetadataFromAcdcButton.sigPathSelected.connect(
-                #     self.loadMetadataFromAcdc
-                # )
                 loadMetadataFromAcdcButton = acdc_widgets.LoadPushButton(
                     'Load metadata from Cell-ACDC metadata.csv file'
                 )
@@ -2290,10 +2291,8 @@ class ParamsGroupBox(QGroupBox):
                     alignment=Qt.AlignRight
                 )
             
-            groupBox.setLayout(formLayout)
+            groupBox.setParamsWidgets(paramWidgets)
             mainLayout.addWidget(groupBox)
-
-        # mainLayout.addStretch()
         
         metadata = self.params['METADATA']
         pixelSize = metadata['pixelWidth']['widget'].value()

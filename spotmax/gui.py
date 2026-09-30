@@ -9,7 +9,7 @@ from queue import Queue
 
 from uuid import uuid4
 
-from typing import Tuple
+from typing import Tuple, Literal
 
 import numpy as np
 import pandas as pd
@@ -132,6 +132,8 @@ class spotMAX_Win(acdc_gui.guiWin):
         self.createThreadPool()
         self.setMaxNumThreadsNumbaParam()
         self.hideCellACDCtools()
+
+        QTimer.singleShot(200, self.askAnalysisMode)
     
     def setWindowIcon(self, icon=None):
         if icon is None:
@@ -162,7 +164,17 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q and self.debug:
-            self.autoRange()
+            paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
+            params = paramsGroupbox.params
+            filePathSection = 'File paths and channels'
+            spotsEndnameAnchor = 'spotsEndName'
+            spotsEndnameParam = params[filePathSection][spotsEndnameAnchor]
+            filePathsGroupbox = spotsEndnameParam['groupBox']
+            spotsEndnameParamWidget = spotsEndnameParam['formWidget']
+            filePathsGroupbox.setParamOptional(
+                spotsEndnameParamWidget, 
+                not spotsEndnameParamWidget.isOptional()
+            )
             return
         
         super().keyPressEvent(event)
@@ -1189,7 +1201,105 @@ class spotMAX_Win(acdc_gui.guiWin):
             f'{sep}\nFiles present in the first spotMAX_output folder loaded:\n\n'
             f'{files_format}\n{sep}'
         )
-    
+
+    def askAnalysisMode(self):
+        important_note = html_func.to_admonition(
+            'Make sure you load the correct channel based on the selected '
+            'analysis mode.<br>'
+            'If you choose "Both", load the spots channel first. You will '
+            'then be asked to select the reference channel.',
+            admonition_type='important'
+        )
+        options = (
+            '<b>Detect spots</b>: detect the centers of globular-like structures '
+            'and quantify them as spheroids.<br>',
+            '<b>Reference channel</b>: segment any fluorescently labelled structure '
+            '(mitochondria, nucleus, etc.)<br>'
+            'to obtain a pixel-wise mask and '
+            'quantify features such as volume, intensity, etc.<br>'
+            'The reference channel can also be used to aid spot detection,<br>'
+            'e.g., by removing spots that are outside the reference channel mask.',
+        )
+        options_list = html_func.to_list(options)
+        txt = html_func.paragraph(f"""
+            Which <b>analysis</b> would you like to perform?<br>
+            {options_list}<br>
+            {important_note}
+        """)
+        msg = acdc_widgets.myMessageBox(wrapText=False)
+        spotsButton = widgets.PointsLayerButton(' Detect spots')
+        refChButton = widgets.ReferenceChannelButton(' Segment reference channel')
+        bothButton = widgets.BothChannelsButton(' Both')
+        msg.question(
+            self, 'Analysis mode?', txt, 
+            buttonsTexts=(
+                spotsButton,
+                refChButton,
+                bothButton
+            )
+        )
+        self.analysisMode = 'Detect spots'
+        if msg.clickedButton == refChButton:
+            self.analysisMode = 'Segment reference channel'
+        elif msg.clickedButton == bothButton:
+            self.analysisMode = 'Both'
+        
+        analysisModeCombobox = (
+            self.computeDockWidget.widget().analysisModeCombobox
+        )
+        analysisModeCombobox.currentTextChanged.connect(
+            self.setAnalysisMode
+        )
+        self.setAnalysisMode(self.analysisMode)
+        
+    def setAnalysisMode(
+            self, 
+            analysisMode: Literal[
+                'Detect spots', 'Segment reference channel', 'Both'
+            ]
+        ):
+        self.analysisMode = analysisMode
+        isSpotsEndnameOptional = False
+        isRefChEndnameOptional = self.analysisMode == 'Detect spots'
+        if self.analysisMode == 'Detect spots':
+            isSpotsEndnameOptional = False
+            isRefChEndnameOptional = True
+        elif self.analysisMode == 'Segment reference channel':
+            isSpotsEndnameOptional = True
+            isRefChEndnameOptional = False
+        elif self.analysisMode == 'Both':
+            self.analysisMode = 'Both'
+            isSpotsEndnameOptional = False
+            isRefChEndnameOptional = False
+
+        paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
+        params = paramsGroupbox.params
+        filePathSection = 'File paths and channels'
+        spotsEndnameAnchor = 'spotsEndName'
+        spotsEndnameParam = params[filePathSection][spotsEndnameAnchor]
+        spotsEndnameParamWidget = spotsEndnameParam['formWidget']
+        refChEndnameAnchor = 'refChEndName'
+        refChEndnameParam  = params[filePathSection][refChEndnameAnchor]
+        refChEndnameParamWidget = refChEndnameParam['formWidget']
+        filePathsGroupbox = spotsEndnameParam['groupBox']
+        filePathsGroupbox.setParamOptional(
+            spotsEndnameParamWidget, isSpotsEndnameOptional
+        )
+        filePathsGroupbox.setParamOptional(
+            refChEndnameParamWidget, isRefChEndnameOptional
+        )
+
+        spotsChSection = 'Spots channel'
+        spotsChGroupbox = (
+            params[spotsChSection]['spotPredictionMethod']['groupBox']
+        )
+
+        refChSection = 'Reference channel'
+        refChGroupbox = params[refChSection]['segmRefCh']['groupBox']
+
+        spotsChGroupbox.setChecked(not isSpotsEndnameOptional)
+        refChGroupbox.setChecked(not isRefChEndnameOptional)
+
     def loadingDataCompleted(self):
         super().loadingDataCompleted()
         posData = self.data[self.pos_i]
@@ -3634,6 +3744,23 @@ class spotMAX_Win(acdc_gui.guiWin):
         )
         return msg.clickedButton == yesButton
     
+    def askReferenceChannelName(self):
+        refChEndName = ''
+        ch_names = [ch for ch in self.ch_names if ch != self.user_ch_name]
+        selectChannelWin = acdc_widgets.QDialogListbox(
+            'Select reference channel',
+            'Select reference channel:\n',
+            ch_names, 
+            multiSelection=False, 
+            parent=self,
+            allowEmptySelection=False
+        )
+        selectChannelWin.exec_()
+        if selectChannelWin.cancel:
+            return refChEndName
+
+        return selectChannelWin.selectedItemsText[0]
+
     def setAnalysisParameters(self):
         proceed = self.checkLoadLoadedIniFilepath()
         if not proceed:
@@ -3659,10 +3786,17 @@ class spotMAX_Win(acdc_gui.guiWin):
         if emWavelen == 0:
             emWavelen = 500
         
-        if self.user_ch_name:
+        refChEndName = ''
+        spotsEndName = ''
+        if self.user_ch_name and self.analysisMode != 'Segment reference channel':
             spotsEndName = self.user_ch_name
+        elif self.user_ch_name and self.analysisMode == 'Segment reference channel':
+            refChEndName = self.user_ch_name
         else:
             spotsEndName = posData.basename.split('_')[-1]
+        
+        if self.analysisMode == 'Both':
+            refChEndName = self.askReferenceChannelName()
         
         folderPathsToAnalyse = [_posData.pos_path for _posData in self.data]
         folderPathsToAnalyse = '\n'.join(folderPathsToAnalyse)
@@ -3671,6 +3805,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 {'anchor': 'folderPathsToAnalyse', 'value': folderPathsToAnalyse},
                 {'anchor': 'spotsEndName', 'value': spotsEndName},
                 {'anchor': 'segmEndName', 'value': segmEndName},
+                {'anchor': 'refChEndName', 'value': refChEndName},
                 {'anchor': 'runNumber', 'value': runNum}
             ],
             'METADATA': [
@@ -3694,7 +3829,7 @@ class spotMAX_Win(acdc_gui.guiWin):
                 setterFunc = getattr(widget, valueSetter)
                 value = paramValue['value']
                 setterFunc(value)
-    
+
     def resizeComputeDockWidget(self):
         guiTabControl = self.computeDockWidget.widget()
         paramsScrollArea = guiTabControl.parametersTab
