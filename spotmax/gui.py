@@ -164,17 +164,18 @@ class spotMAX_Win(acdc_gui.guiWin):
     
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Q and self.debug:
-            paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
-            params = paramsGroupbox.params
-            filePathSection = 'File paths and channels'
-            spotsEndnameAnchor = 'spotsEndName'
-            spotsEndnameParam = params[filePathSection][spotsEndnameAnchor]
-            filePathsGroupbox = spotsEndnameParam['groupBox']
-            spotsEndnameParamWidget = spotsEndnameParam['formWidget']
-            filePathsGroupbox.setParamOptional(
-                spotsEndnameParamWidget, 
-                not spotsEndnameParamWidget.isOptional()
-            )
+            # paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
+            # params = paramsGroupbox.params
+            # filePathSection = 'File paths and channels'
+            # spotsEndnameAnchor = 'spotsEndName'
+            # spotsEndnameParam = params[filePathSection][spotsEndnameAnchor]
+            # filePathsGroupbox = spotsEndnameParam['groupBox']
+            # spotsEndnameParamWidget = spotsEndnameParam['formWidget']
+            # filePathsGroupbox.setParamOptional(
+            #     spotsEndnameParamWidget, 
+            #     not spotsEndnameParamWidget.isOptional()
+            # )
+            self.resizeDocks([self.computeDockWidget], [713], Qt.Horizontal)
             return
         
         super().keyPressEvent(event)
@@ -691,6 +692,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         toolbutton = self.spotsItems.addLayer(
             df_spots_files, selected_file=selected_file
         )
+        self.setEditingResultsParams(toolbutton)
         for _posData in self.data:
             self.spotsItems.setPosition(_posData)
             self.spotsItems.loadSpotsTables()
@@ -719,6 +721,13 @@ class spotMAX_Win(acdc_gui.guiWin):
             posData.img_data, 
             posData.segm_data
         )      
+    
+    def setEditingResultsParams(self, toolbutton):
+        filename = toolbutton.filename
+        parts = io.df_spots_filename_parts(filename)
+        run_num, df_id, df_text, desc, ext = parts
+        if df_id.startswith('4_'):
+            ...
     
     def currentZ(self, checkIfProj=True):
         posData = self.data[self.pos_i]
@@ -3862,8 +3871,16 @@ class spotMAX_Win(acdc_gui.guiWin):
         # minWidth = groupboxWidth + scrollbarWidth + 30        
         w = guiTabControl.paramsTabButtonsContainerWidget.sizeHint().width()
         w += scrollbarWidth
-        self.resizeDocks([self.computeDockWidget], [w+10], Qt.Horizontal)
         self.showParamsDockButton.click()
+        QTimer.singleShot(
+            200, 
+            partial(
+                self.resizeDocks, 
+                [self.computeDockWidget], 
+                [w+10], 
+                Qt.Horizontal
+            )
+        )
     
     def zSliceScrollBarActionTriggered(self, action):
         super().zSliceScrollBarActionTriggered(action)

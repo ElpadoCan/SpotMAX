@@ -2911,7 +2911,7 @@ class SpotsItems(QObject):
                 self._loadSpotsTable(toolbutton)
         else:
             self._loadSpotsTable(toolbutton)
-    
+
     def getAnalysisParamsIniFilepath(self, toolbutton=None):
         if toolbutton is None:
             toolbutton = self.getActiveButton()

@@ -424,13 +424,14 @@ class guiTabControl(QTabWidget):
         )
         self.showInFileMangerButton.setDisabled(True)
         buttonsLayout.addWidget(self.loadPreviousParamsButton, 0, 0)
-        buttonsLayout.addWidget(self.showInFileMangerButton, 0, 1)
-        buttonsLayout.addWidget(self.saveParamsButton, 0, 2)
+        buttonsLayout.setColumnStretch(1, 1)
+        buttonsLayout.addWidget(self.showInFileMangerButton, 0, 2)
+        buttonsLayout.addWidget(self.saveParamsButton, 0, 3)
 
         buttonsLayout.addLayout(analysisModeLayout, 1, 0)
 
         self.runSpotMaxButton = widgets.RunSpotMaxButton('  Run analysis...')
-        buttonsLayout.addWidget(self.runSpotMaxButton, 0, 3)
+        buttonsLayout.addWidget(self.runSpotMaxButton, 0, 4)
         
         buttonsLayout.setContentsMargins(0, 0, 0, 0)
         buttonsContainerWidget.setLayout(buttonsLayout)
