@@ -6574,35 +6574,6 @@ class Kernel(_ParamsParser):
     def _get_dfs_to_save(self, dfs, df_spots_coords_in_endname, text_to_append):
         return dfs, text_to_append, DFs_FILENAMES
     
-        # Deprecated code --> it was used to save only the last step of spotmax 
-        # tables and it would overwrite the input df_spots_coords_in_endname
-        # Check if df_spots was an input --> add to dfs
-        input_endname = df_spots_coords_in_endname
-        if not input_endname:
-            return dfs, text_to_append, DFs_FILENAMES
-        
-        if os.path.isfile(input_endname):
-            input_endname = os.path.basename(input_endname)
-        
-        key = 'spots_spotfit'
-        df_to_save = dfs.get(key)
-        if df_to_save is None:
-            key = 'spots_gop'
-            df_to_save = dfs.get(key)
-        
-        key_agg = 'agg_spotfit'
-        df_aggr_to_save = dfs.get(key_agg)
-        if df_to_save is None:
-            key_agg = 'agg_gop'
-            df_aggr_to_save = dfs.get(key_agg)
-        
-        input_endname, _ = os.path.splitext(input_endname)
-        
-        dfs = {key: df_to_save, key_agg: df_aggr_to_save}
-        dfs_filenames = {key: input_endname}
-        
-        return dfs, '', dfs_filenames
-    
     def save_dfs_and_spots_masks(
             self, 
             folder_path, dfs, 

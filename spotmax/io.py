@@ -86,7 +86,7 @@ LEGACY_MODEL_KWARGS = {
 }
 
 df_spots_filename_parts_pattern = (
-    r'(\d+)_(\d)_(detected_spots|valid_spots|spotfit)(.*)\.(\w+)'
+    r'^(\d+)_(.+)_(detected_spots|valid_spots|spotfit)(.*)\.(\w+)$'
 )
 
 group_feature_to_col_mapper = docs.single_spot_features_column_names()
@@ -2910,11 +2910,10 @@ def load_df_agg_from_df_spots_filename(
     return df_aggr
 
 def df_spots_filename_parts(df_spots_filename):
-    found = re.findall(df_spots_filename_parts_pattern, df_spots_filename)
+    found = re.match(df_spots_filename_parts_pattern, df_spots_filename)
     if not found:
         return ('', '', '', '', '')
-    parts = found[0]
-    return parts
+    return found.groups()
 
 def get_analysis_params_filepath_from_df_spots_filename(
         spotmax_output_folderpath, df_spots_filename

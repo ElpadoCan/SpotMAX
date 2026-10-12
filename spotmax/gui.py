@@ -715,7 +715,9 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
         inspectResultsTab.setLoadedData(
-            self.spotsItems, posData.img_data, posData.segm_data
+            self.spotsItems, 
+            posData.img_data, 
+            posData.segm_data
         )      
     
     def currentZ(self, checkIfProj=True):
@@ -1429,12 +1431,29 @@ class spotMAX_Win(acdc_gui.guiWin):
         if not text_to_add.startswith('_'):
             text_to_add = f'_{text_to_add}'
         
-        dst_filename = f'{run_num}_4_{df_id}_{df_text}{desc}{text_to_add}'
+        if not df_id.startswith('4_'):
+            df_id = f'4_{df_id}'
+
+        dst_filename = f'{run_num}_{df_id}_{df_text}{desc}{text_to_add}'
+        dst_params_filename = (
+            f'{run_num}_analysis_parameters{desc}{text_to_add}.ini'
+        )
+
         toolbutton = self.spotsItems.getActiveButton()
         
         saved_filepaths = []
         for posData in self.data:
             spotmax_output_folderpath = posData.spotmax_out_path
+            src_params_filepath = (
+                io.get_analysis_params_filepath_from_df_spots_filename(
+                    spotmax_output_folderpath, src_df_filename
+                )
+            )
+            dst_params_filepath = os.path.join(
+                spotmax_output_folderpath, dst_params_filename
+            )
+            shutil.copy(src_params_filepath, dst_params_filepath)
+
             self.spotsItems.setPosition(posData)
             self.spotsItems.loadSpotsTables()
             
@@ -3829,6 +3848,9 @@ class spotMAX_Win(acdc_gui.guiWin):
                 setterFunc = getattr(widget, valueSetter)
                 value = paramValue['value']
                 setterFunc(value)
+        
+        paramsGroupbox = self.computeDockWidget.widget().parametersQGBox
+        paramsGroupbox.validatePaths()
 
     def resizeComputeDockWidget(self):
         guiTabControl = self.computeDockWidget.widget()

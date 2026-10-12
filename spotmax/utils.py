@@ -969,7 +969,17 @@ def parse_log_file(log_path=None):
     )
     
     warnings = re.findall(r'(^\[WARNING\]: [\w\W]*?^)\^.*', log_text, re.M)
+    real_warnings = []
+    for warning in warnings:
+        if 'is missing the following parameters:' in warning:
+            continue
+        
+        if 'The requested run number' in warning:
+            continue
+
+        real_warnings.append(warnings)
     
+    warnings = real_warnings
     errors.extend(tracebacks)
     
     return log_path, errors, warnings

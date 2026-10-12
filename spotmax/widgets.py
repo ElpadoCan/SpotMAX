@@ -2875,6 +2875,9 @@ class SpotsItems(QObject):
         self.spotmax_out_path = posData.spotmax_out_path
         self.posData = posData
         self.posChanged = True
+        self._segm_data = posData.segm_data
+        self.setCurrentPointSize()
+        self.setCurrentPointMask(posData.img_data)
     
     def posFoldername(self):
         return self.posData.pos_foldername
@@ -2933,6 +2936,7 @@ class SpotsItems(QObject):
         cp_params = io.load_analysis_params_from_df_spots_filename(
             self.spotmax_out_path, df_spots_filename
         )
+        printl(self.spotmax_out_path, df_spots_filename)
         analysisSegmEndname = (
             cp_params['File paths and channels']
             ['Cells segmentation end name']

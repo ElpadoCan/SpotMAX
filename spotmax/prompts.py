@@ -22,7 +22,8 @@ def informationSpotmaxAnalysisStart(ini_filepath, qparent=None):
     msg.information(
         qparent, 'Analysis will run in the terminal', txt,
         buttonsTexts=('Cancel', 'Ok, run now!'),
-        commands=(f'spotmax -p "{ini_filepath}"',)
+        commands=(f'spotmax -p "{ini_filepath}"',),
+        path_to_browse=os.path.dirname(ini_filepath),
     )
     return msg.cancel, ini_filepath
 
