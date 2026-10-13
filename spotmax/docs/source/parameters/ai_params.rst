@@ -1,4 +1,4 @@
-.. _ai_params:
+.. _ai-params:
 
 SpotMAX AI parameters
 =====================

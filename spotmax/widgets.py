@@ -2932,11 +2932,13 @@ class SpotsItems(QObject):
     
     def getLoadedSegmAndAnalysisSegm(self):
         toolbutton = self.getActiveButton()
+        if toolbutton is None:
+            return '', ''
+
         df_spots_filename = toolbutton.filename
         cp_params = io.load_analysis_params_from_df_spots_filename(
             self.spotmax_out_path, df_spots_filename
         )
-        printl(self.spotmax_out_path, df_spots_filename)
         analysisSegmEndname = (
             cp_params['File paths and channels']
             ['Cells segmentation end name']

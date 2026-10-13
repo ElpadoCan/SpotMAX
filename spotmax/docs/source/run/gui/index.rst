@@ -76,5 +76,6 @@ For more details about each tab see here:
 
    analysis_parameters_tab
    tune_parameters_tab
-   inspect_results_tab
+   inspect_edit_results_tab_inspect
+   inspect_edit_results_tab_edit
 

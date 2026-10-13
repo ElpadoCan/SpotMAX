@@ -231,7 +231,7 @@ reference channel. As a rule of thumb, 0.2 is a small effect, while 0.8 could me
 a large effect. However, make sure that you explore your data before deciding 
 on a threshold to filter out false positives. You can explore the effect sizes 
 of the spots by loading the file ``0_detected_spots`` (see the section 
-:ref:`output-files`) using the tools available in the :ref:`inspect-results-tab` 
+:ref:`output-files`) using the tools available in the :ref:`inspect-results` 
 of the GUI.
 
 Given :math:`P` the pixels intensities inside the spot, :math:`R` the reference channel  

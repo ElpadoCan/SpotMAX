@@ -129,7 +129,7 @@ specific value.
     To understand what could be a good minimum effect size, run the analysis 
     without filtering valid spots, load the results into the GUI and check 
     what is the effect size of the spots you want to remove using the tools 
-    available in the :ref:`inspect-results-tab`. 
+    available in the :ref:`inspect-results`. 
 
 
 Oversegmentation of the reference channel
@@ -240,7 +240,7 @@ On the other hand, if you are getting rid of dimmer spots using the
     To understand what could be a good minimum effect size, run the analysis 
     without filtering valid spots, load the results into the GUI and check 
     what is the effect size of the spots you want to remove using the tools 
-    available in the :ref:`inspect-results-tab`. 
+    available in the :ref:`inspect-results`. 
 
 
 Undersegmentation of the reference channel

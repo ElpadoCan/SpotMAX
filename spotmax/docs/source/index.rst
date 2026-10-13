@@ -115,7 +115,8 @@ Contents
    parameters/index
    features/index
    misc/output_files
-   run/gui/inspect_results_tab
+   misc/inspect_results
+   misc/edit_results
    misc/training_ai
    tutorials/video-tutorials
    tutorials/index

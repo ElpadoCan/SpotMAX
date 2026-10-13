@@ -692,7 +692,6 @@ class spotMAX_Win(acdc_gui.guiWin):
         toolbutton = self.spotsItems.addLayer(
             df_spots_files, selected_file=selected_file
         )
-        self.setEditingResultsParams(toolbutton)
         for _posData in self.data:
             self.spotsItems.setPosition(_posData)
             self.spotsItems.loadSpotsTables()
@@ -727,7 +726,16 @@ class spotMAX_Win(acdc_gui.guiWin):
         parts = io.df_spots_filename_parts(filename)
         run_num, df_id, df_text, desc, ext = parts
         if df_id.startswith('4_'):
-            ...
+            endname = desc
+        else:
+            endname = ''
+
+        inspectResultsTab = self.computeDockWidget.widget().inspectResultsTab
+        editResultsGroupbox = inspectResultsTab.editResultsGroupbox
+        editResultsGroupbox.inputTextLineEdit.setText(endname)
+
+        self.ax1_editResultsCursorItem.opts = toolbutton.item.opts.copy()
+        self.ax2_editResultsCursorItem.opts = toolbutton.item.opts.copy()
     
     def currentZ(self, checkIfProj=True):
         posData = self.data[self.pos_i]
@@ -1193,6 +1201,12 @@ class spotMAX_Win(acdc_gui.guiWin):
     def gui_addTopLayerItems(self):
         super().gui_addTopLayerItems()
 
+        self.ax1_editResultsCursorItem = pg.ScatterPlotItem()
+        self.ax1.addItem(self.ax1_editResultsCursorItem)
+
+        self.ax2_editResultsCursorItem = pg.ScatterPlotItem()
+        self.ax2.addItem(self.ax2_editResultsCursorItem)
+
     def gui_connectEditActions(self):
         super().gui_connectEditActions()
     
@@ -1421,14 +1435,23 @@ class spotMAX_Win(acdc_gui.guiWin):
             <code>{existing_filepath}</code><br><br>
             What should I do?                        
         """)
-        buttonsTexts = ('Cancel', 'Overwrite existing file')
+        buttonsTexts = (
+            'Cancel', 
+            'Overwrite existing file',
+            'Overwrite in all loaded position folders'
+        )
         msg = acdc_widgets.myMessageBox(wrapText=False)
-        _, overwriteButton = msg.warning(
+        _, overwriteButton, overwriteNextButton = msg.warning(
             self, 'File exists', txt, 
             buttonsTexts=buttonsTexts, 
             path_to_browse=folderpath
         )
-        return msg.clickedButton == overwriteButton
+        proceed = (
+            msg.clickedButton == overwriteButton
+            or msg.clickedButton == overwriteNextButton
+        )
+        doNotAskAgain = msg.clickedButton == overwriteNextButton
+        return proceed, doNotAskAgain
     
     def saveEditedResultsClicked(
             self, src_df_filename, text_to_add, prompt_info=True
@@ -1442,14 +1465,20 @@ class spotMAX_Win(acdc_gui.guiWin):
         
         if not df_id.startswith('4_'):
             df_id = f'4_{df_id}'
+        elif desc == text_to_add:
+            # Editing results that have been previously edited 
+            # (df_id starts with "4_") and the text_to_add is the 
+            # same as before --> force overwriting
+            desc = ''
 
         dst_filename = f'{run_num}_{df_id}_{df_text}{desc}{text_to_add}'
         dst_params_filename = (
-            f'{run_num}_analysis_parameters{desc}{text_to_add}.ini'
+            f'{run_num}_4_analysis_parameters{desc}{text_to_add}.ini'
         )
 
         toolbutton = self.spotsItems.getActiveButton()
         
+        doNotAskAgain = False
         saved_filepaths = []
         for posData in self.data:
             spotmax_output_folderpath = posData.spotmax_out_path
@@ -1461,7 +1490,19 @@ class spotMAX_Win(acdc_gui.guiWin):
             dst_params_filepath = os.path.join(
                 spotmax_output_folderpath, dst_params_filename
             )
-            shutil.copy(src_params_filepath, dst_params_filepath)
+            if os.path.exists(dst_params_filepath) and not doNotAskAgain:
+                proceed, doNotAskAgain = self.warnEditedTableFileExists(
+                    dst_params_filepath
+                )
+                if not proceed:
+                    self.logger.info('Saving edited tables cancelled.')
+                    continue
+            
+            try:
+                shutil.copy(src_params_filepath, dst_params_filepath)
+                saved_filepaths.append(dst_params_filepath)
+            except shutil.SameFileError as err:
+                pass
 
             self.spotsItems.setPosition(posData)
             self.spotsItems.loadSpotsTables()
@@ -1475,12 +1516,6 @@ class spotMAX_Win(acdc_gui.guiWin):
             aggr_dst_filepath = os.path.join(
                 spotmax_output_folderpath, aggr_dst_filename
             )
-            
-            if os.path.exists(aggr_dst_filepath):
-                proceed = self.warnEditedTableFileExists(aggr_dst_filepath)
-                if not proceed:
-                    self.logger.info('Saving edited tables cancelled.')
-                    continue
             
             dst_filepath = io.save_df_spots(
                 df, spotmax_output_folderpath, dst_filename, 
@@ -1535,19 +1570,53 @@ class spotMAX_Win(acdc_gui.guiWin):
                 Edited tables saved!<br><br>
                 See below the list of new files created.
             """)
-            msg = acdc_widgets.myMessageBox(wrapText=False)
+            msg = acdc_widgets.myMessageBox(
+                wrapText=False, enlargeWidthFactor=2
+            )
             msg.information(
                 self, 'Edited tables saved', txt, 
                 detailsText=saved_filepaths_format, 
                 path_to_browse=spotmax_output_folderpath, 
-                wrapDetails=False
+                wrapDetails=False, 
             )
         return f'{dst_filename}.{ext}', f'{desc}{text_to_add}'
     
     def editResultsToggled(self, checked):
+        if checked:
+            checkedToolbuttons = [
+                tb for tb in self.spotsItems.buttons if tb.isChecked()
+            ]
+            if len(checkedToolbuttons) != 1:
+                self.blinker = utils.widgetBlinker(
+                    self.spotmaxToolbar, color='orange'
+                )
+                self.blinker.start()
+                _warnings.warnSelectOnlyOneSpotItemsToolbutton(
+                    len(checkedToolbuttons), qparent=self
+                )
+                inspectResultsTab = (
+                    self.computeDockWidget.widget().inspectResultsTab
+                )
+                editResultsGroupbox = inspectResultsTab.editResultsGroupbox
+                editResultsGroupbox.editResultsToggle.setChecked(False)
+                return
+            
+            toolbutton = checkedToolbuttons[0]
+            self.setEditingResultsParams(toolbutton)
+
+        tooltip = ''
+        if checked:
+            tooltip = (
+                'Disabled because editing mode is activated.\n\n'
+                'See toggle "Activate edits" in the Inspect/Edit results tab.'
+            )
         self.isEditingResults = checked
         self.spotmaxToolbar.setDisabled(checked)
-    
+        inspectTabWidget = self.computeDockWidget.widget().inspectResultsTab
+        inspectTabWidget.loadAnalysisButton.setDisabled(checked)
+        self.spotmaxToolbar.setToolTip(f'SpotMAX toolbar - {tooltip}')
+        inspectTabWidget.loadAnalysisButton.setToolTip(tooltip)
+
     def snapEditsToMaxToggled(self, checked):
         self.snapEditsToMax = checked
     
@@ -1935,7 +2004,8 @@ class spotMAX_Win(acdc_gui.guiWin):
     def setHoverCircleEditResults(self, x, y):
         size = self.spotsItems.getPointSize()
         self.setHoverToolSymbolData(
-            [x], [y], (self.ax2_BrushCircle, self.ax1_BrushCircle),
+            [x], [y], 
+            (self.ax1_editResultsCursorItem, self.ax2_editResultsCursorItem),
             size=size
         )
     

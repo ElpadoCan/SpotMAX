@@ -15,6 +15,28 @@ def warn_background_value_is_zero(logger_func, logger_warning_report=None):
     
     logger_warning_report(text)
 
+def warnSelectOnlyOneSpotItemsToolbutton(numButtons: int, qparent=None):
+    from cellacdc import widgets
+    
+    txt = html_func.paragraph(f"""
+        You have <b>{numButtons} spot annotation sets selected</b> (see vertical toolbar on the left).<br><br>
+
+        While you can load and visualise results from <b>multiple previous analyses</b> simultaneously,<br>
+        you can <b>edit only one annotation set at a time</b>.<br><br>
+        
+        To enable editing, select exactly one annotation set using the <b>toolbutton in the vertical toolbar on the left</b>,<br>
+        identified by the same icon used for the spot markers.<br><br>
+        
+        The selected annotation set will be the <b>only one you can edit</b>.<br><br>
+
+        Thank you for your patience!
+    """)
+    
+    msg = widgets.myMessageBox(wrapText=False)
+    msg.warning(
+        qparent, 'Select only one spot annotation set', txt, 
+    )
+
 def warnSpotmaxOutFolderDoesNotExist(spotmax_out_path, qparent=None):
     from cellacdc import widgets
     

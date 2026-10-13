@@ -257,7 +257,7 @@ than the neural networks) and with any of the models available at the `BioImage 
 After selecting 'SpotMAX AI' you will need to configure the parameters of the 
 model. To do so, click on the |cog| cog button beside the parameter. If you 
 want more information about the parameters of the AI see this section 
-:ref:`ai_params`. For this dataset, we know that the following parameters 
+:ref:`ai-params`. For this dataset, we know that the following parameters 
 work well:
 
 * **Model type**: 2D
@@ -342,7 +342,7 @@ Closing remarks
 ---------------
 
 At the end of the analysis you can go back to the GUI and visualize and 
-inspect the results using the tools in the :ref:`inspect-results-tab`. 
+inspect the results using the tools in the :ref:`inspect-results`. 
 
 That's it! I hope you found this tutorial useful and you can let us know 
 if you found mistakes or any other feedback on our `GitHub`_ page or by 
