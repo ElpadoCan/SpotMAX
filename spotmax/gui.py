@@ -261,6 +261,10 @@ class spotMAX_Win(acdc_gui.guiWin):
             self.setHoverToolSymbolData(
                 [], [], (self.ax2_BrushCircle, self.ax1_BrushCircle),
             )
+            self.setHoverToolSymbolData(
+                [], [], 
+                (self.ax1_editResultsCursorItem, self.ax2_editResultsCursorItem)
+            )
         
         if cursorsInfo['setAutoTuneZplaneCursor']:
             self.setAutoTuneZplaneCursorData(x, y)

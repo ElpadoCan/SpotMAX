@@ -9,8 +9,9 @@ Selecting the annotations to edit
 You can load and visualise results from multiple previous analyses, but you can
 **edit only one annotation set at a time**.
 
-Before activating edits, select exactly one tool button in the vertical toolbar
-on the left. Each tool button corresponds to a loaded annotation set and uses
+Before activating edits, make sure you have only one set of spot masks visible. 
+Visibility of the spot masks can be toggled on/off using the corresponding tool 
+button in the vertical toolbar on the left. Each tool button corresponds to a loaded annotation set and uses
 the same icon as the spot markers. The selected annotation set is the one that
 will be edited.
 

@@ -32,7 +32,7 @@ def informationComputeFeaturesFinished(edited_df_filename, qparent=None):
         Computing features of edited results finished!<br><br>
         The new tables have been saved in each edited Position folder<br>
         in the <code>Position_n/spotMAX_output folder</code> with filename 
-        <code>edited_df_filename</code>.
+        <code>{edited_df_filename}</code>.
     """)
     msg = acdc_widgets.myMessageBox(wrapText=False)
     msg.information(qparent, 'Computing features finished', txt)
