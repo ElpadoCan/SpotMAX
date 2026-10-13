@@ -203,7 +203,7 @@ File paths and channels
     In the SpotMAX GUI, you can edit the results of a previous analysis, 
     including adding new spots. To compute the features of these manually added 
     spots, SpotMAX will save the new table in each Position folder and it will 
-    be used in this parameter. See the section :ref:`inspect-results-tab`, for 
+    be used in this parameter. See the section :ref:`inspect-results`, for 
     more details on how to manually edit the results.
 
   File formats supported: ``.csv``, or ``.h5`` (with single key).
@@ -777,7 +777,7 @@ Spots channel
   If you choose ``SpotMAX AI`` you will need to setup additional parameters for 
   the model. In the GUI you can do so by clicking on the cog button just 
   beside the method selector. For more details about the AI parameters see 
-  this section :ref:`ai_params`. 
+  this section :ref:`ai-params`. 
   
   If you choose ``Thresholding``, you will also need to select which 
   thresholding  algorithm to use (parameter :confval:`Spot detection threshold function`). 

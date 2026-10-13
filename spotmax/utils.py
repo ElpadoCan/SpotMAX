@@ -992,11 +992,8 @@ def resolve_path(rel_or_abs_path, abs_path=''):
 def get_runs_num_and_desc(exp_path, pos_foldernames=None):
     if pos_foldernames is None:
         pos_foldernames = acdc_myutils.get_pos_foldernames(exp_path)
-    pattern = DFs_FILENAMES['spots_detection']
-    pattern = pattern.replace('*rn*', r'(\d+)')
-    pattern = pattern.replace('*desc*', r'(_?.*)_aggregated\.')
     
-    all_runs = set()
+    all_runs_desc = set()
     for pos in pos_foldernames:
         pos_path = os.path.join(exp_path, pos)
         spotmax_output_path = os.path.join(pos_path, 'spotMAX_output')
@@ -1004,10 +1001,19 @@ def get_runs_num_and_desc(exp_path, pos_foldernames=None):
             continue
         
         for file in acdc_myutils.listdir(spotmax_output_path):
-            m = re.findall(pattern, file)
-            all_runs.update(m)
+            parts = io.df_spots_filename_parts(file)
+            run_num, df_id, df_text, desc, ext = parts
+            if not desc.endswith('aggregated'):
+                # Get run numbers from the aggregated file
+                continue
+
+            desc = desc.replace('_aggregated', '')
+            if df_id.startswith('4_'):
+                run_num = f'{run_num}_4'
+            run_num_parts = [(run_num, desc)]
+            all_runs_desc.update(run_num_parts)
     
-    return all_runs
+    return all_runs_desc
 
 def to_dtype(value, dtype):
     if dtype == bool:

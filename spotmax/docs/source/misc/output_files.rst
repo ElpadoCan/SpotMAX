@@ -66,7 +66,7 @@ parameter, ``<appended_text>`` is the text inserted at the
     parameter.
 
     For the files ``<run_number>_4_<source_table>_<input_text>_<appended_text>`` 
-    see more details in the :ref:`inspect-results-tab` section.
+    see more details in the :ref:`inspect-results` section.
 
 The file with ``analysis_parameters`` in the name is the INI configuration file 
 with all the parameters of that specific analysis run. 

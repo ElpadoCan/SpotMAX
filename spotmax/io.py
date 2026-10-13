@@ -86,7 +86,7 @@ LEGACY_MODEL_KWARGS = {
 }
 
 df_spots_filename_parts_pattern = (
-    r'^(\d+)_(.+)_(detected_spots|valid_spots|spotfit)(.*)\.(\w+)$'
+    r'^(\d+)_(4_[012]|[012])_(detected_spots|valid_spots|spotfit)(.*)\.(\w+)$'
 )
 
 group_feature_to_col_mapper = docs.single_spot_features_column_names()
@@ -2920,6 +2920,8 @@ def get_analysis_params_filepath_from_df_spots_filename(
     ):
     parts = df_spots_filename_parts(df_spots_filename)
     run_num, df_id, df_text, desc, ext = parts
+    if df_id.startswith('4_'):
+        run_num = f'{run_num}_4'
     analysis_params_filename = f'{run_num}_analysis_parameters{desc}.ini'
     filepath = os.path.join(spotmax_output_folderpath, analysis_params_filename)
     return filepath
@@ -2930,6 +2932,11 @@ def load_analysis_params_from_df_spots_filename(
     filepath = get_analysis_params_filepath_from_df_spots_filename(
         spotmax_output_folderpath, df_spots_filename
     )
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(
+            f'The parameters file linked to analysis file "{df_spots_filename}"'
+            f' was not found. Requested parameters file path: "{filepath}"'
+        )
     cp = config.ConfigParser()
     cp.read(filepath, encoding="utf-8")
     return cp

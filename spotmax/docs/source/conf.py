@@ -90,6 +90,8 @@ exclude_patterns = [
     'source/install/_conda_create_activate_acdc.rst',
     'source/install/_gui_packages.rst',
     'source/features/_spotfit_features_important_admon.rst',
+    'source/run/gui/_inspect_edit_results_tab_inspect_content.rst',
+    'source/run/gui/_inspect_edit_results_tab_edit_content.rst',
 ]
 
 # Set html options for the theme

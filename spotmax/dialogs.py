@@ -5020,12 +5020,6 @@ class EditResultsGropbox(QGroupBox):
         gridLayout.setColumnStretch(0, 1)
         gridLayout.setColumnStretch(1, 2)
         
-        # editResultsFormWidget = widgets.formWidget(
-        #     acdc_widgets.Toggle(), 
-        #     labelTextLeft='Activate edits',
-        #     stretchWidget=False
-        # )
-        
         '----------------------------------------------------------------------'
         row = 0
         self.editResultsToggle = acdc_widgets.Toggle()
