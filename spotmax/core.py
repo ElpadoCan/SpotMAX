@@ -3604,10 +3604,6 @@ class SpotFIT(Spheroid):
 
     def spotSIZE(self):
         df_spots_ID = self.df_spots_ID
-        # spots_img_denoise = filters.gaussian(
-        #     self.spots_img_local, 0.8, use_gpu=self.use_gpu,
-        #     logger_func=self.logger_func
-        # )
         min_z, min_y, min_x = self.obj_bbox_lower
         zyx_vox_dim = self.zyx_vox_size
         zyx_spot_min_vol_um = self.zyx_spot_min_vol_um

@@ -409,12 +409,33 @@ SpotSIZE metrics
 
 .. include:: _spotfit_features_important_admon.rst
 
-Features that are computed during the SpotSIZE step. This step is used to determine 
-the extent of each spot by iteratively growing a spheroid centerd at each spot 
-until the mean of the pixels' intensities on the surface of the spheroid is 
-lower than a threshold. The threshold is determined as the median of the background 
-plus 3 times the standard deviation of the background pixels' intensities. 
-The pixels belonging to the final mask will be used in the spotFIT step. 
+SpotSIZE estimates the extent of each spot by iteratively growing a spheroid
+centered at the spot until the mean intensity of its newly added surface is at
+or below a threshold. The final spot masks are used in the spotFIT step. 
+
+Here the main points about this analysis step:
+
+* SpotSIZE uses the raw spot-channel image intensities
+
+* Each growth iteration increases the spot radius by the pixel szie in
+  micrometers. This increment is applied to both the in-plane and axial radii.
+  In pixels, that is one pixel per iteration in the image plane and a
+  ``Pixel height / Voxel depth`` increment along the z axis. This ensures anisotropy is considered correctly, and the spheroid does not grow in z on every iteration. The initial size of the spheroids is half of the sizes coming from :confval:`Spot (z, y, x) minimum dimensions (radius)`. Pixel and
+  voxel sizes are described by :confval:`Pixel width (μm)`,
+  :confval:`Pixel height (μm)`, and :confval:`Voxel depth (μm)`. Growth is
+  capped at 10 iterations.
+
+* The intensity threshold is the background median plus three times the
+  background standard deviation. Background intensities are measured from the
+  raw spot-channel image, within the object mask (or the reference-channel
+  mask when available) and outside the initial spot masks. At each iteration,
+  a spot continues growing while the mean intensity of its newly added surface
+  is above this threshold.
+
+* Spots cannot grow into one another. When growth regions meet, each voxel is
+  assigned to only one spot, according to the nearest existing spot label (i.e., no overlapping masks).
+
+Here the numerical features calculated during this step:
 
 * **Background mean**: column name ``spotsize_backgr_mean``.
 * **Background median**: column name ``spotsize_backgr_median``.

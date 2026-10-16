@@ -20,4 +20,4 @@ The SpotFIT framework computes additional features, including the total integral
 of the Gaussian function, the size of the spot, the amplitude, and the 
 background level. 
 
-Calculated features are explained in this section :ref:`params-desc`. 
+Calculated features are explained in this section :ref:`spotfit-features`. 

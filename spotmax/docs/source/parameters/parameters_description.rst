@@ -1066,8 +1066,7 @@ Spots channel
   If ``True``, SpotMAX will save the pre-processed spots' signal image. This is 
   the image used by SpotMAX as input for spot detection.
   
-  The file will be named with the pattern 
-  ``<basename>_run_num<run_number>_<spots_ch_name>_preprocessed_<text_to_append>.<ext>`` 
+  The file will be named with the pattern ``<basename>_run_num<run_number>_<spots_ch_name>_preprocessed_<text_to_append>.<ext>`` 
   where ``<basename>`` is the common part of all the file names in the Position 
   folder, ``<run_number>`` is the run number defined at :confval:`Run number`, 
   the ``<spots_ch_name>`` is the text provided at the :confval:`Spots channel end name` 
