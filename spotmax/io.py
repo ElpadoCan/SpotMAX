@@ -2425,14 +2425,16 @@ def remove_run_number_spotmax_out_files(
 
 def save_df_spots(
         df: pd.DataFrame, folder_path: os.PathLike, filename_no_ext: str, 
-        extension: str='.h5'
+        extension: str='.h5', df_with_all_keys=None
     ):
     filename = f'{filename_no_ext}{extension}'
     filepath = os.path.join(folder_path, filename)
     if extension == '.csv':
         df.to_csv(filepath)
     else:
-        save_df_spots_to_hdf(df, folder_path, filename)
+        save_df_spots_to_hdf(
+            df, folder_path, filename, df_with_all_keys=df_with_all_keys
+        )
     return filepath
 
 def save_df_ref_ch_features(
@@ -2457,15 +2459,28 @@ def load_df_ref_ch_features(filepath):
     return df
 
 def save_df_spots_to_hdf(
-        df: pd.DataFrame, folder_path: os.PathLike, filename: str
+        df: pd.DataFrame, folder_path: os.PathLike, filename: str,
+        df_with_all_keys: pd.DataFrame | None
     ):    
     temp_dirpath = tempfile.mkdtemp()
     temp_filepath = os.path.join(temp_dirpath, filename)
     store_hdf = pd.HDFStore(temp_filepath, mode='w')
-    for frame_i, sub_df in df.groupby(level=0):
+    levels = df.index.levels[0]
+    if df_with_all_keys is not None:
+        levels = df_with_all_keys.index.levels[0]
+
+    for frame_i in levels:
         key = f'frame_{frame_i}'
-        df_clean = prepare_for_hdf(sub_df.loc[frame_i])
-        store_hdf.append(key, df_clean)
+
+        try:
+            sub_df = df.xs(frame_i, level='frame_i')
+            df_clean = prepare_for_hdf(sub_df)
+        except KeyError:
+            sub_df = df.iloc[0:0].droplevel(0)
+            df_clean = sub_df
+
+        store_hdf.put(key, df_clean, format="fixed")
+        
     store_hdf.close()
     dst_filepath = os.path.join(folder_path, filename)
     shutil.move(temp_filepath, dst_filepath)

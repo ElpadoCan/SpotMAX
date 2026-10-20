@@ -6149,7 +6149,7 @@ class Kernel(_ParamsParser):
                 verbose=verbose,
                 logger_func=self.logger.info
             )
-        
+    
         aggregate_spots_feature_func = (
             features.get_aggregating_spots_feature_func()
         )
@@ -6210,7 +6210,7 @@ class Kernel(_ParamsParser):
             invalid_IDs=spots_labels_invalid_IDs
         )
         df_agg_det, df_agg_gop, df_agg_spotfit = dfs_agg
-        
+
         dfs = {
             'spots_detection': df_spots_det,
             'spots_gop': df_spots_gop,
@@ -6567,12 +6567,10 @@ class Kernel(_ParamsParser):
                         f'[WARNING]: File "{file_path}" could not be deleted.'
                     )
     
-    def _get_dfs_to_save(self, dfs, df_spots_coords_in_endname, text_to_append):
-        return dfs, text_to_append, DFs_FILENAMES
-    
     def save_dfs_and_spots_masks(
             self, 
-            folder_path, dfs, 
+            folder_path: os.PathLike, 
+            dfs: dict[str, pd.DataFrame], 
             images_path='',
             basename='',
             spots_ch_endname='',
@@ -6600,19 +6598,16 @@ class Kernel(_ParamsParser):
             self._remove_existing_run_numbers_files(
                 run_number, spotmax_out_path
             )
-        
-        # Check if df_spots was a input --> add to dfs
-        dfs, text_to_append, dfs_filenames = self._get_dfs_to_save(
-            dfs, df_spots_coords_in_endname, text_to_append
-        )
-        
+            
+        df_detect = dfs.get('spots_detection')
+
         analysis_params_out_filepath = self._copy_ini_params_to_spotmax_out(
             spotmax_out_path, run_number, text_to_append, 
             df_spots_coords_in_endname, 
             pos_analysis_started_datetime=pos_analysis_started_datetime
         )
         
-        for key, filename in dfs_filenames.items():
+        for key, filename in DFs_FILENAMES.items():
             df_spots_filename = filename.replace('*rn*', str(run_number))
             df_spots_filename = df_spots_filename.replace(
                 '*desc*', text_to_append
@@ -6647,7 +6642,8 @@ class Kernel(_ParamsParser):
                     
                 io.save_df_spots(
                     df_spots, spotmax_out_path, df_spots_filename,
-                    extension=df_spots_file_ext
+                    extension=df_spots_file_ext, 
+                    df_with_all_keys=df_detect
                 )
             
             agg_filename = f'{df_spots_filename}_aggregated.csv'
