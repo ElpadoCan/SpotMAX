@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 import scipy.stats
+from scipy.spatial import cKDTree
 
 import skimage.feature
 
@@ -372,6 +373,65 @@ def add_consecutive_spots_distance(df, zyx_voxel_size, suffix=''):
     df[f'consecutive_spots_distance{suffix}_um'] = np.linalg.norm(
         df_coords_diff_physical_units.values, axis=1
     )
+
+def add_closest_spot_info(
+        df,
+        coords_colnames=('z', 'y', 'x'),
+        zyx_voxel_size=(1.0, 1.0, 1.0),
+        cell_level='Cell_ID',
+        spot_level='spot_id',
+        suffix='',
+    ):
+    """Add closest-spot distances within each cell and the closest spot ID.
+
+    The closest spot is selected using physical Euclidean distance in μm.
+    Both reported distances refer to that same spot.
+    """
+    if suffix:
+        coords_colnames = [f'{col}{suffix}' for col in coords_colnames]
+
+    coords_colnames = list(coords_colnames)
+    voxel_size = np.asarray(zyx_voxel_size, dtype=float)
+
+    if len(coords_colnames) != len(voxel_size):
+        raise ValueError('There must be one voxel size for each coordinate column.')
+    if not isinstance(df.index, pd.MultiIndex):
+        raise ValueError('df must have a MultiIndex.')
+    if cell_level not in df.index.names or spot_level not in df.index.names:
+        raise ValueError(f'Index levels {cell_level!r} and {spot_level!r} must exist.')
+
+    result = df.copy()
+    n_rows = len(result)
+    distance_voxels = np.full(n_rows, np.nan)
+    distance_um = np.full(n_rows, np.nan)
+    closest_ids = np.full(n_rows, pd.NA, dtype=object)
+    all_spot_ids = result.index.get_level_values(spot_level).to_numpy()
+
+    for positions in result.groupby(level=cell_level, sort=False).indices.values():
+        positions = np.asarray(positions)
+        if len(positions) < 2:
+            continue
+
+        coords = result.iloc[positions][coords_colnames].to_numpy(dtype=float)
+        coords_um = coords * voxel_size
+
+        distances, neighbors = cKDTree(coords_um).query(coords_um, k=2)
+
+        # Exclude each row itself when it appears among the two query results.
+        local_rows = np.arange(len(positions))
+        nearest = np.where(neighbors[:, 0] == local_rows, neighbors[:, 1], neighbors[:, 0])
+
+        delta_voxels = coords - coords[nearest]
+        delta_um = coords_um - coords_um[nearest]
+
+        distance_voxels[positions] = np.linalg.norm(delta_voxels, axis=1)
+        distance_um[positions] = np.linalg.norm(delta_um, axis=1)
+        closest_ids[positions] = all_spot_ids[positions[nearest]]
+
+    result[f'distance_to_closest_spot{suffix}_voxel'] = distance_voxels
+    result[f'distance_to_closest_spot{suffix}_um'] = distance_um
+    result['closest_spot_id'] = closest_ids
+    return result
 
 def add_ttest_values(
         arr1: np.ndarray, arr2: np.ndarray, df: pd.DataFrame, 

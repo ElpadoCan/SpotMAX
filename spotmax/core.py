@@ -6452,12 +6452,21 @@ class Kernel(_ParamsParser):
             if 'z' not in df.columns:
                 continue
             features.add_consecutive_spots_distance(df, zyx_voxel_size)
-            
+            df = features.add_closest_spot_info(
+                df, zyx_voxel_size=zyx_voxel_size
+            )
+
             if 'z_fit' not in df.columns:
+                dfs[key] = df
                 continue
+            
             features.add_consecutive_spots_distance(
                 df, zyx_voxel_size, suffix='_fit'
             )
+            df = features.add_closest_spot_info(
+                df, zyx_voxel_size=zyx_voxel_size, suffix='_fit'
+            )
+            dfs[key] = df
         
         self._add_to_df_spots_cols_from_df_agg(dfs)
         

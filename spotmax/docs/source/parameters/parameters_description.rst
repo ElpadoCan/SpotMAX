@@ -6,7 +6,7 @@
 .. _filters section: https://scikit-image.org/docs/stable/api/skimage.filters.html#
 .. _GitHub page: https://github.com/ElpadoCan/SpotMAX
 .. _BioImage Model Zoo: https://bioimage.io/#/
-.. _INI configuration file templates: https://github.com/ElpadoCan/SpotMAX/tree/main/examples/ini_config_files_template
+.. _INI configuration file templates: https://github.com/SchmollerLab/SpotMAX/tree/main/examples/ini_config_files_templates
 .. _pandas.eval: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.eval.html
 .. _open: https://docs.python.org/3/library/functions.html#open
 .. _pandas.read_hdf: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_hdf.html

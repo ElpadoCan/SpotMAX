@@ -554,15 +554,23 @@ Post-analysis metrics
 
 .. include:: _spotfit_features_important_admon.rst
 
-* **Consecutive spots distance (pixel)**: column name ``consecutive_spots_distance_voxel``. 
-  Euclidean distance between consecutive pairs of spots without a specific order. 
-  Unit is pixels and the coordinates used are the detected center.
-* **Consecutive spots distance ((micro-m)**: column name ``consecutive_spots_distance_um``. 
+* **Consecutive spots distance (pixel)**: column name ``consecutive_spots_distance_voxel``.
   Euclidean distance between consecutive pairs of spots without a specific order.
   Unit is pixels and the coordinates used are the detected center.
-* **Consecutive spots distance from fit coords (pixel)**: column name ``consecutive_spots_distance_fit_voxel``. 
+* **Consecutive spots distance (micrometer)**: column name ``consecutive_spots_distance_um``.
   Euclidean distance between consecutive pairs of spots without a specific order.
-  Unit is pixels and the coordinates used are the fitted center from spotFIT step.
-* **Consecutive spots distance from fit coords (micro-m)**: column name ``consecutive_spots_distance_fit_voxel``. 
+  Unit is micrometers and the coordinates used are the detected center.
+* **Consecutive spots distance from fit coords (pixel)**: column name ``consecutive_spots_distance_fit_voxel``.
   Euclidean distance between consecutive pairs of spots without a specific order.
-  Unit is pixels and the coordinates used are the fitted center from spotFIT step.
+  Unit is pixels and the coordinates used are the fitted center from the spotFIT step.
+* **Consecutive spots distance from fit coords (micrometer)**: column name ``consecutive_spots_distance_fit_um``.
+  Euclidean distance between consecutive pairs of spots without a specific order.
+  Unit is micrometers and the coordinates used are the fitted center from the spotFIT step.
+* **Distance to closest spot (voxel)**: column name ``distance_to_closest_spot_voxels``.
+  Euclidean distance in voxel coordinates to the closest spot within the same cell.
+  The closest spot is selected using physical distance in micrometers; this value is the voxel-coordinate distance to that same spot.
+* **Distance to closest spot (micrometer)**: column name ``distance_to_closest_spot_um``.
+  Physical Euclidean distance in micrometers to the closest spot within the same cell.
+* **Closest spot ID**: column name ``closest_spot_id``.
+  ID of the closest spot within the same cell, selected using physical distance in micrometers.
+  For cells containing only one spot, the value is missing.
