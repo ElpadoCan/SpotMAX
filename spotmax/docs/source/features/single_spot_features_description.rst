@@ -574,3 +574,11 @@ Post-analysis metrics
 * **Closest spot ID**: column name ``closest_spot_id``.
   ID of the closest spot within the same cell, selected using physical distance in micrometers.
   For cells containing only one spot, the value is missing.
+* **Distance to closest spot from fit coords (voxel)**: column name ``distance_to_closest_spot_fit_voxels``.
+  Euclidean distance in voxel coordinates to the closest spot within the same cell.
+  The closest spot is selected using physical distance in micrometers; this value is the voxel-coordinate distance to that same spot.
+* **Distance to closest spot from fit coords (micrometer)**: column name ``distance_to_closest_spot_fit_um``.
+  Physical Euclidean distance in micrometers to the closest spot within the same cell.
+* **Closest spot ID from fit coords**: column name ``closest_spot_id_fit``.
+  ID of the closest spot within the same cell, selected using physical distance in micrometers.
+  For cells containing only one spot, the value is missing.

@@ -430,7 +430,7 @@ def add_closest_spot_info(
 
     result[f'distance_to_closest_spot{suffix}_voxel'] = distance_voxels
     result[f'distance_to_closest_spot{suffix}_um'] = distance_um
-    result['closest_spot_id'] = closest_ids
+    result[f'closest_spot_id{suffix}'] = closest_ids
     return result
 
 def add_ttest_values(
