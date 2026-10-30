@@ -1276,6 +1276,7 @@ class spotMAX_Win(acdc_gui.guiWin):
         analysisModeCombobox = (
             self.computeDockWidget.widget().analysisModeCombobox
         )
+        analysisModeCombobox.setCurrentText(self.analysisMode)
         analysisModeCombobox.currentTextChanged.connect(
             self.setAnalysisMode
         )
