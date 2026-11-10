@@ -2489,6 +2489,11 @@ class Model:
         Keyword arguments for `pipe.spots_semantic_segmentation`. The default
         thresholding method is threshold_li. Preprocessing settings such as
         gauss_sigma, do_remove_hot_pixels, and do_sharpen are also read here.
+    segmentation_method : str, optional
+        Key of the selected segmentation result when multiple methods are
+        configured: ``'custom'``, ``'neural_network'``,
+        ``'bioimageio_model'``, or ``'spotiflow'``. If omitted, the result
+        must contain a single candidate mask.
     detection_kwargs : dict, optional
         Additional keyword arguments for spot_detection, such as
         detection_method and spot_footprint.
@@ -2525,7 +2530,8 @@ class Model:
             spotfit_kwargs=None,
             spotfit_kernel=None,
             spotfit_check_merge=False,
-            frame_i=0
+            frame_i=0,
+            segmentation_method=None
         ):
         self.spots_zyx_radii_pxl = np.asarray(
             spots_zyx_radii_pxl, dtype=float
@@ -2552,6 +2558,7 @@ class Model:
             raise ValueError("zyx_spot_min_vol_um must contain three values.")
 
         self.segmentation_kwargs = dict(segmentation_kwargs or {})
+        self.segmentation_method = segmentation_method
         self.detection_kwargs = dict(detection_kwargs or {})
         self.features_kwargs = dict(features_kwargs or {})
         self.spotfit_kwargs = dict(spotfit_kwargs or {})
@@ -2560,7 +2567,7 @@ class Model:
         self.frame_i = frame_i
 
     @staticmethod
-    def _get_segmentation_mask(result, image_shape):
+    def _get_segmentation_mask(result, image_shape, method=None):
         if isinstance(result, np.ndarray):
             return result
 
@@ -2568,6 +2575,19 @@ class Model:
             raise TypeError(
                 "spots_semantic_segmentation must return an array or dict."
             )
+
+        if method is not None:
+            if method not in result:
+                raise ValueError(
+                    f"Segmentation method {method!r} was not returned. "
+                    f"Available outputs: {list(result)}"
+                )
+            selected = result[method]
+            if not isinstance(selected, np.ndarray):
+                raise TypeError(
+                    f"Segmentation output {method!r} is not a numpy array."
+                )
+            return selected
 
         candidates = []
         for key, value in result.items():
@@ -2605,7 +2625,8 @@ class Model:
             lab=None,
             return_features=False,
             return_masks=False,
-            return_preprocessed=False
+            return_preprocessed=False,
+            segmentation_mask=None
         ):
         """Detect spots and optionally calculate features and return outputs.
 
@@ -2615,6 +2636,9 @@ class Model:
             Raw spots-channel image.
         lab : (Y, X) or (Z, Y, X) numpy.ndarray, optional
             Object labels used to constrain detection and organize output rows.
+        segmentation_mask : (Y, X) or (Z, Y, X) numpy.ndarray, optional
+            Precomputed spots segmentation mask. When provided, skip semantic
+            segmentation and detect peaks inside this mask.
         return_features : bool, optional
             If True, compute detection features and SpotFIT features and include
             them in the returned DataFrame. Defaults to False.
@@ -2643,6 +2667,21 @@ class Model:
             image = image[np.newaxis]
         if lab is not None and lab.ndim == 2:
             lab = np.repeat(lab[np.newaxis], image.shape[0], axis=0)
+
+        if segmentation_mask is not None:
+            segmentation_mask = np.asarray(segmentation_mask)
+            if segmentation_mask.ndim == 2:
+                if input_is_2d:
+                    segmentation_mask = segmentation_mask[np.newaxis]
+                else:
+                    segmentation_mask = np.repeat(
+                        segmentation_mask[np.newaxis], image.shape[0], axis=0
+                    )
+            if segmentation_mask.shape != image.shape:
+                raise ValueError(
+                    "segmentation_mask must have the same spatial shape as "
+                    f"image; got {segmentation_mask.shape} and {image.shape}."
+                )
 
         segmentation_kwargs = dict(self.segmentation_kwargs)
         do_remove_hot_pixels = segmentation_kwargs.get(
@@ -2693,11 +2732,18 @@ class Model:
             "return_only_segm": False,
             "keep_input_shape": True
         })
-        segmentation_result = spots_semantic_segmentation(
-            detection_image, **segmentation_kwargs
-        )
-        segmentation_mask = self._get_segmentation_mask(
-            segmentation_result, detection_image.shape
+        if segmentation_mask is None:
+            segmentation_result = spots_semantic_segmentation(
+                detection_image, **segmentation_kwargs
+            )
+            segmentation_mask = self._get_segmentation_mask(
+                segmentation_result,
+                detection_image.shape,
+                method=self.segmentation_method
+            )
+        min_mask_size = self.segmentation_kwargs.get("min_spot_mask_size", 5)
+        segmentation_mask = filters.filter_labels_by_size(
+            segmentation_mask, min_mask_size
         )
         if input_is_2d and segmentation_mask.ndim == 3:
             segmentation_mask = segmentation_mask[0]

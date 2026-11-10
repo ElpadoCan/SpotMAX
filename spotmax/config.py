@@ -1637,6 +1637,29 @@ def analysisInputsParams(params_path=None, cast_dtypes=True):
         params = io.readStoredParamsCSV(params_path, params)
     return params
 
+def create_python_script_from_ini(params_ini_path, script_path=None):
+    """Generate a Python script to run the analysis configured in an INI.
+
+    The script uses ``pipe.Model.predict`` to detect spots in each image frame
+    and then runs the remaining INI-configured batch analysis through
+    ``core.Kernel``.
+
+    Parameters
+    ----------
+    params_ini_path : path-like
+        SpotMAX analysis parameter INI file.
+    script_path : path-like, optional
+        Destination path. By default, writes ``<ini-stem>_python.py`` next to
+        the INI file.
+
+    Returns
+    -------
+    str
+        Absolute path of the generated Python script.
+    """
+    from .scriptgen import create_python_script_from_ini
+    return create_python_script_from_ini(params_ini_path, script_path)
+
 def skimageAutoThresholdMethods():
     methodsName = [
         'threshold_li',
