@@ -686,7 +686,7 @@ def find_local_peaks(
         min_distance = [min_distance]*image.ndim
     
     if footprint is None:
-        footprint = get_peak_footprint(image, min_distance)
+        footprint = get_peak_footprint(min_distance, image)
     
     if labels is not None and not np.any(labels):
         # No point in searching for spots, labels are empty
